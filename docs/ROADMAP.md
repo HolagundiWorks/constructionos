@@ -70,8 +70,10 @@ Contractors live and die by the **printed bill they hand over**.
   (`bill_export.build_statement_html`).
 - ✅ Save-to-folder + open-in-browser (print / Save-as-PDF) flow — offline,
   WhatsApp-attachable.
+- ✅ Basic invoice **auto-numbering** (`INV-<serial>` when left blank) and a
+  **Firm Details** settings panel (name/GSTIN/address) in the Tools tab.
 - ⏳ Print/PDF for the remaining docs: quotation, estimate, PO, vendor invoice.
-- ⏳ Invoice **number series** (auto-numbering) and seller-details settings UI.
+- ⏳ Configurable invoice **number series** (prefix + financial-year reset).
 - ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
   statement, part-rate handling).
 

@@ -442,8 +442,11 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
   statement + cash book** (`bill_export.build_*`). Quotations, estimates, POs,
   and vendor invoices still have no export.
 - Tax-invoice **seller details** (name/GSTIN/address) come from `app_settings`
-  keys `company_name`/`seller_gstin`/`seller_address` — there is no settings UI
-  yet, so they are blank until set (a Phase 4 setup-wizard item).
+  keys `company_name`/`seller_gstin`/`seller_address`, editable in the **Tools**
+  tab's "Firm Details" panel; blank until the contractor fills them in.
+- Tax invoices **auto-number** as `INV-<serial>` (count-based) only when the
+  number is left blank — there's no configurable prefix/financial-year series
+  yet, and count-based numbering can collide if invoices are deleted.
 - **RA "previous quantity" only counts Approved/Paid RA bills** (mirrors §6),
   so generating multiple *Draft* RA bills before approving them can
   double-count quantities. Approve each RA bill before generating the next.

@@ -243,9 +243,13 @@ class TaxInvoiceTab(ttk.Frame):
         v = self._header_values()
         if v is None:
             return
-        cols = list(v.keys())
         conn = self.db_getter()
         try:
+            if not v['invoice_no']:
+                # Auto-number when left blank: INV-<next serial>.
+                n = conn.execute('SELECT COUNT(*) AS c FROM tax_invoices').fetchone()['c']
+                v['invoice_no'] = 'INV-{}'.format(n + 1)
+            cols = list(v.keys())
             cur = conn.execute('INSERT INTO tax_invoices ({}) VALUES ({})'.format(
                 ', '.join(cols), ', '.join(['?'] * len(cols))),
                 [v[c] for c in cols])

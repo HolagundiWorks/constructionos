@@ -53,6 +53,20 @@ class ToolsTab(ttk.Frame):
         ttk.Button(actions, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
 
+        # --- Firm details (printed on tax invoices) ---
+        firm = ttk.LabelFrame(self, text='Firm Details (shown on tax invoices)')
+        firm.pack(fill='x', padx=12, pady=(6, 6))
+        self.firm = {'company_name': tk.StringVar(), 'seller_gstin': tk.StringVar(),
+                     'seller_address': tk.StringVar()}
+        for idx, (key, label) in enumerate([
+                ('company_name', 'Firm Name'), ('seller_gstin', 'GSTIN'),
+                ('seller_address', 'Address')]):
+            cell = ttk.Frame(firm); cell.grid(row=idx // 2, column=idx % 2, padx=6, pady=4, sticky='w')
+            ttk.Label(cell, text=label, width=12).pack(side='left')
+            ttk.Entry(cell, textvariable=self.firm[key], width=30).pack(side='left')
+        ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
+            .grid(row=2, column=0, padx=6, pady=6, sticky='w')
+
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
                   wraplength=560, justify='left') \
@@ -66,6 +80,28 @@ class ToolsTab(ttk.Frame):
             self.size_var.set('Current size: {:.1f} KB'.format(kb))
         else:
             self.size_var.set('Data file not created yet.')
+        conn = self.db_getter()
+        try:
+            saved = {r['key']: r['value'] for r in conn.execute(
+                "SELECT key, value FROM app_settings WHERE key IN "
+                "('company_name', 'seller_gstin', 'seller_address')")}
+        finally:
+            conn.close()
+        for key, var in self.firm.items():
+            var.set(saved.get(key, ''))
+
+    def save_firm(self):
+        conn = self.db_getter()
+        try:
+            for key, var in self.firm.items():
+                conn.execute(
+                    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                    (key, var.get().strip()))
+            conn.commit()
+        finally:
+            conn.close()
+        self.status_var.set('Firm details saved — they will appear on tax invoices.')
 
     def backup(self):
         if not os.path.exists(db.DB_PATH):
