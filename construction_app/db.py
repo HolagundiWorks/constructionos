@@ -422,6 +422,28 @@ CREATE TABLE IF NOT EXISTS plant_logs (
     operator TEXT,
     remarks TEXT
 );
+
+-- --------------------------------------------- money (cash-first, Phase 1)
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pay_date TEXT,
+    direction TEXT DEFAULT 'Receipt',   -- Receipt (money in) / Payment (money out)
+    party_type TEXT DEFAULT 'Client',   -- Client / Vendor / Labour / Other
+    party_id INTEGER,                   -- id into the relevant master (nullable)
+    party_name TEXT,                    -- snapshot for display
+    mode TEXT DEFAULT 'Cash',           -- Cash / Bank / UPI / Cheque
+    amount REAL DEFAULT 0,
+    ref_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    against_type TEXT,                  -- Bill / RABill / VendorInvoice / OnAccount
+    against_id INTEGER,
+    narration TEXT
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 

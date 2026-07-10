@@ -103,6 +103,7 @@ construction_app/
 ├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() + init_db() + default CoA seed.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
+├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── bill_export.py          # PURE build_bill_html() + build_ra_bill_html(): render bills / RA abstracts to printable HTML. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
@@ -115,7 +116,9 @@ construction_app/
 ├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA (Running Account) bill generation & abstract export.
 ├── tab_consumption.py      # Consumption norms + work-done log + theoretical-vs-actual reconciliation view.
 ├── tab_site_reports.py     # DPR, Cube Tests (auto strength/result), Material Tests, Plant Log (CrudFrames).
-├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report.
+├── tab_home.py             # Plain-language dashboard: cash in hand, receivables, payables, active sites, month billed/collected.
+├── tab_money.py            # Payments & Receipts + Party Balances + Cash Book (cash-first, Phase 1).
+├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report — ADVANCED / for the CA.
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.
 ├── tab_timeline.py         # TimelineTab: CrudFrame for tasks + a hand-drawn Canvas Gantt chart.
 └── construction.db         # Created at runtime — never commit; it's user data, not source (git-ignored).
@@ -440,7 +443,7 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
   IS 456 acceptance criterion over a sample set.
 - No authentication/multi-user support.
 - No committed automated tests (the pure functions in `finance.py`, `civil.py`,
-  and `bill_export.py` are the intended first target — see §2/§13/§17).
+  and `bill_export.py` are the intended first target — see §2/§13/§18).
 
 ## 15. Civil billing — BOQ, Measurement Book, RA bills (`tab_boq_ra.py`)
 
@@ -497,7 +500,43 @@ than the generic BillingTab.
 - **Material Tests** (`material_tests`) and **Plant Log** (`plant_logs`): plain
   registers.
 
-## 17. Verifying civil changes
+## 17. Money — cash-first, the primary financial UX (`tab_money.py`, `tab_home.py`)
+
+**Audience reminder** (see `docs/PRODUCT.md`): the user is a T2/T3 solo
+contractor who thinks in cash-in / cash-out and "kitna baaki", NOT debits and
+credits. So the **cash-first** views are the primary financial experience; the
+double-entry **Accounting** tab (§9) is repositioned as advanced / for-the-CA.
+Lead new financial features from here, in plain language.
+
+- **`payments`** is one table for both directions: `direction` is `Receipt`
+  (money in) or `Payment` (money out); `party_type` ∈ Client/Vendor/Labour/Other
+  with a nullable `party_id` into the matching master plus a denormalized
+  `party_name` snapshot (so a statement still reads correctly if the master row
+  changes or the party was free-typed). `mode` ∈ Cash/Bank/UPI/Cheque.
+- **`app_settings`** is a tiny key/value table; today it holds `cash_opening`
+  (the cash book's opening balance). Use it for other simple singletons.
+- **Payments & Receipts** (`PaymentsFrame`): bespoke form; the Party combo
+  repopulates from the chosen Party Type. `_parse_combo` turns an `"id - name"`
+  selection back into `(id, name)`, or `(None, free-text)` for Other.
+- **Party Balances** (`PartyLedgerView`): a running statement of that party's
+  payments plus a headline outstanding. For a **Client**, billed =
+  `SUM(net_payable)` of Approved/Paid `bills` + `ra_bills` on that client's
+  contracts, settled = client receipts. For a **Vendor**, billed =
+  `SUM(vendor_invoices.net_payable)`, settled = vendor payments.
+  `money.party_outstanding(billed, settled)` gives "owes us" / "we owe".
+- **Cash Book** (`CashBookView`): the digital bahi-khata — `mode='Cash'`
+  entries (optionally site-filtered) turned into a running balance over the
+  saved opening via `money.running_balance` / `closing_balance`.
+- **Home** (`tab_home.py`): computes cash-in-hand, receivables, payables, active
+  sites, and month billed/collected on demand from the same tables. Nothing
+  stored. All maths through `money.py`.
+
+Caveats (also in §14): receivables/payables here are a **cash-vs-billed
+approximation**, not a reconciled ledger; party matching keys on
+`party_id` (falling back to `party_name` for free-typed parties), so a
+mistyped name starts a separate balance line.
+
+## 18. Verifying civil & money changes
 
 `civil.py` is pure; assertions that should always hold:
 
@@ -508,4 +547,10 @@ python -c "import civil as c; \
   assert c.ra_bill_totals(100000,400000,5,2000)['net_payable']==93000; \
   assert c.cube_strength(450,22500)==20.0 and c.cube_result(20,'M20')=='Pass'; \
   print('civil ok')"
+
+python -c "import money as m; \
+  assert m.running_balance([1000,-400,200],100)==[1100,700,900]; \
+  assert m.closing_balance([1000,-400,200],100)==900; \
+  assert m.party_outstanding(50000,30000)==20000; \
+  print('money ok')"
 ```

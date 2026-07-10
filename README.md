@@ -16,8 +16,15 @@ documents, and the beginnings of full accounting:
 - **Site & quality** — material consumption reconciliation (theoretical vs
   actual), daily progress reports, cube-test and material-test registers, and a
   plant/machinery log.
-- **Finance** — GST (CGST/SGST/IGST) and TDS computation, a seeded chart of
-  accounts, a double-entry journal, and a trial balance.
+- **Money (cash-first)** — payments & receipts, party balances ("who owes
+  whom"), a cash/day book with running balance, and a plain-language home
+  dashboard (cash in hand, receivables, payables).
+- **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
+  chart of accounts, a double-entry journal, and a trial balance (for the CA).
+
+> Built for small civil contractors in tier-2/tier-3 cities — offline, on one
+> PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md) and
+> [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Built entirely on the Python standard library: **`tkinter`** for the GUI and
 **`sqlite3`** for storage. No pip dependencies, no web server, no build step —
@@ -65,7 +72,10 @@ construction_app/
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
 ├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
+├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)
 ├── bill_export.py          # Pure printable bill / RA-abstract HTML generators (testable)
+├── tab_home.py             # Plain-language home dashboard
+├── tab_money.py            # Payments & receipts, party balances, cash book
 ├── crud_frame.py           # Generic "list + form" widget reused by most tabs
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment
 ├── tab_vendor.py           # Vendors + spend/hire rollup

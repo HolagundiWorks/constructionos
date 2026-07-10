@@ -10,6 +10,8 @@ import tkinter as tk
 from tkinter import ttk
 
 import db
+from tab_home import build_home_tab
+from tab_money import build_money_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
                          build_materials_tab, build_labor_tab,
                          build_equipment_tab)
@@ -40,6 +42,9 @@ def main():
 
     get = db.get_conn
 
+    # Home
+    nb.add(build_home_tab(nb, get), text='Home')
+
     # Masters
     nb.add(build_sites_tab(nb, get), text='Sites')
     nb.add(build_clients_tab(nb, get), text='Clients')
@@ -68,7 +73,10 @@ def main():
     nb.add(build_consumption_tab(nb, get), text='Consumption')
     nb.add(build_site_reports_tab(nb, get), text='Site Reports')
 
-    # Accounting
+    # Money (cash-first)
+    nb.add(build_money_tab(nb, get), text='Money')
+
+    # Accounting (advanced / for the CA)
     nb.add(build_accounting_tab(nb, get), text='Accounting')
 
     # Planning

@@ -33,21 +33,26 @@ The operational and document backbone.
 
 ---
 
-## Phase 1 — Money that matters 🚧 (in progress)
+## Phase 1 — Money that matters ✅ (built)
 
 The cash-first heart. This is what an owner-contractor opens the app for.
 
-- 🚧 **Payments & Receipts** — one screen to record money **in** (from clients)
+- ✅ **Payments & Receipts** — one screen to record money **in** (from clients)
   and **out** (to vendors/labour), by mode (Cash/Bank/UPI/Cheque), optionally
-  against a bill/invoice/site. (`payments` table, `tab_money.py`.)
-- 🚧 **Party ledger / balances** — per client, vendor, or labour contractor:
-  what was billed/invoiced, what was paid/received, and the **running balance**
-  ("baaki"). The two-click answer to "who owes whom".
-- 🚧 **Cash / Day book** — dated cash in/out with a **running balance** and
+  against a site. (`payments` table, `tab_money.py`.)
+- ✅ **Party balances** — per client, vendor, or labour: what was billed/invoiced,
+  what was paid/received, and the **running balance** ("baaki"). The two-click
+  answer to "who owes whom".
+- ✅ **Cash / Day book** — dated cash in/out with a **running balance** and an
   optional opening balance and site filter. The digital bahi-khata.
-- 🚧 **Home dashboard** — a plain-language landing screen: cash in hand,
-  receivables, payables, active sites, this month's billing & collection.
-- 🚧 `money.py` pure helpers (signed cash, running balance, party outstanding).
+- ✅ **Home dashboard** — a plain-language landing screen (`tab_home.py`): cash in
+  hand, receivables, payables, active sites, this month's billing & collection.
+- ✅ `money.py` pure helpers (signed cash, running/closing balance, party
+  outstanding).
+
+_Follow-ups deferred to later phases:_ record a payment **against** a specific
+bill/invoice (link exists in schema, no UI yet); reconciled — not
+cash-vs-billed-approximate — receivables/payables.
 
 _Repositioning note:_ the double-entry Accounting tab stays but moves behind the
 cash-first views; the contractor never needs the journal to run the business.
