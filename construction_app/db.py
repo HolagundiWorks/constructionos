@@ -1,0 +1,240 @@
+"""SQLite persistence layer.
+
+The entire schema lives in the single ``SCHEMA`` string below. ``get_conn``
+returns a fresh short-lived connection with ``PRAGMA foreign_keys = ON`` and a
+``sqlite3.Row`` row factory; ``init_db`` executes the schema (idempotent via
+``CREATE TABLE IF NOT EXISTS``).
+
+There is no long-lived shared connection: every operation opens a connection,
+does its work, and closes it. The rest of the app receives ``get_conn`` itself
+(a callable) as ``db_getter`` and calls it per operation.
+"""
+
+import os
+import sqlite3
+
+# Database file lives next to the code so the app is self-contained and runs
+# from anywhere Python runs.
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "construction.db")
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    location TEXT,
+    site_type TEXT DEFAULT 'Site',
+    status TEXT DEFAULT 'Active'
+);
+
+CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    phone TEXT,
+    email TEXT,
+    address TEXT
+);
+
+CREATE TABLE IF NOT EXISTS vendors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    phone TEXT,
+    email TEXT,
+    gst_no TEXT,
+    address TEXT
+);
+
+CREATE TABLE IF NOT EXISTS materials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    unit TEXT,
+    category TEXT,
+    hsn_code TEXT
+);
+
+CREATE TABLE IF NOT EXISTS labor (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    site_id INTEGER REFERENCES sites(id),
+    skill TEXT,
+    daily_wage REAL DEFAULT 0,
+    phone TEXT,
+    status TEXT DEFAULT 'Active'
+);
+
+CREATE TABLE IF NOT EXISTS equipment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category TEXT,
+    current_site_id INTEGER REFERENCES sites(id),
+    status TEXT DEFAULT 'Available'
+);
+
+CREATE TABLE IF NOT EXISTS material_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    txn_date TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    material_id INTEGER REFERENCES materials(id),
+    txn_type TEXT DEFAULT 'IN',
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    vendor_id INTEGER REFERENCES vendors(id),
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS equipment_hire (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment_name TEXT NOT NULL,
+    vendor_id INTEGER REFERENCES vendors(id),
+    site_id INTEGER REFERENCES sites(id),
+    hire_type TEXT DEFAULT 'Daily',
+    rate REAL DEFAULT 0,
+    hire_start TEXT,
+    hire_end TEXT,
+    total_amount REAL DEFAULT 0,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS timeline_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    task_name TEXT NOT NULL,
+    start_date TEXT,
+    end_date TEXT,
+    duration_days REAL DEFAULT 0,
+    status TEXT DEFAULT 'Not Started',
+    dependency TEXT
+);
+
+CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    labor_id INTEGER REFERENCES labor(id),
+    att_date TEXT,
+    status TEXT DEFAULT 'Present',
+    hours REAL DEFAULT 8,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS advances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    labor_id INTEGER REFERENCES labor(id),
+    adv_date TEXT,
+    amount REAL DEFAULT 0,
+    recovered REAL DEFAULT 0,
+    status TEXT DEFAULT 'Open',
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS payroll (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    labor_id INTEGER REFERENCES labor(id),
+    month INTEGER,
+    year INTEGER,
+    days_present REAL DEFAULT 0,
+    gross_amount REAL DEFAULT 0,
+    deduction REAL DEFAULT 0,
+    net_amount REAL DEFAULT 0,
+    status TEXT DEFAULT 'Unpaid',
+    generated_date TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER REFERENCES clients(id),
+    quote_date TEXT,
+    valid_until TEXT,
+    status TEXT DEFAULT 'Draft',
+    notes TEXT,
+    total_amount REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS quotation_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quotation_id INTEGER REFERENCES quotations(id) ON DELETE CASCADE,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS estimates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    estimate_date TEXT,
+    status TEXT DEFAULT 'Draft',
+    notes TEXT,
+    total_estimate REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS estimate_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    estimate_id INTEGER REFERENCES estimates(id) ON DELETE CASCADE,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    client_id INTEGER REFERENCES clients(id),
+    contract_value REAL DEFAULT 0,
+    retention_pct REAL DEFAULT 0,
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT DEFAULT 'Active'
+);
+
+CREATE TABLE IF NOT EXISTS bills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER REFERENCES contracts(id),
+    bill_no TEXT,
+    bill_date TEXT,
+    status TEXT DEFAULT 'Draft',
+    work_done_value REAL DEFAULT 0,
+    previous_billed REAL DEFAULT 0,
+    retention_amt REAL DEFAULT 0,
+    other_deductions REAL DEFAULT 0,
+    net_payable REAL DEFAULT 0,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bill_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bill_id INTEGER REFERENCES bills(id) ON DELETE CASCADE,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+"""
+
+
+def get_conn():
+    """Open a fresh connection with FK enforcement and row-by-name access.
+
+    Every caller must open, use, and close its own connection. Foreign keys are
+    OFF by default in SQLite, so the pragma must be re-issued on every new
+    connection — including any script or test that opens the db outside this
+    function.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_db():
+    """Create every table if it does not already exist."""
+    conn = get_conn()
+    try:
+        conn.executescript(SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()

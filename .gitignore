@@ -1,0 +1,10 @@
+# Runtime user data — created next to the code on first run, never source.
+construction.db
+construction_app/construction.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
