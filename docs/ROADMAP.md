@@ -89,18 +89,22 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
 ---
 
-## Phase 4 — Trust & ease ⏳
+## Phase 4 — Trust & ease 🚧 (started early)
 
-Adoption blockers for non-technical, single-PC users.
+Adoption blockers for non-technical, single-PC users. Two essentials landed
+early because they are pure trust wins:
 
-- ⏳ **Backup & restore** — one-click copy of the SQLite file to a chosen folder
-  / USB, with date-stamped filenames; restore with confirmation.
+- ✅ **Backup & restore** — one-click copy of the SQLite file to a chosen folder
+  / USB, date-stamped; guarded restore that first makes a safety copy
+  (`tab_tools.py`, Tools tab).
+- ✅ **Fix the sharpest edge** — `CrudFrame` delete now catches
+  `IntegrityError` and shows a plain-language dialog instead of a stack trace
+  (AGENTS.md §4).
 - ⏳ **Vernacular UI** — Hindi/Hinglish labels via a simple string table;
   language toggle. Plain words over accounting jargon.
 - ⏳ **Guided, low-typing entry** — defaults to today's date, remembers last
   site/party, dropdown-first, inline "add new" for masters.
-- ⏳ **Fix the sharp edges** — friendly messages for FK-delete and other errors
-  (AGENTS.md §4 gap); no stack traces ever reach the user.
+- ⏳ Audit the remaining error paths so **no stack trace ever reaches the user**.
 - ⏳ First-run **sample data / setup wizard** (create first site + client).
 
 ---

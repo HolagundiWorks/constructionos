@@ -10,6 +10,7 @@ column or side effect must be handled by the optional ``on_save`` callback,
 invoked with a live connection after each insert/update.
 """
 
+import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -232,14 +233,22 @@ class CrudFrame(ttk.Frame):
         if not messagebox.askyesno('Confirm delete',
                                    'Delete the selected row?'):
             return
-        # No cascade logic here by design (see AGENTS.md §4/§10): a bare DELETE.
-        # Deleting a parent still referenced by a child table raises an
-        # IntegrityError that surfaces as an uncaught exception.
+        # Bare DELETE (no cascade logic — see AGENTS.md §4/§10). Deleting a
+        # parent still referenced by a non-cascading child raises an
+        # IntegrityError; catch it and show a plain-language dialog instead of
+        # letting a stack trace reach the user (PRODUCT.md "forgiving").
         conn = self.db_getter()
         try:
             conn.execute('DELETE FROM {} WHERE id = ?'.format(self.table),
                          (self.selected_id,))
             conn.commit()
+        except sqlite3.IntegrityError:
+            messagebox.showerror(
+                'Cannot delete',
+                'This record is still used elsewhere (it has linked entries), '
+                'so it cannot be deleted.\n\nRemove or reassign those linked '
+                'entries first, or mark this record inactive instead.')
+            return
         finally:
             conn.close()
         self.refresh()

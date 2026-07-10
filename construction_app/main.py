@@ -28,6 +28,7 @@ from tab_vendor_invoice import build_vendor_invoices_tab
 from tab_accounting import build_accounting_tab
 from tab_equipment_hire import build_equipment_hire_tab
 from tab_timeline import build_timeline_tab
+from tab_tools import build_tools_tab
 
 
 def main():
@@ -81,6 +82,9 @@ def main():
 
     # Planning
     nb.add(build_timeline_tab(nb, get), text='Timeline')
+
+    # Tools (backup & restore)
+    nb.add(build_tools_tab(nb, get), text='Tools')
 
     root.mainloop()
 

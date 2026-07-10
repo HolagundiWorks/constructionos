@@ -119,6 +119,7 @@ construction_app/
 ├── tab_home.py             # Plain-language dashboard: cash in hand, receivables, payables, active sites, month billed/collected.
 ├── tab_money.py            # Payments & Receipts + Party Balances + Cash Book (cash-first, Phase 1).
 ├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report — ADVANCED / for the CA.
+├── tab_tools.py            # Backup & Restore of the single SQLite file (data safety).
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.
 ├── tab_timeline.py         # TimelineTab: CrudFrame for tasks + a hand-drawn Canvas Gantt chart.
 └── construction.db         # Created at runtime — never commit; it's user data, not source (git-ignored).
@@ -173,10 +174,12 @@ construction_app/
   `DELETE FROM {table} WHERE id = ?`. With `PRAGMA foreign_keys = ON`, deleting
   a parent still referenced by a **non-cascading** child (e.g. a `labor` row
   with `attendance`/`advances`/`payroll`, or an `account` referenced by
-  `journal_lines`) raises `sqlite3.IntegrityError` as an uncaught exception,
-  not a friendly dialog. **Known gap** — if asked to "fix delete errors,"
-  wrap `CrudFrame.delete_selected` in try/except and show a `messagebox`
-  explaining the row is in use, rather than patching each tab.
+  `journal_lines`) raises `sqlite3.IntegrityError`. As of Phase 4 this is
+  **caught** in `delete_selected` and shown as a plain-language dialog ("this
+  record is still used elsewhere…") instead of a stack trace — the delete is
+  still a bare, non-cascading `DELETE`, it just fails gracefully. To make a
+  specific table cascade, add `ON DELETE CASCADE` in the schema (see the
+  `*_items` tables); don't add per-tab delete logic.
 
 ## 5. The `DocumentFrame` abstraction (Quotations, Estimates, Purchase Orders)
 
@@ -428,7 +431,8 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
 - **PO `total_amount` is pre-tax**; there's no GST-inclusive PO total (§5).
 - No retroactive recompute of prior bills' `previous_billed` when a later
   bill's status changes (§6).
-- No cascade-delete handling in `CrudFrame` (§4/§10).
+- No cascade-delete handling in `CrudFrame` — but delete now fails gracefully
+  with a friendly dialog instead of a stack trace (§4).
 - No regenerate/delete affordance for payroll rows (§8).
 - `dependency` in timeline tasks is inert metadata; the Gantt ignores it.
 - No PDF export (bills and RA bills have printable **HTML** export via
