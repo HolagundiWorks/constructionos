@@ -297,6 +297,131 @@ CREATE TABLE IF NOT EXISTS journal_lines (
     credit REAL DEFAULT 0,
     notes TEXT
 );
+
+-- --------------------------------------------- BOQ / measurement / RA billing
+CREATE TABLE IF NOT EXISTS boq_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER REFERENCES contracts(id),
+    item_no TEXT,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,       -- tendered BOQ quantity
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0     -- qty * rate (derived)
+);
+
+CREATE TABLE IF NOT EXISTS measurements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    boq_item_id INTEGER REFERENCES boq_items(id) ON DELETE CASCADE,
+    contract_id INTEGER REFERENCES contracts(id),
+    mb_date TEXT,
+    mb_ref TEXT,              -- measurement book page / reference
+    description TEXT,         -- location / particulars
+    nos REAL,                 -- NULL => "not applicable" (counts as 1)
+    length REAL,
+    breadth REAL,
+    depth REAL,
+    quantity REAL DEFAULT 0,  -- Nos x L x B x D (derived)
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ra_bills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER REFERENCES contracts(id),
+    bill_no TEXT,
+    bill_date TEXT,
+    status TEXT DEFAULT 'Draft',
+    this_bill_value REAL DEFAULT 0,
+    previous_value REAL DEFAULT 0,
+    cumulative_value REAL DEFAULT 0,
+    retention_pct REAL DEFAULT 0,
+    retention_amt REAL DEFAULT 0,
+    other_deductions REAL DEFAULT 0,
+    net_payable REAL DEFAULT 0,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ra_bill_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ra_bill_id INTEGER REFERENCES ra_bills(id) ON DELETE CASCADE,
+    boq_item_id INTEGER REFERENCES boq_items(id),
+    upto_qty REAL DEFAULT 0,
+    previous_qty REAL DEFAULT 0,
+    current_qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    current_amount REAL DEFAULT 0
+);
+
+-- --------------------------------------------- material consumption reconcil.
+CREATE TABLE IF NOT EXISTS consumption_norms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity TEXT,            -- e.g. 'M20 Concrete'
+    unit TEXT,                -- e.g. 'cum'
+    material_id INTEGER REFERENCES materials(id),
+    qty_per_unit REAL DEFAULT 0,   -- material consumed per unit of activity
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS work_done_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    activity TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    entry_date TEXT,
+    remarks TEXT
+);
+
+-- --------------------------------------------- site reports & quality
+CREATE TABLE IF NOT EXISTS daily_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    report_date TEXT,
+    weather TEXT,
+    labour_count REAL DEFAULT 0,
+    plant_count REAL DEFAULT 0,
+    work_summary TEXT,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cube_tests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    cast_date TEXT,
+    test_date TEXT,
+    grade TEXT,               -- e.g. 'M25'
+    location TEXT,
+    cube_id TEXT,
+    age_days REAL DEFAULT 28,
+    load_kn REAL DEFAULT 0,
+    area_mm2 REAL DEFAULT 22500,   -- 150 mm cube
+    strength_mpa REAL DEFAULT 0,   -- derived
+    result TEXT,                   -- derived Pass/Fail
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS material_tests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    test_date TEXT,
+    material TEXT,
+    test_type TEXT,
+    sample_ref TEXT,
+    result TEXT,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plant_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    log_date TEXT,
+    equipment TEXT,
+    hours_run REAL DEFAULT 0,
+    diesel_ltr REAL DEFAULT 0,
+    downtime_hrs REAL DEFAULT 0,
+    operator TEXT,
+    remarks TEXT
+);
 """
 
 

@@ -23,12 +23,18 @@ zero-dependency Dolibarr for the construction trade. The trajectory is:
   (with printable bill export).
 - **Procurement** (built): purchase orders, vendor invoices, and PO↔invoice
   reconciliation.
+- **Civil billing** (built): BOQ per contract, a Measurement Book, and
+  measurement-driven RA (Running Account) bills with abstract export — see §15.
+- **Site execution & quality** (built): material consumption reconciliation
+  (theoretical vs actual) and site registers (DPR, cube tests, material tests,
+  plant log) — see §16.
 - **Finance & accounting** (foundation built): GST (CGST/SGST/IGST) and TDS
   computation, a chart of accounts, a double-entry journal, and a trial
   balance.
 - **Next** (not built — see §14): auto-posting business documents (bills,
   vendor invoices, payroll) into the journal; GST returns (GSTR-style
-  summaries); ageing/outstanding reports; payments & receipts; multi-site P&L.
+  summaries); ageing/outstanding reports; payments & receipts; multi-site P&L;
+  subcontractor/work-order billing.
 
 The **Indian context** matters: money figures carry GST split into CGST+SGST
 (intra-state) or IGST (inter-state); vendor payments are subject to TDS;
@@ -96,7 +102,8 @@ construction_app/
 ├── main.py                 # Entry point. Builds the ttk.Notebook, wires every tab in one place.
 ├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() + init_db() + default CoA seed.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
-├── bill_export.py          # PURE build_bill_html(): renders a running bill to a printable HTML string. No tkinter/DB.
+├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
+├── bill_export.py          # PURE build_bill_html() + build_ra_bill_html(): render bills / RA abstracts to printable HTML. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
 ├── tab_vendor.py           # Vendor master (CrudFrame) + a read-only spend/hire rollup view.
@@ -105,6 +112,9 @@ construction_app/
 ├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
 ├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance) + PO↔invoice ReconciliationView.
+├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA (Running Account) bill generation & abstract export.
+├── tab_consumption.py      # Consumption norms + work-done log + theoretical-vs-actual reconciliation view.
+├── tab_site_reports.py     # DPR, Cube Tests (auto strength/result), Material Tests, Plant Log (CrudFrames).
 ├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report.
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.
 ├── tab_timeline.py         # TimelineTab: CrudFrame for tasks + a hand-drawn Canvas Gantt chart.
@@ -418,8 +428,84 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
 - No cascade-delete handling in `CrudFrame` (§4/§10).
 - No regenerate/delete affordance for payroll rows (§8).
 - `dependency` in timeline tasks is inert metadata; the Gantt ignores it.
-- No PDF export (bills have printable **HTML** export via `bill_export`;
-  quotations/estimates/POs/invoices do not export yet).
+- No PDF export (bills and RA bills have printable **HTML** export via
+  `bill_export`; quotations/estimates/POs/invoices do not export yet).
+- **RA "previous quantity" only counts Approved/Paid RA bills** (mirrors §6),
+  so generating multiple *Draft* RA bills before approving them can
+  double-count quantities. Approve each RA bill before generating the next.
+- **Consumption reconciliation matches activities by exact name string**
+  (`consumption_norms.activity == work_done_entries.activity`) — a typo means
+  no theoretical figure. There's no dropdown/foreign-key linking the two yet.
+- **Cube result is a per-cube `strength >= grade` check**, not the statistical
+  IS 456 acceptance criterion over a sample set.
 - No authentication/multi-user support.
-- No committed automated tests (the pure functions in `finance.py`/
-  `bill_export.py` are the intended first target — see §2/§13).
+- No committed automated tests (the pure functions in `finance.py`, `civil.py`,
+  and `bill_export.py` are the intended first target — see §2/§13/§17).
+
+## 15. Civil billing — BOQ, Measurement Book, RA bills (`tab_boq_ra.py`)
+
+This is the civil-contracting billing spine, and it is **measurement-driven**
+(unlike the generic `BillingTab` in §6, which takes a hand-typed work-done
+value). All arithmetic lives in `civil.py`; the tab is a three-view inner
+notebook.
+
+- **BOQ** (`BOQFrame`): priced items per contract (`boq_items`: `item_no`,
+  `description`, `unit`, `qty`, `rate`, `amount = qty*rate`). Pick a contract,
+  then add/edit its items. Deleting a BOQ item cascades its measurements.
+- **Measurement Book** (`MeasurementFrame`): site measurements against a BOQ
+  item (`measurements`). Quantity = **Nos × L × B × D** via
+  `civil.measurement_quantity`, where a **blank dimension counts as 1** (so a
+  running-metre item is `Nos × Length`, a count is just `Nos`). Blank dims are
+  stored as SQL `NULL`; the live "Quantity" label updates as you type. The MB
+  grid is filtered to the selected contract.
+- **RA bills** (`RABillFrame`): "Generate RA Bill" snapshots, for every BOQ
+  item on the contract, `upto_qty` (cumulative measured quantity with
+  `mb_date <= bill_date`), `previous_qty` (sum of `current_qty` from prior
+  **Approved/Paid** RA bills — §6 convention, see §14 caveat), and
+  `current_qty = upto - previous`, priced at the BOQ rate. `civil.ra_bill_totals`
+  then derives `this_bill_value`, `cumulative_value`, `retention_amt`
+  (`this_bill_value × retention% ` ), and `net_payable`. The header row and the
+  per-item `ra_bill_items` abstract are stored together; **an RA bill is a
+  snapshot** — it does not live-recompute when later measurements are added
+  (regenerate/replace if measurements change before approval). Status moves
+  Draft→Submitted→Approved→Paid; "Export Abstract (HTML)" writes the standard
+  RA abstract via `bill_export.build_ra_bill_html`.
+
+If you add subcontractor RA bills later, reuse this pattern (BOQ→MB→RA) rather
+than the generic BillingTab.
+
+## 16. Site execution & quality (`tab_consumption.py`, `tab_site_reports.py`)
+
+**Material consumption reconciliation** (`tab_consumption.py`, inner notebook):
+- **Norms** (`consumption_norms`): material consumed per unit of an activity
+  (e.g. 6.0 bags cement / cum of 'M20 Concrete'). A `CrudFrame`.
+- **Work Done** (`work_done_entries`): executed activity quantities per site. A
+  `CrudFrame`.
+- **Reconciliation** (`ReconciliationView`, computed): for a site,
+  theoretical = `SUM(work.qty × norm.qty_per_unit)` grouped by material
+  (activities joined **by exact name** — §14 caveat), actual = `SUM(OUT` ledger
+  `qty)` per material; variance & wastage% via `civil.reconcile_consumption`.
+  Over-consumption rows are tinted red.
+
+**Site registers** (`tab_site_reports.py`, four `CrudFrame`s):
+- **Daily Progress** (`daily_progress`): weather/labour/plant/work summary.
+- **Cube Tests** (`cube_tests`): `strength_mpa` and Pass/Fail `result` are
+  auto-filled on save by `_compute_cube` (an `on_save` hook using
+  `civil.cube_strength` = `load_kN × 1000 / area_mm²` and `civil.cube_result`
+  vs `civil.grade_target`). Same best-effort/manual-override pattern as the
+  hire/duration auto-calcs — it never raises.
+- **Material Tests** (`material_tests`) and **Plant Log** (`plant_logs`): plain
+  registers.
+
+## 17. Verifying civil changes
+
+`civil.py` is pure; assertions that should always hold:
+
+```bash
+python -c "import civil as c; \
+  assert c.measurement_quantity(4,3,2,'')==24.0; \
+  assert c.ra_current(120,100,250)==(20,5000.0); \
+  assert c.ra_bill_totals(100000,400000,5,2000)['net_payable']==93000; \
+  assert c.cube_strength(450,22500)==20.0 and c.cube_result(20,'M20')=='Pass'; \
+  print('civil ok')"
+```

@@ -9,8 +9,13 @@ documents, and the beginnings of full accounting:
   equipment, stock ledger, attendance, payroll, advances, project timelines.
 - **Commercial** — quotations, estimates, contracts, running bills (with a
   printable bill export).
+- **Civil billing** — a BOQ per contract, a Measurement Book (Nos × L × B × D),
+  and measurement-driven RA (Running Account) bills with a printable abstract.
 - **Procurement** — purchase orders, vendor invoices with GST/TDS, and
   PO↔invoice reconciliation.
+- **Site & quality** — material consumption reconciliation (theoretical vs
+  actual), daily progress reports, cube-test and material-test registers, and a
+  plant/machinery log.
 - **Finance** — GST (CGST/SGST/IGST) and TDS computation, a seeded chart of
   accounts, a double-entry journal, and a trial balance.
 
@@ -59,7 +64,8 @@ construction_app/
 ├── main.py                 # Entry point; builds the tabbed window
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
-├── bill_export.py          # Pure printable-bill HTML generator (testable)
+├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
+├── bill_export.py          # Pure printable bill / RA-abstract HTML generators (testable)
 ├── crud_frame.py           # Generic "list + form" widget reused by most tabs
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment
 ├── tab_vendor.py           # Vendors + spend/hire rollup
@@ -67,6 +73,9 @@ construction_app/
 ├── tab_labor.py            # Attendance, Advances, Payroll
 ├── tab_documents.py        # Quotations, Estimates, Purchase Orders, Contracts
 ├── tab_billing.py          # Bills / Running Bills + bill export
+├── tab_boq_ra.py           # BOQ, Measurement Book, RA bills
+├── tab_consumption.py      # Consumption norms, work done, reconciliation
+├── tab_site_reports.py     # DPR, cube/material tests, plant log
 ├── tab_vendor_invoice.py   # Vendor invoices (GST/TDS) + reconciliation
 ├── tab_accounting.py       # Chart of accounts, journal, trial balance
 ├── tab_equipment_hire.py   # Equipment hire + cost auto-calc
