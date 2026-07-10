@@ -17,9 +17,12 @@ separate BOQ breakdown that do NOT auto-drive ``work_done_value``: the user
 clicks "Sum Items -> Work Done Value", then "Update Selected" to persist.
 """
 
+import os
+import webbrowser
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
+import bill_export
 from tab_masters import site_options  # noqa: F401  (kept for parity/imports)
 
 
@@ -123,6 +126,8 @@ class BillingTab(ttk.Frame):
         ttk.Button(hbtns, text='Delete Bill', command=self.delete_bill).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Sum Items -> Work Done Value',
                    command=self.sum_items_to_work_done).pack(side='left', padx=3)
+        ttk.Button(hbtns, text='Make Bill (Export)',
+                   command=self.make_bill).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Clear', command=self.clear_bill).pack(side='left', padx=3)
 
         # ---------------- items ----------------
@@ -343,6 +348,53 @@ class BillingTab(ttk.Frame):
             'Work Done Value',
             'Pulled item total {:.2f}. Click "Update Selected" to save.'.format(
                 total))
+
+    def make_bill(self):
+        """Render the selected bill to a printable HTML file and open it."""
+        if self.selected_bill_id is None:
+            messagebox.showinfo('No bill', 'Select a bill to export.')
+            return
+        conn = self.db_getter()
+        try:
+            bill = conn.execute('SELECT * FROM bills WHERE id = ?',
+                                (self.selected_bill_id,)).fetchone()
+            if bill is None:
+                messagebox.showerror('Not found', 'That bill no longer exists.')
+                return
+            contract = client = site = None
+            if bill['contract_id'] is not None:
+                contract = conn.execute('SELECT * FROM contracts WHERE id = ?',
+                                        (bill['contract_id'],)).fetchone()
+            if contract is not None:
+                if contract['client_id'] is not None:
+                    client = conn.execute('SELECT * FROM clients WHERE id = ?',
+                                          (contract['client_id'],)).fetchone()
+                if contract['site_id'] is not None:
+                    site = conn.execute('SELECT * FROM sites WHERE id = ?',
+                                        (contract['site_id'],)).fetchone()
+            items = conn.execute(
+                'SELECT description, unit, qty, rate, amount FROM bill_items '
+                'WHERE bill_id = ? ORDER BY id',
+                (self.selected_bill_id,)).fetchall()
+        finally:
+            conn.close()
+
+        html = bill_export.build_bill_html(bill, contract, client, site, items)
+
+        safe_no = (bill['bill_no'] or 'bill').replace('/', '-').replace(' ', '_')
+        path = filedialog.asksaveasfilename(
+            title='Save bill as', defaultextension='.html',
+            initialfile='bill_{}.html'.format(safe_no),
+            filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+        if not path:
+            return
+        try:
+            with open(path, 'w', encoding='utf-8') as fh:
+                fh.write(html)
+        except OSError as exc:
+            messagebox.showerror('Save failed', str(exc))
+            return
+        webbrowser.open('file://' + os.path.abspath(path))
 
     def clear_bill(self):
         self.selected_bill_id = None
