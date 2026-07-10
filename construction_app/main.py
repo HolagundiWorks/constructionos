@@ -17,8 +17,10 @@ from tab_vendor import build_vendors_tab
 from tab_warehouse import build_warehouse_tab
 from tab_labor import build_labor_tab as build_labor_ops_tab
 from tab_documents import (build_quotations_tab, build_estimates_tab,
-                           build_contracts_tab)
+                           build_contracts_tab, build_purchase_orders_tab)
 from tab_billing import BillingTab
+from tab_vendor_invoice import build_vendor_invoices_tab
+from tab_accounting import build_accounting_tab
 from tab_equipment_hire import build_equipment_hire_tab
 from tab_timeline import build_timeline_tab
 
@@ -48,11 +50,18 @@ def main():
     nb.add(build_labor_ops_tab(nb, get), text='Labor Ops')
     nb.add(build_equipment_hire_tab(nb, get), text='Equipment Hire')
 
+    # Procurement
+    nb.add(build_purchase_orders_tab(nb, get), text='Purchase Orders')
+    nb.add(build_vendor_invoices_tab(nb, get), text='Vendor Invoices')
+
     # Documents & commercial
     nb.add(build_quotations_tab(nb, get), text='Quotations')
     nb.add(build_estimates_tab(nb, get), text='Estimates')
     nb.add(build_contracts_tab(nb, get), text='Contracts')
     nb.add(BillingTab(nb, get), text='Bills')
+
+    # Accounting
+    nb.add(build_accounting_tab(nb, get), text='Accounting')
 
     # Planning
     nb.add(build_timeline_tab(nb, get), text='Timeline')

@@ -213,7 +213,112 @@ CREATE TABLE IF NOT EXISTS bill_items (
     rate REAL DEFAULT 0,
     amount REAL DEFAULT 0
 );
+
+-- ------------------------------------------------------------ procurement
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    po_no TEXT,
+    vendor_id INTEGER REFERENCES vendors(id),
+    site_id INTEGER REFERENCES sites(id),
+    po_date TEXT,
+    expected_date TEXT,
+    status TEXT DEFAULT 'Draft',
+    gst_pct REAL DEFAULT 18,
+    notes TEXT,
+    total_amount REAL DEFAULT 0   -- pre-tax items subtotal (derived by DocumentFrame)
+);
+
+CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS vendor_invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_no TEXT,
+    vendor_id INTEGER REFERENCES vendors(id),
+    purchase_order_id INTEGER REFERENCES purchase_orders(id),
+    invoice_date TEXT,
+    received_date TEXT,
+    interstate INTEGER DEFAULT 0,
+    gst_pct REAL DEFAULT 18,
+    tds_pct REAL DEFAULT 0,
+    subtotal REAL DEFAULT 0,
+    tax_amount REAL DEFAULT 0,
+    tds_amount REAL DEFAULT 0,
+    total_amount REAL DEFAULT 0,
+    net_payable REAL DEFAULT 0,
+    amount_paid REAL DEFAULT 0,
+    status TEXT DEFAULT 'Received',
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS vendor_invoice_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_invoice_id INTEGER REFERENCES vendor_invoices(id) ON DELETE CASCADE,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+
+-- ------------------------------------------------------------ accounting
+CREATE TABLE IF NOT EXISTS accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'Asset',   -- Asset / Liability / Income / Expense / Equity
+    parent_id INTEGER REFERENCES accounts(id),
+    is_active INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_date TEXT,
+    narration TEXT,
+    reference TEXT,
+    source TEXT DEFAULT 'Manual',  -- Manual / Bill / VendorInvoice / Payroll / PO
+    source_id INTEGER,
+    total_debit REAL DEFAULT 0,
+    total_credit REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS journal_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE CASCADE,
+    account_id INTEGER REFERENCES accounts(id),
+    debit REAL DEFAULT 0,
+    credit REAL DEFAULT 0,
+    notes TEXT
+);
 """
+
+
+# A minimal construction-company chart of accounts, seeded once on first run.
+DEFAULT_ACCOUNTS = [
+    ('1000', 'Cash', 'Asset'),
+    ('1010', 'Bank', 'Asset'),
+    ('1100', 'Accounts Receivable', 'Asset'),
+    ('1200', 'Materials Inventory', 'Asset'),
+    ('1300', 'Input GST Credit', 'Asset'),
+    ('2000', 'Accounts Payable', 'Liability'),
+    ('2100', 'GST Payable', 'Liability'),
+    ('2200', 'TDS Payable', 'Liability'),
+    ('2300', 'Retention Payable', 'Liability'),
+    ('3000', 'Owner Equity', 'Equity'),
+    ('4000', 'Contract Revenue', 'Income'),
+    ('5000', 'Materials Consumed', 'Expense'),
+    ('5100', 'Labor & Wages', 'Expense'),
+    ('5200', 'Equipment Hire', 'Expense'),
+    ('5300', 'Subcontractor Charges', 'Expense'),
+    ('5900', 'Other Site Expenses', 'Expense'),
+]
 
 
 def get_conn():
@@ -231,10 +336,22 @@ def get_conn():
 
 
 def init_db():
-    """Create every table if it does not already exist."""
+    """Create every table if it does not already exist, then seed the CoA."""
     conn = get_conn()
     try:
         conn.executescript(SCHEMA)
         conn.commit()
+        seed_default_accounts(conn)
     finally:
         conn.close()
+
+
+def seed_default_accounts(conn):
+    """Insert the default chart of accounts once (no-op if any account exists)."""
+    existing = conn.execute('SELECT COUNT(*) AS c FROM accounts').fetchone()['c']
+    if existing:
+        return
+    conn.executemany(
+        'INSERT INTO accounts (code, name, type) VALUES (?, ?, ?)',
+        DEFAULT_ACCOUNTS)
+    conn.commit()

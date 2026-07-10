@@ -1,9 +1,18 @@
 # Contractor-OS
 
-A single-user desktop app for managing a construction company's day-to-day
-operations — sites and warehouses, vendors, clients, materials, labor,
-equipment, stock ledgers, attendance, payroll, advances, quotations,
-estimates, contracts, running bills, equipment hire, and project timelines.
+A single-user desktop **ERP for Indian construction contractors** — a focused,
+zero-dependency alternative to heavyweight suites like Dolibarr, tailored to the
+construction trade. It covers site operations, procurement, commercial
+documents, and the beginnings of full accounting:
+
+- **Operations** — sites/warehouses, vendors, clients, materials, labor,
+  equipment, stock ledger, attendance, payroll, advances, project timelines.
+- **Commercial** — quotations, estimates, contracts, running bills (with a
+  printable bill export).
+- **Procurement** — purchase orders, vendor invoices with GST/TDS, and
+  PO↔invoice reconciliation.
+- **Finance** — GST (CGST/SGST/IGST) and TDS computation, a seeded chart of
+  accounts, a double-entry journal, and a trial balance.
 
 Built entirely on the Python standard library: **`tkinter`** for the GUI and
 **`sqlite3`** for storage. No pip dependencies, no web server, no build step —
@@ -28,15 +37,19 @@ next to the code. That file is your data — it is **not** tracked in git
 
 ## What's inside
 
-The UI is a single tabbed window. Tabs group into four areas:
+The UI is a single tabbed window. Tabs group into five areas:
 
 - **Masters** — Sites, Clients, Vendors, Materials, Labor, Equipment.
 - **Operations** — Warehouse (material ledger + live stock summary),
   Labor Ops (attendance, advances, payroll generation), Equipment Hire
   (with automatic cost calculation from the hire period).
+- **Procurement** — Purchase Orders (header + line items), Vendor Invoices
+  (GST/TDS auto-computed), and PO↔invoice reconciliation.
 - **Commercial** — Quotations and Estimates (header + line items with
-  auto-totalling), Contracts, and Bills / Running Bills (with automatic
-  running-total math across a contract).
+  auto-totalling), Contracts, and Bills / Running Bills (running-total math
+  plus a "Make Bill" printable HTML export).
+- **Accounting** — Chart of Accounts, a double-entry Journal, and a Trial
+  Balance report.
 - **Planning** — Timeline tasks plus a hand-drawn Gantt chart view.
 
 ## Project layout
@@ -44,14 +57,18 @@ The UI is a single tabbed window. Tabs group into four areas:
 ```
 construction_app/
 ├── main.py                 # Entry point; builds the tabbed window
-├── db.py                   # SQLite schema + connection helpers
+├── db.py                   # SQLite schema + connection helpers + default chart of accounts
+├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
+├── bill_export.py          # Pure printable-bill HTML generator (testable)
 ├── crud_frame.py           # Generic "list + form" widget reused by most tabs
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment
 ├── tab_vendor.py           # Vendors + spend/hire rollup
 ├── tab_warehouse.py        # Material ledger + stock summary
 ├── tab_labor.py            # Attendance, Advances, Payroll
-├── tab_documents.py        # Quotations, Estimates, Contracts
-├── tab_billing.py          # Bills / Running Bills
+├── tab_documents.py        # Quotations, Estimates, Purchase Orders, Contracts
+├── tab_billing.py          # Bills / Running Bills + bill export
+├── tab_vendor_invoice.py   # Vendor invoices (GST/TDS) + reconciliation
+├── tab_accounting.py       # Chart of accounts, journal, trial balance
 ├── tab_equipment_hire.py   # Equipment hire + cost auto-calc
 └── tab_timeline.py         # Timeline tasks + Gantt chart
 ```

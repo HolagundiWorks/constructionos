@@ -15,7 +15,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from crud_frame import CrudFrame, Field
-from tab_masters import site_options, client_options
+from tab_masters import site_options, client_options, vendor_options
 
 
 class DocumentFrame(ttk.Frame):
@@ -415,6 +415,30 @@ def build_estimates_tab(parent, db_getter):
     return DocumentFrame(parent, db_getter, 'estimates', header_fields,
                          'estimate_items', 'estimate_id', 'total_estimate',
                          'Estimates')
+
+
+def build_purchase_orders_tab(parent, db_getter):
+    """Purchase Orders — a header+items DocumentFrame (per AGENTS.md §5).
+
+    ``total_amount`` is the pre-tax items subtotal (derived like any other
+    DocumentFrame total). ``gst_pct`` is header metadata; GST is realised
+    downstream when a vendor invoice is booked against the PO.
+    """
+    header_fields = [
+        Field('po_no', 'PO No'),
+        Field('vendor_id', 'Vendor', kind='fk', options_func=vendor_options),
+        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('po_date', 'PO Date'),
+        Field('expected_date', 'Expected'),
+        Field('gst_pct', 'GST %', kind='number', default='18'),
+        Field('status', 'Status', kind='combo',
+              options=['Draft', 'Sent', 'Partially Received', 'Received',
+                       'Closed', 'Cancelled'], default='Draft'),
+        Field('notes', 'Notes'),
+    ]
+    return DocumentFrame(parent, db_getter, 'purchase_orders', header_fields,
+                         'purchase_order_items', 'purchase_order_id',
+                         'total_amount', 'Purchase Orders')
 
 
 def build_contracts_tab(parent, db_getter):
