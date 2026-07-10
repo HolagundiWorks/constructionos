@@ -11,10 +11,26 @@ Three plain-language views (see docs/PRODUCT.md and docs/ROADMAP.md):
 Cash/balance arithmetic lives in ``money.py`` so it is testable without a GUI.
 """
 
+import os
+import webbrowser
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 import money as m
+import bill_export
+
+
+def _save_and_open_html(html, default_name):
+    """Write an HTML report and open it in the browser (print / Save-as-PDF)."""
+    path = filedialog.asksaveasfilename(
+        title='Save report', defaultextension='.html',
+        initialfile=default_name,
+        filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+    if not path:
+        return
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(html)
+    webbrowser.open('file://' + os.path.abspath(path))
 
 
 PARTY_TYPES = ['Client', 'Vendor', 'Labour', 'Other']
@@ -309,7 +325,10 @@ class PartyLedgerView(ttk.Frame):
         self.party_combo.pack(side='left', padx=4)
         self.party_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
         ttk.Button(top, text='Refresh', command=self._reload_parties).pack(side='left', padx=4)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='left', padx=4)
 
+        self._export_rows = []
+        self._export_title = ''
         self.summary_var = tk.StringVar(value='Select a party.')
         ttk.Label(self, textvariable=self.summary_var,
                   font=('TkDefaultFont', 11, 'bold')) \
@@ -378,14 +397,17 @@ class PartyLedgerView(ttk.Frame):
         # Running balance of just the cash movements (for the statement rows).
         signed = [m.signed_cash(t['direction'], t['amount']) for t in txns]
         balances = m.running_balance(signed)
+        self._export_rows = []
+        self._export_title = '{} Statement — {}'.format(ptype, party_name)
         for t, bal in zip(txns, balances):
             recv = t['amount'] if t['direction'] == 'Receipt' else 0
             paid = t['amount'] if t['direction'] == 'Payment' else 0
-            self.tree.insert('', 'end', values=(
-                t['pay_date'], (t['narration'] or t['mode']),
-                '{:.2f}'.format(recv) if recv else '',
-                '{:.2f}'.format(paid) if paid else '',
-                '{:.2f}'.format(bal)))
+            row = (t['pay_date'], (t['narration'] or t['mode']),
+                   '{:.2f}'.format(recv) if recv else '',
+                   '{:.2f}'.format(paid) if paid else '',
+                   '{:.2f}'.format(bal))
+            self.tree.insert('', 'end', values=row)
+            self._export_rows.append(row)
 
         if ptype in ('Client', 'Vendor') and party_id is not None:
             outstanding = m.party_outstanding(billed, received)
@@ -400,6 +422,16 @@ class PartyLedgerView(ttk.Frame):
             net = balances[-1] if balances else 0.0
             self.summary_var.set('{}:  net cash movement {:.2f}'.format(
                 party_name, net))
+
+    def export(self):
+        if not self._export_rows:
+            messagebox.showinfo('Nothing to export', 'Select a party first.')
+            return
+        html = bill_export.build_statement_html(
+            self._export_title, ['As on today'],
+            ['Date', 'Particulars', 'Received', 'Paid', 'Balance'],
+            self._export_rows, summary=self.summary_var.get())
+        _save_and_open_html(html, 'party_statement.html')
 
 
 # ============================================================ Cash book
@@ -423,7 +455,9 @@ class CashBookView(ttk.Frame):
         ttk.Entry(top, textvariable=self.opening_var, width=10).pack(side='left', padx=4)
         ttk.Button(top, text='Save Opening', command=self.save_opening).pack(side='left', padx=2)
         ttk.Button(top, text='Refresh', command=self.reload).pack(side='left', padx=4)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='left', padx=4)
 
+        self._export_rows = []
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,
                   font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
@@ -493,20 +527,31 @@ class CashBookView(ttk.Frame):
         signed = [m.signed_cash(r['direction'], r['amount']) for r in rows]
         balances = m.running_balance(signed, opening)
         total_in = total_out = 0.0
+        self._export_rows = [('', 'Opening Balance', '', '', '{:.2f}'.format(opening))]
         for r, bal in zip(rows, balances):
             cin = r['amount'] if r['direction'] == 'Receipt' else 0
             cout = r['amount'] if r['direction'] == 'Payment' else 0
             total_in += cin; total_out += cout
             particulars = r['narration'] or r['party_name'] or '-'
-            self.tree.insert('', 'end', values=(
-                r['pay_date'], particulars,
-                '{:.2f}'.format(cin) if cin else '',
-                '{:.2f}'.format(cout) if cout else '',
-                '{:.2f}'.format(bal)))
+            row = (r['pay_date'], particulars,
+                   '{:.2f}'.format(cin) if cin else '',
+                   '{:.2f}'.format(cout) if cout else '',
+                   '{:.2f}'.format(bal))
+            self.tree.insert('', 'end', values=row)
+            self._export_rows.append(row)
         closing = m.closing_balance(signed, opening)
         self.summary_var.set(
             'Opening {:.2f}   +In {:.2f}   -Out {:.2f}   =  Closing (cash in hand) {:.2f}'.format(
                 opening, total_in, total_out, closing))
+
+    def export(self):
+        if not self._export_rows:
+            self.refresh()
+        html = bill_export.build_statement_html(
+            'Cash Book', ['Site: {}'.format(self.site_var.get())],
+            ['Date', 'Particulars', 'Cash In', 'Cash Out', 'Balance'],
+            self._export_rows, summary=self.summary_var.get())
+        _save_and_open_html(html, 'cash_book.html')
 
 
 def build_money_tab(parent, db_getter):

@@ -11,6 +11,8 @@ documents, and the beginnings of full accounting:
   printable bill export).
 - **Civil billing** — a BOQ per contract, a Measurement Book (Nos × L × B × D),
   and measurement-driven RA (Running Account) bills with a printable abstract.
+- **Tax invoices** — GST tax invoices for clients (HSN/SAC, CGST/SGST/IGST,
+  amount in words), printable to hand over or share.
 - **Procurement** — purchase orders, vendor invoices with GST/TDS, and
   PO↔invoice reconciliation.
 - **Site & quality** — material consumption reconciliation (theoretical vs
@@ -73,7 +75,8 @@ construction_app/
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
 ├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
 ├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)
-├── bill_export.py          # Pure printable bill / RA-abstract HTML generators (testable)
+├── numwords.py             # Pure Indian rupees-in-words (lakh/crore) (testable)
+├── bill_export.py          # Pure printable HTML: bill, RA abstract, GST tax invoice, statement (testable)
 ├── tab_home.py             # Plain-language home dashboard
 ├── tab_money.py            # Payments & receipts, party balances, cash book
 ├── crud_frame.py           # Generic "list + form" widget reused by most tabs
@@ -83,6 +86,7 @@ construction_app/
 ├── tab_labor.py            # Attendance, Advances, Payroll
 ├── tab_documents.py        # Quotations, Estimates, Purchase Orders, Contracts
 ├── tab_billing.py          # Bills / Running Bills + bill export
+├── tab_tax_invoice.py      # GST tax invoices (HSN, CGST/SGST/IGST, print)
 ├── tab_boq_ra.py           # BOQ, Measurement Book, RA bills
 ├── tab_consumption.py      # Consumption norms, work done, reconciliation
 ├── tab_site_reports.py     # DPR, cube/material tests, plant log

@@ -21,6 +21,7 @@ from tab_labor import build_labor_tab as build_labor_ops_tab
 from tab_documents import (build_quotations_tab, build_estimates_tab,
                            build_contracts_tab, build_purchase_orders_tab)
 from tab_billing import BillingTab
+from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
@@ -69,6 +70,7 @@ def main():
     nb.add(build_contracts_tab(nb, get), text='Contracts')
     nb.add(build_boq_ra_tab(nb, get), text='BOQ / RA Bills')
     nb.add(BillingTab(nb, get), text='Bills')
+    nb.add(build_tax_invoice_tab(nb, get), text='Tax Invoice')
 
     # Site execution & quality
     nb.add(build_consumption_tab(nb, get), text='Consumption')

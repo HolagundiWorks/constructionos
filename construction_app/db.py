@@ -444,6 +444,34 @@ CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+-- --------------------------------------------- GST tax invoices (outward)
+CREATE TABLE IF NOT EXISTS tax_invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_no TEXT,
+    client_id INTEGER REFERENCES clients(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    invoice_date TEXT,
+    place_of_supply TEXT,
+    interstate INTEGER DEFAULT 0,
+    gst_pct REAL DEFAULT 18,
+    status TEXT DEFAULT 'Draft',
+    subtotal REAL DEFAULT 0,
+    tax_amount REAL DEFAULT 0,
+    total_amount REAL DEFAULT 0,
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS tax_invoice_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tax_invoice_id INTEGER REFERENCES tax_invoices(id) ON DELETE CASCADE,
+    description TEXT,
+    hsn_code TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
 """
 
 

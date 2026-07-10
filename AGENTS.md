@@ -104,7 +104,8 @@ construction_app/
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
-├── bill_export.py          # PURE build_bill_html() + build_ra_bill_html(): render bills / RA abstracts to printable HTML. No tkinter/DB.
+├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
+├── bill_export.py          # PURE HTML builders: bill, RA abstract, GST tax invoice (+words), generic statement. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
 ├── tab_vendor.py           # Vendor master (CrudFrame) + a read-only spend/hire rollup view.
@@ -112,6 +113,7 @@ construction_app/
 ├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for() is the extracted rule.
 ├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
+├── tab_tax_invoice.py      # GST Tax Invoices (outward, to clients): HSN, CGST/SGST/IGST, printable invoice with amount-in-words.
 ├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance) + PO↔invoice ReconciliationView.
 ├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA (Running Account) bill generation & abstract export.
 ├── tab_consumption.py      # Consumption norms + work-done log + theoretical-vs-actual reconciliation view.
@@ -435,8 +437,13 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
   with a friendly dialog instead of a stack trace (§4).
 - No regenerate/delete affordance for payroll rows (§8).
 - `dependency` in timeline tasks is inert metadata; the Gantt ignores it.
-- No PDF export (bills and RA bills have printable **HTML** export via
-  `bill_export`; quotations/estimates/POs/invoices do not export yet).
+- No PDF export, but printable **HTML** export (browser → print / Save-as-PDF)
+  now covers bills, RA bills/abstracts, **GST tax invoices**, and **party
+  statement + cash book** (`bill_export.build_*`). Quotations, estimates, POs,
+  and vendor invoices still have no export.
+- Tax-invoice **seller details** (name/GSTIN/address) come from `app_settings`
+  keys `company_name`/`seller_gstin`/`seller_address` — there is no settings UI
+  yet, so they are blank until set (a Phase 4 setup-wizard item).
 - **RA "previous quantity" only counts Approved/Paid RA bills** (mirrors §6),
   so generating multiple *Draft* RA bills before approving them can
   double-count quantities. Approve each RA bill before generating the next.

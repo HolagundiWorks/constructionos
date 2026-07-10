@@ -59,20 +59,21 @@ cash-first views; the contractor never needs the journal to run the business.
 
 ---
 
-## Phase 2 — Get paid & submit ⏳
+## Phase 2 — Get paid & submit 🚧 (in progress)
 
 Contractors live and die by the **printed bill they hand over**.
 
-- ⏳ Print/PDF for **every** key document: RA bill (done), running bill (done),
-  **tax invoice, quotation, estimate, PO, vendor invoice, party statement,
-  cash book**.
-- ⏳ **GST tax invoice** for clients (CGST/SGST/IGST breakup, HSN, invoice
-  number series, amount in words).
+- ✅ **GST tax invoice** for clients — CGST/SGST/IGST breakup, HSN/SAC, amount
+  in words, printable (`tab_tax_invoice.py`, `bill_export.build_tax_invoice_html`).
+- ✅ **Amount-in-words** (Indian lakh/crore) helper (`numwords.py`).
+- ✅ **Party statement + cash book** print/HTML export
+  (`bill_export.build_statement_html`).
+- ✅ Save-to-folder + open-in-browser (print / Save-as-PDF) flow — offline,
+  WhatsApp-attachable.
+- ⏳ Print/PDF for the remaining docs: quotation, estimate, PO, vendor invoice.
+- ⏳ Invoice **number series** (auto-numbering) and seller-details settings UI.
 - ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
   statement, part-rate handling).
-- ⏳ **Share**: save-to-folder + "open to print / Save-as-PDF" flow that works
-  offline; easy to attach on WhatsApp.
-- ⏳ Amount-in-words (Indian numbering: lakh/crore) helper.
 
 ---
 
