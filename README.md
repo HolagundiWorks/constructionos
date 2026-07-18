@@ -58,20 +58,22 @@ next to the code. That file is your data — it is **not** tracked in git
 
 ## What's inside
 
-The UI is a single tabbed window. Tabs group into five areas:
+The UI is a single tabbed window. To keep the top tab bar uncluttered, tabs are
+grouped into eight top-level sections, each holding its related tabs:
 
-- **Masters** — Sites, Clients, Vendors, Materials, Labor, Equipment.
-- **Operations** — Warehouse (material ledger + live stock summary),
-  Labor Ops (attendance, advances, payroll generation), Muster & Wages (fast
-  daily muster roll, weekly wage payout, thekedar ledger), Equipment Hire.
-- **Procurement** — Purchase Orders (header + line items), Vendor Invoices
-  (GST/TDS auto-computed), and PO↔invoice reconciliation.
-- **Commercial** — Quotations and Estimates (header + line items with
-  auto-totalling), Contracts, and Bills / Running Bills (running-total math
-  plus a "Make Bill" printable HTML export).
-- **Accounting** — Chart of Accounts, a double-entry Journal, and a Trial
-  Balance report.
-- **Planning** — Timeline tasks plus a hand-drawn Gantt chart view.
+- **Home** — plain-language dashboard (cash in hand, receivables, payables).
+- **Masters** — Sites, Clients, Vendors, Materials, Labour, Equipment.
+- **Operations** — Warehouse (ledger + stock), Muster & Wages (muster roll,
+  weekly payout, thekedar ledger), Labour Ops (attendance/advances/payroll),
+  Equipment Hire, Consumption reconciliation, Site Reports, Timeline/Gantt.
+- **Billing** — Quotations, Estimates, Contracts, BOQ / RA Bills, Running Bills,
+  Tax Invoice.
+- **Purchases** — Purchase Orders, Vendor Invoices (with PO reconciliation).
+- **Money** — Cash & Parties (payments, party balances, cash book), Insight
+  (site profitability, receivables/payables).
+- **Accounts** — GST & TDS registers, and Accounting (chart of accounts,
+  journal with auto-posting, trial balance).
+- **Tools** — backup & restore, firm details.
 
 ## Project layout
 

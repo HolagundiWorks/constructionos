@@ -2,8 +2,12 @@
 every tab in one place.
 
 Each tab module exposes either a ``build_*_tab(parent, db_getter)`` function
-returning a widget, or a class taking ``(parent, db_getter)``. Both are added
-the same way: ``nb.add(widget_or_builder(nb, db.get_conn), text=...)``.
+returning a widget, or a class taking ``(parent, db_getter)`` — both are simple
+callables ``builder(parent, db_getter)``. To keep the top tab bar from getting
+crowded, tabs are grouped into a handful of top-level **sections**; each section
+is its own ``ttk.Notebook`` holding the related tabs (``_section`` below). A
+builder that already returns a Notebook (e.g. Money) just nests one level
+deeper, which is fine.
 """
 
 import tkinter as tk
@@ -36,65 +40,72 @@ from tab_timeline import build_timeline_tab
 from tab_tools import build_tools_tab
 
 
+# Top-level layout: (Section title, [(tab label, builder), ...]).
+# A single-tab section (Home, Tools) is added directly, not nested.
+SECTIONS = [
+    ('Masters', [
+        ('Sites', build_sites_tab),
+        ('Clients', build_clients_tab),
+        ('Vendors', build_vendors_tab),
+        ('Materials', build_materials_tab),
+        ('Labour', build_labor_tab),
+        ('Equipment', build_equipment_tab),
+    ]),
+    ('Operations', [
+        ('Warehouse', build_warehouse_tab),
+        ('Muster & Wages', build_muster_tab),
+        ('Labour Ops', build_labor_ops_tab),
+        ('Equipment Hire', build_equipment_hire_tab),
+        ('Consumption', build_consumption_tab),
+        ('Site Reports', build_site_reports_tab),
+        ('Timeline', build_timeline_tab),
+    ]),
+    ('Billing', [
+        ('Quotations', build_quotations_tab),
+        ('Estimates', build_estimate_tab),
+        ('Contracts', build_contracts_tab),
+        ('BOQ / RA Bills', build_boq_ra_tab),
+        ('Running Bills', BillingTab),
+        ('Tax Invoice', build_tax_invoice_tab),
+    ]),
+    ('Purchases', [
+        ('Purchase Orders', build_purchase_orders_tab),
+        ('Vendor Invoices', build_vendor_invoices_tab),
+    ]),
+    ('Money', [
+        ('Cash & Parties', build_money_tab),
+        ('Insight', build_insight_tab),
+    ]),
+    ('Accounts', [
+        ('GST & TDS', build_gst_tab),
+        ('Accounting', build_accounting_tab),
+    ]),
+]
+
+
+def _section(parent, get, items):
+    """Build a sub-notebook holding a group of related tabs."""
+    sub = ttk.Notebook(parent)
+    for label, builder in items:
+        sub.add(builder(sub, get), text=label)
+    return sub
+
+
 def main():
     db.init_db()
 
     root = tk.Tk()
     root.title('Contractor-OS — Construction Management')
-    root.geometry('1100x720')
+    root.geometry('1180x760')
 
     nb = ttk.Notebook(root)
     nb.pack(fill='both', expand=True)
 
     get = db.get_conn
 
-    # Home
     nb.add(build_home_tab(nb, get), text='Home')
-
-    # Masters
-    nb.add(build_sites_tab(nb, get), text='Sites')
-    nb.add(build_clients_tab(nb, get), text='Clients')
-    nb.add(build_vendors_tab(nb, get), text='Vendors')
-    nb.add(build_materials_tab(nb, get), text='Materials')
-    nb.add(build_labor_tab(nb, get), text='Labor Master')
-    nb.add(build_equipment_tab(nb, get), text='Equipment')
-
-    # Operations
-    nb.add(build_warehouse_tab(nb, get), text='Warehouse')
-    nb.add(build_labor_ops_tab(nb, get), text='Labor Ops')
-    nb.add(build_muster_tab(nb, get), text='Muster & Wages')
-    nb.add(build_equipment_hire_tab(nb, get), text='Equipment Hire')
-
-    # Procurement
-    nb.add(build_purchase_orders_tab(nb, get), text='Purchase Orders')
-    nb.add(build_vendor_invoices_tab(nb, get), text='Vendor Invoices')
-
-    # Documents & commercial
-    nb.add(build_quotations_tab(nb, get), text='Quotations')
-    nb.add(build_estimate_tab(nb, get), text='Estimates')
-    nb.add(build_contracts_tab(nb, get), text='Contracts')
-    nb.add(build_boq_ra_tab(nb, get), text='BOQ / RA Bills')
-    nb.add(BillingTab(nb, get), text='Bills')
-    nb.add(build_tax_invoice_tab(nb, get), text='Tax Invoice')
-
-    # Site execution & quality
-    nb.add(build_consumption_tab(nb, get), text='Consumption')
-    nb.add(build_site_reports_tab(nb, get), text='Site Reports')
-
-    # Money (cash-first)
-    nb.add(build_money_tab(nb, get), text='Money')
-
-    # Insight (profitability & outstanding)
-    nb.add(build_insight_tab(nb, get), text='Insight')
-
-    # Compliance & accounting
-    nb.add(build_gst_tab(nb, get), text='GST & TDS')
-    nb.add(build_accounting_tab(nb, get), text='Accounting')
-
-    # Planning
-    nb.add(build_timeline_tab(nb, get), text='Timeline')
-
-    # Tools (backup & restore)
+    for title, items in SECTIONS:
+        nb.add(_section(nb, get, items), text=title)
     nb.add(build_tools_tab(nb, get), text='Tools')
 
     root.mainloop()
