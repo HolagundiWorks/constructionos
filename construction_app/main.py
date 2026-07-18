@@ -19,8 +19,9 @@ from tab_vendor import build_vendors_tab
 from tab_warehouse import build_warehouse_tab
 from tab_labor import build_labor_tab as build_labor_ops_tab
 from tab_muster import build_muster_tab
-from tab_documents import (build_quotations_tab, build_estimates_tab,
-                           build_contracts_tab, build_purchase_orders_tab)
+from tab_documents import (build_quotations_tab, build_contracts_tab,
+                           build_purchase_orders_tab)
+from tab_estimate import build_estimate_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -69,7 +70,7 @@ def main():
 
     # Documents & commercial
     nb.add(build_quotations_tab(nb, get), text='Quotations')
-    nb.add(build_estimates_tab(nb, get), text='Estimates')
+    nb.add(build_estimate_tab(nb, get), text='Estimates')
     nb.add(build_contracts_tab(nb, get), text='Contracts')
     nb.add(build_boq_ra_tab(nb, get), text='BOQ / RA Bills')
     nb.add(BillingTab(nb, get), text='Bills')

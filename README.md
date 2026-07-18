@@ -9,6 +9,8 @@ documents, and the beginnings of full accounting:
   equipment, stock ledger, attendance, payroll, advances, project timelines.
 - **Commercial** — quotations, estimates, contracts, running bills (with a
   printable bill export).
+- **Estimates** — priced BOQ estimates with contingency and GST rolled up to a
+  grand total, and a printable estimate document (amount in words).
 - **Civil billing** — a BOQ per contract, a Measurement Book (Nos × L × B × D),
   and measurement-driven RA (Running Account) bills with a printable abstract.
 - **Tax invoices** — GST tax invoices for clients (HSN/SAC, CGST/SGST/IGST,
@@ -76,6 +78,7 @@ construction_app/
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
 ├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
+├── estimate.py             # Pure estimate roll-up: subtotal→contingency→GST→grand total (testable)
 ├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)
 ├── numwords.py             # Pure Indian rupees-in-words (lakh/crore) (testable)
 ├── wages.py                # Pure wage maths: day-fraction, gross/deduction/net (testable)
@@ -88,7 +91,8 @@ construction_app/
 ├── tab_warehouse.py        # Material ledger + stock summary
 ├── tab_labor.py            # Attendance, Advances, Payroll
 ├── tab_muster.py           # Muster roll, weekly payout, thekedar ledger
-├── tab_documents.py        # Quotations, Estimates, Purchase Orders, Contracts
+├── tab_documents.py        # Quotations, Purchase Orders, Contracts
+├── tab_estimate.py         # Estimates (contingency + GST + grand total + print)
 ├── tab_billing.py          # Bills / Running Bills + bill export
 ├── tab_tax_invoice.py      # GST tax invoices (HSN, CGST/SGST/IGST, print)
 ├── tab_boq_ra.py           # BOQ, Measurement Book, RA bills

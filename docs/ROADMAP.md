@@ -72,8 +72,14 @@ Contractors live and die by the **printed bill they hand over**.
   WhatsApp-attachable.
 - ✅ Basic invoice **auto-numbering** (`INV-<serial>` when left blank) and a
   **Firm Details** settings panel (name/GSTIN/address) in the Tools tab.
-- ⏳ Print/PDF for the remaining docs: quotation, estimate, PO, vendor invoice.
+- ✅ **Estimates** upgraded (ported from Construction-Billing-System): priced
+  BOQ with contingency + GST → grand total, printable estimate document with
+  amount in words (`tab_estimate.py`, `estimate.py`).
+- ⏳ Print/PDF for the remaining docs: quotation, PO, vendor invoice.
 - ⏳ Configurable invoice **number series** (prefix + financial-year reset).
+- ⏳ Further CBS features (Specification library, Rate Books, branded
+  proposal/contract documents, company logo) — only the estimate flow was
+  ported so far.
 - ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
   statement, part-rate handling).
 

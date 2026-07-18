@@ -161,16 +161,21 @@ CREATE TABLE IF NOT EXISTS quotation_items (
 
 CREATE TABLE IF NOT EXISTS estimates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    est_number TEXT,
+    title TEXT,
     site_id INTEGER REFERENCES sites(id),
     estimate_date TEXT,
     status TEXT DEFAULT 'Draft',
+    contingency_pct REAL DEFAULT 0,
+    gst_pct REAL DEFAULT 0,
     notes TEXT,
-    total_estimate REAL DEFAULT 0
+    total_estimate REAL DEFAULT 0   -- grand total (subtotal + contingency + GST)
 );
 
 CREATE TABLE IF NOT EXISTS estimate_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     estimate_id INTEGER REFERENCES estimates(id) ON DELETE CASCADE,
+    item_code TEXT,
     description TEXT,
     unit TEXT,
     qty REAL DEFAULT 0,
@@ -530,15 +535,38 @@ def get_conn():
     return conn
 
 
+# Columns added to pre-existing tables after their first release. Applied
+# idempotently on every init so an older construction.db gains them without a
+# manual migration (CREATE TABLE IF NOT EXISTS never alters an existing table).
+_ADD_COLUMNS = [
+    ('estimates', 'est_number', 'TEXT'),
+    ('estimates', 'title', 'TEXT'),
+    ('estimates', 'contingency_pct', 'REAL DEFAULT 0'),
+    ('estimates', 'gst_pct', 'REAL DEFAULT 0'),
+    ('estimate_items', 'item_code', 'TEXT'),
+]
+
+
 def init_db():
-    """Create every table if it does not already exist, then seed the CoA."""
+    """Create every table if it does not already exist, migrate, then seed."""
     conn = get_conn()
     try:
         conn.executescript(SCHEMA)
         conn.commit()
+        _apply_column_migrations(conn)
         seed_default_accounts(conn)
     finally:
         conn.close()
+
+
+def _apply_column_migrations(conn):
+    for table, column, decl in _ADD_COLUMNS:
+        cols = [r['name'] for r in conn.execute(
+            'PRAGMA table_info({})'.format(table))]
+        if column not in cols:
+            conn.execute('ALTER TABLE {} ADD COLUMN {} {}'.format(
+                table, column, decl))
+    conn.commit()
 
 
 def seed_default_accounts(conn):

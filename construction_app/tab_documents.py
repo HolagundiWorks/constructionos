@@ -404,17 +404,9 @@ def build_quotations_tab(parent, db_getter):
                          'Quotations')
 
 
-def build_estimates_tab(parent, db_getter):
-    header_fields = [
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
-        Field('estimate_date', 'Date'),
-        Field('status', 'Status', kind='combo',
-              options=['Draft', 'Approved', 'Revised'], default='Draft'),
-        Field('notes', 'Notes'),
-    ]
-    return DocumentFrame(parent, db_getter, 'estimates', header_fields,
-                         'estimate_items', 'estimate_id', 'total_estimate',
-                         'Estimates')
+# Estimates moved to tab_estimate.py (CBS-style flow with contingency/GST/grand
+# total + printable document). DocumentFrame is still used for Quotations and
+# Purchase Orders below.
 
 
 def build_purchase_orders_tab(parent, db_getter):

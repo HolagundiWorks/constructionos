@@ -113,7 +113,9 @@ construction_app/
 ├── tab_warehouse.py        # Material ledger (CrudFrame) + a computed-on-the-fly stock summary view.
 ├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for = wages.day_fraction.
 ├── tab_muster.py           # Muster roll (fast daily attendance) + weekly wage payout (feeds Payments) + thekedar master & ledger.
-├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
+├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Purchase Orders. Contracts is a plain CrudFrame.
+├── estimate.py             # PURE estimate roll-up (subtotal→contingency→taxable→GST→grand total), ported from CBS. No tkinter/DB.
+├── tab_estimate.py         # Estimates (bespoke, ported from Construction-Billing-System): contingency + GST + grand total + printable estimate document.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
 ├── tab_tax_invoice.py      # GST Tax Invoices (outward, to clients): HSN, CGST/SGST/IGST, printable invoice with amount-in-words.
 ├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance) + PO↔invoice ReconciliationView.
@@ -328,6 +330,13 @@ All tables live in one `SCHEMA` string in `db.py`. FKs are declared but
 **`PRAGMA foreign_keys = ON` is per-connection** in `get_conn()` — any script/
 test opening SQLite outside `db.get_conn()` must re-issue the pragma or FK
 constraints silently won't enforce.
+
+**Adding a column to an existing table**: `CREATE TABLE IF NOT EXISTS` never
+alters a table that already exists, so a new column won't reach an older
+`construction.db`. Update the `SCHEMA` `CREATE` (for fresh installs) **and** add
+the column to `db._ADD_COLUMNS` — `_apply_column_migrations` (run by
+`init_db`) issues an idempotent `ALTER TABLE ... ADD COLUMN` per missing column.
+(This is the lightweight stand-in for a real migration framework.)
 
 Relationships at a glance:
 ```
