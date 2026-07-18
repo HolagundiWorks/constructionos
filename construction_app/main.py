@@ -18,6 +18,7 @@ from tab_masters import (build_sites_tab, build_clients_tab,
 from tab_vendor import build_vendors_tab
 from tab_warehouse import build_warehouse_tab
 from tab_labor import build_labor_tab as build_labor_ops_tab
+from tab_muster import build_muster_tab
 from tab_documents import (build_quotations_tab, build_estimates_tab,
                            build_contracts_tab, build_purchase_orders_tab)
 from tab_billing import BillingTab
@@ -58,6 +59,7 @@ def main():
     # Operations
     nb.add(build_warehouse_tab(nb, get), text='Warehouse')
     nb.add(build_labor_ops_tab(nb, get), text='Labor Ops')
+    nb.add(build_muster_tab(nb, get), text='Muster & Wages')
     nb.add(build_equipment_hire_tab(nb, get), text='Equipment Hire')
 
     # Procurement

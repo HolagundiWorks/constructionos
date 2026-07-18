@@ -55,8 +55,8 @@ The UI is a single tabbed window. Tabs group into five areas:
 
 - **Masters** — Sites, Clients, Vendors, Materials, Labor, Equipment.
 - **Operations** — Warehouse (material ledger + live stock summary),
-  Labor Ops (attendance, advances, payroll generation), Equipment Hire
-  (with automatic cost calculation from the hire period).
+  Labor Ops (attendance, advances, payroll generation), Muster & Wages (fast
+  daily muster roll, weekly wage payout, thekedar ledger), Equipment Hire.
 - **Procurement** — Purchase Orders (header + line items), Vendor Invoices
   (GST/TDS auto-computed), and PO↔invoice reconciliation.
 - **Commercial** — Quotations and Estimates (header + line items with
@@ -76,6 +76,7 @@ construction_app/
 ├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
 ├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)
 ├── numwords.py             # Pure Indian rupees-in-words (lakh/crore) (testable)
+├── wages.py                # Pure wage maths: day-fraction, gross/deduction/net (testable)
 ├── bill_export.py          # Pure printable HTML: bill, RA abstract, GST tax invoice, statement (testable)
 ├── tab_home.py             # Plain-language home dashboard
 ├── tab_money.py            # Payments & receipts, party balances, cash book
@@ -84,6 +85,7 @@ construction_app/
 ├── tab_vendor.py           # Vendors + spend/hire rollup
 ├── tab_warehouse.py        # Material ledger + stock summary
 ├── tab_labor.py            # Attendance, Advances, Payroll
+├── tab_muster.py           # Muster roll, weekly payout, thekedar ledger
 ├── tab_documents.py        # Quotations, Estimates, Purchase Orders, Contracts
 ├── tab_billing.py          # Bills / Running Bills + bill export
 ├── tab_tax_invoice.py      # GST tax invoices (HSN, CGST/SGST/IGST, print)

@@ -9,30 +9,15 @@ from datetime import date
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+import wages
 from crud_frame import CrudFrame, Field
 from tab_masters import labor_options
 
 
 # ---------------------------------------------------------------- pure logic
-def days_present_for(status, hours):
-    """Map one attendance record to fractional days present.
-
-    Present  -> 1.0
-    Half Day -> 0.5
-    Overtime -> 1 + max(0, hours - 8) / 8   (full day plus fractional bonus)
-    Absent   -> 0.0  (not counted)
-    """
-    if status == 'Present':
-        return 1.0
-    if status == 'Half Day':
-        return 0.5
-    if status == 'Overtime':
-        try:
-            h = float(hours)
-        except (TypeError, ValueError):
-            h = 8.0
-        return 1.0 + max(0.0, h - 8.0) / 8.0
-    return 0.0
+# The day-fraction rule now lives in wages.py (shared with the muster roll and
+# weekly payout); kept re-exported here under its original name for callers/docs.
+days_present_for = wages.day_fraction
 
 
 # ---------------------------------------------------------------- sub-frames

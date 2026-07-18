@@ -472,6 +472,26 @@ CREATE TABLE IF NOT EXISTS tax_invoice_items (
     rate REAL DEFAULT 0,
     amount REAL DEFAULT 0
 );
+
+-- --------------------------------------------- labour contractors (thekedars)
+CREATE TABLE IF NOT EXISTS thekedars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    skill_type TEXT,
+    status TEXT DEFAULT 'Active'
+);
+
+CREATE TABLE IF NOT EXISTS thekedar_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thekedar_id INTEGER REFERENCES thekedars(id) ON DELETE CASCADE,
+    entry_date TEXT,
+    entry_type TEXT DEFAULT 'Work',   -- Work (we owe more) / Paid (we paid)
+    description TEXT,
+    amount REAL DEFAULT 0,
+    remarks TEXT
+);
 """
 
 

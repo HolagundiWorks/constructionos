@@ -79,15 +79,18 @@ Contractors live and die by the **printed bill they hand over**.
 
 ---
 
-## Phase 3 — Labour reality ⏳
+## Phase 3 — Labour reality 🚧 (mostly built)
 
 How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
-- ⏳ **Muster roll** — daily attendance grid per site, quick mark P/A/½/OT.
-- ⏳ **Thekedar / labour-contractor ledger** — work given, advances, weekly
-  settlement, running balance.
-- ⏳ **Weekly wage payout** — generate from muster, adjust advances, print a
-  payout sheet; ties into Payments (Phase 1).
+- ✅ **Muster roll** — per-site daily grid, mark P/A/½/OT (individually or all),
+  writes one attendance row per labourer per day (`tab_muster.py`).
+- ✅ **Weekly wage payout** — computed from the muster, advances deducted,
+  printable payout sheet, and one-click "Record as Payments" into the cash book.
+- ✅ **Thekedar / labour-contractor ledger** — master + Work/Paid running
+  balance, printable.
+- ⏳ Auto-recover advances (mark `advances.recovered`) when a payout deducts
+  them, and de-dupe re-runs of "Record as Payments".
 - ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
 
 ---

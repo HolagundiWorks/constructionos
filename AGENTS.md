@@ -105,12 +105,14 @@ construction_app/
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
+├── wages.py                # PURE day-fraction + gross/deduction/net wage maths (shared by muster/payout/payroll). No tkinter/DB.
 ├── bill_export.py          # PURE HTML builders: bill, RA abstract, GST tax invoice (+words), generic statement. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
 ├── tab_vendor.py           # Vendor master (CrudFrame) + a read-only spend/hire rollup view.
 ├── tab_warehouse.py        # Material ledger (CrudFrame) + a computed-on-the-fly stock summary view.
-├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for() is the extracted rule.
+├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for = wages.day_fraction.
+├── tab_muster.py           # Muster roll (fast daily attendance) + weekly wage payout (feeds Payments) + thekedar master & ledger.
 ├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
 ├── tab_tax_invoice.py      # GST Tax Invoices (outward, to clients): HSN, CGST/SGST/IGST, printable invoice with amount-in-words.
@@ -274,13 +276,15 @@ absolute amount entered in the view.
 
 ## 8. Payroll generation (`tab_labor.py`, `PayrollFrame.generate_payroll`)
 
-- Attendance → fractional days present via the extracted `days_present_for`:
-  `Present`=1.0, `Half Day`=0.5, `Overtime`=`1 + max(0, hours-8)/8`,
-  `Absent`=0.
-- `gross_amount = days_present * labor.daily_wage`.
-- Deduction = `min(open_advance_balance, gross_amount)` where
-  `open_advance_balance = SUM(amount - recovered)` over that labor's `advances`
-  with `status='Open'`. Never negative net pay.
+- Attendance → fractional days present via `days_present_for`, which is now
+  `wages.day_fraction` (the rule lives in `wages.py`, shared with the muster
+  roll and weekly payout): `Present`=1.0, `Half Day`=0.5,
+  `Overtime`=`1 + max(0, hours-8)/8`, `Absent`=0.
+- `gross_amount = days_present * labor.daily_wage`; deduction =
+  `min(open_advance_balance, gross_amount)` — the whole gross/deduction/net
+  calc is also in `wages.wage_net`. Never negative net pay. (Monthly payroll in
+  `PayrollFrame` still computes inline; the weekly payout in §19 uses
+  `wages.wage_net` directly.)
 - **Idempotency guard**: generation is a no-op for a `(labor_id, month, year)`
   that already has a `payroll` row — it skips, doesn't update. No
   regenerate/delete UI yet (§14).
@@ -567,4 +571,34 @@ python -c "import money as m; \
   assert m.closing_balance([1000,-400,200],100)==900; \
   assert m.party_outstanding(50000,30000)==20000; \
   print('money ok')"
+
+python -c "import wages as w; \
+  assert w.day_fraction('Overtime',12)==1.5; \
+  assert w.wage_net(6,700,1000)=={'gross':4200.0,'deduction':1000.0,'net':3200.0}; \
+  print('wages ok')"
 ```
+
+## 19. Labour — muster roll, weekly payout, thekedars (`tab_muster.py`)
+
+How a T2/T3 site actually handles labour (see PRODUCT.md job #4). Wage maths is
+in `wages.py`.
+
+- **Muster Roll** (`MusterRollFrame`): pick a site + date, Load pulls every
+  `status='Active'` labourer assigned to that site into an editable grid,
+  pre-filled from any existing `attendance` for that date. Mark individually,
+  or "All Present"/"All Absent". **Save Muster** writes one `attendance` row per
+  labourer per day — it `DELETE`s any existing row for that `(labor_id,
+  att_date)` first, so re-saving a day replaces rather than duplicates. (The
+  `attendance` table has no unique constraint; this delete-then-insert is what
+  enforces one-mark-per-day.)
+- **Weekly Payout** (`WeeklyPayoutFrame`): site + week-start → a 7-day window;
+  per labourer, days = Σ`wages.day_fraction` over that week's attendance, then
+  `wages.wage_net(days, daily_wage, open_advance_balance)`. **Export Payout
+  Sheet** prints via `build_statement_html`; **Record as Payments** inserts a
+  `payments` row (`direction='Payment'`, `party_type='Labour'`, `mode='Cash'`)
+  per positive net, so wages flow straight into the cash book (§17). It does
+  **not** mark advances recovered or dedupe — running it twice records twice.
+- **Thekedars** (`thekedars` master via `CrudFrame`) + **Thekedar Ledger**
+  (`ThekedarLedgerFrame`): a labour contractor's running account —
+  `entry_type='Work'` increases what we owe, `'Paid'` decreases it; balance via
+  `money.running_balance`. Printable.
