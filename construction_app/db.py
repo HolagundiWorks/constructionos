@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS equipment_hire (
 CREATE TABLE IF NOT EXISTS timeline_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id INTEGER REFERENCES sites(id),
+    project_id INTEGER REFERENCES projects(id),
     task_name TEXT NOT NULL,
     start_date TEXT,
     end_date TEXT,
@@ -521,6 +522,30 @@ CREATE TABLE IF NOT EXISTS thekedar_entries (
     remarks TEXT
 );
 
+-- --------------------------------------------- project management
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    client_id INTEGER REFERENCES clients(id),
+    site_id INTEGER REFERENCES sites(id),
+    start_date TEXT,
+    end_date TEXT,
+    budget REAL DEFAULT 0,
+    status TEXT DEFAULT 'Active',
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT,
+    target_date TEXT,
+    actual_date TEXT,
+    amount REAL DEFAULT 0,        -- optional payment milestone value
+    status TEXT DEFAULT 'Pending',  -- Pending / Done
+    notes TEXT
+);
+
 -- --------------------------------------------- operations indexes (hot paths)
 -- Declared last so every referenced table already exists.
 CREATE INDEX IF NOT EXISTS idx_attendance_labor ON attendance(labor_id);
@@ -549,6 +574,8 @@ CREATE INDEX IF NOT EXISTS idx_payments_site ON payments(site_id);
 CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(pay_date);
 CREATE INDEX IF NOT EXISTS idx_thekedar_entries ON thekedar_entries(thekedar_id);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
+CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
+CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 """
 
 
@@ -602,6 +629,7 @@ _ADD_COLUMNS = [
     ('estimates', 'contingency_pct', 'REAL DEFAULT 0'),
     ('estimates', 'gst_pct', 'REAL DEFAULT 0'),
     ('estimate_items', 'item_code', 'TEXT'),
+    ('timeline_tasks', 'project_id', 'INTEGER'),
 ]
 
 

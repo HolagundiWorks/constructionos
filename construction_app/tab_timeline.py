@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from crud_frame import CrudFrame, Field
-from tab_masters import site_options
+from tab_masters import site_options, project_options
 
 
 TASK_STATUSES = ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Delayed']
@@ -49,6 +49,7 @@ def _compute_duration(conn, row_id, values):
 
 def _build_tasks(parent, db_getter):
     fields = [
+        Field('project_id', 'Project', kind='fk', options_func=project_options),
         Field('site_id', 'Site', kind='fk', options_func=site_options),
         Field('task_name', 'Task'),
         Field('start_date', 'Start (YYYY-MM-DD)'),

@@ -34,6 +34,11 @@ def labor_options(conn):
             for r in conn.execute('SELECT id, name FROM labor ORDER BY name')]
 
 
+def project_options(conn):
+    return [(r['id'], r['name'])
+            for r in conn.execute('SELECT id, name FROM projects ORDER BY name')]
+
+
 # ---------------------------------------------------------------- builders
 def build_sites_tab(parent, db_getter):
     fields = [

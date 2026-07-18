@@ -8,7 +8,7 @@ GST%) + line items (code, description, unit, qty, rate, amount). The roll-up
 words via ``bill_export.build_estimate_html``.
 
 This replaces the earlier DocumentFrame-based estimates (which only summed
-items) — the estimate is the one CBS feature ported into Contractor-OS.
+items) — the estimate is the one CBS feature ported into Construction OS.
 """
 
 import os
@@ -308,7 +308,7 @@ class EstimateTab(ttk.Frame):
         if est is None:
             return
         html = bill_export.build_estimate_html(
-            est, items, seller, company_name=seller.get('name') or 'Contractor-OS')
+            est, items, seller, company_name=seller.get('name') or 'Construction OS')
         safe = (est['est_number'] or 'estimate').replace('/', '-').replace(' ', '_')
         path = filedialog.asksaveasfilename(
             title='Save estimate', defaultextension='.html',

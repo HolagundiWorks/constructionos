@@ -14,6 +14,7 @@ from tkinter import ttk
 
 import money as m
 import assets
+import branding
 
 
 class HomeTab(ttk.Frame):
@@ -27,7 +28,7 @@ class HomeTab(ttk.Frame):
             self._logo = tk.PhotoImage(file=assets.LOGO_RECT)
             ttk.Label(header, image=self._logo).pack(side='left')
         except Exception:
-            ttk.Label(header, text='Contractor-OS',
+            ttk.Label(header, text='Construction OS',
                       font=('TkDefaultFont', 16, 'bold')).pack(side='left')
         ttk.Button(header, text='Refresh', command=self.refresh).pack(side='right')
 
@@ -63,6 +64,9 @@ class HomeTab(ttk.Frame):
         ttk.Label(self, text='Tip: use Money > Cash Book for the day book, and '
                              'Money > Party Balances to see who owes whom.',
                   font=('TkDefaultFont', 9), foreground='#777') \
+            .pack(anchor='w', padx=12, pady=(0, 4))
+        ttk.Label(self, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
+                  font=('TkDefaultFont', 8), foreground='#999') \
             .pack(anchor='w', padx=12, pady=(0, 10))
         self.refresh()
 

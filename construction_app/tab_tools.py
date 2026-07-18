@@ -25,6 +25,7 @@ import db
 import modules
 import assistant
 import ollama_client
+import branding
 
 
 class ToolsTab(ttk.Frame):
@@ -86,6 +87,7 @@ class ToolsTab(ttk.Frame):
         aibtns = ttk.Frame(ai); aibtns.pack(fill='x', padx=8, pady=4)
         ttk.Button(aibtns, text='Save', command=self.save_ai).pack(side='left')
         ttk.Button(aibtns, text='Test Connection', command=self.test_ai).pack(side='left', padx=6)
+        ttk.Button(aibtns, text='Start Ollama', command=self.start_ollama).pack(side='left', padx=2)
 
         # --- Modules (switch tabs on/off) ---
         mod = ttk.LabelFrame(self, text='Modules (switch off what you don\'t use)')
@@ -113,7 +115,9 @@ class ToolsTab(ttk.Frame):
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
                   wraplength=560, justify='left') \
-            .pack(anchor='w', padx=12, pady=(4, 12))
+            .pack(anchor='w', padx=12, pady=(4, 2))
+        ttk.Label(self, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
+                  foreground='#888').pack(anchor='w', padx=12, pady=(0, 12))
         self.refresh()
 
     def refresh(self):
@@ -159,6 +163,22 @@ class ToolsTab(ttk.Frame):
         finally:
             conn.close()
         self.status_var.set('AI Assistant settings saved.')
+
+    def start_ollama(self):
+        host = self.ai['assistant_host'].get().strip() or ollama_client.DEFAULT_HOST
+        if ollama_client.available(host):
+            messagebox.showinfo('Already running', 'Ollama is already running.')
+            return
+        if not ollama_client.installed():
+            messagebox.showwarning(
+                'Ollama not installed',
+                'Ollama was not found on this PC.\n\nInstall it from ollama.com, '
+                'then use this button to start it. (Ollama is a separate free '
+                'program — it cannot be bundled inside the app.)')
+            return
+        ollama_client.start_server()
+        self.status_var.set('Starting Ollama… give it a few seconds, then '
+                            'Test Connection.')
 
     def test_ai(self):
         host = self.ai['assistant_host'].get().strip() or ollama_client.DEFAULT_HOST
@@ -227,7 +247,7 @@ class ToolsTab(ttk.Frame):
     def restore(self):
         src = filedialog.askopenfilename(
             title='Choose a backup file to restore',
-            filetypes=[('Contractor-OS backup', '*.db'), ('All files', '*.*')])
+            filetypes=[('Construction OS backup', '*.db'), ('All files', '*.*')])
         if not src:
             return
         if os.path.abspath(src) == os.path.abspath(db.DB_PATH):

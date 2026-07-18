@@ -14,6 +14,7 @@ Toggles apply on the next app start (the Notebook is built once).
 SECTIONS_CATALOG = [
     ('Masters', ['Sites', 'Clients', 'Vendors', 'Materials', 'Labour',
                  'Equipment']),
+    ('Projects', ['Projects']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
                     'Equipment Hire', 'Consumption', 'Site Reports', 'Timeline']),
     ('Billing', ['Quotations', 'Estimates', 'Contracts', 'BOQ / RA Bills',

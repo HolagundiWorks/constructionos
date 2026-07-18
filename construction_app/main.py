@@ -34,6 +34,7 @@ from tab_muster import build_muster_tab
 from tab_documents import (build_quotations_tab, build_contracts_tab,
                            build_purchase_orders_tab)
 from tab_estimate import build_estimate_tab
+from tab_projects import build_projects_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -57,6 +58,7 @@ BUILDERS = {
     'Materials': build_materials_tab,
     'Labour': build_labor_tab,
     'Equipment': build_equipment_tab,
+    'Projects': build_projects_tab,
     'Warehouse': build_warehouse_tab,
     'Muster & Wages': build_muster_tab,
     'Labour Ops': build_labor_ops_tab,
@@ -115,7 +117,7 @@ def main():
         conn.close()
 
     root = tk.Tk()
-    root.title('Contractor-OS — Construction Management')
+    root.title('Construction OS — Construction Management')
     root.geometry('1180x760')
     _apply_app_icon(root)
 
@@ -126,7 +128,7 @@ def main():
             root.destroy()
             return
         root.deiconify()
-        root.title('Contractor-OS — {} ({})'.format(
+        root.title('Construction OS — {} ({})'.format(
             session.username(), session.role()))
 
     nb = ttk.Notebook(root)

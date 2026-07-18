@@ -27,7 +27,7 @@ def _seller_from_settings(conn):
         "SELECT key, value FROM app_settings WHERE key IN "
         "('company_name', 'seller_gstin', 'seller_address')")}
     return {
-        'name': rows.get('company_name', 'Contractor-OS'),
+        'name': rows.get('company_name', 'Construction OS'),
         'gstin': rows.get('seller_gstin', ''),
         'address': rows.get('seller_address', ''),
     }
@@ -333,7 +333,7 @@ class TaxInvoiceTab(ttk.Frame):
         if inv is None:
             return
         html = bill_export.build_tax_invoice_html(
-            inv, client, items, seller, company_name=seller.get('name') or 'Contractor-OS')
+            inv, client, items, seller, company_name=seller.get('name') or 'Construction OS')
         safe = (inv['invoice_no'] or 'invoice').replace('/', '-').replace(' ', '_')
         path = filedialog.asksaveasfilename(
             title='Save tax invoice', defaultextension='.html',

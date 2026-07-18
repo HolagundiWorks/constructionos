@@ -11,6 +11,7 @@ from tkinter import ttk
 import auth
 import session
 import assets
+import branding
 
 
 class LoginDialog:
@@ -19,7 +20,7 @@ class LoginDialog:
         self.ok = False
 
         self.win = tk.Toplevel(root)
-        self.win.title('Contractor-OS — Sign in')
+        self.win.title('Construction OS — Sign in')
         self.win.resizable(False, False)
         self.win.transient(root)
         self.win.grab_set()
@@ -52,6 +53,10 @@ class LoginDialog:
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0), sticky='e')
         ttk.Button(btns, text='Sign in', command=self._attempt).pack(side='left', padx=4)
         ttk.Button(btns, text='Cancel', command=self._cancel).pack(side='left')
+
+        ttk.Label(frm, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
+                  foreground='#999', font=('TkDefaultFont', 8)) \
+            .grid(row=6, column=0, columnspan=2, pady=(12, 0))
 
         self.win.bind('<Return>', lambda e: self._attempt())
         self.win.protocol('WM_DELETE_WINDOW', self._cancel)

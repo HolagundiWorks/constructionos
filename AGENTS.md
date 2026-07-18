@@ -1,4 +1,4 @@
-# AGENTS.md — Contractor-OS (Construction ERP)
+# AGENTS.md — Construction OS (Construction ERP)
 
 This file is written for an **AI coding agent** (Claude Code, Cursor, etc.)
 that will read, modify, or extend this codebase. It documents architecture,
@@ -13,7 +13,7 @@ reading.
 
 ## 0. Product vision (read this first)
 
-Contractor-OS is growing from a site-operations tool into a **full-fledged
+Construction OS is growing from a site-operations tool into a **full-fledged
 ERP for Indian construction contractors** — think a focused, single-file,
 zero-dependency Dolibarr for the construction trade. The trajectory is:
 
@@ -104,6 +104,9 @@ construction_app/
 ├── security.py             # PURE password hashing: salted PBKDF2-HMAC-SHA256 + constant-time verify + policy. No tkinter/DB.
 ├── auth.py                 # Users/auth/audit (DB): create_user, authenticate (+lockout), roles, security_enabled toggle, audit(). No tkinter.
 ├── session.py              # PURE process-wide current user/role holder (is_admin, can_write). No tkinter/DB.
+├── branding.py             # PURE app name ("Construction OS") + developer credit ("Human Centric Works, Hospet").
+├── projman.py              # PURE project maths: milestone_progress (amount-weighted), budget_status. No tkinter/DB.
+├── tab_projects.py         # Projects + Milestones (CrudFrames) + a computed Project Overview dashboard.
 ├── assets.py               # Brand logos: file paths + base64 data-URI/`<img>` for HTML letterheads. No tkinter/DB.
 ├── ollama_client.py        # Stdlib (urllib) client for a LOCAL Ollama server: available()/list_models()/generate(). No pip.
 ├── assistant.py            # RAG text-to-SQL over the DB: schema docs, retrieval, validate_sql, read-only safe_execute, answer(), quick_answers. No tkinter.
@@ -743,3 +746,30 @@ Rules for extending:
   `app_settings`, edited in Tools.
 - The LLM call is slow, so the tab runs it on a **background thread** and
   marshals back with `after`; keep that off the UI thread.
+
+## 22. Project management (`tab_projects.py`, `projman.py`)
+
+The **Projects** section (top-level, its own module in `SECTIONS_CATALOG`) is the
+umbrella that ties a job together — added because the app previously jumped
+straight from sites/contracts to documents with no project layer.
+
+- **`projects`** table: name, client, site, start/end, budget, status. A thin
+  `CrudFrame`.
+- **`milestones`** table (`ON DELETE CASCADE` from projects): name, target/actual
+  date, optional `amount` (payment-stage value), status Pending/Done. A
+  `CrudFrame`.
+- **`timeline_tasks.project_id`** links Gantt tasks to a project (added to the
+  CREATE and to `_ADD_COLUMNS` for existing DBs; the timeline task form has a
+  Project fk).
+- **Project Overview** (`ProjectOverview`, bespoke, read-only): for the chosen
+  project it computes **budget vs cost-to-date** (material issued + labour cash
+  paid + equipment hire on the project's site) vs **billed** (Approved/Paid
+  bills + RA bills on that site's contracts), the **margin so far**, budget
+  **used %**, and **milestone progress** (`projman.milestone_progress` —
+  amount-weighted when milestones carry amounts, else a count ratio), plus open
+  task count. All the site-scoped cost/revenue queries mirror the Insight tab.
+
+Caveat: project cost/revenue is derived **via the project's `site_id`** (not a
+hard project↔transaction link), so two projects sharing a site would share those
+figures — fine for the common one-site-per-project case; note it if you add
+multi-project sites.

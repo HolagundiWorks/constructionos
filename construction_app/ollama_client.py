@@ -7,11 +7,35 @@ everything here fails soft so the rest of the app is unaffected when it isn't.
 """
 
 import json
+import shutil
+import subprocess
 import urllib.request
 import urllib.error
 
 DEFAULT_HOST = 'http://localhost:11434'
 DEFAULT_MODEL = 'llama3.1'
+
+
+def installed():
+    """True if the ``ollama`` binary is on PATH (so we can offer to start it)."""
+    return shutil.which('ollama') is not None
+
+
+def start_server():
+    """Best-effort launch of ``ollama serve`` detached. Returns True if started.
+
+    We can't embed Ollama in the app (it's a large native binary + multi-GB
+    models), but if it's installed we can spawn its local server so the user
+    never opens a terminal. Fails soft when it isn't installed.
+    """
+    if not installed():
+        return False
+    try:
+        kwargs = {'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+        subprocess.Popen(['ollama', 'serve'], **kwargs)
+        return True
+    except Exception:
+        return False
 
 
 class OllamaError(Exception):

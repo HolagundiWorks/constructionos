@@ -1,4 +1,4 @@
-# Contractor-OS — Roadmap
+# Construction OS — Roadmap
 
 _Last updated: 2026-07-10_
 
@@ -168,6 +168,18 @@ Power features that must never complicate the core.
 - ⏳ **Multi-year / multi-firm** files, optional cloud backup.
 
 ---
+
+## Project management (added on request)
+
+The missing project layer, now in its own **Projects** section.
+
+- ✅ **Projects** (client + site + budget + dates + status) and **Milestones**
+  (target/actual dates, payment-stage amount, done/pending).
+- ✅ Timeline tasks link to a project (`timeline_tasks.project_id`).
+- ✅ **Project Overview** dashboard: budget vs cost-to-date vs billed, margin,
+  budget-used %, milestone progress, open tasks (`tab_projects.py`, `projman.py`).
+- ⏳ Hard project↔transaction links (costs are site-scoped today); per-project
+  Gantt filter; critical-path / dependency scheduling.
 
 ## AI Assistant (added on request)
 

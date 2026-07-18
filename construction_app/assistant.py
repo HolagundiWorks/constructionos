@@ -72,6 +72,12 @@ SCHEMA_DOCS = [
     {'table': 'equipment_hire', 'keywords': 'equipment hire rent machinery vendor site cost',
      'columns': 'id, equipment_name, vendor_id, site_id, hire_type, rate, total_amount',
      'desc': 'Hired equipment and its cost (total_amount).'},
+    {'table': 'projects', 'keywords': 'project budget progress client site status job',
+     'columns': 'id, name, client_id, site_id, start_date, end_date, budget, status',
+     'desc': 'Projects — group a client + site + budget. Tasks/milestones link to a project.'},
+    {'table': 'milestones', 'keywords': 'milestone project progress target payment stage',
+     'columns': "id, project_id, name, target_date, actual_date, amount, status",
+     'desc': "Project milestones. status Pending/Done."},
 ]
 
 # Few-shot (question -> SQL) examples grounded in the schema above.
@@ -108,7 +114,7 @@ _VALID_TABLES = {d['table'] for d in SCHEMA_DOCS} | {
     'accounts', 'journal_entries', 'journal_lines', 'timeline_tasks', 'advances',
     'payroll', 'work_done_entries', 'consumption_norms', 'daily_progress',
     'cube_tests', 'material_tests', 'plant_logs', 'purchase_orders',
-    'quotations', 'quotation_items', 'equipment'}
+    'quotations', 'quotation_items', 'equipment', 'projects', 'milestones'}
 
 
 # ------------------------------------------------------------------ config

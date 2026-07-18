@@ -1,10 +1,14 @@
-# Contractor-OS
+# Construction OS
+
+*Developed by Human Centric Works, Hospet.*
 
 A single-user desktop **ERP for Indian construction contractors** — a focused,
 zero-dependency alternative to heavyweight suites like Dolibarr, tailored to the
 construction trade. It covers site operations, procurement, commercial
 documents, and the beginnings of full accounting:
 
+- **Projects** — a project umbrella (client + site + budget + milestones)
+  with a live overview: budget vs cost-to-date vs billed, margin, and progress.
 - **Operations** — sites/warehouses, vendors, clients, materials, labor,
   equipment, stock ledger, attendance, payroll, advances, project timelines.
 - **Commercial** — quotations, estimates, contracts, running bills (with a
@@ -89,6 +93,9 @@ grouped into eight top-level sections, each holding its related tabs:
 construction_app/
 ├── main.py                 # Entry point; optional login, then grouped toggle-aware window
 ├── modules.py              # Module catalog (sections→tabs) + on/off toggles
+├── branding.py             # App name + developer credit
+├── projman.py              # Pure project maths: progress, budget status (testable)
+├── tab_projects.py         # Projects, Milestones, Project Overview dashboard
 ├── ollama_client.py        # Stdlib client for a local Ollama server (no pip)
 ├── assistant.py            # RAG text-to-SQL over your data (read-only) + quick answers
 ├── tab_assistant.py        # Ask-your-data assistant tab

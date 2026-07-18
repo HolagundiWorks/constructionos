@@ -1,4 +1,4 @@
-# Contractor-OS — Product Document
+# Construction OS — Product Document
 
 _Last updated: 2026-07-10_
 
@@ -96,7 +96,7 @@ connection, or a monthly subscription.
   subscription, internet-dependent, feature-heavy. Overkill and unaffordable in
   spirit for a T2/T3 solo contractor.
 
-Contractor-OS sits in the gap: **civil-billing-native, contractor-operable,
+Construction OS sits in the gap: **civil-billing-native, contractor-operable,
 offline, printable, and cheap.**
 
 ## 6. Product pillars (maps to the codebase)
