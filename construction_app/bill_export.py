@@ -172,6 +172,166 @@ def build_ra_bill_html(bill, contract=None, client=None, site=None, items=None,
     )
 
 
+def build_ra_pwd_html(bill, contract=None, client=None, site=None, items=None,
+                      company_name='Contractor-OS'):
+    """Render a department-friendly (PWD-style) RA bill abstract.
+
+    Compared to ``build_ra_bill_html`` this adds the tendered BOQ quantity and
+    upto-date amount per item, marks part-rated items (billed rate below the
+    BOQ rate), and closes with a Memorandum of Payments (value upto date, less
+    previous payments, retention, and other recoveries) with the net payable
+    in words. ``items`` rows need item_no/description/unit/boq_qty/boq_rate/
+    upto_qty/previous_qty/current_qty/rate/current_amount.
+    """
+    bill = bill or {}
+    items = list(items or [])
+
+    def g(row, key, default=''):
+        if row is None:
+            return default
+        try:
+            val = row[key]
+        except (KeyError, IndexError, TypeError):
+            return default
+        return default if val is None else val
+
+    rows = []
+    any_part_rate = False
+    for it in items:
+        rate = float(g(it, 'rate', 0) or 0)
+        boq_rate = float(g(it, 'boq_rate', rate) or 0)
+        part = boq_rate > 0 and rate < boq_rate
+        any_part_rate = any_part_rate or part
+        upto = float(g(it, 'upto_qty', 0) or 0)
+        rows.append(
+            '<tr><td>{}</td><td>{}{}</td><td>{}</td>'
+            '<td class="num">{}</td><td class="num">{}</td>'
+            '<td class="num">{}</td><td class="num">{}</td>'
+            '<td class="num">{}</td><td class="num">{}</td>'
+            '<td class="num">{}</td></tr>'.format(
+                _text(g(it, 'item_no')), _text(g(it, 'description')),
+                ' <strong>(PR)</strong>' if part else '',
+                _text(g(it, 'unit')),
+                _money(g(it, 'boq_qty')), _money(rate),
+                _money(upto), _money(round(upto * rate, 2)),
+                _money(g(it, 'previous_qty')), _money(g(it, 'current_qty')),
+                _money(g(it, 'current_amount'))))
+    items_html = ''.join(rows) or (
+        '<tr><td colspan="10" class="muted">No billed items.</td></tr>')
+    part_note = ('<div class="muted-note">(PR) = item paid at part rate '
+                 '(below the BOQ rate) pending completion.</div>'
+                 if any_part_rate else '')
+
+    net = float(g(bill, 'net_payable', 0) or 0)
+    return _RA_PWD_TEMPLATE.format(
+        company=_text(company_name),
+        bill_no=_text(g(bill, 'bill_no') or '-'),
+        bill_date=_text(g(bill, 'bill_date') or '-'),
+        status=_text(g(bill, 'status') or '-'),
+        contract_no=_text(g(contract, 'contract_no') or '-'),
+        contract_value=_money(g(contract, 'contract_value', 0)),
+        client_name=_text(g(client, 'name') or '-'),
+        site_name=_text(g(site, 'name') or '-'),
+        items_html=items_html,
+        part_note=part_note,
+        cumulative_value=_money(g(bill, 'cumulative_value', 0)),
+        previous_value=_money(g(bill, 'previous_value', 0)),
+        this_bill_value=_money(g(bill, 'this_bill_value', 0)),
+        retention_pct='{:g}'.format(float(g(bill, 'retention_pct', 0) or 0)),
+        retention_amt=_money(g(bill, 'retention_amt', 0)),
+        other_deductions=_money(g(bill, 'other_deductions', 0)),
+        net_payable=_money(net),
+        net_words=_text(numwords.rupees_in_words(net)),
+        generated=_text(date.today().isoformat()),
+    )
+
+
+_RA_PWD_TEMPLATE = """<meta charset="utf-8">
+<title>RA Bill {bill_no} (Abstract)</title>
+<style>
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; color: #1a1a1a;
+         margin: 24px; font-size: 11px; }}
+  h1 {{ margin: 0; font-size: 18px; }}
+  .doc-title {{ text-align: center; font-size: 13px; letter-spacing: 1px;
+                border: 1px solid #333; padding: 4px; margin: 8px 0 12px; }}
+  .head {{ display: flex; justify-content: space-between;
+           border-bottom: 2px solid #333; padding-bottom: 8px; }}
+  .meta td {{ padding: 2px 8px 2px 0; }}
+  .meta td.k {{ color: #666; }}
+  table.items {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+  table.items th, table.items td {{ border: 1px solid #ccc; padding: 4px 6px;
+                                    text-align: left; }}
+  table.items th {{ background: #f2f4f7; }}
+  td.num, th.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+  .muted {{ color: #999; text-align: center; font-style: italic; }}
+  .muted-note {{ color: #666; font-size: 10px; margin-top: 4px; }}
+  .memo {{ margin-top: 16px; width: 420px; margin-left: auto; }}
+  .memo h2 {{ font-size: 12px; letter-spacing: .5px; margin: 0 0 4px; }}
+  .memo table {{ width: 100%; border-collapse: collapse; }}
+  .memo td {{ padding: 4px 8px; border-bottom: 1px solid #eee; }}
+  .memo tr.net td {{ border-top: 2px solid #333; border-bottom: none;
+                     font-size: 13px; font-weight: bold; }}
+  .words {{ margin-top: 8px; font-style: italic; }}
+  .sig {{ display: flex; justify-content: space-between; margin-top: 48px; }}
+  .sig div {{ border-top: 1px solid #333; padding-top: 4px; width: 30%;
+              text-align: center; color: #333; }}
+  .foot {{ margin-top: 24px; color: #999; font-size: 10px;
+           border-top: 1px solid #eee; padding-top: 6px; }}
+  @media print {{ body {{ margin: 0; }} }}
+</style>
+<div class="head">
+  <div><h1>{company}</h1>
+    <div>Client: {client_name} &nbsp;|&nbsp; Site: {site_name}</div>
+    <div>Contract: {contract_no} &nbsp;|&nbsp; Contract Value: {contract_value}</div>
+  </div>
+  <table class="meta">
+    <tr><td class="k">RA Bill No</td><td>{bill_no}</td></tr>
+    <tr><td class="k">Date</td><td>{bill_date}</td></tr>
+    <tr><td class="k">Status</td><td>{status}</td></tr>
+  </table>
+</div>
+<div class="doc-title">RUNNING ACCOUNT BILL — ABSTRACT OF WORK EXECUTED</div>
+
+<table class="items">
+  <thead>
+    <tr>
+      <th>Item</th><th>Description</th><th>Unit</th>
+      <th class="num">Tender Qty</th><th class="num">Rate</th>
+      <th class="num">Qty Upto Date</th><th class="num">Amount Upto Date</th>
+      <th class="num">Prev Qty</th><th class="num">This Bill Qty</th>
+      <th class="num">This Bill Amount</th>
+    </tr>
+  </thead>
+  <tbody>{items_html}</tbody>
+</table>
+{part_note}
+
+<div class="memo">
+  <h2>MEMORANDUM OF PAYMENTS</h2>
+  <table>
+    <tr><td>1. Total value of work done to date</td><td class="num">{cumulative_value}</td></tr>
+    <tr><td>2. Deduct: value of previous bills</td><td class="num">{previous_value}</td></tr>
+    <tr><td>3. Value of work since previous bill</td><td class="num">{this_bill_value}</td></tr>
+    <tr><td>4. Deduct: retention @ {retention_pct}%</td><td class="num">{retention_amt}</td></tr>
+    <tr><td>5. Deduct: other recoveries</td><td class="num">{other_deductions}</td></tr>
+    <tr class="net"><td>Net amount now payable</td><td class="num">{net_payable}</td></tr>
+  </table>
+</div>
+<div class="words"><strong>Net payable in words:</strong> {net_words}</div>
+
+<div class="sig">
+  <div>Prepared by</div>
+  <div>Checked by</div>
+  <div>Accepted / Engineer-in-charge</div>
+</div>
+
+<div class="foot">Generated by {company} on {generated}. Quantities from the
+Measurement Book. This abstract follows the PWD running-account layout for
+department submission.</div>
+"""
+
+
 _RA_TEMPLATE = """<meta charset="utf-8">
 <title>RA Bill {bill_no}</title>
 <style>

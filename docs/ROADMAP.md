@@ -59,7 +59,7 @@ cash-first views; the contractor never needs the journal to run the business.
 
 ---
 
-## Phase 2 — Get paid & submit 🚧 (in progress)
+## Phase 2 — Get paid & submit ✅ (built)
 
 Contractors live and die by the **printed bill they hand over**.
 
@@ -78,12 +78,15 @@ Contractors live and die by the **printed bill they hand over**.
 - ✅ Configurable invoice **number series** — prefix + financial-year reset
   (e.g. `INV/25-26/007`), max-serial-based so deletions never collide
   (`docnum.py`, settings in Tools > Firm Details).
-- ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
-  statement, part-rate handling).
+- ✅ Department-friendly **RA bill formats** — PWD-style abstract with tender
+  quantities, upto-date amounts, memorandum of payments and signature block
+  (`bill_export.build_ra_pwd_html`); **deviation statement** (tender vs
+  executed qty per item, `civil.deviation_row`); **part-rate** on draft RA
+  bill items with automatic re-roll of the payable figures (`tab_boq_ra.py`).
 
 ---
 
-## Phase 3 — Labour reality 🚧 (mostly built)
+## Phase 3 — Labour reality ✅ (built)
 
 How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
@@ -97,7 +100,10 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
   closed when fully recovered — `wages.allocate_recovery`) when a payout is
   recorded, and de-dupe: a site+week can only be recorded once (re-runs are
   blocked with a plain-language message).
-- ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
+- ✅ Optional PF/ESI/labour-cess percentages (off by default — most are
+  informal): set in Tools > Firm Details, applied on gross by the weekly
+  payout (`wages.statutory_deduction` / `wage_net_full`), shown on the payout
+  sheet only when in use.
 
 ---
 

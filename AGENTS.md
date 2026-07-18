@@ -102,7 +102,7 @@ construction_app/
 ├── main.py                 # Entry point. Builds the ttk.Notebook, wires every tab in one place.
 ├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() + init_db() + default CoA seed.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
-├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
+├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, deviation, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
 ├── docnum.py               # PURE invoice-number series: FY label + max-serial next number. No tkinter/DB.
@@ -458,6 +458,10 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
 - **RA "previous quantity" only counts Approved/Paid RA bills** (mirrors §6),
   so generating multiple *Draft* RA bills before approving them can
   double-count quantities. Approve each RA bill before generating the next.
+- **Part rate reduces this bill's item rate only.** The quantity still counts
+  as previously billed in later bills, so the withheld rate difference is
+  **not** auto-recovered when the item completes — bill it manually (e.g. via
+  the next bill's other-deductions/extra line) once the full rate is due.
 - **Consumption reconciliation matches activities by exact name string**
   (`consumption_norms.activity == work_done_entries.activity`) — a typo means
   no theoretical figure. There's no dropdown/foreign-key linking the two yet.
@@ -495,6 +499,18 @@ notebook.
   (regenerate/replace if measurements change before approval). Status moves
   Draft→Submitted→Approved→Paid; "Export Abstract (HTML)" writes the standard
   RA abstract via `bill_export.build_ra_bill_html`.
+
+  **Department formats** (Phase 2): "Export PWD Abstract" renders the
+  PWD-style running-account layout (tender qty, rate, upto-date qty & amount,
+  memorandum of payments, net-payable-in-words, signature block) via
+  `bill_export.build_ra_pwd_html`; part-rated items are marked `(PR)`.
+  "Export Deviation Stmt" prints tender vs executed-upto-date quantities per
+  BOQ item with deviation % and amount effect (`civil.deviation_row`,
+  rendered through the generic `build_statement_html`). **Part rate**: on a
+  *Draft* bill, select an abstract line, enter a reduced rate, and Apply — it
+  updates that `ra_bill_items` row's rate/amount and re-rolls the header's
+  payable figures via `civil.ra_bill_totals` (see the §14 caveat on later
+  recovery).
 
 If you add subcontractor RA bills later, reuse this pattern (BOQ→MB→RA) rather
 than the generic BillingTab.
@@ -568,6 +584,7 @@ python -c "import civil as c; \
   assert c.ra_current(120,100,250)==(20,5000.0); \
   assert c.ra_bill_totals(100000,400000,5,2000)['net_payable']==93000; \
   assert c.cube_strength(450,22500)==20.0 and c.cube_result(20,'M20')=='Pass'; \
+  assert c.deviation_row(100,120,250)['amount_effect']==5000.0; \
   print('civil ok')"
 
 python -c "import money as m; \
@@ -581,6 +598,7 @@ python -c "import wages as w; \
   assert w.wage_net(6,700,1000)=={'gross':4200.0,'deduction':1000.0,'net':3200.0}; \
   assert w.allocate_recovery([(1,1000,0),(2,500,0)],1200)==\
     [(1,1000.0,1000.0,True),(2,200.0,200.0,False)]; \
+  assert w.wage_net_full(6,700,1000,12,0.75,1)['net']==2622.5; \
   print('wages ok')"
 
 python -c "import docnum as d; \
@@ -615,6 +633,10 @@ in `wages.py`.
   recovered). **De-dupe**: recording is blocked if any Labour payment with the
   week's `Wages <start> to <end>` narration already exists for that site — one
   recording per site+week; to redo it, delete those payment rows first.
+  **Optional statutory deductions**: `pf_pct`/`esi_pct`/`labour_cess_pct` in
+  `app_settings` (Tools > Firm Details, blank = off) are applied on the gross
+  before the advance cap via `wages.wage_net_full`; the payout sheet shows the
+  PF/ESI/Cess column only when in use. Monthly payroll (§8) ignores them.
 - **Thekedars** (`thekedars` master via `CrudFrame`) + **Thekedar Ledger**
   (`ThekedarLedgerFrame`): a labour contractor's running account —
   `entry_type='Work'` increases what we owe, `'Paid'` decreases it; balance via

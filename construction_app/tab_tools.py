@@ -59,7 +59,9 @@ class ToolsTab(ttk.Frame):
         self.firm = {'company_name': tk.StringVar(), 'seller_gstin': tk.StringVar(),
                      'seller_address': tk.StringVar(),
                      'invoice_prefix': tk.StringVar(),
-                     'invoice_fy_reset': tk.StringVar(value='No')}
+                     'invoice_fy_reset': tk.StringVar(value='No'),
+                     'pf_pct': tk.StringVar(), 'esi_pct': tk.StringVar(),
+                     'labour_cess_pct': tk.StringVar()}
         for idx, (key, label) in enumerate([
                 ('company_name', 'Firm Name'), ('seller_gstin', 'GSTIN'),
                 ('seller_address', 'Address')]):
@@ -74,8 +76,18 @@ class ToolsTab(ttk.Frame):
         ttk.Label(cell, text='New series each FY').pack(side='left', padx=(10, 2))
         ttk.Combobox(cell, textvariable=self.firm['invoice_fy_reset'], width=5,
                      state='readonly', values=['No', 'Yes']).pack(side='left')
+        # Optional statutory wage deductions (leave blank/0 = off; most T2/T3
+        # labour is informal). Applied by the weekly payout on the gross wage.
+        cell = ttk.Frame(firm); cell.grid(row=2, column=0, columnspan=2,
+                                          padx=6, pady=4, sticky='w')
+        ttk.Label(cell, text='Wage deductions (optional, % of gross, blank = off):') \
+            .pack(side='left')
+        for key, label in (('pf_pct', 'PF %'), ('esi_pct', 'ESI %'),
+                           ('labour_cess_pct', 'Cess %')):
+            ttk.Label(cell, text=label).pack(side='left', padx=(10, 2))
+            ttk.Entry(cell, textvariable=self.firm[key], width=6).pack(side='left')
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
-            .grid(row=2, column=0, padx=6, pady=6, sticky='w')
+            .grid(row=3, column=0, padx=6, pady=6, sticky='w')
 
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
@@ -95,7 +107,8 @@ class ToolsTab(ttk.Frame):
             saved = {r['key']: r['value'] for r in conn.execute(
                 "SELECT key, value FROM app_settings WHERE key IN "
                 "('company_name', 'seller_gstin', 'seller_address', "
-                "'invoice_prefix', 'invoice_fy_reset')")}
+                "'invoice_prefix', 'invoice_fy_reset', "
+                "'pf_pct', 'esi_pct', 'labour_cess_pct')")}
         finally:
             conn.close()
         for key, var in self.firm.items():
