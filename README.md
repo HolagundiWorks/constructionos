@@ -28,7 +28,8 @@ documents, and the beginnings of full accounting:
 - **GST & TDS** — output/input GST registers, a net-position summary, and a
   TDS register, month-filtered and printable (for return time).
 - **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
-  chart of accounts, a double-entry journal, and a trial balance (for the CA).
+  chart of accounts, a double-entry journal with one-click auto-posting of
+  invoices & payments, and a trial balance (for the CA).
 
 > Built for small civil contractors in tier-2/tier-3 cities — offline, on one
 > PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md) and
@@ -79,6 +80,8 @@ construction_app/
 ├── main.py                 # Entry point; builds the tabbed window
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
+├── posting.py              # Pure double-entry posting rules per document (testable)
+├── journal_post.py         # Auto-post engine: documents → balanced journal entries
 ├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
 ├── estimate.py             # Pure estimate roll-up: subtotal→contingency→GST→grand total (testable)
 ├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)

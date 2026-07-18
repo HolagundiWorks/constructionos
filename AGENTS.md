@@ -102,6 +102,8 @@ construction_app/
 ├── main.py                 # Entry point. Builds the ttk.Notebook, wires every tab in one place.
 ├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() + init_db() + default CoA seed.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
+├── posting.py              # PURE double-entry posting rules: balanced journal lines per document type (uses CoA codes). No tkinter/DB.
+├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices + payments. DB-only, no tkinter.
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
@@ -320,10 +322,20 @@ absolute amount entered in the view.
   the books balance via `finance.is_balanced(total_debit, total_credit)`.
 
 **The double-entry invariant**: for the trial balance to balance, every saved
-journal entry should itself balance. Nothing auto-posts business documents into
-the journal yet — the journal is manual-entry only (§14). `finance.account_net`
-gives an account's signed balance in its normal direction if you build ledger/
-P&L views later.
+journal entry should itself balance. `finance.account_net` gives an account's
+signed balance in its normal direction if you build ledger/P&L views later.
+
+**Auto-posting** (Phase 7): the Journal's **"Auto-Post Documents"** button runs
+`journal_post.post_all(conn)`, which posts a balanced entry for every tax
+invoice, vendor invoice, and payment not already posted. The posting *rules*
+(which accounts, debit vs credit) live in the pure `posting.py`; the engine in
+`journal_post.py` resolves account codes to ids, checks
+`journal_entries.(source, source_id)` for idempotency, and inserts. Because
+every generated entry balances, the trial balance stays balanced no matter how
+many documents are posted. **Running bills and RA bills are not auto-posted**
+(their client-withheld retention is an asset the seeded CoA doesn't model — see
+§14). If you add a document type, add a `*_lines` rule in `posting.py` and a
+loop in `post_all`, keeping each entry balanced.
 
 ## 10. Database schema quick reference
 
@@ -436,14 +448,17 @@ python -c "import db; db.init_db(); \
 
 Intentional scope cuts, not bugs — mention to the user before changing, since
 "fixing" is a feature request:
-- **No auto-posting to the journal.** Bills, vendor invoices, and payroll do
-  **not** create `journal_entries` automatically; the journal is manual-entry
-  only. Wiring these to post balanced entries (Dr Materials Consumed / Input
-  GST, Cr Accounts Payable / TDS Payable, etc.) is the next big step.
+- **Auto-posting covers only tax invoices, vendor invoices, and payments**
+  (§9, `journal_post.post_all`). **Running bills and RA bills are not posted**
+  (client-withheld retention would need a retention-receivable asset the seeded
+  CoA lacks), and payroll is not posted (wages reach the journal only when paid
+  via a Labour payment). Auto-posting is a manual "Auto-Post Documents" action,
+  not automatic on save, and there is no un-post/reverse (delete the journal
+  entry to re-post).
 - **Reconciliation is totals-level only** — no line/quantity matching, no
   three-way match against goods received (§7).
-- **No GST returns / GSTR summaries, no ageing/outstanding, no payments &
-  receipts ledger, no P&L / balance sheet** — trial balance is the only
+- **No GST returns / GSTR summaries, no ageing/outstanding, no P&L / balance
+  sheet** — trial balance and the GST/TDS registers are the only
   financial report so far.
 - **PO `total_amount` is pre-tax**; there's no GST-inclusive PO total (§5).
 - No retroactive recompute of prior bills' `previous_billed` when a later

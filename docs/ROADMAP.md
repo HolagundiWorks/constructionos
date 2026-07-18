@@ -158,9 +158,11 @@ Simple, honest numbers — not exec dashboards.
 
 Power features that must never complicate the core.
 
-- ⏳ **Auto-posting to double-entry** — bills, vendor invoices, payroll, and
-  payments post balanced journal entries automatically (Dr/Cr), so the trial
-  balance and a P&L / balance sheet come for free for the CA.
+- 🚧 **Auto-posting to double-entry** — a **"Auto-Post Documents"** action posts
+  balanced journal entries for tax invoices, vendor invoices, and payments
+  (`posting.py` rules + `journal_post.post_all`, idempotent). Remaining:
+  running/RA bills (need a retention-receivable account), payroll, and a
+  P&L / balance sheet built on the resulting ledger.
 - ⏳ **Subcontractor / work-order billing** — back-to-back BOQ, sub RA bills,
   retention & TDS on works contract.
 - ⏳ **Multi-year / multi-firm** files, optional cloud backup.

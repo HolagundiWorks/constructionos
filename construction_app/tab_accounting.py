@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 import finance
+import journal_post
 from crud_frame import CrudFrame, Field
 
 
@@ -61,9 +62,11 @@ class JournalFrame(ttk.Frame):
         self.refresh_entries()
 
     def _build_ui(self):
-        ttk.Label(self, text='Journal Entries',
-                  font=('TkDefaultFont', 12, 'bold')) \
-            .pack(anchor='w', padx=8, pady=(8, 4))
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Journal Entries',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Auto-Post Documents',
+                   command=self.auto_post).pack(side='right')
 
         hdr = ttk.LabelFrame(self, text='Entries')
         hdr.pack(fill='both', expand=True, padx=8, pady=4)
@@ -198,6 +201,20 @@ class JournalFrame(ttk.Frame):
         self.h['reference'].set(r['reference'] or '')
         self._set_balance_label(r['total_debit'], r['total_credit'])
         self.refresh_lines()
+
+    def auto_post(self):
+        """Generate balanced journal entries from unposted business documents."""
+        conn = self.db_getter()
+        try:
+            count = journal_post.post_all(conn)
+        finally:
+            conn.close()
+        messagebox.showinfo(
+            'Auto-post complete',
+            'Posted {} new journal entr{} from tax invoices, vendor invoices '
+            'and payments.\n\n(Running/RA bills are not auto-posted yet.)'.format(
+                count, 'y' if count == 1 else 'ies'))
+        self.refresh_entries()
 
     def add_entry(self):
         conn = self.db_getter()
