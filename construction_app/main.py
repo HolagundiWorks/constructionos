@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import db
+import modules
 from tab_home import build_home_tab
 from tab_money import build_money_tab
 from tab_insight import build_insight_tab
@@ -40,47 +41,36 @@ from tab_timeline import build_timeline_tab
 from tab_tools import build_tools_tab
 
 
-# Top-level layout: (Section title, [(tab label, builder), ...]).
-# A single-tab section (Home, Tools) is added directly, not nested.
-SECTIONS = [
-    ('Masters', [
-        ('Sites', build_sites_tab),
-        ('Clients', build_clients_tab),
-        ('Vendors', build_vendors_tab),
-        ('Materials', build_materials_tab),
-        ('Labour', build_labor_tab),
-        ('Equipment', build_equipment_tab),
-    ]),
-    ('Operations', [
-        ('Warehouse', build_warehouse_tab),
-        ('Muster & Wages', build_muster_tab),
-        ('Labour Ops', build_labor_ops_tab),
-        ('Equipment Hire', build_equipment_hire_tab),
-        ('Consumption', build_consumption_tab),
-        ('Site Reports', build_site_reports_tab),
-        ('Timeline', build_timeline_tab),
-    ]),
-    ('Billing', [
-        ('Quotations', build_quotations_tab),
-        ('Estimates', build_estimate_tab),
-        ('Contracts', build_contracts_tab),
-        ('BOQ / RA Bills', build_boq_ra_tab),
-        ('Running Bills', BillingTab),
-        ('Tax Invoice', build_tax_invoice_tab),
-    ]),
-    ('Purchases', [
-        ('Purchase Orders', build_purchase_orders_tab),
-        ('Vendor Invoices', build_vendor_invoices_tab),
-    ]),
-    ('Money', [
-        ('Cash & Parties', build_money_tab),
-        ('Insight', build_insight_tab),
-    ]),
-    ('Accounts', [
-        ('GST & TDS', build_gst_tab),
-        ('Accounting', build_accounting_tab),
-    ]),
-]
+# One builder per module label. The section grouping and order live in
+# modules.SECTIONS_CATALOG (the single source of truth, shared with the toggle
+# settings panel); this map just supplies the widget for each label.
+BUILDERS = {
+    'Sites': build_sites_tab,
+    'Clients': build_clients_tab,
+    'Vendors': build_vendors_tab,
+    'Materials': build_materials_tab,
+    'Labour': build_labor_tab,
+    'Equipment': build_equipment_tab,
+    'Warehouse': build_warehouse_tab,
+    'Muster & Wages': build_muster_tab,
+    'Labour Ops': build_labor_ops_tab,
+    'Equipment Hire': build_equipment_hire_tab,
+    'Consumption': build_consumption_tab,
+    'Site Reports': build_site_reports_tab,
+    'Timeline': build_timeline_tab,
+    'Quotations': build_quotations_tab,
+    'Estimates': build_estimate_tab,
+    'Contracts': build_contracts_tab,
+    'BOQ / RA Bills': build_boq_ra_tab,
+    'Running Bills': BillingTab,
+    'Tax Invoice': build_tax_invoice_tab,
+    'Purchase Orders': build_purchase_orders_tab,
+    'Vendor Invoices': build_vendor_invoices_tab,
+    'Cash & Parties': build_money_tab,
+    'Insight': build_insight_tab,
+    'GST & TDS': build_gst_tab,
+    'Accounting': build_accounting_tab,
+}
 
 
 def _section(parent, get, items):
@@ -103,10 +93,20 @@ def main():
 
     get = db.get_conn
 
-    nb.add(build_home_tab(nb, get), text='Home')
-    for title, items in SECTIONS:
+    conn = get()
+    try:
+        enabled = modules.enabled_map(conn)
+    finally:
+        conn.close()
+
+    nb.add(build_home_tab(nb, get), text='Home')   # always on
+    for title, labels in modules.SECTIONS_CATALOG:
+        items = [(label, BUILDERS[label]) for label in labels
+                 if enabled.get(label, True)]
+        if not items:
+            continue   # whole section switched off
         nb.add(_section(nb, get, items), text=title)
-    nb.add(build_tools_tab(nb, get), text='Tools')
+    nb.add(build_tools_tab(nb, get), text='Tools')  # always on (holds the toggles)
 
     root.mainloop()
 

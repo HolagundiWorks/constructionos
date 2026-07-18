@@ -410,13 +410,22 @@ raises `IntegrityError`.
   both are just callables `builder(parent, db_getter)`. Tabs with several views
   (Vendor, Warehouse, Labour Ops, Muster, Vendor Invoices, Money, Insight, GST,
   Accounting, Timeline, …) return an inner `ttk.Notebook`.
-- **Adding a tab / where it appears**: `main.py` groups tabs into top-level
-  **sections** via the `SECTIONS` list — `[(section title, [(tab label,
-  builder), ...])]` — and `_section` builds a sub-notebook per section (so the
-  top bar stays ~8 tabs, not ~25). To add a tab, append `(label, builder)` to
-  the right section (or add a new section). Home and Tools are the only
-  single, ungrouped top-level tabs. A builder that already returns a Notebook
-  just nests one level deeper — that's expected.
+- **Adding a tab / where it appears**: the section grouping + order is the
+  `modules.SECTIONS_CATALOG` list — `[(section title, [tab label, ...])]` —
+  which is the single source of truth shared by `main.py` and the Tools toggle
+  panel. `main.py` maps each label to a widget in its `BUILDERS` dict and
+  `_section` builds a sub-notebook per section (so the top bar stays ~8 tabs,
+  not ~25). **To add a tab**: add its label to a section in
+  `modules.SECTIONS_CATALOG` **and** an entry in `main.BUILDERS` (the two must
+  agree — a label with no builder KeyErrors at startup). Home and Tools are the
+  only single, ungrouped, always-on top-level tabs.
+- **Module toggles**: every catalog label is a switchable module. State lives in
+  `app_settings` as `module:<label>` (`'1'`/`'0'`, absent = on); helpers are in
+  `modules.py` (`enabled_map`, `is_enabled`, `set_states`). `main.py` reads them
+  once at startup and skips disabled tabs (and any section left empty). The
+  Tools tab's **Modules** panel edits them; changes apply on next launch because
+  the Notebook is built once. A builder that already returns a Notebook just
+  nests one level deeper — that's expected.
 - **`db.get_conn` is passed as `db_getter` (a callable, not a live
   connection)** — every operation opens a fresh short-lived connection and
   closes it. No shared/long-lived connection; don't hold one across callbacks.

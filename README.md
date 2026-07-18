@@ -73,13 +73,15 @@ grouped into eight top-level sections, each holding its related tabs:
   (site profitability, receivables/payables).
 - **Accounts** — GST & TDS registers, and Accounting (chart of accounts,
   journal with auto-posting, trial balance).
-- **Tools** — backup & restore, firm details.
+- **Tools** — backup & restore, firm details, and **Modules** (switch off
+  any tab you don't use to declutter the UI).
 
 ## Project layout
 
 ```
 construction_app/
-├── main.py                 # Entry point; builds the tabbed window
+├── main.py                 # Entry point; builds the grouped, toggle-aware tabbed window
+├── modules.py              # Module catalog (sections→tabs) + on/off toggles
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
 ├── posting.py              # Pure double-entry posting rules per document (testable)

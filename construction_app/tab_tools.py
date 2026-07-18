@@ -22,6 +22,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 import db
+import modules
 
 
 class ToolsTab(ttk.Frame):
@@ -67,6 +68,29 @@ class ToolsTab(ttk.Frame):
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
             .grid(row=2, column=0, padx=6, pady=6, sticky='w')
 
+        # --- Modules (switch tabs on/off) ---
+        mod = ttk.LabelFrame(self, text='Modules (switch off what you don\'t use)')
+        mod.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(mod, text='Unticked modules are hidden. Changes apply the next '
+                            'time you open the app.', wraplength=560,
+                  justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+        grid = ttk.Frame(mod); grid.pack(fill='x', padx=8, pady=4)
+        self.module_vars = {}
+        for row, (section, labels) in enumerate(modules.SECTIONS_CATALOG):
+            ttk.Label(grid, text=section, width=12,
+                      font=('TkDefaultFont', 9, 'bold')).grid(
+                          row=row, column=0, sticky='nw', padx=(0, 6), pady=2)
+            cell = ttk.Frame(grid); cell.grid(row=row, column=1, sticky='w')
+            for col, label in enumerate(labels):
+                var = tk.IntVar(value=1)
+                self.module_vars[label] = var
+                ttk.Checkbutton(cell, text=label, variable=var).grid(
+                    row=col // 4, column=col % 4, sticky='w', padx=4, pady=1)
+        btns = ttk.Frame(mod); btns.pack(fill='x', padx=8, pady=4)
+        ttk.Button(btns, text='Save Modules', command=self.save_modules).pack(side='left')
+        ttk.Button(btns, text='Enable All',
+                   command=lambda: self._set_all_modules(1)).pack(side='left', padx=6)
+
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
                   wraplength=560, justify='left') \
@@ -89,6 +113,31 @@ class ToolsTab(ttk.Frame):
             conn.close()
         for key, var in self.firm.items():
             var.set(saved.get(key, ''))
+        conn = self.db_getter()
+        try:
+            states = modules.enabled_map(conn)
+        finally:
+            conn.close()
+        for label, var in self.module_vars.items():
+            var.set(1 if states.get(label, True) else 0)
+
+    def _set_all_modules(self, value):
+        for var in self.module_vars.values():
+            var.set(value)
+
+    def save_modules(self):
+        states = {label: bool(var.get()) for label, var in self.module_vars.items()}
+        conn = self.db_getter()
+        try:
+            modules.set_states(conn, states)
+        finally:
+            conn.close()
+        off = [l for l, on in states.items() if not on]
+        self.status_var.set(
+            'Modules saved. {} hidden. Restart the app to apply.'.format(
+                len(off)) if off else 'Modules saved — all enabled.')
+        messagebox.showinfo('Modules saved',
+                            'Changes apply the next time you open the app.')
 
     def save_firm(self):
         conn = self.db_getter()
