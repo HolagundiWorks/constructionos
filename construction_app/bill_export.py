@@ -480,6 +480,131 @@ computer-generated tax invoice.</div>
 """
 
 
+def build_document_html(doc_title, meta_rows, party_boxes, items,
+                        total_label='Total', extra_summary_rows=None,
+                        net_row=None, notes='', company_name='Contractor-OS'):
+    """Render a generic header+items commercial document (quotation, estimate,
+    purchase order, vendor invoice) to printable HTML.
+
+    ``meta_rows`` is a list of ``(label, value)`` pairs for the top-right meta
+    table; ``party_boxes`` a list of ``(title, [lines])`` boxes; ``items`` an
+    iterable of mappings with description/unit/qty/rate/amount keys. The items
+    total is derived here and labelled ``total_label``. ``extra_summary_rows``
+    (``(label, value)`` pairs — numeric values are money-formatted, strings
+    shown as-is) appear after it, and ``net_row`` renders as the bold final
+    line (e.g. a vendor invoice's Net Payable).
+    """
+    items = list(items or [])
+
+    def g(row, key, default=''):
+        if row is None:
+            return default
+        try:
+            val = row[key]
+        except (KeyError, IndexError, TypeError):
+            return default
+        return default if val is None else val
+
+    if items:
+        rows = []
+        for idx, it in enumerate(items, start=1):
+            rows.append(
+                '<tr><td class="num">{}</td><td>{}</td><td>{}</td>'
+                '<td class="num">{}</td><td class="num">{}</td>'
+                '<td class="num">{}</td></tr>'.format(
+                    idx, _text(g(it, 'description')), _text(g(it, 'unit')),
+                    _money(g(it, 'qty')), _money(g(it, 'rate')),
+                    _money(g(it, 'amount'))))
+        items_html = ''.join(rows)
+    else:
+        items_html = ('<tr><td colspan="6" class="muted">'
+                      'No line items recorded.</td></tr>')
+    items_total = sum(float(g(it, 'amount', 0) or 0) for it in items)
+
+    def _summary_value(value):
+        return _money(value) if isinstance(value, (int, float)) else _text(value)
+
+    summary = ['<tr><td>{}</td><td class="num">{}</td></tr>'.format(
+        _text(total_label), _money(items_total))]
+    for label, value in (extra_summary_rows or []):
+        summary.append('<tr><td>{}</td><td class="num">{}</td></tr>'.format(
+            _text(label), _summary_value(value)))
+    if net_row:
+        summary.append('<tr class="net"><td>{}</td><td class="num">{}</td></tr>'.format(
+            _text(net_row[0]), _summary_value(net_row[1])))
+
+    meta_html = ''.join(
+        '<tr><td class="k">{}</td><td>{}</td></tr>'.format(
+            _text(label), _text(value)) for label, value in (meta_rows or []))
+    boxes = ''.join(
+        '<div class="box"><h3>{}</h3>{}</div>'.format(
+            _text(title),
+            ''.join('<div>{}</div>'.format(_text(line))
+                    for line in lines if str(line or '').strip()))
+        for title, lines in (party_boxes or []))
+    notes_html = ('<div class="remarks">Notes: {}</div>'.format(_text(notes))
+                  if notes else '')
+
+    return _DOC_TEMPLATE.format(
+        company=_text(company_name), doc_title=_text(doc_title),
+        meta_html=meta_html, boxes=boxes, items_html=items_html,
+        summary_html=''.join(summary), notes_html=notes_html,
+        generated=_text(date.today().isoformat()))
+
+
+_DOC_TEMPLATE = """<meta charset="utf-8">
+<title>{doc_title}</title>
+<style>
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; color: #1a1a1a;
+         margin: 28px; font-size: 12px; }}
+  h1 {{ margin: 0; font-size: 20px; }}
+  .doc-title {{ color: #555; font-size: 13px; letter-spacing: .5px; }}
+  .head {{ display: flex; justify-content: space-between;
+           border-bottom: 2px solid #333; padding-bottom: 10px;
+           margin-bottom: 14px; }}
+  .meta td {{ padding: 2px 8px 2px 0; }}
+  .meta td.k {{ color: #666; }}
+  .parties {{ display: flex; gap: 20px; margin: 14px 0; }}
+  .parties .box {{ flex: 1; border: 1px solid #ddd; border-radius: 6px;
+                   padding: 8px 10px; }}
+  .parties h3 {{ margin: 0 0 4px; font-size: 11px; text-transform: uppercase;
+                 color: #666; }}
+  table.items {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+  table.items th, table.items td {{ border: 1px solid #ccc; padding: 5px 7px;
+                                    text-align: left; }}
+  table.items th {{ background: #f2f4f7; }}
+  td.num, th.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+  .muted {{ color: #999; text-align: center; font-style: italic; }}
+  .summary {{ margin-top: 14px; width: 320px; margin-left: auto; }}
+  .summary table {{ width: 100%; border-collapse: collapse; }}
+  .summary td {{ padding: 4px 8px; border-bottom: 1px solid #eee; }}
+  .summary tr.net td {{ border-top: 2px solid #333; border-bottom: none;
+                        font-size: 14px; font-weight: bold; }}
+  .remarks {{ margin-top: 16px; padding: 10px 12px; background: #f8f8f8;
+              border-left: 3px solid #bbb; white-space: pre-wrap; }}
+  .foot {{ margin-top: 30px; color: #999; font-size: 11px;
+           border-top: 1px solid #eee; padding-top: 8px; }}
+  @media print {{ body {{ margin: 0; }} }}
+</style>
+<div class="head">
+  <div><h1>{company}</h1><div class="doc-title">{doc_title}</div></div>
+  <table class="meta">{meta_html}</table>
+</div>
+<div class="parties">{boxes}</div>
+<table class="items">
+  <thead>
+    <tr><th class="num">#</th><th>Description</th><th>Unit</th>
+    <th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr>
+  </thead>
+  <tbody>{items_html}</tbody>
+</table>
+<div class="summary"><table>{summary_html}</table></div>
+{notes_html}
+<div class="foot">Generated by {company} on {generated}.</div>
+"""
+
+
 def build_statement_html(title, meta_lines, headers, rows, summary='',
                          company_name='Contractor-OS'):
     """Generic printable statement (party ledger, cash book, etc.).

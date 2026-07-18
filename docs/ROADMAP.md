@@ -1,6 +1,6 @@
 # Contractor-OS — Roadmap
 
-_Last updated: 2026-07-10_
+_Last updated: 2026-07-18_
 
 Audience: **small civil contractors in tier-2 / tier-3 Indian cities** (see
 `PRODUCT.md`). Every phase is judged by one question: _does this help a solo
@@ -72,8 +72,12 @@ Contractors live and die by the **printed bill they hand over**.
   WhatsApp-attachable.
 - ✅ Basic invoice **auto-numbering** (`INV-<serial>` when left blank) and a
   **Firm Details** settings panel (name/GSTIN/address) in the Tools tab.
-- ⏳ Print/PDF for the remaining docs: quotation, estimate, PO, vendor invoice.
-- ⏳ Configurable invoice **number series** (prefix + financial-year reset).
+- ✅ Print/PDF for the remaining docs: **quotation, estimate, PO, vendor
+  invoice** (`bill_export.build_document_html`, "Print / Export" buttons in
+  `tab_documents.py` / `tab_vendor_invoice.py`; PO printout states GST-extra).
+- ✅ Configurable invoice **number series** — prefix + financial-year reset
+  (e.g. `INV/25-26/007`), max-serial-based so deletions never collide
+  (`docnum.py`, settings in Tools > Firm Details).
 - ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
   statement, part-rate handling).
 
@@ -89,8 +93,10 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
   printable payout sheet, and one-click "Record as Payments" into the cash book.
 - ✅ **Thekedar / labour-contractor ledger** — master + Work/Paid running
   balance, printable.
-- ⏳ Auto-recover advances (mark `advances.recovered`) when a payout deducts
-  them, and de-dupe re-runs of "Record as Payments".
+- ✅ Auto-recover advances (`advances.recovered` updated oldest-first, advances
+  closed when fully recovered — `wages.allocate_recovery`) when a payout is
+  recorded, and de-dupe: a site+week can only be recorded once (re-runs are
+  blocked with a plain-language message).
 - ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
 
 ---

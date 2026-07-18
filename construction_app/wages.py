@@ -37,3 +37,30 @@ def wage_net(days, daily_wage, advance_balance=0.0):
     deduction = round(min(max(float(advance_balance or 0), 0.0), gross), 2)
     return {'gross': gross, 'deduction': deduction,
             'net': round(gross - deduction, 2)}
+
+
+def allocate_recovery(advances, deduction):
+    """Split a payout's advance deduction across open advances, oldest first.
+
+    ``advances`` is an iterable of ``(advance_id, amount, recovered)`` in the
+    order recovery should apply (pass them oldest first). Returns a list of
+    ``(advance_id, recover_now, new_recovered, closed)`` — one entry per
+    advance that absorbs part of the deduction; already-covered advances are
+    skipped and allocation stops once the deduction is used up. ``closed`` is
+    True when the advance is fully recovered after this allocation.
+    """
+    remaining = round(max(float(deduction or 0), 0.0), 2)
+    out = []
+    for adv_id, amount, recovered in advances:
+        if remaining <= 0:
+            break
+        amount = round(float(amount or 0), 2)
+        recovered = round(float(recovered or 0), 2)
+        open_amt = round(amount - recovered, 2)
+        if open_amt <= 0:
+            continue
+        take = round(min(open_amt, remaining), 2)
+        new_recovered = round(recovered + take, 2)
+        out.append((adv_id, take, new_recovered, new_recovered >= amount))
+        remaining = round(remaining - take, 2)
+    return out

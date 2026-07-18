@@ -12,10 +12,14 @@ pre-tax subtotal of its linked purchase order via ``finance.reconcile`` and
 flags Over/Under-billed variances beyond a tolerance.
 """
 
+import os
+import webbrowser
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 import finance
+import bill_export
+from tab_documents import company_name_from_settings
 from tab_masters import vendor_options
 
 
@@ -105,6 +109,7 @@ class VendorInvoiceEntry(ttk.Frame):
         ttk.Button(hbtns, text='Add Invoice', command=self.add_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Update Selected', command=self.update_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Delete Invoice', command=self.delete_invoice).pack(side='left', padx=3)
+        ttk.Button(hbtns, text='Print / Export', command=self.export_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Clear', command=self.clear_invoice).pack(side='left', padx=3)
 
         # ---------------- items ----------------
@@ -346,6 +351,70 @@ class VendorInvoiceEntry(ttk.Frame):
         self.refresh_invoices()
         self.refresh_items()
         self.clear_invoice()
+
+    def export_invoice(self):
+        if self.selected_id is None:
+            messagebox.showinfo('No selection', 'Select an invoice to export.')
+            return
+        conn = self.db_getter()
+        try:
+            inv = conn.execute('SELECT * FROM vendor_invoices WHERE id = ?',
+                               (self.selected_id,)).fetchone()
+            vendor = None
+            if inv and inv['vendor_id'] is not None:
+                vendor = conn.execute('SELECT * FROM vendors WHERE id = ?',
+                                      (inv['vendor_id'],)).fetchone()
+            po_no = ''
+            if inv and inv['purchase_order_id'] is not None:
+                po = conn.execute('SELECT po_no FROM purchase_orders WHERE id = ?',
+                                  (inv['purchase_order_id'],)).fetchone()
+                po_no = (po['po_no'] if po else '') or \
+                    'PO {}'.format(inv['purchase_order_id'])
+            items = conn.execute(
+                'SELECT description, unit, qty, rate, amount '
+                'FROM vendor_invoice_items WHERE vendor_invoice_id = ? '
+                'ORDER BY id', (self.selected_id,)).fetchall()
+            company = company_name_from_settings(conn)
+        finally:
+            conn.close()
+        if inv is None:
+            return
+        gst = finance.split_gst(inv['subtotal'], inv['gst_pct'],
+                                bool(inv['interstate']))
+        if inv['interstate']:
+            tax_rows = [('IGST @ {:g}%'.format(inv['gst_pct'] or 0), gst['igst'])]
+        else:
+            half = (inv['gst_pct'] or 0) / 2.0
+            tax_rows = [('CGST @ {:g}%'.format(half), gst['cgst']),
+                        ('SGST @ {:g}%'.format(half), gst['sgst'])]
+        extra = tax_rows + [('Invoice Total', inv['total_amount'])]
+        if inv['tds_pct']:
+            extra.append(('Less: TDS @ {:g}%'.format(inv['tds_pct']),
+                          -inv['tds_amount']))
+        meta = [('Invoice No', inv['invoice_no'] or '-'),
+                ('Invoice Date', inv['invoice_date'] or '-'),
+                ('Received', inv['received_date'] or '-'),
+                ('Against PO', po_no or '-'),
+                ('Status', inv['status'] or '-')]
+        boxes = [('Vendor', [vendor['name'] if vendor else '-',
+                             vendor['address'] if vendor else '',
+                             ('GSTIN: ' + vendor['gst_no'])
+                             if vendor and vendor['gst_no'] else ''])]
+        html = bill_export.build_document_html(
+            'VENDOR INVOICE', meta, boxes, items, total_label='Taxable Value',
+            extra_summary_rows=extra, net_row=('Net Payable', inv['net_payable']),
+            notes=inv['notes'] or '', company_name=company)
+        safe = (inv['invoice_no'] or 'invoice_{}'.format(inv['id'])) \
+            .replace('/', '-').replace(' ', '_')
+        path = filedialog.asksaveasfilename(
+            title='Save vendor invoice', defaultextension='.html',
+            initialfile='vendor_invoice_{}.html'.format(safe),
+            filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+        if not path:
+            return
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(html)
+        webbrowser.open('file://' + os.path.abspath(path))
 
     def clear_invoice(self):
         self.selected_id = None

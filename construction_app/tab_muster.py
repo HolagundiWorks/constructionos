@@ -8,7 +8,9 @@ How a real T2/T3 site runs its labour:
 - **Weekly Payout** — from the muster, compute each labourer's days, gross,
   advance deduction, and net for a 7-day week (``wages`` maths), print a payout
   sheet, and optionally **record the nets as cash Payments** so they flow into
-  the cash book automatically.
+  the cash book automatically. Recording also marks the advance deductions as
+  recovered (oldest advance first, via ``wages.allocate_recovery``) and is
+  **de-duped**: a site+week can only be recorded once.
 - **Thekedars** — labour contractors as parties: a master plus a running-balance
   ledger (Work owed vs Paid).
 """
@@ -310,35 +312,84 @@ class WeeklyPayoutFrame(ttk.Frame):
             rows, summary=self.summary_var.get())
         _save_and_open_html(html, 'weekly_payout.html')
 
+    def _recover_advances(self, conn, labor_id, deduction):
+        """Mark a payout's advance deduction as recovered, oldest advance first."""
+        open_advs = conn.execute(
+            "SELECT id, amount, recovered FROM advances "
+            "WHERE labor_id = ? AND status = 'Open' ORDER BY adv_date, id",
+            (labor_id,)).fetchall()
+        alloc = wages.allocate_recovery(
+            [(a['id'], a['amount'], a['recovered']) for a in open_advs], deduction)
+        for adv_id, _take, new_recovered, closed in alloc:
+            conn.execute(
+                "UPDATE advances SET recovered = ?, status = ? WHERE id = ?",
+                (new_recovered, 'Closed' if closed else 'Open', adv_id))
+
     def record_payments(self):
         if not self._rows:
             messagebox.showinfo('Nothing to record', 'Compute a week first.')
             return
         payable = [r for r in self._rows if r['net'] > 0]
-        if not payable:
+        # deduction > 0 with net == 0 still settles the advance: the labourer's
+        # earned wage went entirely against it, so it must be marked recovered.
+        deducted = [r for r in self._rows if r['deduction'] > 0]
+        if not payable and not deducted:
             messagebox.showinfo('Nothing to pay', 'No positive net pay to record.')
-            return
-        if not messagebox.askyesno(
-                'Record payments',
-                'Record {} cash wage payment(s) totalling {:.2f} into the cash '
-                'book?'.format(len(payable), round(sum(r['net'] for r in payable), 2))):
             return
         site_id = self._site_id()
         s, e = self._period
+        narration = 'Wages {} to {}'.format(s, e)
+
+        # De-dupe: this week+site was already recorded once — block a re-run
+        # (running twice would pay wages twice and recover advances twice).
         conn = self.db_getter()
         try:
-            for r in payable:
+            existing = conn.execute(
+                "SELECT COUNT(*) AS c FROM payments WHERE party_type = 'Labour' "
+                "AND narration LIKE ? AND site_id = ?",
+                (narration + '%', site_id)).fetchone()['c']
+        finally:
+            conn.close()
+        if existing:
+            messagebox.showwarning(
+                'Already recorded',
+                'This week\'s wages for this site were already recorded '
+                '({} payment(s) found in the cash book). To pay again, first '
+                'delete those entries in Money > Payments & Receipts.'.format(existing))
+            return
+
+        if not messagebox.askyesno(
+                'Record payments',
+                'Record {} cash wage payment(s) totalling {:.2f} into the cash '
+                'book?\n\nAdvance deductions ({:.2f} total) will be marked as '
+                'recovered.'.format(
+                    len(payable), round(sum(r['net'] for r in payable), 2),
+                    round(sum(r['deduction'] for r in deducted), 2))):
+            return
+        conn = self.db_getter()
+        try:
+            # A net==0 row with a deduction still gets a (zero-amount) payment
+            # row: it documents the wage-vs-advance adjustment in the party
+            # ledger and anchors the de-dupe guard above.
+            for r in self._rows:
+                if r['net'] <= 0 and r['deduction'] <= 0:
+                    continue
                 conn.execute(
                     "INSERT INTO payments (pay_date, direction, party_type, "
                     "party_id, party_name, mode, amount, site_id, narration) "
                     "VALUES (?, 'Payment', 'Labour', ?, ?, 'Cash', ?, ?, ?)",
                     (e, r['labor_id'], r['name'], r['net'], site_id,
-                     'Wages {} to {}'.format(s, e)))
+                     narration if r['net'] > 0 else
+                     narration + ' (fully adjusted against advance)'))
+            for r in deducted:
+                self._recover_advances(conn, r['labor_id'], r['deduction'])
             conn.commit()
         finally:
             conn.close()
-        messagebox.showinfo('Recorded',
-                            'Wage payments recorded in Money > Cash Book.')
+        messagebox.showinfo(
+            'Recorded',
+            'Wage payments recorded in Money > Cash Book and advance '
+            'deductions marked as recovered.')
 
 
 # ============================================================ Thekedar ledger

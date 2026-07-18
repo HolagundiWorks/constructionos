@@ -11,11 +11,21 @@ Contracts is a plain ``CrudFrame`` (no line items) and lives at the bottom of
 this file.
 """
 
+import os
+import webbrowser
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
+import bill_export
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options, client_options, vendor_options
+
+
+def company_name_from_settings(conn):
+    """The contractor's firm name from app_settings (Tools > Firm Details)."""
+    row = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
+    return (row['value'] if row and row['value'] else '') or 'Contractor-OS'
 
 
 class DocumentFrame(ttk.Frame):
@@ -23,7 +33,7 @@ class DocumentFrame(ttk.Frame):
 
     def __init__(self, parent, db_getter, header_table, header_fields,
                  item_table, fk_col, total_col, title,
-                 header_order_by='id DESC'):
+                 header_order_by='id DESC', export_builder=None):
         super().__init__(parent)
         self.db_getter = db_getter
         self.header_table = header_table
@@ -33,6 +43,10 @@ class DocumentFrame(ttk.Frame):
         self.total_col = total_col
         self.title = title
         self.header_order_by = header_order_by
+        # Optional printable export: a callable (conn, header_id) ->
+        # (html, default_filename). When set, a "Print / Export" button
+        # appears next to the header buttons.
+        self.export_builder = export_builder
 
         self.header_vars = {}
         self.header_widgets = {}
@@ -96,6 +110,9 @@ class DocumentFrame(ttk.Frame):
         ttk.Button(hbtns, text='Update Doc', command=self.update_header).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Delete Doc', command=self.delete_header).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Clear', command=self.clear_header).pack(side='left', padx=3)
+        if self.export_builder:
+            ttk.Button(hbtns, text='Print / Export',
+                       command=self.export_doc).pack(side='left', padx=3)
 
         # ---------------- items ----------------
         items = ttk.LabelFrame(self, text='Line Items')
@@ -387,6 +404,103 @@ class DocumentFrame(ttk.Frame):
             if self.header_tree.exists(iid):
                 self.header_tree.selection_set(iid)
 
+    def export_doc(self):
+        if self.selected_header_id is None:
+            messagebox.showinfo('No selection', 'Select a document to export.')
+            return
+        conn = self.db_getter()
+        try:
+            html, default_name = self.export_builder(conn, self.selected_header_id)
+        finally:
+            conn.close()
+        path = filedialog.asksaveasfilename(
+            title='Save document', defaultextension='.html',
+            initialfile=default_name,
+            filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+        if not path:
+            return
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(html)
+        webbrowser.open('file://' + os.path.abspath(path))
+
+
+# ------------------------------------------------------------ export builders
+def _doc_items(conn, item_table, fk_col, header_id):
+    return conn.execute(
+        'SELECT description, unit, qty, rate, amount FROM {} '
+        'WHERE {} = ? ORDER BY id'.format(item_table, fk_col),
+        (header_id,)).fetchall()
+
+
+def _export_quotation(conn, qid):
+    q = conn.execute('SELECT * FROM quotations WHERE id = ?', (qid,)).fetchone()
+    client = None
+    if q['client_id'] is not None:
+        client = conn.execute('SELECT * FROM clients WHERE id = ?',
+                              (q['client_id'],)).fetchone()
+    items = _doc_items(conn, 'quotation_items', 'quotation_id', qid)
+    meta = [('Quotation No', 'Q-{}'.format(q['id'])),
+            ('Date', q['quote_date'] or '-'),
+            ('Valid Until', q['valid_until'] or '-'),
+            ('Status', q['status'] or '-')]
+    boxes = [('To', [client['name'] if client else '-',
+                     client['address'] if client else '',
+                     client['phone'] if client else ''])]
+    html = bill_export.build_document_html(
+        'QUOTATION', meta, boxes, items, notes=q['notes'] or '',
+        company_name=company_name_from_settings(conn))
+    return html, 'quotation_{}.html'.format(q['id'])
+
+
+def _export_estimate(conn, eid):
+    e = conn.execute('SELECT * FROM estimates WHERE id = ?', (eid,)).fetchone()
+    site = None
+    if e['site_id'] is not None:
+        site = conn.execute('SELECT * FROM sites WHERE id = ?',
+                            (e['site_id'],)).fetchone()
+    items = _doc_items(conn, 'estimate_items', 'estimate_id', eid)
+    meta = [('Estimate No', 'E-{}'.format(e['id'])),
+            ('Date', e['estimate_date'] or '-'),
+            ('Status', e['status'] or '-')]
+    boxes = [('Site', [site['name'] if site else '-',
+                       site['location'] if site else ''])]
+    html = bill_export.build_document_html(
+        'ESTIMATE', meta, boxes, items, total_label='Total Estimate',
+        notes=e['notes'] or '', company_name=company_name_from_settings(conn))
+    return html, 'estimate_{}.html'.format(e['id'])
+
+
+def _export_purchase_order(conn, pid):
+    po = conn.execute('SELECT * FROM purchase_orders WHERE id = ?',
+                      (pid,)).fetchone()
+    vendor = None
+    if po['vendor_id'] is not None:
+        vendor = conn.execute('SELECT * FROM vendors WHERE id = ?',
+                              (po['vendor_id'],)).fetchone()
+    site = None
+    if po['site_id'] is not None:
+        site = conn.execute('SELECT * FROM sites WHERE id = ?',
+                            (po['site_id'],)).fetchone()
+    items = _doc_items(conn, 'purchase_order_items', 'purchase_order_id', pid)
+    meta = [('PO No', po['po_no'] or 'PO-{}'.format(po['id'])),
+            ('Date', po['po_date'] or '-'),
+            ('Expected By', po['expected_date'] or '-'),
+            ('Status', po['status'] or '-')]
+    boxes = [('Vendor', [vendor['name'] if vendor else '-',
+                         vendor['address'] if vendor else '',
+                         ('GSTIN: ' + vendor['gst_no'])
+                         if vendor and vendor['gst_no'] else '']),
+             ('Deliver To', [site['name'] if site else '-',
+                             site['location'] if site else ''])]
+    # PO total is deliberately pre-tax (AGENTS.md §5); say so on the printout.
+    extra = [('GST', '@ {:g}% extra as applicable'.format(po['gst_pct'] or 0))]
+    html = bill_export.build_document_html(
+        'PURCHASE ORDER', meta, boxes, items, total_label='Total (pre-GST)',
+        extra_summary_rows=extra, notes=po['notes'] or '',
+        company_name=company_name_from_settings(conn))
+    safe = (po['po_no'] or 'po_{}'.format(po['id'])).replace('/', '-').replace(' ', '_')
+    return html, 'purchase_order_{}.html'.format(safe)
+
 
 # ---------------------------------------------------------------- builders
 def build_quotations_tab(parent, db_getter):
@@ -401,7 +515,7 @@ def build_quotations_tab(parent, db_getter):
     ]
     return DocumentFrame(parent, db_getter, 'quotations', header_fields,
                          'quotation_items', 'quotation_id', 'total_amount',
-                         'Quotations')
+                         'Quotations', export_builder=_export_quotation)
 
 
 def build_estimates_tab(parent, db_getter):
@@ -414,7 +528,7 @@ def build_estimates_tab(parent, db_getter):
     ]
     return DocumentFrame(parent, db_getter, 'estimates', header_fields,
                          'estimate_items', 'estimate_id', 'total_estimate',
-                         'Estimates')
+                         'Estimates', export_builder=_export_estimate)
 
 
 def build_purchase_orders_tab(parent, db_getter):
@@ -438,7 +552,8 @@ def build_purchase_orders_tab(parent, db_getter):
     ]
     return DocumentFrame(parent, db_getter, 'purchase_orders', header_fields,
                          'purchase_order_items', 'purchase_order_id',
-                         'total_amount', 'Purchase Orders')
+                         'total_amount', 'Purchase Orders',
+                         export_builder=_export_purchase_order)
 
 
 def build_contracts_tab(parent, db_getter):

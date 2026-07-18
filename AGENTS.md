@@ -105,25 +105,26 @@ construction_app/
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
+├── docnum.py               # PURE invoice-number series: FY label + max-serial next number. No tkinter/DB.
 ├── wages.py                # PURE day-fraction + gross/deduction/net wage maths (shared by muster/payout/payroll). No tkinter/DB.
-├── bill_export.py          # PURE HTML builders: bill, RA abstract, GST tax invoice (+words), generic statement. No tkinter/DB.
+├── bill_export.py          # PURE HTML builders: bill, RA abstract, GST tax invoice (+words), generic statement, generic header+items document. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
 ├── tab_vendor.py           # Vendor master (CrudFrame) + a read-only spend/hire rollup view.
 ├── tab_warehouse.py        # Material ledger (CrudFrame) + a computed-on-the-fly stock summary view.
 ├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for = wages.day_fraction.
 ├── tab_muster.py           # Muster roll (fast daily attendance) + weekly wage payout (feeds Payments) + thekedar master & ledger.
-├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
+├── tab_documents.py        # DocumentFrame generic class (header + line items, optional Print/Export) → Quotations, Estimates, Purchase Orders. Contracts is a plain CrudFrame.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
 ├── tab_tax_invoice.py      # GST Tax Invoices (outward, to clients): HSN, CGST/SGST/IGST, printable invoice with amount-in-words.
-├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance) + PO↔invoice ReconciliationView.
+├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance, printable export) + PO↔invoice ReconciliationView.
 ├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA (Running Account) bill generation & abstract export.
 ├── tab_consumption.py      # Consumption norms + work-done log + theoretical-vs-actual reconciliation view.
 ├── tab_site_reports.py     # DPR, Cube Tests (auto strength/result), Material Tests, Plant Log (CrudFrames).
 ├── tab_home.py             # Plain-language dashboard: cash in hand, receivables, payables, active sites, month billed/collected.
 ├── tab_money.py            # Payments & Receipts + Party Balances + Cash Book (cash-first, Phase 1).
 ├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report — ADVANCED / for the CA.
-├── tab_tools.py            # Backup & Restore of the single SQLite file (data safety).
+├── tab_tools.py            # Backup & Restore of the single SQLite file (data safety) + Firm Details / invoice-series settings.
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.
 ├── tab_timeline.py         # TimelineTab: CrudFrame for tasks + a hand-drawn Canvas Gantt chart.
 └── construction.db         # Created at runtime — never commit; it's user data, not source (git-ignored).
@@ -442,15 +443,18 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
 - No regenerate/delete affordance for payroll rows (§8).
 - `dependency` in timeline tasks is inert metadata; the Gantt ignores it.
 - No PDF export, but printable **HTML** export (browser → print / Save-as-PDF)
-  now covers bills, RA bills/abstracts, **GST tax invoices**, and **party
-  statement + cash book** (`bill_export.build_*`). Quotations, estimates, POs,
-  and vendor invoices still have no export.
+  now covers every commercial document: bills, RA bills/abstracts, **GST tax
+  invoices**, **party statement + cash book**, and (via
+  `bill_export.build_document_html`) **quotations, estimates, POs, and vendor
+  invoices**. The PO printout states its total is pre-GST.
 - Tax-invoice **seller details** (name/GSTIN/address) come from `app_settings`
   keys `company_name`/`seller_gstin`/`seller_address`, editable in the **Tools**
   tab's "Firm Details" panel; blank until the contractor fills them in.
-- Tax invoices **auto-number** as `INV-<serial>` (count-based) only when the
-  number is left blank — there's no configurable prefix/financial-year series
-  yet, and count-based numbering can collide if invoices are deleted.
+- Tax invoices **auto-number** only when the number is left blank, from a
+  configurable series (`docnum.py`; settings `invoice_prefix` /
+  `invoice_fy_reset` in Tools > Firm Details): `PREFIX-serial`, or
+  `PREFIX/FY/serial` (e.g. `INV/25-26/007`) with FY reset on. The next serial
+  is max-based, so deleting invoices cannot cause duplicates.
 - **RA "previous quantity" only counts Approved/Paid RA bills** (mirrors §6),
   so generating multiple *Draft* RA bills before approving them can
   double-count quantities. Approve each RA bill before generating the next.
@@ -575,7 +579,15 @@ python -c "import money as m; \
 python -c "import wages as w; \
   assert w.day_fraction('Overtime',12)==1.5; \
   assert w.wage_net(6,700,1000)=={'gross':4200.0,'deduction':1000.0,'net':3200.0}; \
+  assert w.allocate_recovery([(1,1000,0),(2,500,0)],1200)==\
+    [(1,1000.0,1000.0,True),(2,200.0,200.0,False)]; \
   print('wages ok')"
+
+python -c "import docnum as d; \
+  assert d.fy_label('2026-03-31')=='25-26' and d.fy_label('2026-04-01')=='26-27'; \
+  assert d.next_doc_no(['INV-1','INV-7'],'INV','')=='INV-008'; \
+  assert d.next_doc_no(['INV/26-27/012'],'INV','26-27')=='INV/26-27/013'; \
+  print('docnum ok')"
 ```
 
 ## 19. Labour — muster roll, weekly payout, thekedars (`tab_muster.py`)
@@ -596,8 +608,13 @@ in `wages.py`.
   `wages.wage_net(days, daily_wage, open_advance_balance)`. **Export Payout
   Sheet** prints via `build_statement_html`; **Record as Payments** inserts a
   `payments` row (`direction='Payment'`, `party_type='Labour'`, `mode='Cash'`)
-  per positive net, so wages flow straight into the cash book (§17). It does
-  **not** mark advances recovered or dedupe — running it twice records twice.
+  per row with net > 0 **or** deduction > 0 (a net-0/deduction-only row gets a
+  zero-amount entry documenting the wage-vs-advance adjustment), and marks the
+  deductions **recovered** against open advances oldest-first via
+  `wages.allocate_recovery` (an advance flips to `Closed` when fully
+  recovered). **De-dupe**: recording is blocked if any Labour payment with the
+  week's `Wages <start> to <end>` narration already exists for that site — one
+  recording per site+week; to redo it, delete those payment rows first.
 - **Thekedars** (`thekedars` master via `CrudFrame`) + **Thekedar Ledger**
   (`ThekedarLedgerFrame`): a labour contractor's running account —
   `entry_type='Work'` increases what we owe, `'Paid'` decreases it; balance via
