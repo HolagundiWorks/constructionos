@@ -21,6 +21,7 @@ import auth
 import session
 from tab_login import LoginDialog
 from tab_home import build_home_tab
+from tab_assistant import build_assistant_tab
 from tab_money import build_money_tab
 from tab_insight import build_insight_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
@@ -137,7 +138,8 @@ def main():
     finally:
         conn.close()
 
-    nb.add(build_home_tab(nb, get), text='Home')   # always on
+    nb.add(build_home_tab(nb, get), text='Home')          # always on
+    nb.add(build_assistant_tab(nb, get), text='Assistant')  # always on
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels
                  if enabled.get(label, True)]

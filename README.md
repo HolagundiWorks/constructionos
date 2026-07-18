@@ -33,6 +33,10 @@ documents, and the beginnings of full accounting:
 - **Security (optional)** — off by default (opens straight in). An office can
   switch on sign-in with user accounts, roles (Admin/Operator/Viewer), PBKDF2
   password hashing, account lockout, and an audit log.
+- **AI Assistant (optional)** — ask questions about your own data in plain
+  language ("how much does Sharma owe?", "cash received this month"). Uses a
+  **local Ollama** model via retrieval-augmented, read-only text-to-SQL; quick
+  deterministic answers work even without it. No cloud, no Python dependency.
 
 > Built for small civil contractors in tier-2/tier-3 cities — offline, on one
 > PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md) and
@@ -85,6 +89,9 @@ grouped into eight top-level sections, each holding its related tabs:
 construction_app/
 ├── main.py                 # Entry point; optional login, then grouped toggle-aware window
 ├── modules.py              # Module catalog (sections→tabs) + on/off toggles
+├── ollama_client.py        # Stdlib client for a local Ollama server (no pip)
+├── assistant.py            # RAG text-to-SQL over your data (read-only) + quick answers
+├── tab_assistant.py        # Ask-your-data assistant tab
 ├── security.py             # Pure PBKDF2 password hashing (testable)
 ├── auth.py                 # Users, authentication, lockout, audit log (DB)
 ├── session.py              # Current-user/role holder

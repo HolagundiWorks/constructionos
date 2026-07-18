@@ -105,6 +105,9 @@ construction_app/
 ├── auth.py                 # Users/auth/audit (DB): create_user, authenticate (+lockout), roles, security_enabled toggle, audit(). No tkinter.
 ├── session.py              # PURE process-wide current user/role holder (is_admin, can_write). No tkinter/DB.
 ├── assets.py               # Brand logos: file paths + base64 data-URI/`<img>` for HTML letterheads. No tkinter/DB.
+├── ollama_client.py        # Stdlib (urllib) client for a LOCAL Ollama server: available()/list_models()/generate(). No pip.
+├── assistant.py            # RAG text-to-SQL over the DB: schema docs, retrieval, validate_sql, read-only safe_execute, answer(), quick_answers. No tkinter.
+├── tab_assistant.py        # "Assistant" tab: ask-your-data chat (threaded), quick answers, dynamic result table.
 ├── resources/              # logo_square.png, logo_rectangle.png, app.ico (committed binary brand assets).
 ├── tab_login.py            # Startup login dialog (shown only when security is enabled).
 ├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
@@ -705,3 +708,38 @@ import.
 Everything except the dialogs is DB/pure and unit-testable: exercise
 `security.hash_password/verify_password` and `auth.*` (create/authenticate/
 lockout/roles/audit) against a real connection with no GUI.
+
+## 21. AI Assistant — RAG over your data (`assistant.py`, `tab_assistant.py`)
+
+An "ask your data in plain language" tab (top-level, always on). It answers
+questions about the contractor's **own records** via **retrieval-augmented
+text-to-SQL** with a **local Ollama** model.
+
+**No-pip / offline preserved.** The only new capability is `ollama_client.py`,
+which talks to a *local* Ollama HTTP server with stdlib `urllib` — no Python
+package, and localhost so still offline. The tradeoff: the assistant needs the
+user to install Ollama separately and `ollama pull` a model. Everything **fails
+soft** — with Ollama absent the tab still shows deterministic **quick answers**
+and a clear "start Ollama" status; the rest of the app is unaffected.
+
+Pipeline (`assistant.answer`): `retrieve` ranks the curated `SCHEMA_DOCS` +
+few-shot `EXAMPLES` by keyword overlap (the "R"; no embeddings) → Ollama writes
+one SQL `SELECT` grounded in that context → `extract_sql` + `validate_sql`
+(SELECT/WITH only, single statement, write/PRAGMA/ATTACH keywords blocked, a
+`LIMIT` injected) → `safe_execute` runs it under **`PRAGMA query_only = ON`**
+(engine-level read-only — defence in depth over validation) → Ollama summarises
+the rows in plain language.
+
+Rules for extending:
+- **Read-only, always.** Never route model output to a writable connection.
+  Keep both `validate_sql` (deny-list + SELECT-only) and `query_only` (engine
+  guard); don't drop either.
+- When you add/rename tables or columns, **update `SCHEMA_DOCS`** (and
+  `_VALID_TABLES`) so the model stays grounded — stale schema text = wrong SQL.
+- Add high-value patterns as **`EXAMPLES`** (few-shot) rather than prompt prose;
+  keep example SQL correct against the real schema.
+- Deterministic **`quick_answers`** must never need the LLM — they're the
+  offline floor. Model config (`assistant_model`/`assistant_host`) lives in
+  `app_settings`, edited in Tools.
+- The LLM call is slow, so the tab runs it on a **background thread** and
+  marshals back with `after`; keep that off the UI thread.

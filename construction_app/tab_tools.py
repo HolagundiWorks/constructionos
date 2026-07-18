@@ -23,6 +23,8 @@ from tkinter import ttk, messagebox, filedialog
 
 import db
 import modules
+import assistant
+import ollama_client
 
 
 class ToolsTab(ttk.Frame):
@@ -67,6 +69,23 @@ class ToolsTab(ttk.Frame):
             ttk.Entry(cell, textvariable=self.firm[key], width=30).pack(side='left')
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
             .grid(row=2, column=0, padx=6, pady=6, sticky='w')
+
+        # --- AI Assistant (local Ollama) ---
+        ai = ttk.LabelFrame(self, text='AI Assistant (local Ollama)')
+        ai.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(ai, text='Ask questions about your data in plain language. '
+                          'Needs Ollama running locally (ollama.com) with a model '
+                          'pulled, e.g.  ollama pull llama3.1', wraplength=560,
+                  justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+        self.ai = {'assistant_model': tk.StringVar(), 'assistant_host': tk.StringVar()}
+        row = ttk.Frame(ai); row.pack(fill='x', padx=8, pady=4)
+        ttk.Label(row, text='Model', width=8).pack(side='left')
+        ttk.Entry(row, textvariable=self.ai['assistant_model'], width=18).pack(side='left', padx=4)
+        ttk.Label(row, text='Host', width=6).pack(side='left')
+        ttk.Entry(row, textvariable=self.ai['assistant_host'], width=26).pack(side='left', padx=4)
+        aibtns = ttk.Frame(ai); aibtns.pack(fill='x', padx=8, pady=4)
+        ttk.Button(aibtns, text='Save', command=self.save_ai).pack(side='left')
+        ttk.Button(aibtns, text='Test Connection', command=self.test_ai).pack(side='left', padx=6)
 
         # --- Modules (switch tabs on/off) ---
         mod = ttk.LabelFrame(self, text='Modules (switch off what you don\'t use)')
@@ -120,6 +139,41 @@ class ToolsTab(ttk.Frame):
             conn.close()
         for label, var in self.module_vars.items():
             var.set(1 if states.get(label, True) else 0)
+        conn = self.db_getter()
+        try:
+            model, host = assistant.get_config(conn)
+        finally:
+            conn.close()
+        self.ai['assistant_model'].set(model)
+        self.ai['assistant_host'].set(host)
+
+    def save_ai(self):
+        conn = self.db_getter()
+        try:
+            for key, var in self.ai.items():
+                conn.execute(
+                    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                    (key, var.get().strip()))
+            conn.commit()
+        finally:
+            conn.close()
+        self.status_var.set('AI Assistant settings saved.')
+
+    def test_ai(self):
+        host = self.ai['assistant_host'].get().strip() or ollama_client.DEFAULT_HOST
+        if not ollama_client.available(host):
+            messagebox.showwarning(
+                'Not connected',
+                'No Ollama server at {}.\n\nInstall from ollama.com, run '
+                '"ollama serve", and pull a model, e.g. "ollama pull '
+                'llama3.1".'.format(host))
+            return
+        models = ollama_client.list_models(host)
+        messagebox.showinfo(
+            'Connected',
+            'Ollama is running at {}.\nInstalled models: {}'.format(
+                host, ', '.join(models) or '(none — pull one first)'))
 
     def _set_all_modules(self, value):
         for var in self.module_vars.values():
