@@ -169,6 +169,19 @@ Power features that must never complicate the core.
 
 ---
 
+## Enterprise hardening (added on request)
+
+Security & robustness suited to a single-PC offline app (not corporate SSO/cloud):
+
+- ✅ **Optional login** — off by default; an office enables sign-in with user
+  accounts, roles (Admin/Operator/Viewer), **PBKDF2** password hashing, account
+  **lockout**, and an **audit log** (`security.py`, `auth.py`, `session.py`,
+  Tools > Users & Security / Audit Log).
+- ✅ **DB robustness** — WAL journaling, `busy_timeout`, enforced foreign keys.
+- ✅ **Operations** — indexes on hot foreign keys for speed at scale.
+- ⏳ Per-tab write/delete gating for Viewers (framework in place; most data tabs
+  not yet gated); at-rest encryption would need a native dep (out of scope).
+
 ## Cross-cutting, always-on
 
 - Keep **pure stdlib / tkinter / single-SQLite / no-pip**.

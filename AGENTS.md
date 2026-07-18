@@ -99,8 +99,13 @@ safety net committed yet.
 
 ```
 construction_app/
-├── main.py                 # Entry point. Builds the ttk.Notebook, wires every tab in one place.
-├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() + init_db() + default CoA seed.
+├── main.py                 # Entry point. Optional login gate, then the grouped/toggle-aware ttk.Notebook.
+├── db.py                   # SQLite schema (single SCHEMA string) + get_conn() (WAL + FK + busy_timeout) + init_db() + CoA seed + indexes.
+├── security.py             # PURE password hashing: salted PBKDF2-HMAC-SHA256 + constant-time verify + policy. No tkinter/DB.
+├── auth.py                 # Users/auth/audit (DB): create_user, authenticate (+lockout), roles, security_enabled toggle, audit(). No tkinter.
+├── session.py              # PURE process-wide current user/role holder (is_admin, can_write). No tkinter/DB.
+├── tab_login.py            # Startup login dialog (shown only when security is enabled).
+├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── posting.py              # PURE double-entry posting rules: balanced journal lines per document type (uses CoA codes). No tkinter/DB.
 ├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices + payments. DB-only, no tkinter.
@@ -339,10 +344,16 @@ loop in `post_all`, keeping each entry balanced.
 
 ## 10. Database schema quick reference
 
-All tables live in one `SCHEMA` string in `db.py`. FKs are declared but
-**`PRAGMA foreign_keys = ON` is per-connection** in `get_conn()` — any script/
-test opening SQLite outside `db.get_conn()` must re-issue the pragma or FK
-constraints silently won't enforce.
+All tables live in one `SCHEMA` string in `db.py`. `get_conn()` sets per
+connection: **`foreign_keys = ON`** (FKs won't enforce otherwise — any script/
+test opening SQLite outside `db.get_conn()` must re-issue it), **`journal_mode =
+WAL`** + **`synchronous = NORMAL`** (crash-resilient writes), and
+**`busy_timeout = 5000`** (a second short-lived connection waits instead of
+raising "database is locked"). WAL adds `-wal`/`-shm` sidecar files next to
+`construction.db` — the backup/restore in `tab_tools` copies the main file; a
+checkpoint on a clean close folds the WAL back in, so a plain file copy is
+consistent between operations. Hot-path **indexes** are declared at the end of
+`SCHEMA` (after their tables) — add new ones there.
 
 **Adding a column to an existing table**: `CREATE TABLE IF NOT EXISTS` never
 alters a table that already exists, so a new column won't reach an older
@@ -500,7 +511,13 @@ Intentional scope cuts, not bugs — mention to the user before changing, since
   no theoretical figure. There's no dropdown/foreign-key linking the two yet.
 - **Cube result is a per-cube `strength >= grade` check**, not the statistical
   IS 456 acceptance criterion over a sample set.
-- No authentication/multi-user support.
+- **Security is opt-in and off by default** (§20). When off there is no session
+  and everything is writable (single-user mode) — that is the intended default
+  for a solo contractor. Roles gate the UI (`session.can_write`/`is_admin`), not
+  the DB; there is no row-level security and no at-rest DB encryption (stdlib
+  SQLite has none — SQLCipher would break the no-dependency rule). Per-tab
+  write/delete gating for Viewers is only partially wired (Tools/user
+  management is gated; most data tabs are not yet).
 - No committed automated tests (the pure functions in `finance.py`, `civil.py`,
   and `bill_export.py` are the intended first target — see §2/§13/§18).
 
@@ -643,3 +660,36 @@ in `wages.py`.
   (`ThekedarLedgerFrame`): a labour contractor's running account —
   `entry_type='Work'` increases what we owe, `'Paid'` decreases it; balance via
   `money.running_balance`. Printable.
+
+## 20. Security & robustness (opt-in login, roles, audit)
+
+**Opt-in by design.** The app ships with security **off** — it opens straight
+in, single-user, so the solo contractor keeps zero-friction access (PRODUCT.md).
+An office with staff turns it on in **Tools > Users & Security**; that requires
+at least one active **Admin** first (`auth` won't let you enable login or demote/
+deactivate the last admin). `main.py` shows `tab_login.LoginDialog` at startup
+only when `auth.security_enabled` **and** at least one user exists.
+
+- **Passwords**: `security.py` — salted **PBKDF2-HMAC-SHA256** (120k iters),
+  constant-time verify (`hmac.compare_digest`), light policy. Never store or log
+  plaintext. Stored as `users.salt` + `users.password_hash` (hex).
+- **Lockout**: `auth.authenticate` increments `failed_attempts` and sets
+  `locked=1` at `MAX_FAILED` (5); an Admin clears it via Unlock. Failure
+  messages are generic (no user enumeration).
+- **Roles** (`session.ROLES`): Admin (all, incl. user management), Operator
+  (day-to-day), Viewer (read-only — `session.can_write()` is False). Gating is
+  in the **UI**: check `session.is_admin()` / `can_write()` before a privileged
+  action. When security is off there is no session and both default to
+  full-access (single-user) — so gate as `(not security_enabled) or is_admin()`
+  for bootstrap-friendly panels (see `SecurityTab._management_allowed`).
+- **Audit log**: `auth.audit(conn, actor, action, entity, entity_id, detail)`
+  appends to `audit_log`; logins, failures, user-management, and the security
+  toggle are recorded. Viewable in **Tools > Audit Log**. `audit()` is
+  best-effort and never raises into the caller. If you add sensitive actions
+  (deletes, restores, bulk edits), call `audit()` from them.
+- **Robustness**: see §10 for WAL / `busy_timeout` / FK pragmas and the hot-path
+  indexes. Every DB op still uses a fresh short-lived `get_conn()`.
+
+Everything except the dialogs is DB/pure and unit-testable: exercise
+`security.hash_password/verify_password` and `auth.*` (create/authenticate/
+lockout/roles/audit) against a real connection with no GUI.

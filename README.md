@@ -30,6 +30,9 @@ documents, and the beginnings of full accounting:
 - **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
   chart of accounts, a double-entry journal with one-click auto-posting of
   invoices & payments, and a trial balance (for the CA).
+- **Security (optional)** — off by default (opens straight in). An office can
+  switch on sign-in with user accounts, roles (Admin/Operator/Viewer), PBKDF2
+  password hashing, account lockout, and an audit log.
 
 > Built for small civil contractors in tier-2/tier-3 cities — offline, on one
 > PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md) and
@@ -73,15 +76,18 @@ grouped into eight top-level sections, each holding its related tabs:
   (site profitability, receivables/payables).
 - **Accounts** — GST & TDS registers, and Accounting (chart of accounts,
   journal with auto-posting, trial balance).
-- **Tools** — backup & restore, firm details, and **Modules** (switch off
-  any tab you don't use to declutter the UI).
+- **Tools** — Backup & Settings (backup/restore, firm details, Modules),
+  Users & Security (optional login, roles, lockout), and the Audit Log.
 
 ## Project layout
 
 ```
 construction_app/
-├── main.py                 # Entry point; builds the grouped, toggle-aware tabbed window
+├── main.py                 # Entry point; optional login, then grouped toggle-aware window
 ├── modules.py              # Module catalog (sections→tabs) + on/off toggles
+├── security.py             # Pure PBKDF2 password hashing (testable)
+├── auth.py                 # Users, authentication, lockout, audit log (DB)
+├── session.py              # Current-user/role holder
 ├── db.py                   # SQLite schema + connection helpers + default chart of accounts
 ├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
 ├── posting.py              # Pure double-entry posting rules per document (testable)

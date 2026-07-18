@@ -450,6 +450,29 @@ CREATE TABLE IF NOT EXISTS app_settings (
     value TEXT
 );
 
+-- --------------------------------------------- security (optional login)
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT,
+    salt TEXT,
+    role TEXT DEFAULT 'Operator',   -- Admin / Operator / Viewer
+    is_active INTEGER DEFAULT 1,
+    failed_attempts INTEGER DEFAULT 0,
+    locked INTEGER DEFAULT 0,
+    created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT,
+    username TEXT,
+    action TEXT,
+    entity TEXT,
+    entity_id TEXT,
+    detail TEXT
+);
+
 -- --------------------------------------------- GST tax invoices (outward)
 CREATE TABLE IF NOT EXISTS tax_invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -497,6 +520,35 @@ CREATE TABLE IF NOT EXISTS thekedar_entries (
     amount REAL DEFAULT 0,
     remarks TEXT
 );
+
+-- --------------------------------------------- operations indexes (hot paths)
+-- Declared last so every referenced table already exists.
+CREATE INDEX IF NOT EXISTS idx_attendance_labor ON attendance(labor_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(att_date);
+CREATE INDEX IF NOT EXISTS idx_advances_labor ON advances(labor_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_labor ON payroll(labor_id);
+CREATE INDEX IF NOT EXISTS idx_matledger_site ON material_ledger(site_id);
+CREATE INDEX IF NOT EXISTS idx_matledger_material ON material_ledger(material_id);
+CREATE INDEX IF NOT EXISTS idx_bills_contract ON bills(contract_id);
+CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
+CREATE INDEX IF NOT EXISTS idx_boq_contract ON boq_items(contract_id);
+CREATE INDEX IF NOT EXISTS idx_meas_boq ON measurements(boq_item_id);
+CREATE INDEX IF NOT EXISTS idx_meas_contract ON measurements(contract_id);
+CREATE INDEX IF NOT EXISTS idx_rabills_contract ON ra_bills(contract_id);
+CREATE INDEX IF NOT EXISTS idx_rabill_items_bill ON ra_bill_items(ra_bill_id);
+CREATE INDEX IF NOT EXISTS idx_rabill_items_boq ON ra_bill_items(boq_item_id);
+CREATE INDEX IF NOT EXISTS idx_estitems_est ON estimate_items(estimate_id);
+CREATE INDEX IF NOT EXISTS idx_tinv_items ON tax_invoice_items(tax_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_vinv_items ON vendor_invoice_items(vendor_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_vinv_vendor ON vendor_invoices(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_jlines_entry ON journal_lines(journal_entry_id);
+CREATE INDEX IF NOT EXISTS idx_jlines_account ON journal_lines(account_id);
+CREATE INDEX IF NOT EXISTS idx_jentries_source ON journal_entries(source, source_id);
+CREATE INDEX IF NOT EXISTS idx_payments_party ON payments(party_type, party_id);
+CREATE INDEX IF NOT EXISTS idx_payments_site ON payments(site_id);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(pay_date);
+CREATE INDEX IF NOT EXISTS idx_thekedar_entries ON thekedar_entries(thekedar_id);
+CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
 """
 
 
@@ -529,9 +581,15 @@ def get_conn():
     connection — including any script or test that opens the db outside this
     function.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # Robustness: WAL survives a crash mid-write far better than the default
+    # rollback journal, NORMAL sync is safe under WAL, and busy_timeout lets a
+    # second short-lived connection wait rather than raise "database is locked".
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 

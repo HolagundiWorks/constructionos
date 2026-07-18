@@ -15,6 +15,9 @@ from tkinter import ttk
 
 import db
 import modules
+import auth
+import session
+from tab_login import LoginDialog
 from tab_home import build_home_tab
 from tab_money import build_money_tab
 from tab_insight import build_insight_tab
@@ -84,14 +87,31 @@ def _section(parent, get, items):
 def main():
     db.init_db()
 
+    get = db.get_conn
+
+    # Optional login gate: only when security is enabled and users exist.
+    conn = get()
+    try:
+        require_login = auth.security_enabled(conn) and auth.user_count(conn) > 0
+    finally:
+        conn.close()
+
     root = tk.Tk()
     root.title('Contractor-OS — Construction Management')
     root.geometry('1180x760')
 
+    if require_login:
+        root.withdraw()                      # hide until authenticated
+        dialog = LoginDialog(root, get)
+        if not dialog.ok:
+            root.destroy()
+            return
+        root.deiconify()
+        root.title('Contractor-OS — {} ({})'.format(
+            session.username(), session.role()))
+
     nb = ttk.Notebook(root)
     nb.pack(fill='both', expand=True)
-
-    get = db.get_conn
 
     conn = get()
     try:

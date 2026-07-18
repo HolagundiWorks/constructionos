@@ -205,4 +205,10 @@ class ToolsTab(ttk.Frame):
 
 
 def build_tools_tab(parent, db_getter):
-    return ToolsTab(parent, db_getter)
+    """Tools as an inner notebook: data/settings, security, and the audit log."""
+    from tab_security import SecurityTab, AuditTab
+    nb = ttk.Notebook(parent)
+    nb.add(ToolsTab(nb, db_getter), text='Backup & Settings')
+    nb.add(SecurityTab(nb, db_getter), text='Users & Security')
+    nb.add(AuditTab(nb, db_getter), text='Audit Log')
+    return nb

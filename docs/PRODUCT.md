@@ -77,7 +77,7 @@ connection, or a monthly subscription.
    jargon ("Net Payable" over "Accounts Receivable"; "Baaki" over "Outstanding"
    in localized builds).
 7. **Trust & data safety.** Backups must be one click. Nothing silently
-   destructive. The user's data is sacred and local.
+   destructive. The user's data is sacred and local. Security stays **opt-in**: a solo contractor keeps zero-friction, no-login access; an office with staff can switch on local sign-in with roles and an audit trail (never a cloud account or a dependency).
 8. **Forgiving.** Non-technical users mistype. Fail softly with plain-language
    messages, never a stack trace. (Note the known FK-delete gap in AGENTS.md —
    this principle says fix it.)
