@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import money as m
+import assets
 
 
 class HomeTab(ttk.Frame):
@@ -21,8 +22,13 @@ class HomeTab(ttk.Frame):
         self.db_getter = db_getter
 
         header = ttk.Frame(self); header.pack(fill='x', padx=12, pady=(12, 4))
-        ttk.Label(header, text='Contractor-OS',
-                  font=('TkDefaultFont', 16, 'bold')).pack(side='left')
+        # Brand logo (falls back to a text title if the image can't load).
+        try:
+            self._logo = tk.PhotoImage(file=assets.LOGO_RECT)
+            ttk.Label(header, image=self._logo).pack(side='left')
+        except Exception:
+            ttk.Label(header, text='Contractor-OS',
+                      font=('TkDefaultFont', 16, 'bold')).pack(side='left')
         ttk.Button(header, text='Refresh', command=self.refresh).pack(side='right')
 
         self.subtitle = tk.StringVar()

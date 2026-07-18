@@ -104,6 +104,8 @@ construction_app/
 ├── security.py             # PURE password hashing: salted PBKDF2-HMAC-SHA256 + constant-time verify + policy. No tkinter/DB.
 ├── auth.py                 # Users/auth/audit (DB): create_user, authenticate (+lockout), roles, security_enabled toggle, audit(). No tkinter.
 ├── session.py              # PURE process-wide current user/role holder (is_admin, can_write). No tkinter/DB.
+├── assets.py               # Brand logos: file paths + base64 data-URI/`<img>` for HTML letterheads. No tkinter/DB.
+├── resources/              # logo_square.png, logo_rectangle.png, app.ico (committed binary brand assets).
 ├── tab_login.py            # Startup login dialog (shown only when security is enabled).
 ├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
@@ -689,6 +691,16 @@ only when `auth.security_enabled` **and** at least one user exists.
   (deletes, restores, bulk edits), call `audit()` from them.
 - **Robustness**: see §10 for WAL / `busy_timeout` / FK pragmas and the hot-path
   indexes. Every DB op still uses a fresh short-lived `get_conn()`.
+
+**Branding** (`assets.py` + `resources/`): the bundled "Construction Operations
+System" logos brand the app — window/taskbar icon (`main._apply_app_icon`, square
+PNG via `iconphoto` + `.ico` via `iconbitmap` on Windows), the Home header and
+login dialog (`tk.PhotoImage`, Tk 8.6+ reads PNG), and every printed document's
+letterhead (`assets.logo_html()` embeds the rectangular logo as a base64 `data:`
+URI so the HTML stays self-contained). All logo loads **fail soft** — a missing
+file or old Tk just falls back to text, never an error. To rebrand, replace the
+files in `resources/` (keep the names); `bill_export._LOGO_TAG` re-reads on
+import.
 
 Everything except the dialogs is DB/pure and unit-testable: exercise
 `security.hash_password/verify_password` and `auth.*` (create/authenticate/

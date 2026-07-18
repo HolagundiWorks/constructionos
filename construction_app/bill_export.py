@@ -15,9 +15,14 @@ in AGENTS.md §12.
 from datetime import date
 from html import escape
 
+import assets
 import estimate as estimate_calc
 import finance
 import numwords
+
+# Brand logo tag embedded in each document letterhead ('' if the file is
+# missing). Computed once at import.
+_LOGO_TAG = assets.logo_html(46)
 
 
 def _money(value):
@@ -98,6 +103,7 @@ def build_bill_html(bill, contract=None, client=None, site=None, items=None,
     generated = date.today().isoformat()
 
     return _TEMPLATE.format(
+        logo=_LOGO_TAG,
         company=_text(company_name),
         bill_no=_text(g(bill, 'bill_no') or '-'),
         bill_date=_text(g(bill, 'bill_date') or '-'),
@@ -155,6 +161,7 @@ def build_ra_bill_html(bill, contract=None, client=None, site=None, items=None,
         '<tr><td colspan="8" class="muted">No billed items.</td></tr>')
 
     return _RA_TEMPLATE.format(
+        logo=_LOGO_TAG,
         company=_text(company_name),
         bill_no=_text(g(bill, 'bill_no') or '-'),
         bill_date=_text(g(bill, 'bill_date') or '-'),
@@ -202,7 +209,7 @@ _RA_TEMPLATE = """<meta charset="utf-8">
   @media print {{ body {{ margin: 0; }} }}
 </style>
 <div class="head">
-  <div><h1>{company}</h1><div class="doc-title">RUNNING ACCOUNT BILL</div></div>
+  <div>{logo}<h1>{company}</h1><div class="doc-title">RUNNING ACCOUNT BILL</div></div>
   <table class="meta">
     <tr><td class="k">RA Bill No</td><td>{bill_no}</td></tr>
     <tr><td class="k">Date</td><td>{bill_date}</td></tr>
@@ -279,6 +286,7 @@ _TEMPLATE = """<meta charset="utf-8">
 </style>
 <div class="head">
   <div>
+    {logo}
     <h1>{company}</h1>
     <div class="doc-title">RUNNING BILL</div>
   </div>
@@ -380,6 +388,7 @@ def build_tax_invoice_html(invoice, client=None, items=None, seller=None,
                         _money(gst['cgst']), _money(gst['sgst'])))
 
     return _TAX_TEMPLATE.format(
+        logo=_LOGO_TAG,
         company=_text(company_name),
         seller_gstin=_text(g(seller, 'gstin') or '—'),
         seller_addr=_text(g(seller, 'address') or ''),
@@ -436,6 +445,7 @@ _TAX_TEMPLATE = """<meta charset="utf-8">
 </style>
 <div class="head">
   <div>
+    {logo}
     <h1>{company}</h1>
     <div>GSTIN: {seller_gstin}</div>
     <div>{seller_addr}</div>
@@ -513,6 +523,7 @@ def build_statement_html(title, meta_lines, headers, rows, summary='',
                     if summary else '')
 
     return _STATEMENT_TEMPLATE.format(
+        logo=_LOGO_TAG,
         company=_text(company_name), title=_text(title), meta=meta_html,
         ths=ths, rows=body_html, summary=summary_html,
         generated=_text(date.today().isoformat()))
@@ -537,6 +548,7 @@ _STATEMENT_TEMPLATE = """<meta charset="utf-8">
            border-top: 1px solid #eee; padding-top: 8px; }}
   @media print {{ body {{ margin: 0; }} }}
 </style>
+<div class="brand">{logo}</div>
 <div class="company">{company}</div>
 <h1>{title}</h1>
 <div class="meta">{meta}</div>
@@ -594,6 +606,7 @@ def build_estimate_html(est, items=None, seller=None, company_name='Contractor-O
         for l, v in breakup)
 
     return _ESTIMATE_TEMPLATE.format(
+        logo=_LOGO_TAG,
         company=_text(seller.get('name') or company_name),
         seller_gstin=_text(seller.get('gstin') or ''),
         seller_addr=_text(seller.get('address') or ''),
@@ -641,7 +654,7 @@ _ESTIMATE_TEMPLATE = """<meta charset="utf-8">
   @media print {{ body {{ margin: 0; }} }}
 </style>
 <div class="head">
-  <div><h1>{company}</h1><div>GSTIN: {seller_gstin}</div><div>{seller_addr}</div></div>
+  <div>{logo}<h1>{company}</h1><div>GSTIN: {seller_gstin}</div><div>{seller_addr}</div></div>
   <table class="meta">
     <tr><td class="k">Estimate No</td><td>{est_number}</td></tr>
     <tr><td class="k">Date</td><td>{est_date}</td></tr>

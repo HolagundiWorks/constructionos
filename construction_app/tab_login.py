@@ -10,6 +10,7 @@ from tkinter import ttk
 
 import auth
 import session
+import assets
 
 
 class LoginDialog:
@@ -25,24 +26,30 @@ class LoginDialog:
 
         frm = ttk.Frame(self.win, padding=20)
         frm.pack(fill='both', expand=True)
+        try:
+            self._logo = tk.PhotoImage(file=assets.LOGO_SQUARE)
+            ttk.Label(frm, image=self._logo).grid(row=0, column=0, columnspan=2,
+                                                  pady=(0, 8))
+        except Exception:
+            pass
         ttk.Label(frm, text='Sign in', font=('TkDefaultFont', 14, 'bold')) \
-            .grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky='w')
+            .grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky='w')
 
-        ttk.Label(frm, text='Username').grid(row=1, column=0, sticky='w', pady=4)
+        ttk.Label(frm, text='Username').grid(row=2, column=0, sticky='w', pady=4)
         self.user_var = tk.StringVar()
         user_entry = ttk.Entry(frm, textvariable=self.user_var, width=24)
-        user_entry.grid(row=1, column=1, pady=4)
-        ttk.Label(frm, text='Password').grid(row=2, column=0, sticky='w', pady=4)
+        user_entry.grid(row=2, column=1, pady=4)
+        ttk.Label(frm, text='Password').grid(row=3, column=0, sticky='w', pady=4)
         self.pw_var = tk.StringVar()
         pw_entry = ttk.Entry(frm, textvariable=self.pw_var, width=24, show='*')
-        pw_entry.grid(row=2, column=1, pady=4)
+        pw_entry.grid(row=3, column=1, pady=4)
 
         self.msg_var = tk.StringVar()
         ttk.Label(frm, textvariable=self.msg_var, foreground='#c62828',
-                  wraplength=240).grid(row=3, column=0, columnspan=2, sticky='w')
+                  wraplength=240).grid(row=4, column=0, columnspan=2, sticky='w')
 
         btns = ttk.Frame(frm)
-        btns.grid(row=4, column=0, columnspan=2, pady=(10, 0), sticky='e')
+        btns.grid(row=5, column=0, columnspan=2, pady=(10, 0), sticky='e')
         ttk.Button(btns, text='Sign in', command=self._attempt).pack(side='left', padx=4)
         ttk.Button(btns, text='Cancel', command=self._cancel).pack(side='left')
 

@@ -10,11 +10,13 @@ builder that already returns a Notebook (e.g. Money) just nests one level
 deeper, which is fine.
 """
 
+import os
 import tkinter as tk
 from tkinter import ttk
 
 import db
 import modules
+import assets
 import auth
 import session
 from tab_login import LoginDialog
@@ -76,6 +78,21 @@ BUILDERS = {
 }
 
 
+def _apply_app_icon(root):
+    """Set the window/taskbar icon from the bundled logo. Fails soft."""
+    try:
+        icon = tk.PhotoImage(file=assets.LOGO_SQUARE)   # Tk 8.6+ reads PNG
+        root.iconphoto(True, icon)
+        root._app_icon = icon                            # keep a reference
+    except Exception:
+        pass
+    if os.name == 'nt':
+        try:
+            root.iconbitmap(assets.APP_ICON)
+        except Exception:
+            pass
+
+
 def _section(parent, get, items):
     """Build a sub-notebook holding a group of related tabs."""
     sub = ttk.Notebook(parent)
@@ -99,6 +116,7 @@ def main():
     root = tk.Tk()
     root.title('Contractor-OS — Construction Management')
     root.geometry('1180x760')
+    _apply_app_icon(root)
 
     if require_login:
         root.withdraw()                      # hide until authenticated
