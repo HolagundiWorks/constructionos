@@ -111,3 +111,22 @@ def account_net(debit_total, credit_total, acc_type):
     if acc_type in NORMAL_CREDIT:
         return money(credit_total - debit_total)
     return money(debit_total - credit_total)
+
+
+def gst_summary(output_tax, input_tax):
+    """Net GST position for a period (a simplified GSTR-3B view).
+
+    output_tax = GST collected on sales (tax invoices); input_tax = GST paid on
+    purchases (vendor invoices, available as input credit). If output exceeds
+    input the difference is payable; otherwise the surplus credit carries
+    forward.
+    """
+    output_tax = money(output_tax)
+    input_tax = money(input_tax)
+    net = money(output_tax - input_tax)
+    return {
+        'output_tax': output_tax,
+        'input_tax': input_tax,
+        'net_payable': net if net > 0 else 0.0,
+        'credit_carried': money(-net) if net < 0 else 0.0,
+    }

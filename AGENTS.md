@@ -122,6 +122,7 @@ construction_app/
 ├── tab_site_reports.py     # DPR, Cube Tests (auto strength/result), Material Tests, Plant Log (CrudFrames).
 ├── tab_home.py             # Plain-language dashboard: cash in hand, receivables, payables, active sites, month billed/collected.
 ├── tab_money.py            # Payments & Receipts + Party Balances + Cash Book (cash-first, Phase 1).
+├── tab_gst.py              # GST & TDS summaries: Output GST (sales), Input GST (purchases), net-position summary, TDS register. Computed + printable.
 ├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report — ADVANCED / for the CA.
 ├── tab_tools.py            # Backup & Restore of the single SQLite file (data safety).
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.

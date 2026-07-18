@@ -21,6 +21,8 @@ documents, and the beginnings of full accounting:
 - **Money (cash-first)** — payments & receipts, party balances ("who owes
   whom"), a cash/day book with running balance, and a plain-language home
   dashboard (cash in hand, receivables, payables).
+- **GST & TDS** — output/input GST registers, a net-position summary, and a
+  TDS register, month-filtered and printable (for return time).
 - **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
   chart of accounts, a double-entry journal, and a trial balance (for the CA).
 
@@ -93,6 +95,7 @@ construction_app/
 ├── tab_consumption.py      # Consumption norms, work done, reconciliation
 ├── tab_site_reports.py     # DPR, cube/material tests, plant log
 ├── tab_vendor_invoice.py   # Vendor invoices (GST/TDS) + reconciliation
+├── tab_gst.py              # GST output/input registers, summary, TDS register
 ├── tab_accounting.py       # Chart of accounts, journal, trial balance
 ├── tab_equipment_hire.py   # Equipment hire + cost auto-calc
 └── tab_timeline.py         # Timeline tasks + Gantt chart

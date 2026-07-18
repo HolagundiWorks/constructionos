@@ -28,6 +28,7 @@ from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
 from tab_accounting import build_accounting_tab
+from tab_gst import build_gst_tab
 from tab_equipment_hire import build_equipment_hire_tab
 from tab_timeline import build_timeline_tab
 from tab_tools import build_tools_tab
@@ -81,7 +82,8 @@ def main():
     # Money (cash-first)
     nb.add(build_money_tab(nb, get), text='Money')
 
-    # Accounting (advanced / for the CA)
+    # Compliance & accounting
+    nb.add(build_gst_tab(nb, get), text='GST & TDS')
     nb.add(build_accounting_tab(nb, get), text='Accounting')
 
     # Planning

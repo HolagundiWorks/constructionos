@@ -115,15 +115,20 @@ early because they are pure trust wins:
 
 ---
 
-## Phase 5 — Compliance made simple ⏳
+## Phase 5 — Compliance made simple 🚧 (mostly built)
 
 Enough to keep the contractor and their CA happy, no more.
 
-- ⏳ **GST summary** — GSTR-1-style outward sales and GSTR-3B-style worksheet
-  from invoices/bills, exportable.
-- ⏳ **TDS register** — TDS deducted (vendor payments) and TDS on receipts.
-- ⏳ **Input vs output GST** position (from procurement vs sales).
-- ⏳ e-invoice / e-way-bill field readiness (data captured now, integration later).
+- ✅ **GST summary** — Output GST (sales) and Input GST (purchases) registers +
+  a net-position (3B-style) summary, month-filtered and printable
+  (`tab_gst.py`, `finance.gst_summary`).
+- ✅ **Input vs output GST** position (output tax − input credit → payable /
+  carry-forward).
+- ✅ **TDS register** — TDS deducted on vendor invoices, month-filtered.
+- ⏳ Bring **running bills / RA bills** into the outward GST view (currently
+  only tax invoices count as outward supply).
+- ⏳ e-invoice / e-way-bill field readiness (data captured now, integration
+  later); HSN-wise summary.
 
 ---
 
