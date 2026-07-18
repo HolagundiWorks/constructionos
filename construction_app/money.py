@@ -47,3 +47,12 @@ def party_outstanding(billed, settled):
     booked, settled = payments made; positive = we still owe the vendor.
     """
     return money(money(billed) - money(settled))
+
+
+def profit_margin(revenue, cost):
+    """Profit and margin% for a site/job. Margin is profit as a % of revenue."""
+    revenue = money(revenue)
+    cost = money(cost)
+    profit = money(revenue - cost)
+    margin = round(profit / revenue * 100.0, 1) if revenue else None
+    return {'revenue': revenue, 'cost': cost, 'profit': profit, 'margin_pct': margin}

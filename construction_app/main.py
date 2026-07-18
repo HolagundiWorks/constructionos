@@ -12,6 +12,7 @@ from tkinter import ttk
 import db
 from tab_home import build_home_tab
 from tab_money import build_money_tab
+from tab_insight import build_insight_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
                          build_materials_tab, build_labor_tab,
                          build_equipment_tab)
@@ -82,6 +83,9 @@ def main():
 
     # Money (cash-first)
     nb.add(build_money_tab(nb, get), text='Money')
+
+    # Insight (profitability & outstanding)
+    nb.add(build_insight_tab(nb, get), text='Insight')
 
     # Compliance & accounting
     nb.add(build_gst_tab(nb, get), text='GST & TDS')

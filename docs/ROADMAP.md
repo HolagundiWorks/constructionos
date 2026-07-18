@@ -138,14 +138,18 @@ Enough to keep the contractor and their CA happy, no more.
 
 ---
 
-## Phase 6 — Insight ⏳
+## Phase 6 — Insight 🚧 (started)
 
 Simple, honest numbers — not exec dashboards.
 
-- ⏳ **Site-wise profitability** — billed vs (material + labour + hire + other).
-- ⏳ **Material budget vs actual** — estimate/BOQ vs consumed (builds on Phase-0
+- ✅ **Site-wise profitability** — revenue (Approved/Paid bills + RA bills) vs
+  cost (material issued + labour cash paid + equipment hire), profit & margin %
+  (`tab_insight.py`, `money.profit_margin`).
+- ✅ **Receivables / Payables** — per client/vendor outstanding at a glance.
+- ⏳ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets;
+  needs payments linked to specific bills first (a Phase 1 follow-up).
+- ⏳ **Material budget vs actual** — estimate/BOQ vs consumed (builds on the
   consumption reconciliation).
-- ⏳ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets.
 - ⏳ Contract/BOQ **progress %** (measured value ÷ BOQ value).
 
 ---

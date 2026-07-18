@@ -23,6 +23,8 @@ documents, and the beginnings of full accounting:
 - **Money (cash-first)** — payments & receipts, party balances ("who owes
   whom"), a cash/day book with running balance, and a plain-language home
   dashboard (cash in hand, receivables, payables).
+- **Insight** — site-wise profitability (revenue vs material/labour/hire) and
+  receivables/payables at a glance.
 - **GST & TDS** — output/input GST registers, a net-position summary, and a
   TDS register, month-filtered and printable (for return time).
 - **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
@@ -85,6 +87,7 @@ construction_app/
 ├── bill_export.py          # Pure printable HTML: bill, RA abstract, GST tax invoice, statement (testable)
 ├── tab_home.py             # Plain-language home dashboard
 ├── tab_money.py            # Payments & receipts, party balances, cash book
+├── tab_insight.py          # Site profitability, receivables, payables
 ├── crud_frame.py           # Generic "list + form" widget reused by most tabs
 ├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment
 ├── tab_vendor.py           # Vendors + spend/hire rollup
