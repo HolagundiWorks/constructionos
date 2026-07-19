@@ -20,6 +20,7 @@ import assets
 import auth
 import session
 import i18n
+import errors
 from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
@@ -124,6 +125,7 @@ def main():
     root.title('Construction OS — Construction Management')
     root.geometry('1180x760')
     _apply_app_icon(root)
+    errors.install(root)   # no stack trace ever reaches the user
 
     if require_login:
         root.withdraw()                      # hide until authenticated
