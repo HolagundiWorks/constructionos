@@ -19,6 +19,7 @@ import modules
 import assets
 import auth
 import session
+import i18n
 from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
@@ -103,7 +104,7 @@ def _section(parent, get, items):
     """Build a sub-notebook holding a group of related tabs."""
     sub = ttk.Notebook(parent)
     for label, builder in items:
-        sub.add(builder(sub, get), text=label)
+        sub.add(builder(sub, get), text=i18n.t(label))
     return sub
 
 
@@ -143,18 +144,19 @@ def main():
     conn = get()
     try:
         enabled = modules.enabled_map(conn)
+        i18n.load(conn)                    # active language for tab/section labels
     finally:
         conn.close()
 
-    nb.add(build_home_tab(nb, get), text='Home')          # always on
-    nb.add(build_assistant_tab(nb, get), text='Assistant')  # always on
+    nb.add(build_home_tab(nb, get), text=i18n.t('Home'))          # always on
+    nb.add(build_assistant_tab(nb, get), text=i18n.t('Assistant'))  # always on
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels
                  if enabled.get(label, True)]
         if not items:
             continue   # whole section switched off
-        nb.add(_section(nb, get, items), text=title)
-    nb.add(build_tools_tab(nb, get), text='Tools')  # always on (holds the toggles)
+        nb.add(_section(nb, get, items), text=i18n.t(title))
+    nb.add(build_tools_tab(nb, get), text=i18n.t('Tools'))  # always on (holds the toggles)
 
     root.mainloop()
 

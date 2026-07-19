@@ -26,6 +26,7 @@ import modules
 import assistant
 import ollama_client
 import branding
+import i18n
 
 
 class ToolsTab(ttk.Frame):
@@ -117,6 +118,21 @@ class ToolsTab(ttk.Frame):
         ttk.Button(aibtns, text='Test Connection', command=self.test_ai).pack(side='left', padx=6)
         ttk.Button(aibtns, text='Start Ollama', command=self.start_ollama).pack(side='left', padx=2)
 
+        # --- Language ---
+        lang = ttk.LabelFrame(self, text='Language / भाषा')
+        lang.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(lang, text='Menu and tab names can be shown in Hindi or '
+                            'Hinglish. Applies the next time you open the app.',
+                  wraplength=540, foreground='#666', justify='left') \
+            .pack(anchor='w', padx=8, pady=(6, 2))
+        self.lang_var = tk.StringVar()
+        self._lang_names = {name: code for code, name in i18n.LANGUAGES}
+        row = ttk.Frame(lang); row.pack(fill='x', padx=8, pady=4)
+        ttk.Combobox(row, textvariable=self.lang_var, width=16, state='readonly',
+                     values=[name for _c, name in i18n.LANGUAGES]).pack(side='left')
+        ttk.Button(row, text='Save Language', command=self.save_language) \
+            .pack(side='left', padx=6)
+
         # --- Modules (switch tabs on/off) ---
         mod = ttk.LabelFrame(self, text='Modules (switch off what you don\'t use)')
         mod.pack(fill='x', padx=12, pady=(6, 6))
@@ -168,12 +184,15 @@ class ToolsTab(ttk.Frame):
         try:
             sset = {r['key']: r['value'] for r in conn.execute(
                 "SELECT key, value FROM app_settings WHERE key IN "
-                "('invoice_prefix', 'invoice_width', 'invoice_fy_reset')")}
+                "('invoice_prefix', 'invoice_width', 'invoice_fy_reset', 'language')")}
         finally:
             conn.close()
         self.series['invoice_prefix'].set(sset.get('invoice_prefix', 'INV'))
         self.series['invoice_width'].set(sset.get('invoice_width', '3'))
         self.fy_reset_var.set(0 if sset.get('invoice_fy_reset', '1') == '0' else 1)
+        code = sset.get('language', 'en')
+        names = {c: n for c, n in i18n.LANGUAGES}
+        self.lang_var.set(names.get(code, 'English'))
         conn = self.db_getter()
         try:
             states = modules.enabled_map(conn)
@@ -263,6 +282,19 @@ class ToolsTab(ttk.Frame):
         finally:
             conn.close()
         self.status_var.set('Firm details saved — they will appear on tax invoices.')
+
+    def save_language(self):
+        code = self._lang_names.get(self.lang_var.get(), 'en')
+        conn = self.db_getter()
+        try:
+            conn.execute(
+                'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                ('language', code))
+            conn.commit()
+        finally:
+            conn.close()
+        self.status_var.set('Language saved — reopen the app to apply.')
 
     def save_series(self):
         values = {
