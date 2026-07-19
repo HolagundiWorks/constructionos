@@ -257,6 +257,72 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
   bullets that previously stood here contradicted each other.)_
 - ⏳ At-rest encryption — would need a native dependency (out of scope).
 
+## Phase 8 — SOP gap closure: turn records into gates 🚧
+
+Driven by `docs/REPORT-sop-gap-analysis.md`, which compared the app against
+construction-management SOP practice (`docs/RESEARCH-construction-management-sops.md`).
+Phases 0–7 built the **ledger**; this phase makes the process **unskippable**.
+
+The report's core finding: _"gate, don't hope."_ Most records already exist —
+the leverage is in making the SOP step impossible to skip.
+
+- No payment without a **GRN** (procurement).
+- No extra work without an **approved variation** (revenue protection).
+- No pour without a **QC hold-point** sign-off (quality).
+- No sub work without a work order (already enforced ✅).
+
+### Wave 1 — revenue & cash (P0, the three biggest leaks)
+
+- ⏳ **Variation / change-order register, linked to billing** — unbilled or
+  unapproved "extra work" is the single largest source of *unrecovered
+  revenue* in contracting. Per contract: description, qty, rate, status
+  (Raised → Approved → Billed), and a link into the RA/tax bill.
+- ⏳ **Payment ↔ bill/invoice allocation** — `payments.against_type/against_id`
+  exists in the schema with **no UI**, so receivables and ageing are
+  billed-minus-received *approximations*. Allocating a receipt against
+  specific open bills turns ageing into real reconciliation. Long flagged as
+  the top open item (see the Phase 1 follow-up note).
+- ⏳ **Cash-flow forecast** — contracting fails on **liquidity, not
+  profitability**. Projected inflows (expected bill dates) vs outflows
+  (payables, payroll, hire) with a running projected balance.
+
+### Wave 2 — procurement control (P0/P1)
+
+- ⏳ **Requisition → PO → GRN gate** — material IN is hand-entered today and
+  disconnected from the PO. A goods-receipt note that writes the ledger IN
+  against its PO enables a real 3-way match (PO ↔ GRN ↔ invoice).
+- ⏳ **Retention register + release / DLP tracking** — retention withheld on
+  both sides, released on milestone or defect-liability expiry.
+
+### Wave 3 — quality & planning (P1)
+
+- ⏳ **ITP / QA hold-point checklists + NCR log** — per-activity inspection
+  with hold/witness points (pre-pour, pre-cover) and corrective action.
+- ⏳ **Weekly look-ahead + Percent Plan Complete** — a light Last-Planner view;
+  traditional planning completes only ~54% of what it promises weekly.
+- ⏳ **Cost-Value Reconciliation per project** — cost incurred vs value earned
+  by cost head, to catch a loss-making job early.
+- ⏳ **Approval gates as workflow** — estimate review, PO approval and bill
+  certification as real gates with approver and timestamp (roles already exist).
+- ⏳ **KPI dashboard** — PPC, DSO/ageing, CVR, % spend-under-PO, unbilled
+  variation value, first-time-pass inspection %.
+
+### Wave 4 — completeness (P2, lower urgency at this scale)
+
+- ⏳ RFI + drawing-revision register (mainly PMC/departmental work).
+- ⏳ HSE module (induction, toolbox, permit, incident) — often informal here.
+- ⏳ Closeout: snag list, lessons-learned feeding the rate library.
+- ⏳ Vendor depth (3 quotes, approved-vendor list, rating); plant PM + fuel log;
+  compliance calendar; bid/no-bid scorecard; baseline-vs-actual programme.
+
+**Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
+predictive analytics beyond the local assistant, heavy multi-user cloud sync,
+corporate multi-level approval chains. These are Level-4 features that add cost
+and friction without helping a solo contractor bill, get paid, and stay in
+control.
+
+---
+
 ## Cross-cutting, always-on
 
 - Keep **pure stdlib / tkinter / single-SQLite / no-pip**.
