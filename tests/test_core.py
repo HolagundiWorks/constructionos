@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import ageing
 import analytics
 import civil
+import company
 import estimate
 import finance
 import money
@@ -424,6 +425,139 @@ class TestJournalPostingEndToEnd(unittest.TestCase):
             'FROM journal_lines WHERE journal_entry_id = ?',
             (entry['id'],)).fetchone()
         self.assertAlmostEqual(d, entry['total_debit'], places=2)
+
+
+class TestCompanyRegistry(unittest.TestCase):
+    """Multi-firm / multi-year company file registry."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.reg = os.path.join(self.dir, 'companies.json')
+
+    def test_missing_registry_is_empty_not_an_error(self):
+        self.assertEqual(company.load(self.reg), {'active': None, 'files': []})
+
+    def test_corrupt_registry_degrades_gracefully(self):
+        with open(self.reg, 'w', encoding='utf-8') as fh:
+            fh.write('{ not json at all')
+        # must never block the app from starting
+        self.assertEqual(company.load(self.reg), {'active': None, 'files': []})
+
+    def test_round_trip(self):
+        data = company.load(self.reg)
+        company.add(data, 'Sharma Constructions', os.path.join(self.dir, 'a.db'),
+                    make_active=True)
+        self.assertTrue(company.save(data, self.reg))
+        back = company.load(self.reg)
+        self.assertEqual(len(back['files']), 1)
+        self.assertTrue(back['active'].endswith('a.db'))
+
+    def test_re_adding_a_path_renames_instead_of_duplicating(self):
+        data = company.load(self.reg)
+        p = os.path.join(self.dir, 'a.db')
+        company.add(data, 'Old Name', p)
+        company.add(data, 'New Name', p)
+        self.assertEqual(len(data['files']), 1)
+        self.assertEqual(company.find(data, p)['name'], 'New Name')
+
+    def test_remove_clears_active_but_not_the_file(self):
+        data = company.load(self.reg)
+        p = os.path.join(self.dir, 'a.db')
+        open(p, 'w').close()
+        company.add(data, 'A', p, make_active=True)
+        company.remove(data, p)
+        self.assertEqual(data['files'], [])
+        self.assertIsNone(data['active'])
+        self.assertTrue(os.path.exists(p), 'removing from the list must not delete data')
+
+    def test_active_path_ignores_a_missing_file(self):
+        data = company.load(self.reg)
+        company.add(data, 'Gone', os.path.join(self.dir, 'nope.db'), make_active=True)
+        self.assertIsNone(company.active_path(data))
+
+    def test_safe_filename_keeps_financial_year_hyphens(self):
+        self.assertEqual(company.safe_filename('Sharma Constructions 25-26'),
+                         'sharma_constructions_25-26.db')
+        self.assertEqual(company.safe_filename('A/B: C'), 'a_b_c.db')
+        self.assertEqual(company.safe_filename(''), 'company.db')
+
+    def test_suggest_path_does_not_overwrite(self):
+        first = company.suggest_path(self.dir, 'Acme')
+        open(first, 'w').close()
+        second = company.suggest_path(self.dir, 'Acme')
+        self.assertNotEqual(first, second)
+
+    def test_next_year_label(self):
+        self.assertEqual(company.next_year_label('2025-26'), '2026-27')
+        self.assertEqual(company.next_year_label('2099-00'), '2100-01')
+        self.assertEqual(company.next_year_label('junk'), '')
+
+
+class TestCarryForward(unittest.TestCase):
+    """Starting a new year must copy the setup and none of the history."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        self.dir = tempfile.mkdtemp()
+        self._orig = db.DB_PATH
+        self.src_path = os.path.join(self.dir, 'src.db')
+        self.dst_path = os.path.join(self.dir, 'dst.db')
+
+        db.DB_PATH = self.src_path
+        db.init_db()
+        self.src = db.get_conn()
+        self.src.execute("INSERT INTO clients (name) VALUES ('PWD Division')")
+        self.src.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.src.execute("INSERT INTO materials (name, unit) VALUES ('Cement','bag')")
+        self.src.execute("INSERT INTO accounts (code, name, type) "
+                         "VALUES ('9001','Custom Head','Expense')")
+        self.src.execute("INSERT INTO app_settings (key, value) "
+                         "VALUES ('company_name','Sharma')")
+        self.src.execute("INSERT INTO payments (pay_date, direction, party_type, "
+                         "amount) VALUES ('2026-01-01','Receipt','Client',5000)")
+        self.src.commit()
+        self.seeded_accounts = self.src.execute(
+            'SELECT COUNT(*) FROM accounts').fetchone()[0]
+
+        db.DB_PATH = self.dst_path
+        db.init_db()
+        self.dst = db.get_conn()
+
+    def tearDown(self):
+        self.src.close()
+        self.dst.close()
+        self.db.DB_PATH = self._orig
+
+    def test_masters_are_copied(self):
+        company.carry_forward(self.src, self.dst)
+        self.assertEqual(self.dst.execute('SELECT COUNT(*) FROM clients').fetchone()[0], 1)
+        self.assertEqual(self.dst.execute('SELECT COUNT(*) FROM sites').fetchone()[0], 1)
+        self.assertEqual(
+            self.dst.execute("SELECT value FROM app_settings WHERE key='company_name'")
+            .fetchone()[0], 'Sharma')
+
+    def test_custom_accounts_survive_and_the_chart_is_not_duplicated(self):
+        company.carry_forward(self.src, self.dst)
+        self.assertIsNotNone(
+            self.dst.execute("SELECT 1 FROM accounts WHERE code='9001'").fetchone())
+        self.assertEqual(
+            self.dst.execute('SELECT COUNT(*) FROM accounts').fetchone()[0],
+            self.seeded_accounts,
+            'seeded chart was duplicated instead of replaced')
+
+    def test_transactions_do_not_leak_into_the_new_year(self):
+        company.carry_forward(self.src, self.dst)
+        for table in ('payments', 'bills', 'ra_bills', 'journal_entries'):
+            self.assertEqual(
+                self.dst.execute('SELECT COUNT(*) FROM {}'.format(table)).fetchone()[0],
+                0, '{} leaked into the new company file'.format(table))
+
+    def test_unknown_table_is_skipped_not_fatal(self):
+        copied = company.carry_forward(self.src, self.dst,
+                                       tables=['clients', 'no_such_table'])
+        self.assertEqual(copied.get('clients'), 1)
+        self.assertNotIn('no_such_table', copied)
 
 
 class TestSchema(unittest.TestCase):

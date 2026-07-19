@@ -17,16 +17,19 @@ reloads from the restored data.
 
 import os
 import shutil
-from datetime import datetime
+import sqlite3
+from datetime import date, datetime
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 
 import db
 import modules
 import assistant
 import ollama_client
 import branding
+import company
 import i18n
+import numbering
 
 
 class ToolsTab(ttk.Frame):
@@ -57,6 +60,25 @@ class ToolsTab(ttk.Frame):
             .pack(side='left', padx=6)
         ttk.Button(actions, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
+
+        # --- One-click backup to a remembered folder (e.g. a synced drive) ---
+        # "Cloud backup" for an offline app: point this at the local folder of
+        # Google Drive / OneDrive / Dropbox and the sync client does the rest.
+        # No network code, no credentials, no pip dependency.
+        sync = ttk.LabelFrame(self, text='Backup to a synced folder (cloud)')
+        sync.pack(fill='x', padx=12, pady=(0, 6))
+        ttk.Label(sync, text='Choose the local folder of your cloud drive '
+                             '(Google Drive, OneDrive, Dropbox…). Backups '
+                             'copied there are uploaded by that app.',
+                  wraplength=560, justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+        row = ttk.Frame(sync); row.pack(fill='x', padx=8, pady=4)
+        self.sync_folder_var = tk.StringVar()
+        ttk.Entry(row, textvariable=self.sync_folder_var, width=48).pack(side='left', padx=(0, 6))
+        ttk.Button(row, text='Choose…', command=self.choose_sync_folder).pack(side='left', padx=2)
+        ttk.Button(row, text='Backup Now', command=self.backup_to_sync).pack(side='left', padx=2)
+
+        # --- Company files (multi-firm / multi-year) ---
+        self._build_company_panel()
 
         # --- Firm details (printed on tax invoices) ---
         firm = ttk.LabelFrame(self, text='Firm Details (shown on tax invoices)')
@@ -166,6 +188,7 @@ class ToolsTab(ttk.Frame):
 
     def refresh(self):
         self.path_var.set(db.DB_PATH)
+        self.refresh_companies()
         if os.path.exists(db.DB_PATH):
             kb = os.path.getsize(db.DB_PATH) / 1024.0
             self.size_var.set('Current size: {:.1f} KB'.format(kb))
@@ -175,11 +198,13 @@ class ToolsTab(ttk.Frame):
         try:
             saved = {r['key']: r['value'] for r in conn.execute(
                 "SELECT key, value FROM app_settings WHERE key IN "
-                "('company_name', 'seller_gstin', 'seller_address', 'works_gst_pct')")}
+                "('company_name', 'seller_gstin', 'seller_address', "
+                "'works_gst_pct', 'backup_folder')")}
         finally:
             conn.close()
         for key, var in self.firm.items():
             var.set(saved.get(key, '18' if key == 'works_gst_pct' else ''))
+        self.sync_folder_var.set(saved.get('backup_folder', ''))
         conn = self.db_getter()
         try:
             sset = {r['key']: r['value'] for r in conn.execute(
@@ -313,6 +338,239 @@ class ToolsTab(ttk.Frame):
         finally:
             conn.close()
         self.status_var.set('Invoice number series saved.')
+
+    # ------------------------------------------------- company files (Phase 7)
+    def _build_company_panel(self):
+        """Multi-firm / multi-year: switch between company files, or start a
+        new one carrying this year's masters forward."""
+        box = ttk.LabelFrame(self, text='Company Files (separate firms / financial years)')
+        box.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(box, text='Each firm — and each financial year, if you prefer '
+                            'a clean start — is its own data file. Switching '
+                            'reopens the app on that file; nothing is deleted.',
+                  wraplength=560, justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+
+        self.company_tree = ttk.Treeview(
+            box, columns=('name', 'path'), show='headings', height=4)
+        self.company_tree.heading('name', text='Company / Year')
+        self.company_tree.heading('path', text='File')
+        self.company_tree.column('name', width=180, anchor='w')
+        self.company_tree.column('path', width=360, anchor='w')
+        self.company_tree.pack(fill='x', padx=8, pady=4)
+
+        btns = ttk.Frame(box); btns.pack(fill='x', padx=8, pady=(0, 8))
+        ttk.Button(btns, text='Switch To Selected', command=self.switch_company).pack(side='left', padx=(0, 4))
+        ttk.Button(btns, text='New Firm…', command=self.new_firm).pack(side='left', padx=2)
+        ttk.Button(btns, text='New Financial Year…', command=self.new_year).pack(side='left', padx=2)
+        ttk.Button(btns, text='Add Existing…', command=self.add_existing_company).pack(side='left', padx=2)
+        ttk.Button(btns, text='Remove From List', command=self.forget_company).pack(side='left', padx=2)
+
+    def refresh_companies(self):
+        for item in self.company_tree.get_children():
+            self.company_tree.delete(item)
+        data = company.load()
+        # Always show the file currently open, even before it is registered.
+        if company.find(data, db.DB_PATH) is None:
+            company.add(data, os.path.basename(db.DB_PATH), db.DB_PATH)
+            company.set_active(data, db.DB_PATH)
+            company.save(data)
+        for f in data.get('files', []):
+            active = company._same(f['path'], db.DB_PATH)
+            name = ('● ' if active else '   ') + (f['name'] or '')
+            missing = '' if os.path.exists(f['path']) else '   (file not found)'
+            self.company_tree.insert('', 'end', values=(name, f['path'] + missing))
+
+    def _selected_company_path(self):
+        sel = self.company_tree.selection()
+        if not sel:
+            messagebox.showinfo('No selection', 'Select a company file first.')
+            return None
+        raw = self.company_tree.item(sel[0], 'values')[1]
+        return raw.replace('   (file not found)', '')
+
+    def _switch_to(self, path, created=False):
+        """Point the app at another company file and ask for a restart.
+
+        Connections are short-lived, so the next operation opens the new file —
+        but views already on screen still hold the old data, so a restart is
+        the honest way to apply it (same as Restore).
+        """
+        data = company.load()
+        company.set_active(data, path)
+        company.save(data)
+        db.DB_PATH = path
+        self.refresh()
+        self.status_var.set('Now using: {}'.format(path))
+        messagebox.showinfo(
+            'Company file created' if created else 'Switched',
+            '{}\n\nPlease close and reopen the app so every screen loads this '
+            'file.'.format(path))
+
+    def switch_company(self):
+        path = self._selected_company_path()
+        if path is None:
+            return
+        if not os.path.exists(path):
+            messagebox.showerror(
+                'File not found',
+                'That data file is missing:\n\n{}\n\nIt may be on a drive that '
+                'is not connected. Use "Remove From List" if it is gone for '
+                'good — the file itself is never deleted by this app.'.format(path))
+            return
+        if company._same(path, db.DB_PATH):
+            messagebox.showinfo('Already open', 'That is the file you are using.')
+            return
+        self._switch_to(path)
+
+    def _create_company(self, name, carry_from=None):
+        """Create a new company file, optionally carrying masters forward."""
+        folder = os.path.dirname(os.path.abspath(db.DB_PATH))
+        path = company.suggest_path(folder, name)
+        prev = db.DB_PATH
+        try:
+            db.DB_PATH = path
+            db.init_db()
+            if carry_from and os.path.exists(carry_from):
+                src = sqlite3.connect(carry_from)
+                src.row_factory = sqlite3.Row
+                dst = db.get_conn()
+                try:
+                    copied = company.carry_forward(src, dst)
+                finally:
+                    src.close(); dst.close()
+                total = sum(copied.values())
+                self.status_var.set(
+                    'Carried forward {} master records into {}.'.format(total, name))
+        except Exception as exc:                      # noqa: BLE001 - user-facing
+            db.DB_PATH = prev
+            messagebox.showerror(
+                'Could not create the file',
+                'The new company file could not be created:\n\n{}'.format(exc))
+            return None
+        data = company.load()
+        company.add(data, name, path, make_active=True)
+        company.save(data)
+        return path
+
+    def new_firm(self):
+        name = simpledialog.askstring(
+            'New firm', 'Name of the new firm:', parent=self)
+        if not name or not name.strip():
+            return
+        path = self._create_company(name.strip())
+        if path:
+            self.refresh_companies()
+            self._switch_to(path, created=True)
+
+    def new_year(self):
+        """Start a fresh file for the next financial year, carrying masters."""
+        current = ''
+        conn = self.db_getter()
+        try:
+            row = conn.execute(
+                "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
+            current = (row['value'] if row else '') or 'Company'
+        finally:
+            conn.close()
+        try:
+            fy = numbering.financial_year(date.today().isoformat())
+        except Exception:                              # noqa: BLE001
+            fy = ''
+        suggested = '{} {}'.format(current, company.next_year_label(fy) or fy).strip()
+        name = simpledialog.askstring(
+            'New financial year',
+            'Name for the new year\'s file:\n\n(Masters — sites, clients, '
+            'vendors, materials, labour, chart of accounts, rate book and firm '
+            'settings — are copied. Bills, payments and the ledger start '
+            'empty.)',
+            initialvalue=suggested, parent=self)
+        if not name or not name.strip():
+            return
+        path = self._create_company(name.strip(), carry_from=db.DB_PATH)
+        if path:
+            self.refresh_companies()
+            self._switch_to(path, created=True)
+
+    def add_existing_company(self):
+        path = filedialog.askopenfilename(
+            title='Choose an existing company file',
+            filetypes=[('Construction OS data', '*.db'), ('All files', '*.*')])
+        if not path:
+            return
+        name = simpledialog.askstring(
+            'Name', 'Name for this company file:',
+            initialvalue=os.path.splitext(os.path.basename(path))[0], parent=self)
+        data = company.load()
+        company.add(data, (name or '').strip() or os.path.basename(path), path)
+        company.save(data)
+        self.refresh_companies()
+        self.status_var.set('Added {} to the list.'.format(path))
+
+    def forget_company(self):
+        path = self._selected_company_path()
+        if path is None:
+            return
+        if company._same(path, db.DB_PATH):
+            messagebox.showinfo(
+                'In use', 'You cannot remove the file you are working in. '
+                'Switch to another one first.')
+            return
+        if not messagebox.askyesno(
+                'Remove from list',
+                'Remove this file from the list?\n\n{}\n\nThe file itself is '
+                'NOT deleted — it stays on disk and can be added back with '
+                '"Add Existing".'.format(path)):
+            return
+        data = company.load()
+        company.remove(data, path)
+        company.save(data)
+        self.refresh_companies()
+
+    # -------------------------------------------------- synced-folder backup
+    def choose_sync_folder(self):
+        folder = filedialog.askdirectory(
+            title='Choose your cloud drive folder (Google Drive, OneDrive…)')
+        if not folder:
+            return
+        self.sync_folder_var.set(folder)
+        conn = self.db_getter()
+        try:
+            conn.execute(
+                'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                ('backup_folder', folder))
+            conn.commit()
+        finally:
+            conn.close()
+        self.status_var.set('Backup folder saved: {}'.format(folder))
+
+    def backup_to_sync(self):
+        folder = self.sync_folder_var.get().strip()
+        if not folder:
+            messagebox.showinfo('No folder', 'Choose your cloud drive folder first.')
+            return
+        if not os.path.isdir(folder):
+            messagebox.showerror(
+                'Folder not found',
+                'That folder does not exist:\n\n{}\n\nIf your cloud drive is '
+                'not signed in, its folder may be missing.'.format(folder))
+            return
+        if not os.path.exists(db.DB_PATH):
+            messagebox.showinfo('Nothing to back up', 'The data file does not exist yet.')
+            return
+        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        base = os.path.splitext(os.path.basename(db.DB_PATH))[0]
+        dest = os.path.join(folder, '{}_backup_{}.db'.format(base, stamp))
+        try:
+            shutil.copy2(db.DB_PATH, dest)
+        except OSError as exc:
+            messagebox.showerror('Backup failed', str(exc))
+            return
+        self.status_var.set('Backed up to {}'.format(dest))
+        messagebox.showinfo(
+            'Backup complete',
+            'Saved to your synced folder:\n\n{}\n\nYour cloud app will upload '
+            'it shortly.'.format(dest))
 
     def backup(self):
         if not os.path.exists(db.DB_PATH):

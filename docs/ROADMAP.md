@@ -177,7 +177,7 @@ Simple, honest numbers — not exec dashboards.
 
 ---
 
-## Phase 7 — Advanced (optional, opt-in) 🚧 (mostly built)
+## Phase 7 — Advanced (optional, opt-in) ✅ (built)
 
 Power features that must never complicate the core.
 
@@ -196,7 +196,17 @@ Power features that must never complicate the core.
   running bills with retention & works-contract TDS (`subcontract.py`,
   `tab_subcontract.py`); posts Dr Subcontractor Charges / Cr Retention + TDS +
   Payable.
-- ⏳ **Multi-year / multi-firm** files, optional cloud backup.
+- ✅ **Multi-year / multi-firm files** — a **Company Files** panel in Tools
+  lists every data file, switches between them, registers an existing one, or
+  creates a new one. **New Financial Year** carries the masters forward (sites,
+  clients, vendors, materials, labour, equipment, thekedars, consumption norms,
+  rate book, chart of accounts including custom heads, and firm settings) while
+  bills, payments and the ledger start empty (`company.py`). The registry is a
+  small JSON beside the code — it cannot live inside a company file, or you
+  could never find the others. Switching asks for a restart, like Restore does.
+- ✅ **Optional cloud backup** — remember your cloud drive's local folder
+  (Google Drive / OneDrive / Dropbox) and back up to it in one click; the sync
+  client does the upload. No network code, credentials, or new dependency.
 
 ---
 

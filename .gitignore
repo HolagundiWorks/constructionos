@@ -2,6 +2,11 @@
 construction.db
 construction_app/construction.db
 
+# Extra company files (multi-firm / multi-year) and the registry that lists
+# them. All user data, created at runtime beside the code.
+construction_app/*.db
+construction_app/companies.json
+
 # Python
 __pycache__/
 *.py[cod]
