@@ -308,9 +308,20 @@ the leverage is in making the SOP step impossible to skip.
 
 ### Wave 2 — procurement control (P0/P1)
 
-- ⏳ **Requisition → PO → GRN gate** — material IN is hand-entered today and
-  disconnected from the PO. A goods-receipt note that writes the ledger IN
-  against its PO enables a real 3-way match (PO ↔ GRN ↔ invoice).
+- ✅ **Requisition → PO → GRN gate** — Purchases > Goods Receipt
+  (`procurement.py`, `tab_grn.py`). A **requisition** records the site's
+  written request; a **GRN** receives against a purchase order and, when
+  *Posted*, writes the **accepted** quantity into the material ledger —
+  rejected material never becomes stock, and ledger rows carry the GRN number
+  so any stock entry traces back to its delivery. Posting is one-way and
+  guarded: a posted GRN refuses to post or be edited again, because
+  re-posting would double the stock. "Copy Items From PO" pulls in what is
+  still outstanding across earlier receipts.
+  The **3-Way Match** view compares ordered ↔ received ↔ invoiced per PO and
+  headlines **over-invoiced** — value billed with no receipt behind it, the
+  payment about to leave for goods that never arrived. Differences are judged
+  against an editable tolerance, because deliveries never tally exactly and a
+  report that cries wolf gets ignored.
 - ⏳ **Retention register + release / DLP tracking** — retention withheld on
   both sides, released on milestone or defect-liability expiry.
 

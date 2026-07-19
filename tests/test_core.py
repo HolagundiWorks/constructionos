@@ -35,6 +35,7 @@ import money
 import numbering
 import numwords
 import posting
+import procurement
 import projman
 import reports
 import statutory
@@ -640,6 +641,73 @@ class TestCashFlow(unittest.TestCase):
         out = cashflow.wage_outflows(10000, self.TODAY, 2, cashflow.BUCKET_MONTH)
         self.assertEqual(len(out), 2)
         self.assertAlmostEqual(out[0][1], round(10000 * 52 / 12.0, 2), places=2)
+
+
+class TestProcurement(unittest.TestCase):
+    """The three-way match exists to stop paying for goods that never came."""
+
+    def test_rejected_material_never_enters_stock(self):
+        self.assertEqual(procurement.accepted_qty(100, 15), 85)
+        # rejecting more than arrived is nonsense, not a negative stock movement
+        self.assertEqual(procurement.accepted_qty(10, 50), 0)
+
+    def test_over_invoiced_is_flagged_and_quantified(self):
+        m = procurement.three_way(ordered_value=100000, received_value=60000,
+                                  invoiced_value=90000)
+        self.assertEqual(m['status'], procurement.OVER_INVOICED)
+        self.assertEqual(m['over_invoiced'], 30000)   # billed with no receipt
+        self.assertFalse(m['ok'])
+
+    def test_over_invoice_outranks_other_problems(self):
+        """Worst problem wins: paying for phantom goods beats a short delivery."""
+        m = procurement.three_way(100000, 60000, 90000)
+        self.assertEqual(m['status'], procurement.OVER_INVOICED)
+
+    def test_part_delivery_is_not_an_error(self):
+        m = procurement.three_way(100000, 60000, 60000)
+        self.assertEqual(m['status'], procurement.PART_RECEIVED)
+        self.assertEqual(m['pending_receipt'], 40000)
+        self.assertEqual(m['over_invoiced'], 0)
+
+    def test_over_delivery_is_flagged(self):
+        m = procurement.three_way(100000, 120000, 0)
+        self.assertEqual(m['status'], procurement.OVER_RECEIVED)
+        self.assertEqual(m['over_received'], 20000)
+
+    def test_received_but_not_invoiced_is_fine(self):
+        m = procurement.three_way(100000, 100000, 0)
+        self.assertEqual(m['status'], procurement.NOT_INVOICED)
+        self.assertTrue(m['ok'])
+        self.assertEqual(m['pending_invoice'], 100000)
+
+    def test_fully_matched(self):
+        m = procurement.three_way(100000, 100000, 100000)
+        self.assertEqual(m['status'], procurement.MATCHED)
+        self.assertTrue(m['ok'])
+
+    def test_tolerance_absorbs_small_differences(self):
+        """Sand and aggregate never tally exactly; crying wolf gets ignored."""
+        m = procurement.three_way(100000, 99950, 100000, tolerance=100)
+        self.assertEqual(m['status'], procurement.MATCHED)
+
+    def test_nothing_received_yet(self):
+        m = procurement.three_way(100000, 0, 0)
+        self.assertEqual(m['status'], procurement.NOT_RECEIVED)
+
+    def test_summarise_totals_the_money_at_risk(self):
+        matches = [procurement.three_way(100000, 60000, 90000),
+                   procurement.three_way(50000, 50000, 50000),
+                   procurement.three_way(80000, 40000, 40000)]
+        s = procurement.summarise(matches)
+        self.assertEqual(s['at_risk'], 30000)
+        self.assertEqual(s['awaiting_delivery'], 80000)   # 40k + 40k
+        self.assertEqual(s['problem_count'], 2)
+        self.assertEqual(s['total_count'], 3)
+
+    def test_doc_numbering_is_max_based(self):
+        self.assertEqual(procurement.next_doc_no(['GRN-1', 'GRN-7'], 'GRN'),
+                         'GRN-8')
+        self.assertEqual(procurement.next_doc_no([], 'GRN'), 'GRN-1')
 
 
 class TestCompanyRegistry(unittest.TestCase):

@@ -20,7 +20,8 @@ SECTIONS_CATALOG = [
     ('Billing', ['Rate Book', 'Quotations', 'Estimates', 'Contracts',
                  'BOQ / RA Bills', 'Variations', 'Running Bills',
                  'Tax Invoice']),
-    ('Purchases', ['Purchase Orders', 'Vendor Invoices', 'Subcontractors']),
+    ('Purchases', ['Purchase Orders', 'Goods Receipt', 'Vendor Invoices',
+                   'Subcontractors']),
     ('Money', ['Cash & Parties', 'Cash Flow', 'Insight']),
     ('Accounts', ['GST & TDS', 'Accounting']),
 ]

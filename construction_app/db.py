@@ -602,6 +602,63 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------- requisition -> PO -> GRN chain (Phase 8, Wave 2)
+-- A requisition is the site asking for material: the front of the chain, so a
+-- purchase starts from a written request rather than a phone call.
+CREATE TABLE IF NOT EXISTS material_requisitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    req_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    req_date TEXT,
+    required_by TEXT,               -- date needed on site
+    requested_by TEXT,
+    status TEXT DEFAULT 'Open',     -- Open / Ordered / Closed / Cancelled
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS requisition_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requisition_id INTEGER REFERENCES material_requisitions(id) ON DELETE CASCADE,
+    material_id INTEGER REFERENCES materials(id),
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    remarks TEXT
+);
+
+-- The goods-receipt note: the gate. Stock only moves when material is formally
+-- received against its purchase order, which is also what makes a three-way
+-- match (PO -> GRN -> invoice) possible. Posting a GRN writes the material
+-- ledger IN rows; a Draft GRN moves nothing.
+CREATE TABLE IF NOT EXISTS goods_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    grn_no TEXT,
+    purchase_order_id INTEGER REFERENCES purchase_orders(id),
+    vendor_id INTEGER REFERENCES vendors(id),
+    site_id INTEGER REFERENCES sites(id),
+    grn_date TEXT,
+    challan_no TEXT,                -- supplier's delivery challan
+    vehicle_no TEXT,
+    received_by TEXT,
+    status TEXT DEFAULT 'Draft',    -- Draft / Posted
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS grn_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    grn_id INTEGER REFERENCES goods_receipts(id) ON DELETE CASCADE,
+    purchase_order_item_id INTEGER REFERENCES purchase_order_items(id),
+    material_id INTEGER REFERENCES materials(id),
+    description TEXT,
+    unit TEXT,
+    qty_received REAL DEFAULT 0,
+    qty_rejected REAL DEFAULT 0,    -- damaged / off-spec, never enters stock
+    qty_accepted REAL DEFAULT 0,    -- derived: received - rejected
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0,          -- derived: accepted x rate
+    remarks TEXT
+);
+
 -- ------------------------------- payment -> bill allocation (Phase 8)
 -- A receipt is usually a lump sum covering several bills, so the single
 -- payments.against_type/against_id pair cannot express it. This table splits a
@@ -686,6 +743,10 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_reqitems_req ON requisition_items(requisition_id);
+CREATE INDEX IF NOT EXISTS idx_grn_po ON goods_receipts(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_grnitems_grn ON grn_items(grn_id);
+CREATE INDEX IF NOT EXISTS idx_grnitems_poitem ON grn_items(purchase_order_item_id);
 CREATE INDEX IF NOT EXISTS idx_payalloc_payment ON payment_allocations(payment_id);
 CREATE INDEX IF NOT EXISTS idx_payalloc_doc ON payment_allocations(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
@@ -748,6 +809,9 @@ _ADD_COLUMNS = [
     ('materials', 'rate', 'REAL DEFAULT 0'),
     ('labor', 'pf_no', 'TEXT'),
     ('labor', 'esi_no', 'TEXT'),
+    # Lets a PO line name a material from the master, so a goods receipt can
+    # move real stock instead of guessing from a free-text description.
+    ('purchase_order_items', 'material_id', 'INTEGER'),
 ]
 
 
