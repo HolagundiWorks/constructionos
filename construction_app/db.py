@@ -632,6 +632,7 @@ DEFAULT_ACCOUNTS = [
     ('1100', 'Accounts Receivable', 'Asset'),
     ('1200', 'Materials Inventory', 'Asset'),
     ('1300', 'Input GST Credit', 'Asset'),
+    ('1400', 'Retention Receivable', 'Asset'),
     ('2000', 'Accounts Payable', 'Liability'),
     ('2100', 'GST Payable', 'Liability'),
     ('2200', 'TDS Payable', 'Liability'),

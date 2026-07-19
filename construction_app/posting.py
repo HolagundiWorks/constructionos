@@ -13,6 +13,7 @@ debits equal its credits.
 CASH = '1000'
 BANK = '1010'
 RECEIVABLE = '1100'
+RETENTION_RECEIVABLE = '1400'
 INPUT_GST = '1300'
 PAYABLE = '2000'
 GST_PAYABLE = '2100'
@@ -92,6 +93,35 @@ def sub_bill_lines(this_bill_value, retention_amt, tds_amount, other_deductions,
         _line(TDS_PAYABLE, credit=tds_amount),
         _line(OTHER_EXPENSE, credit=other_deductions),
         _line(PAYABLE, credit=net_payable),
+    ])
+
+
+def ra_bill_lines(this_bill_value, retention_amt, other_deductions,
+                  net_payable):
+    """Outward running / RA bill — the mirror of ``sub_bill_lines``.
+
+    We are the seller, so the whole value of work done this bill is revenue,
+    split across what the client will pay now and what they withhold:
+
+        Dr Accounts Receivable     (net payable now)
+        Dr Retention Receivable    (withheld by the client, an asset we
+                                    recover on release — not a loss)
+        Dr Other Site Expenses     (other recoveries the client deducted)
+        Cr Contract Revenue        (value of work done in this bill)
+
+    ``this_bill_value`` is the *incremental* value for this bill, so the
+    caller must net off what earlier bills already billed. Balanced because
+    net_payable = this_bill_value - retention_amt - other_deductions.
+
+    Note: running/RA bills carry no tax columns in this schema, so this posts
+    the work value **excluding GST**; the works-contract GST on such bills is
+    presented in the GST view (``tab_gst``) at a configurable rate, not here.
+    """
+    return _nonzero([
+        _line(RECEIVABLE, debit=net_payable),
+        _line(RETENTION_RECEIVABLE, debit=retention_amt),
+        _line(OTHER_EXPENSE, debit=other_deductions),
+        _line(REVENUE, credit=this_bill_value),
     ])
 
 

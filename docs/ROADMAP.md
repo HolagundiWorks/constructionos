@@ -187,13 +187,16 @@ Simple, honest numbers — not exec dashboards.
 
 Power features that must never complicate the core.
 
-- 🚧 **Auto-posting to double-entry** — an **"Auto-Post Documents"** action
+- ✅ **Auto-posting to double-entry** — an **"Auto-Post Documents"** action
   posts balanced journal entries for tax invoices, vendor invoices, payments,
-  **subcontractor bills** and **payroll** (`posting.py` rules +
-  `journal_post.post_all`, idempotent). **Remaining: running/RA bills** — they
-  need a retention-receivable account. ⚠️ Until that lands, a contractor who
-  bills only via RA bills sees **no revenue** in the P&L below, so treat those
-  statements as incomplete for RA-billed work.
+  subcontractor bills, payroll, **and running/RA bills** (`posting.py` rules +
+  `journal_post.post_all`, idempotent). Client-withheld retention posts to a
+  new **Retention Receivable** asset (code 1400), created automatically on
+  databases that predate it. Running bills post only their incremental value
+  (`work_done_value − previous_billed`) so a contract isn't re-posted each
+  bill. Note: RA/running bills carry no tax columns, so the ledger holds the
+  work value **excluding GST** — works-contract GST is presented in the GST
+  view at a configurable rate.
 - ✅ **P&L / balance sheet** on the resulting ledger, with retained-earnings
   fold-in and a balanced tie-out check (`reports.py`, in the Accounting tab).
 - ✅ **Subcontractor / work-order billing** — sub bills with retention,
@@ -252,27 +255,24 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
 Every item above was re-verified against `construction_app/`. What is
 genuinely **not built**, ordered by value to a small Indian civil contractor:
 
-1. **Auto-post running/RA bills to the ledger** — the one hole that makes a
-   *shipped* feature wrong: the P&L/balance sheet omits revenue entirely for
-   an RA-billed contractor. Fix before anything else.
-2. **Per-tab write gating for the 11 masters/operations tabs** — a Viewer can
+1. **Per-tab write gating for the 11 masters/operations tabs** — a Viewer can
    write today, against an advertised read-only role. A correctness bug, not
-   a feature.
-3. **Payments linked to a specific bill/invoice** — the schema link exists but
+   a feature. **This is now the top item.**
+2. **Payments linked to a specific bill/invoice** — the schema link exists but
    has no UI. Root dependency: it turns ageing from a FIFO approximation into
    real reconciled receivables and answers "which bill is this ₹2L against?".
-4. **Rate books** — a reusable priced-item library; the biggest typing
+3. **Rate books** — a reusable priced-item library; the biggest typing
    reduction available, and directly serves the minimal-typing principle.
-5. **Inline "add new" for masters** — the missing half of guided entry; being
+4. **Inline "add new" for masters** — the missing half of guided entry; being
    forced to leave a bill screen to create a client is a classic drop-off.
-6. **Error-path audit** — 8 tab modules still have zero exception handling.
-7. **Specification library** — useful for department work; follows rate books.
-8. **Multi-year / multi-firm files** — matters at year-end; workaround exists
+5. **Error-path audit** — 8 tab modules still have zero exception handling.
+6. **Specification library** — useful for department work; follows rate books.
+7. **Multi-year / multi-firm files** — matters at year-end; workaround exists
    (separate DB copies).
-9. **e-invoice / e-way-bill readiness** — capture fields when a user actually
+8. **e-invoice / e-way-bill readiness** — capture fields when a user actually
    crosses the threshold.
-10. **Per-project Gantt filter + hard project↔transaction links** — workable
-    today while most contractors run one project per site.
+9. **Per-project Gantt filter + hard project↔transaction links** — workable
+   today while most contractors run one project per site.
 
 Considered low value for this audience and candidates for **cutting** rather
 than carrying as debt: critical-path scheduling, assistant embeddings /

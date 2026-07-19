@@ -1,16 +1,19 @@
 """Auto-posting engine (Phase 7): turn business documents into journal entries.
 
-``post_all(conn)`` scans tax invoices, vendor invoices, and payments, and for
-each one not already posted writes a balanced ``journal_entries`` +
+``post_all(conn)`` scans every posting source — tax invoices, vendor invoices,
+payments, subcontractor bills, payroll runs, and **running / RA bills** — and
+for each one not already posted writes a balanced ``journal_entries`` +
 ``journal_lines`` set using the rules in ``posting.py``. It is **idempotent**:
 a document is considered posted if a ``journal_entries`` row exists with its
 ``(source, source_id)``, so re-running only posts new documents.
 
 DB-only (no tkinter), so it is testable with a real connection.
 
-Not posted yet (see docs/ROADMAP.md Phase 7): running bills and RA bills — their
-retention-withheld-by-client is an asset the seeded chart of accounts doesn't
-model, so posting them naively would misstate retention.
+Running/RA bills post the client-withheld retention to **Retention Receivable**
+(code 1400), an asset recovered on release rather than a loss. That account is
+newer than the original seeded chart, so ``_ensure_accounts`` creates any
+missing posting account before use — without it ``_write_entry`` would silently
+drop the line and write an unbalanced entry on databases created earlier.
 """
 
 import posting
@@ -18,6 +21,25 @@ import posting
 
 def _account_ids(conn):
     return {r['code']: r['id'] for r in conn.execute('SELECT id, code FROM accounts')}
+
+
+# Accounts the posting rules rely on. Databases created before an account was
+# introduced won't have it, and a missing code is silently skipped by
+# _write_entry, so make sure they all exist before posting.
+_REQUIRED_ACCOUNTS = [
+    (posting.RETENTION_RECEIVABLE, 'Retention Receivable', 'Asset'),
+]
+
+
+def _ensure_accounts(conn):
+    """Create any posting account missing from this database's chart."""
+    have = {r['code'] for r in conn.execute('SELECT code FROM accounts')}
+    added = [(c, n, t) for c, n, t in _REQUIRED_ACCOUNTS if c not in have]
+    if added:
+        conn.executemany(
+            'INSERT INTO accounts (code, name, type) VALUES (?, ?, ?)', added)
+        conn.commit()
+    return len(added)
 
 
 def _already_posted(conn, source, source_id):
@@ -49,6 +71,7 @@ def _write_entry(conn, accounts, source, source_id, entry_date, narration,
 
 def post_all(conn):
     """Post every not-yet-posted document. Returns the count of new entries."""
+    _ensure_accounts(conn)
     accounts = _account_ids(conn)
     posted = 0
 
@@ -95,6 +118,38 @@ def post_all(conn):
         _write_entry(conn, accounts, 'SubBill', r['id'], r['bill_date'],
                      ('Sub bill ' + (r['bill_no'] or '')).strip(), r['bill_no'],
                      lines)
+        posted += 1
+
+    # Measurement-driven RA bills (Approved/Paid), our outward side: the work
+    # value is revenue, split into what the client pays now, what they retain,
+    # and what they otherwise deducted.
+    for r in conn.execute(
+            "SELECT * FROM ra_bills WHERE status IN ('Approved','Paid')"):
+        if not (r['this_bill_value'] or 0) or _already_posted(conn, 'RABill', r['id']):
+            continue
+        lines = posting.ra_bill_lines(
+            r['this_bill_value'], r['retention_amt'], r['other_deductions'],
+            r['net_payable'])
+        _write_entry(conn, accounts, 'RABill', r['id'], r['bill_date'],
+                     ('RA bill ' + (r['bill_no'] or '')).strip(), r['bill_no'],
+                     lines)
+        posted += 1
+
+    # Generic running bills (Approved/Paid). Their work_done_value is
+    # cumulative, so the value *this* bill adds is net of what was already
+    # billed — otherwise every bill would re-post the whole contract to date.
+    for r in conn.execute(
+            "SELECT * FROM bills WHERE status IN ('Approved','Paid')"):
+        this_value = round((r['work_done_value'] or 0)
+                           - (r['previous_billed'] or 0), 2)
+        if this_value <= 0 or _already_posted(conn, 'Bill', r['id']):
+            continue
+        lines = posting.ra_bill_lines(
+            this_value, r['retention_amt'], r['other_deductions'],
+            r['net_payable'])
+        _write_entry(conn, accounts, 'Bill', r['id'], r['bill_date'],
+                     ('Running bill ' + (r['bill_no'] or '')).strip(),
+                     r['bill_no'], lines)
         posted += 1
 
     # Paid payroll runs (the monthly-payroll path, distinct from muster ->
