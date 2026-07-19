@@ -14,6 +14,7 @@ docs/ROADMAP.md Phase 6 for ageing, which needs that link).
 import tkinter as tk
 from tkinter import ttk
 
+import ageing
 import money as m
 import bill_export
 from tab_money import _save_and_open_html
@@ -189,9 +190,124 @@ class Outstanding(ttk.Frame):
         _save_and_open_html(html, title.lower() + '.html')
 
 
+class Ageing(ttk.Frame):
+    """Age each party's outstanding into 0-30 / 30-60 / 60-90 / 90+ slabs.
+
+    Receipts/payments aren't linked to specific bills, so we settle a party's
+    dated bills oldest-first (FIFO) by their total received/paid, then age
+    whatever is still open (`ageing.party_ageing`). Receivables age client
+    bills + RA bills by bill date; payables age vendor invoices by invoice date.
+    """
+
+    COLUMNS = ('party', '0-30', '30-60', '60-90', '90+', 'total')
+
+    def __init__(self, parent, db_getter, mode):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self.mode = mode          # 'Receivable' or 'Payable'
+        self._rows = []
+
+        label = ('Receivables ageing (clients)' if mode == 'Receivable'
+                 else 'Payables ageing (vendors)')
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text=label, font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='right', padx=2)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+
+        heads = {'party': 'Party', '0-30': '0-30 d', '30-60': '30-60 d',
+                 '60-90': '60-90 d', '90+': '90+ d', 'total': 'Total'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=heads[col])
+            self.tree.column(col, width=180 if col == 'party' else 95, anchor='w')
+        self.tree.tag_configure('overdue', background='#ffebee')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.summary_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
+        self.refresh()
+
+    def _bills_by_party(self, conn):
+        """Return {party_id: [(date, amount), ...]} and {party_id: settled}."""
+        bills = {}
+        if self.mode == 'Receivable':
+            parties = conn.execute(
+                'SELECT id, name FROM clients ORDER BY name').fetchall()
+            rows = conn.execute(
+                "SELECT c.client_id AS pid, b.bill_date AS d, b.net_payable AS a "
+                "FROM bills b JOIN contracts c ON c.id = b.contract_id "
+                "WHERE b.status IN ('Approved','Paid') "
+                "UNION ALL "
+                "SELECT c.client_id AS pid, r.bill_date AS d, r.net_payable AS a "
+                "FROM ra_bills r JOIN contracts c ON c.id = r.contract_id "
+                "WHERE r.status IN ('Approved','Paid')").fetchall()
+            settled = _sum_map(conn,
+                "SELECT party_id, SUM(amount) FROM payments "
+                "WHERE direction = 'Receipt' AND party_type = 'Client' "
+                "AND party_id IS NOT NULL GROUP BY party_id")
+        else:
+            parties = conn.execute(
+                'SELECT id, name FROM vendors ORDER BY name').fetchall()
+            rows = conn.execute(
+                "SELECT vendor_id AS pid, invoice_date AS d, net_payable AS a "
+                "FROM vendor_invoices").fetchall()
+            settled = _sum_map(conn,
+                "SELECT party_id, SUM(amount) FROM payments "
+                "WHERE direction = 'Payment' AND party_type = 'Vendor' "
+                "AND party_id IS NOT NULL GROUP BY party_id")
+        for r in rows:
+            if r['pid'] is None:
+                continue
+            bills.setdefault(r['pid'], []).append((r['d'], r['a'] or 0))
+        return parties, bills, settled
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        conn = self.db_getter()
+        try:
+            parties, bills, settled = self._bills_by_party(conn)
+        finally:
+            conn.close()
+
+        self._rows = []
+        totals = {b: 0.0 for b in ageing.BUCKETS}
+        for p in parties:
+            party_bills = bills.get(p['id'])
+            if not party_bills:
+                continue
+            aged = ageing.party_ageing(party_bills, settled.get(p['id'], 0) or 0)
+            if aged['total'] == 0:
+                continue
+            for b in ageing.BUCKETS:
+                totals[b] += aged[b]
+            row = (p['name'],) + tuple('{:.2f}'.format(aged[b])
+                                       for b in ageing.BUCKETS) + \
+                  ('{:.2f}'.format(aged['total']),)
+            tag = 'overdue' if (aged['60-90'] + aged['90+']) > 0 else ''
+            self.tree.insert('', 'end', values=row, tags=(tag,))
+            self._rows.append(row)
+        grand = round(sum(totals.values()), 2)
+        self.summary_var.set(
+            'Total {:.2f}  |  0-30: {:.2f}   30-60: {:.2f}   60-90: {:.2f}   '
+            '90+: {:.2f}'.format(grand, totals['0-30'], totals['30-60'],
+                                 totals['60-90'], totals['90+']))
+
+    def export(self):
+        title = ('Receivables Ageing' if self.mode == 'Receivable'
+                 else 'Payables Ageing')
+        html = bill_export.build_statement_html(
+            title, ['As on today (FIFO-settled, aged by bill date)'],
+            ['Party', '0-30 d', '30-60 d', '60-90 d', '90+ d', 'Total'],
+            self._rows, summary=self.summary_var.get())
+        _save_and_open_html(html, title.lower().replace(' ', '_') + '.html')
+
+
 def build_insight_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(SiteProfitability(nb, db_getter), text='Site Profitability')
     nb.add(Outstanding(nb, db_getter, 'Receivable'), text='Receivables')
     nb.add(Outstanding(nb, db_getter, 'Payable'), text='Payables')
+    nb.add(Ageing(nb, db_getter, 'Receivable'), text='Receivables Ageing')
+    nb.add(Ageing(nb, db_getter, 'Payable'), text='Payables Ageing')
     return nb
