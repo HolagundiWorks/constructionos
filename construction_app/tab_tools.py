@@ -76,6 +76,29 @@ class ToolsTab(ttk.Frame):
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
             .grid(row=3, column=0, padx=6, pady=6, sticky='w')
 
+        # --- Invoice number series ---
+        series = ttk.LabelFrame(self, text='Invoice Number Series')
+        series.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(series, text='Blank invoice numbers auto-fill from this series. '
+                              'With FY reset on, numbering restarts each April, e.g. '
+                              'INV/2026-27/001.', wraplength=540, foreground='#666',
+                  justify='left').grid(row=0, column=0, columnspan=4, padx=6,
+                                       pady=(6, 2), sticky='w')
+        self.series = {'invoice_prefix': tk.StringVar(),
+                       'invoice_width': tk.StringVar()}
+        self.fy_reset_var = tk.IntVar(value=1)
+        ttk.Label(series, text='Prefix', width=8).grid(row=1, column=0, padx=6, pady=4, sticky='w')
+        ttk.Entry(series, textvariable=self.series['invoice_prefix'], width=12) \
+            .grid(row=1, column=1, padx=(0, 10), pady=4, sticky='w')
+        ttk.Label(series, text='Serial digits', width=12).grid(row=1, column=2, padx=6, pady=4, sticky='w')
+        ttk.Entry(series, textvariable=self.series['invoice_width'], width=6) \
+            .grid(row=1, column=3, padx=(0, 10), pady=4, sticky='w')
+        ttk.Checkbutton(series, text='Reset each financial year',
+                        variable=self.fy_reset_var).grid(row=2, column=0, columnspan=2,
+                                                         padx=6, pady=2, sticky='w')
+        ttk.Button(series, text='Save Series', command=self.save_series) \
+            .grid(row=2, column=3, padx=6, pady=4, sticky='w')
+
         # --- AI Assistant (local Ollama) ---
         ai = ttk.LabelFrame(self, text='AI Assistant (local Ollama)')
         ai.pack(fill='x', padx=12, pady=(6, 6))
@@ -141,6 +164,16 @@ class ToolsTab(ttk.Frame):
             conn.close()
         for key, var in self.firm.items():
             var.set(saved.get(key, '18' if key == 'works_gst_pct' else ''))
+        conn = self.db_getter()
+        try:
+            sset = {r['key']: r['value'] for r in conn.execute(
+                "SELECT key, value FROM app_settings WHERE key IN "
+                "('invoice_prefix', 'invoice_width', 'invoice_fy_reset')")}
+        finally:
+            conn.close()
+        self.series['invoice_prefix'].set(sset.get('invoice_prefix', 'INV'))
+        self.series['invoice_width'].set(sset.get('invoice_width', '3'))
+        self.fy_reset_var.set(0 if sset.get('invoice_fy_reset', '1') == '0' else 1)
         conn = self.db_getter()
         try:
             states = modules.enabled_map(conn)
@@ -230,6 +263,24 @@ class ToolsTab(ttk.Frame):
         finally:
             conn.close()
         self.status_var.set('Firm details saved — they will appear on tax invoices.')
+
+    def save_series(self):
+        values = {
+            'invoice_prefix': self.series['invoice_prefix'].get().strip() or 'INV',
+            'invoice_width': self.series['invoice_width'].get().strip() or '3',
+            'invoice_fy_reset': '1' if self.fy_reset_var.get() else '0',
+        }
+        conn = self.db_getter()
+        try:
+            for key, val in values.items():
+                conn.execute(
+                    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                    (key, val))
+            conn.commit()
+        finally:
+            conn.close()
+        self.status_var.set('Invoice number series saved.')
 
     def backup(self):
         if not os.path.exists(db.DB_PATH):

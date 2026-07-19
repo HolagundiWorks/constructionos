@@ -20,6 +20,7 @@ from tkinter import ttk, messagebox, filedialog
 from ui_guard import can_write
 
 import finance
+import numbering
 import bill_export
 from tab_masters import client_options
 
@@ -33,6 +34,24 @@ def _seller_from_settings(conn):
         'gstin': rows.get('seller_gstin', ''),
         'address': rows.get('seller_address', ''),
     }
+
+
+def _next_invoice_number(conn, invoice_date):
+    """Next invoice number per the configured series in ``app_settings``:
+    ``invoice_prefix`` (default INV), ``invoice_width`` (default 3), and
+    ``invoice_fy_reset`` ('1' = restart the serial each financial year)."""
+    cfg = {r['key']: r['value'] for r in conn.execute(
+        "SELECT key, value FROM app_settings WHERE key IN "
+        "('invoice_prefix', 'invoice_width', 'invoice_fy_reset')")}
+    prefix = (cfg.get('invoice_prefix') or 'INV').strip() or 'INV'
+    try:
+        width = int(cfg.get('invoice_width') or 3)
+    except (TypeError, ValueError):
+        width = 3
+    fy_reset = (cfg.get('invoice_fy_reset', '1') != '0')
+    existing = [r['invoice_no'] for r in conn.execute(
+        'SELECT invoice_no FROM tax_invoices WHERE invoice_no IS NOT NULL')]
+    return numbering.next_number(existing, prefix, invoice_date, width, fy_reset)
 
 
 class TaxInvoiceTab(ttk.Frame):
@@ -250,9 +269,9 @@ class TaxInvoiceTab(ttk.Frame):
         conn = self.db_getter()
         try:
             if not v['invoice_no']:
-                # Auto-number when left blank: INV-<next serial>.
-                n = conn.execute('SELECT COUNT(*) AS c FROM tax_invoices').fetchone()['c']
-                v['invoice_no'] = 'INV-{}'.format(n + 1)
+                # Auto-number when left blank, per the configured series
+                # (prefix + optional financial-year reset) in app_settings.
+                v['invoice_no'] = _next_invoice_number(conn, v.get('invoice_date'))
             cols = list(v.keys())
             cur = conn.execute('INSERT INTO tax_invoices ({}) VALUES ({})'.format(
                 ', '.join(cols), ', '.join(['?'] * len(cols))),
