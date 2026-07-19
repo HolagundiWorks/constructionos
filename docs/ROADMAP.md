@@ -333,7 +333,7 @@ the leverage is in making the SOP step impossible to skip.
   completion date is shown as held *with that reason* rather than given an
   invented date.
 
-### Wave 3 — quality & planning (P1)
+### Wave 3 — quality & planning (P1) ✅ complete bar approval workflow
 
 - ✅ **ITP hold-points + NCR log** — Operations > Quality (`quality.py`,
   `tab_quality.py`). An ITP checklist per activity/stage marks each check
@@ -358,8 +358,14 @@ the leverage is in making the SOP step impossible to skip.
   implied to be measured.
 - ⏳ **Approval gates as workflow** — estimate review, PO approval and bill
   certification as real gates with approver and timestamp (roles already exist).
-- ⏳ **KPI dashboard** — PPC, DSO/ageing, CVR, % spend-under-PO, unbilled
-  variation value, first-time-pass inspection %.
+- ✅ **KPI dashboard** — Money > Key Numbers (`tab_kpi.py`). Unbilled
+  variations, invoiced-without-a-receipt, % spend under PO, receivables and
+  the 90+ slab, retention due for release, PPC and its biggest cause of
+  misses, first-time-pass % and open NCRs — each with a **verdict** (good /
+  watch / act) so the screen is read rather than interpreted, and a headline
+  count of what needs an action today. Where there is no data a KPI says so
+  instead of showing a confident zero, because "0%" and "nothing recorded
+  yet" mean very different things.
 
 ### Wave 4 — completeness (P2, lower urgency at this scale)
 

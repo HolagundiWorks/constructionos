@@ -47,6 +47,7 @@ from tab_grn import build_grn_tab
 from tab_retention import build_retention_tab
 from tab_quality import build_quality_tab
 from tab_planning import build_planning_tab
+from tab_kpi import build_kpi_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -90,6 +91,7 @@ BUILDERS = {
     'Goods Receipt': build_grn_tab,
     'Vendor Invoices': build_vendor_invoices_tab,
     'Subcontractors': build_subcontract_tab,
+    'Key Numbers': build_kpi_tab,
     'Cash & Parties': build_money_tab,
     'Cash Flow': build_cashflow_tab,
     'Retention': build_retention_tab,
