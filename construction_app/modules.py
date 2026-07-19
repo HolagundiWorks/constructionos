@@ -22,7 +22,7 @@ SECTIONS_CATALOG = [
                  'Tax Invoice']),
     ('Purchases', ['Purchase Orders', 'Goods Receipt', 'Vendor Invoices',
                    'Subcontractors']),
-    ('Money', ['Cash & Parties', 'Cash Flow', 'Insight']),
+    ('Money', ['Cash & Parties', 'Cash Flow', 'Retention', 'Insight']),
     ('Accounts', ['GST & TDS', 'Accounting']),
 ]
 

@@ -38,6 +38,7 @@ import posting
 import procurement
 import projman
 import reports
+import retention
 import statutory
 import subcontract
 import variation
@@ -708,6 +709,68 @@ class TestProcurement(unittest.TestCase):
         self.assertEqual(procurement.next_doc_no(['GRN-1', 'GRN-7'], 'GRN'),
                          'GRN-8')
         self.assertEqual(procurement.next_doc_no([], 'GRN'), 'GRN-1')
+
+
+class TestRetention(unittest.TestCase):
+    """Retention is money already earned that nobody chases, so the tests
+    focus on when it becomes claimable."""
+
+    def test_dlp_is_added_in_calendar_months(self):
+        self.assertEqual(retention.release_due_date('2026-03-15', 12),
+                         date(2027, 3, 15))
+        self.assertEqual(retention.release_due_date('2026-01-31', 6),
+                         date(2026, 7, 31))
+
+    def test_short_month_clamps_instead_of_raising(self):
+        # 31 Aug + 6 months has no 31st; the end of February is correct
+        self.assertEqual(retention.release_due_date('2025-08-31', 6),
+                         date(2026, 2, 28))
+
+    def test_no_completion_date_gives_no_release_date(self):
+        """Work that has not finished cannot have a release date, and
+        inventing one would be worse than saying nothing."""
+        self.assertIsNone(retention.release_due_date(None, 12))
+        self.assertIsNone(retention.release_due_date('', 12))
+
+    def test_outstanding_never_goes_negative(self):
+        self.assertEqual(retention.outstanding(5000, 1000), 4000)
+        self.assertEqual(retention.outstanding(5000, 9000), 0)
+
+    def test_is_due_only_after_the_date(self):
+        self.assertTrue(retention.is_due('2026-01-01', '2026-07-19'))
+        self.assertFalse(retention.is_due('2027-01-01', '2026-07-19'))
+        self.assertFalse(retention.is_due(None, '2026-07-19'))
+
+    def test_line_status(self):
+        self.assertEqual(
+            retention.line_status(5000, 0, '2026-01-01', '2026-07-19'),
+            'DUE for release')
+        self.assertEqual(
+            retention.line_status(5000, 0, '2027-01-01', '2026-07-19'), 'Held')
+        self.assertEqual(retention.line_status(5000, 5000, '2026-01-01'),
+                         'Released')
+        self.assertEqual(retention.line_status(5000, 0, None),
+                         'Held (no completion date)')
+
+    def test_summarise_reports_what_is_claimable_now(self):
+        lines = [
+            {'withheld': 5000, 'released': 0, 'due_date': '2026-01-01'},
+            {'withheld': 3000, 'released': 3000, 'due_date': '2026-01-01'},
+            {'withheld': 2000, 'released': 0, 'due_date': '2027-01-01'},
+        ]
+        s = retention.summarise(lines, as_on='2026-07-19')
+        self.assertEqual(s['withheld'], 10000)
+        self.assertEqual(s['released'], 3000)
+        self.assertEqual(s['outstanding'], 7000)
+        self.assertEqual(s['due_now'], 5000)      # only the overdue, unreleased
+        self.assertEqual(s['max_overdue_days'], 199)
+
+    def test_upcoming_finds_releases_before_they_land(self):
+        lines = [{'withheld': 5000, 'released': 0, 'due_date': '2026-08-01'},
+                 {'withheld': 5000, 'released': 0, 'due_date': '2027-01-01'},
+                 {'withheld': 5000, 'released': 5000, 'due_date': '2026-08-01'}]
+        soon = retention.upcoming(lines, 60, as_on='2026-07-19')
+        self.assertEqual(len(soon), 1)            # settled line excluded
 
 
 class TestCompanyRegistry(unittest.TestCase):

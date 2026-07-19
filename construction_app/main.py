@@ -44,6 +44,7 @@ from tab_boq_ra import build_boq_ra_tab
 from tab_variations import build_variations_tab
 from tab_cashflow import build_cashflow_tab
 from tab_grn import build_grn_tab
+from tab_retention import build_retention_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -87,6 +88,7 @@ BUILDERS = {
     'Subcontractors': build_subcontract_tab,
     'Cash & Parties': build_money_tab,
     'Cash Flow': build_cashflow_tab,
+    'Retention': build_retention_tab,
     'Insight': build_insight_tab,
     'GST & TDS': build_gst_tab,
     'Accounting': build_accounting_tab,

@@ -602,6 +602,21 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ----------------------------- retention releases (Phase 8, Wave 2)
+-- Retention is withheld on the bill itself (bills/ra_bills/sub_bills already
+-- carry retention_amt); what was missing is any record of it coming BACK.
+-- Each row is a release against the document that withheld it, so outstanding
+-- retention is simply withheld minus released.
+CREATE TABLE IF NOT EXISTS retention_releases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_type TEXT,                  -- Bill / RABill / SubBill
+    doc_id INTEGER,
+    release_date TEXT,
+    amount REAL DEFAULT 0,
+    reference TEXT,                 -- client letter / payment reference
+    remarks TEXT
+);
+
 -- ------------------------- requisition -> PO -> GRN chain (Phase 8, Wave 2)
 -- A requisition is the site asking for material: the front of the chain, so a
 -- purchase starts from a written request rather than a phone call.
@@ -743,6 +758,7 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_retrel_doc ON retention_releases(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_reqitems_req ON requisition_items(requisition_id);
 CREATE INDEX IF NOT EXISTS idx_grn_po ON goods_receipts(purchase_order_id);
 CREATE INDEX IF NOT EXISTS idx_grnitems_grn ON grn_items(grn_id);

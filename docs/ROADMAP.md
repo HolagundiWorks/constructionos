@@ -306,7 +306,7 @@ the leverage is in making the SOP step impossible to skip.
   lands today rather than dropping out of the forecast; anything past the
   horizon folds into the last bucket so totals still reconcile.
 
-### Wave 2 — procurement control (P0/P1)
+### Wave 2 — procurement control (P0/P1) ✅ complete
 
 - ✅ **Requisition → PO → GRN gate** — Purchases > Goods Receipt
   (`procurement.py`, `tab_grn.py`). A **requisition** records the site's
@@ -322,8 +322,16 @@ the leverage is in making the SOP step impossible to skip.
   payment about to leave for goods that never arrived. Differences are judged
   against an editable tolerance, because deliveries never tally exactly and a
   report that cries wolf gets ignored.
-- ⏳ **Retention register + release / DLP tracking** — retention withheld on
-  both sides, released on milestone or defect-liability expiry.
+- ✅ **Retention register + release / DLP tracking** — Money > Retention
+  (`retention.py`, `tab_retention.py`). Retention never appears on an invoice,
+  so it is the easiest money to forget. The register totals what **clients owe
+  us** and what **we hold from subcontractors**, records part or full
+  releases, and flags what is **past its defect-liability date and still
+  unreleased** (with how many days overdue), plus a 60-day look-ahead so the
+  claim can be raised before the date. The release date is completion + DLP in
+  calendar months — clamped for short months — and a document with no
+  completion date is shown as held *with that reason* rather than given an
+  invented date.
 
 ### Wave 3 — quality & planning (P1)
 
