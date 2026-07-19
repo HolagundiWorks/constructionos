@@ -1,6 +1,6 @@
 # Construction OS — Roadmap
 
-_Last updated: 2026-07-10_
+_Last updated: 2026-07-19 (every item re-audited against the code)_
 
 Audience: **small civil contractors in tier-2 / tier-3 Indian cities** (see
 `PRODUCT.md`). Every phase is judged by one question: _does this help a solo
@@ -78,10 +78,15 @@ Contractors live and die by the **printed bill they hand over**.
 - ✅ Print/PDF for the remaining docs: quotation, PO (DocumentFrame "Print /
   Export"), and vendor invoice (with GST/TDS breakup) — all via
   `bill_export.build_statement_html` + `report_open.save_and_open_html`.
-- ⏳ Configurable invoice **number series** (prefix + financial-year reset).
-- ⏳ Further CBS features (Specification library, Rate Books, branded
-  proposal/contract documents, company logo) — only the estimate flow was
-  ported so far.
+- ✅ Configurable invoice **number series** — prefix + width + financial-year
+  reset (e.g. `INV/2026-27/001`), settings in Tools (`numbering.py`,
+  `tab_tax_invoice._next_invoice_number`).
+- ✅ **Company logo** on every printed document (`assets.py`, embedded as a
+  data-URI letterhead by `bill_export`).
+- 🚧 Further CBS features — branded proposal/contract documents are partial
+  (firm letterhead + logo on the generic statement builder, but no dedicated
+  proposal/contract template). **Specification library** and **Rate Books**
+  are not built.
 - ✅ Department-friendly **RA bill formats** — PWD-style abstract with tender
   quantities, upto-date amounts, memorandum of payments and signature block
   (`bill_export.build_ra_pwd_html`); **deviation statement** (tender vs
@@ -90,7 +95,7 @@ Contractors live and die by the **printed bill they hand over**.
 
 ---
 
-## Phase 3 — Labour reality 🚧 (mostly built)
+## Phase 3 — Labour reality ✅ (built)
 
 How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
@@ -103,7 +108,10 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 - ✅ Auto-recover advances (mark `advances.recovered`, FIFO, close when fully
   recovered) when a payout deducts them; "Record as Payments" is now idempotent
   (skips a labourer's week already recorded).
-- ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
+- ✅ Optional PF/ESI/labour-cess — a **Statutory** calculator sub-tab with
+  editable rates/ceilings (`statutory.py`, `tab_statutory.py`). Deliberately
+  opt-in: nothing is auto-deducted from a payout, since most T2/T3 labour is
+  informal.
 
 ---
 
@@ -118,16 +126,24 @@ early because they are pure trust wins:
 - ✅ **Fix the sharpest edge** — `CrudFrame` delete now catches
   `IntegrityError` and shows a plain-language dialog instead of a stack trace
   (AGENTS.md §4).
-- ⏳ **Vernacular UI** — Hindi/Hinglish labels via a simple string table;
-  language toggle. Plain words over accounting jargon.
-- ⏳ **Guided, low-typing entry** — defaults to today's date, remembers last
-  site/party, dropdown-first, inline "add new" for masters.
-- ⏳ Audit the remaining error paths so **no stack trace ever reaches the user**.
-- ⏳ First-run **sample data / setup wizard** (create first site + client).
+- ✅ **Vernacular UI** — English / Hindi / Hinglish string table with a Tools
+  language toggle, persisted in `app_settings.language` (`i18n.py`). Scope is
+  the navigation layer (section and tab labels) by design.
+- 🚧 **Guided, low-typing entry** — today's-date defaults and remembered
+  last-used values are in `CrudFrame` (`Field(default=TODAY)`,
+  `Field(remember=True)`) but only wired into 4 tabs; FK fields are
+  dropdown-first. **Missing: inline "add new" for masters** — you still have
+  to leave a document screen to create a client.
+- 🚧 Audit the remaining error paths so **no stack trace ever reaches the
+  user** — the sharpest edge (delete) is fixed and ~15 handlers exist, but 8
+  tab modules still have no exception handling at all.
+- ✅ First-run **setup wizard** — firm details + first site + first client,
+  runs once via `app_settings.setup_done` (`tab_wizard.py`). Sample-data
+  seeding is not included.
 
 ---
 
-## Phase 5 — Compliance made simple 🚧 (mostly built)
+## Phase 5 — Compliance made simple ✅ (built, bar e-invoice readiness)
 
 Enough to keep the contractor and their CA happy, no more.
 
@@ -137,14 +153,18 @@ Enough to keep the contractor and their CA happy, no more.
 - ✅ **Input vs output GST** position (output tax − input credit → payable /
   carry-forward).
 - ✅ **TDS register** — TDS deducted on vendor invoices, month-filtered.
-- ⏳ Bring **running bills / RA bills** into the outward GST view (currently
-  only tax invoices count as outward supply).
-- ⏳ e-invoice / e-way-bill field readiness (data captured now, integration
-  later); HSN-wise summary.
+- ✅ **Running bills / RA bills in the outward GST view** — Approved/Paid
+  `bills` and `ra_bills` taxed at a configurable works GST %, with a Source
+  column so they are not double-counted against tax invoices
+  (`tab_gst.outward`).
+- ✅ **HSN-wise summary** as its own tab (`tab_gst.hsn_summary`). Covers tax
+  invoices only — RA/running bills carry no HSN.
+- ⏳ e-invoice / e-way-bill field readiness (nothing captured yet; most T2/T3
+  contractors are below the e-invoicing threshold).
 
 ---
 
-## Phase 6 — Insight 🚧 (started)
+## Phase 6 — Insight ✅ (built)
 
 Simple, honest numbers — not exec dashboards.
 
@@ -152,11 +172,14 @@ Simple, honest numbers — not exec dashboards.
   cost (material issued + labour cash paid + equipment hire), profit & margin %
   (`tab_insight.py`, `money.profit_margin`).
 - ✅ **Receivables / Payables** — per client/vendor outstanding at a glance.
-- ⏳ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets;
-  needs payments linked to specific bills first (a Phase 1 follow-up).
-- ⏳ **Material budget vs actual** — estimate/BOQ vs consumed (builds on the
-  consumption reconciliation).
-- ⏳ Contract/BOQ **progress %** (measured value ÷ BOQ value).
+- ✅ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets
+  (`ageing.py`, two Insight tabs). _Caveat:_ payments are still not linked to
+  specific bills, so it applies the lump receipts total oldest-first (a FIFO
+  approximation, not reconciled ageing) — see the Phase 1 follow-up.
+- ✅ **Material budget vs actual** — estimate/BOQ vs consumed
+  (`analytics.material_budget`).
+- ✅ Contract/BOQ **progress %** (`analytics.contract_progress`; deliberately
+  unclamped so over-run shows above 100%).
 
 ---
 
@@ -164,13 +187,18 @@ Simple, honest numbers — not exec dashboards.
 
 Power features that must never complicate the core.
 
-- 🚧 **Auto-posting to double-entry** — a **"Auto-Post Documents"** action posts
-  balanced journal entries for tax invoices, vendor invoices, and payments
-  (`posting.py` rules + `journal_post.post_all`, idempotent). Remaining:
-  running/RA bills (need a retention-receivable account), payroll, and a
-  P&L / balance sheet built on the resulting ledger.
-- ⏳ **Subcontractor / work-order billing** — back-to-back BOQ, sub RA bills,
-  retention & TDS on works contract.
+- 🚧 **Auto-posting to double-entry** — an **"Auto-Post Documents"** action
+  posts balanced journal entries for tax invoices, vendor invoices, payments,
+  **subcontractor bills** and **payroll** (`posting.py` rules +
+  `journal_post.post_all`, idempotent). **Remaining: running/RA bills** — they
+  need a retention-receivable account. ⚠️ Until that lands, a contractor who
+  bills only via RA bills sees **no revenue** in the P&L below, so treat those
+  statements as incomplete for RA-billed work.
+- ✅ **P&L / balance sheet** on the resulting ledger, with retained-earnings
+  fold-in and a balanced tie-out check (`reports.py`, in the Accounting tab).
+- ✅ **Subcontractor / work-order billing** — sub bills with retention,
+  works-contract TDS and other deductions → net payable, printable
+  (`subcontract.py`, `tab_subcontract.py`).
 - ⏳ **Multi-year / multi-firm** files, optional cloud backup.
 
 ---
@@ -211,10 +239,44 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
   Tools > Users & Security / Audit Log).
 - ✅ **DB robustness** — WAL journaling, `busy_timeout`, enforced foreign keys.
 - ✅ **Operations** — indexes on hot foreign keys for speed at scale.
-- ✅ Per-tab write/delete gating for Viewers — enforced in CrudFrame,
-  DocumentFrame, and all bespoke financial tabs via `ui_guard.can_write()`.
-- ⏳ (was) Per-tab write/delete gating for Viewers — remaining tabs
-  not yet gated); at-rest encryption would need a native dep (out of scope).
+- 🚧 Per-tab write/delete gating for Viewers — `ui_guard.can_write()` is
+  enforced in CrudFrame, DocumentFrame and the bespoke **financial** tabs (12
+  in all). ⚠️ **Still ungated: the masters/operations tabs** — Projects,
+  Masters, Vendor, Warehouse, Consumption, Site Reports, Equipment Hire,
+  Timeline, Statutory, GST and Insight. A Viewer can currently write there,
+  so the read-only role is not yet fully enforced.
+- ⏳ At-rest encryption — would need a native dependency (out of scope).
+
+## True remaining backlog (audited against the code, 2026-07-19)
+
+Every item above was re-verified against `construction_app/`. What is
+genuinely **not built**, ordered by value to a small Indian civil contractor:
+
+1. **Auto-post running/RA bills to the ledger** — the one hole that makes a
+   *shipped* feature wrong: the P&L/balance sheet omits revenue entirely for
+   an RA-billed contractor. Fix before anything else.
+2. **Per-tab write gating for the 11 masters/operations tabs** — a Viewer can
+   write today, against an advertised read-only role. A correctness bug, not
+   a feature.
+3. **Payments linked to a specific bill/invoice** — the schema link exists but
+   has no UI. Root dependency: it turns ageing from a FIFO approximation into
+   real reconciled receivables and answers "which bill is this ₹2L against?".
+4. **Rate books** — a reusable priced-item library; the biggest typing
+   reduction available, and directly serves the minimal-typing principle.
+5. **Inline "add new" for masters** — the missing half of guided entry; being
+   forced to leave a bill screen to create a client is a classic drop-off.
+6. **Error-path audit** — 8 tab modules still have zero exception handling.
+7. **Specification library** — useful for department work; follows rate books.
+8. **Multi-year / multi-firm files** — matters at year-end; workaround exists
+   (separate DB copies).
+9. **e-invoice / e-way-bill readiness** — capture fields when a user actually
+   crosses the threshold.
+10. **Per-project Gantt filter + hard project↔transaction links** — workable
+    today while most contractors run one project per site.
+
+Considered low value for this audience and candidates for **cutting** rather
+than carrying as debt: critical-path scheduling, assistant embeddings /
+conversational follow-ups / charts, cloud backup, at-rest encryption.
 
 ## Cross-cutting, always-on
 
