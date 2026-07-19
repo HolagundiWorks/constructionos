@@ -74,6 +74,21 @@ def build_materials_tab(parent, db_getter):
     return CrudFrame(parent, db_getter, 'materials', fields, 'Materials')
 
 
+def build_rate_book_tab(parent, db_getter):
+    """Rate Book / Specification library — standard priced items with specs,
+    a PWD-style schedule of rates to reuse in estimates and BOQs."""
+    fields = [
+        Field('code', 'Code'),
+        Field('category', 'Category'),
+        Field('description', 'Description', width=200),
+        Field('unit', 'Unit'),
+        Field('rate', 'Rate', kind='number', default='0'),
+        Field('specification', 'Specification', width=240),
+    ]
+    return CrudFrame(parent, db_getter, 'rate_book', fields,
+                     'Rate Book / Specifications', order_by='code, id')
+
+
 def build_labor_tab(parent, db_getter):
     fields = [
         Field('name', 'Name'),

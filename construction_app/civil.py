@@ -96,6 +96,34 @@ def reconcile_consumption(theoretical, actual):
             'variance': variance, 'wastage_pct': pct}
 
 
+def deviation(tender_qty, executed_qty, rate):
+    """PWD deviation statement line: tendered vs executed for one BOQ item.
+
+        deviation_qty    = executed_qty - tender_qty  (+ excess / - saving)
+        tender_amount    = tender_qty  * rate
+        executed_amount  = executed_qty * rate
+        deviation_amount = deviation_qty * rate
+        status           = 'Excess' / 'Saving' / 'As per BOQ'
+    """
+    tq = round(float(tender_qty or 0), 3)
+    eq = round(float(executed_qty or 0), 3)
+    rate = round(float(rate or 0), 2)
+    dq = round(eq - tq, 3)
+    if dq > 0:
+        status = 'Excess'
+    elif dq < 0:
+        status = 'Saving'
+    else:
+        status = 'As per BOQ'
+    return {
+        'tender_qty': tq, 'executed_qty': eq, 'deviation_qty': dq,
+        'tender_amount': round(tq * rate, 2),
+        'executed_amount': round(eq * rate, 2),
+        'deviation_amount': round(dq * rate, 2),
+        'status': status,
+    }
+
+
 def cube_area(side_mm=150):
     """Cross-section area of a standard concrete test cube (default 150 mm)."""
     return float(side_mm) * float(side_mm)
