@@ -9,7 +9,7 @@ fill, not a validated rule).
 
 from datetime import datetime
 
-from crud_frame import CrudFrame, Field
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import vendor_options, site_options
 
 
@@ -49,7 +49,7 @@ def build_equipment_hire_tab(parent, db_getter):
     fields = [
         Field('equipment_name', 'Equipment'),
         Field('vendor_id', 'Vendor', kind='fk', options_func=vendor_options),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
         Field('hire_type', 'Hire Type', kind='combo',
               options=['Daily', 'Monthly', 'Hourly'], default='Daily'),
         Field('rate', 'Rate', kind='number', default='0'),

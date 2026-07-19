@@ -6,14 +6,15 @@ the fly per (site, material) as SUM(IN qty) - SUM(OUT qty); it is never stored.
 
 from tkinter import ttk
 
-from crud_frame import CrudFrame, Field
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import site_options, material_options, vendor_options
 
 
 def _build_ledger(parent, db_getter):
     fields = [
-        Field('txn_date', 'Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('txn_date', 'Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options,
+              remember=True),
         Field('material_id', 'Material', kind='fk',
               options_func=material_options),
         Field('txn_type', 'Type', kind='combo',

@@ -17,7 +17,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import civil
-from crud_frame import CrudFrame, Field
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import material_options, site_options
 
 
@@ -35,8 +35,9 @@ def _build_norms(parent, db_getter):
 
 def _build_work_done(parent, db_getter):
     fields = [
-        Field('entry_date', 'Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('entry_date', 'Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options,
+              remember=True),
         Field('activity', 'Activity'),
         Field('unit', 'Unit'),
         Field('qty', 'Qty Executed', kind='number', default='0'),

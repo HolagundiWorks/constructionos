@@ -14,7 +14,7 @@ All four are thin ``CrudFrame`` wrappers; only Cube Tests carries an ``on_save``
 from tkinter import ttk
 
 import civil
-from crud_frame import CrudFrame, Field
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import site_options
 
 
@@ -34,8 +34,8 @@ def _compute_cube(conn, row_id, values):
 
 def _build_daily_progress(parent, db_getter):
     fields = [
-        Field('report_date', 'Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('report_date', 'Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
         Field('weather', 'Weather', kind='combo',
               options=['Clear', 'Cloudy', 'Rain', 'Heavy Rain'], default='Clear'),
         Field('labour_count', 'Labour', kind='number', default='0'),
@@ -50,9 +50,9 @@ def _build_daily_progress(parent, db_getter):
 
 def _build_cube_tests(parent, db_getter):
     fields = [
-        Field('cast_date', 'Cast Date'),
-        Field('test_date', 'Test Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('cast_date', 'Cast Date', default=TODAY),
+        Field('test_date', 'Test Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
         Field('grade', 'Grade', kind='combo',
               options=['M10', 'M15', 'M20', 'M25', 'M30', 'M35', 'M40'],
               default='M25'),
@@ -72,8 +72,8 @@ def _build_cube_tests(parent, db_getter):
 
 def _build_material_tests(parent, db_getter):
     fields = [
-        Field('test_date', 'Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('test_date', 'Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
         Field('material', 'Material'),
         Field('test_type', 'Test Type'),
         Field('sample_ref', 'Sample Ref'),
@@ -86,8 +86,8 @@ def _build_material_tests(parent, db_getter):
 
 def _build_plant_log(parent, db_getter):
     fields = [
-        Field('log_date', 'Date'),
-        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('log_date', 'Date', default=TODAY),
+        Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
         Field('equipment', 'Equipment'),
         Field('hours_run', 'Hours Run', kind='number', default='0'),
         Field('diesel_ltr', 'Diesel (L)', kind='number', default='0'),

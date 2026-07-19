@@ -12,7 +12,7 @@ from tkinter import ttk, messagebox
 from ui_guard import can_write
 
 import wages
-from crud_frame import CrudFrame, Field
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import labor_options
 
 
@@ -25,7 +25,7 @@ days_present_for = wages.day_fraction
 # ---------------------------------------------------------------- sub-frames
 def _build_attendance(parent, db_getter):
     fields = [
-        Field('att_date', 'Date'),
+        Field('att_date', 'Date', default=TODAY),
         Field('labor_id', 'Labor', kind='fk', options_func=labor_options),
         Field('status', 'Status', kind='combo',
               options=['Present', 'Half Day', 'Overtime', 'Absent'],
@@ -39,7 +39,7 @@ def _build_attendance(parent, db_getter):
 
 def _build_advances(parent, db_getter):
     fields = [
-        Field('adv_date', 'Date'),
+        Field('adv_date', 'Date', default=TODAY),
         Field('labor_id', 'Labor', kind='fk', options_func=labor_options),
         Field('amount', 'Amount', kind='number', default='0'),
         Field('recovered', 'Recovered', kind='number', default='0'),

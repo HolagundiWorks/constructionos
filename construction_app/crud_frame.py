@@ -11,10 +11,14 @@ invoked with a live connection after each insert/update.
 """
 
 import sqlite3
+from datetime import date
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ui_guard import can_write
+
+# Sentinel default meaning "prefill with today's date" (low-typing entry).
+TODAY = '@today'
 
 
 class Field:
@@ -28,10 +32,16 @@ class Field:
         'fk'     -> read-only Combobox populated by ``options_func(conn)`` which
                     returns [(id, label), ...]. Displayed as "{id} - {label}";
                     the leading id is parsed back out on save.
+
+    Low-typing helpers (Phase 4):
+        default=TODAY -> the field prefills with today's date.
+        remember=True -> the last value saved is remembered and prefilled next
+                    time (per table+column), so a repeated site/party/date isn't
+                    retyped for every entry.
     """
 
     def __init__(self, key, label, kind='text', width=110,
-                 options=None, options_func=None, default=''):
+                 options=None, options_func=None, default='', remember=False):
         self.key = key
         self.label = label
         self.kind = kind
@@ -39,6 +49,7 @@ class Field:
         self.options = options or []
         self.options_func = options_func
         self.default = default
+        self.remember = remember
 
 
 class CrudFrame(ttk.Frame):
@@ -58,8 +69,46 @@ class CrudFrame(ttk.Frame):
         self._fk_maps = {}      # key -> {display_string: id}
         self.selected_id = None
 
+        self._remembered = self._load_remembered()
         self._build_ui()
         self.refresh()
+
+    # ---------------------------------------------------- low-typing defaults
+    def _load_remembered(self):
+        """Last saved values for this table's ``remember`` fields."""
+        keys = ['last:{}:{}'.format(self.table, f.key)
+                for f in self.fields if f.remember]
+        if not keys:
+            return {}
+        conn = self.db_getter()
+        try:
+            rows = conn.execute(
+                'SELECT key, value FROM app_settings WHERE key IN ({})'.format(
+                    ', '.join('?' * len(keys))), keys).fetchall()
+        finally:
+            conn.close()
+        prefix = 'last:{}:'.format(self.table)
+        return {r['key'][len(prefix):]: r['value'] for r in rows}
+
+    def _default_for(self, field):
+        """Resolve a field's starting value: remembered > today > static."""
+        if field.remember and self._remembered.get(field.key):
+            return self._remembered[field.key]
+        if field.default == TODAY:
+            return date.today().isoformat()
+        return field.default
+
+    def _save_remembered(self, conn):
+        """Persist current values of ``remember`` fields for next time."""
+        for field in self.fields:
+            if not field.remember:
+                continue
+            val = self.vars[field.key].get().strip()
+            self._remembered[field.key] = val
+            conn.execute(
+                'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                ('last:{}:{}'.format(self.table, field.key), val))
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -95,7 +144,7 @@ class CrudFrame(ttk.Frame):
             cell = ttk.Frame(form)
             cell.grid(row=row, column=col, padx=6, pady=4, sticky='w')
             ttk.Label(cell, text=field.label, width=14).pack(side='left')
-            var = tk.StringVar(value=field.default)
+            var = tk.StringVar(value=self._default_for(field))
             self.vars[field.key] = var
             if field.kind in ('combo', 'fk'):
                 widget = ttk.Combobox(cell, textvariable=var, width=20,
@@ -201,6 +250,7 @@ class CrudFrame(ttk.Frame):
         conn = self.db_getter()
         try:
             cur = conn.execute(sql, [values[c] for c in cols])
+            self._save_remembered(conn)
             conn.commit()
             row_id = cur.lastrowid
             if self.on_save:
@@ -265,6 +315,6 @@ class CrudFrame(ttk.Frame):
     def clear(self):
         self.selected_id = None
         for field in self.fields:
-            self.vars[field.key].set(field.default)
+            self.vars[field.key].set(self._default_for(field))
         if self.tree.selection():
             self.tree.selection_remove(self.tree.selection())
