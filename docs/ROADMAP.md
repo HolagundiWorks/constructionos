@@ -335,8 +335,16 @@ the leverage is in making the SOP step impossible to skip.
 
 ### Wave 3 — quality & planning (P1)
 
-- ⏳ **ITP / QA hold-point checklists + NCR log** — per-activity inspection
-  with hold/witness points (pre-pour, pre-cover) and corrective action.
+- ✅ **ITP hold-points + NCR log** — Operations > Quality (`quality.py`,
+  `tab_quality.py`). An ITP checklist per activity/stage marks each check
+  **Hold** (work stops until signed off), **Witness** (engineer invited, does
+  not block) or **Record**. An inspection loads that checklist and answers the
+  only question that matters on site — **"may the work proceed?"** — which is
+  not the same as "did anything fail": an *unanswered* Hold point blocks, since
+  unrecorded is exactly how an inspection gets skipped. The inspection's result
+  is derived from its lines, never typed, so it cannot contradict the evidence.
+  A failed check raises a pre-filled **NCR** with root cause, corrective and
+  preventive action; the log headlines how long the oldest open one has sat.
 - ⏳ **Weekly look-ahead + Percent Plan Complete** — a light Last-Planner view;
   traditional planning completes only ~54% of what it promises weekly.
 - ⏳ **Cost-Value Reconciliation per project** — cost incurred vs value earned

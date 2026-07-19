@@ -45,6 +45,7 @@ from tab_variations import build_variations_tab
 from tab_cashflow import build_cashflow_tab
 from tab_grn import build_grn_tab
 from tab_retention import build_retention_tab
+from tab_quality import build_quality_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -73,6 +74,7 @@ BUILDERS = {
     'Equipment Hire': build_equipment_hire_tab,
     'Consumption': build_consumption_tab,
     'Site Reports': build_site_reports_tab,
+    'Quality': build_quality_tab,
     'Timeline': build_timeline_tab,
     'Rate Book': build_rate_book_tab,
     'Quotations': build_quotations_tab,

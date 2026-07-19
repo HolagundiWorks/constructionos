@@ -602,6 +602,65 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------- ITP / inspections / NCR (Phase 8, Wave 3)
+-- The test registers record results; these record the *gate*. An ITP line
+-- marked Hold stops work until it is signed off - "no pour without a
+-- hold-point sign-off". Witness points invite the engineer but do not block.
+CREATE TABLE IF NOT EXISTS itp_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity TEXT,                  -- e.g. 'M25 Slab Concrete'
+    stage TEXT,                     -- e.g. 'Pre-pour'
+    description TEXT,               -- what is being checked
+    check_type TEXT DEFAULT 'Hold', -- Hold / Witness / Record
+    reference TEXT,                 -- IS code / drawing / spec clause
+    sort_order REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS inspections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    activity TEXT,
+    element TEXT,                   -- which slab / column / location
+    stage TEXT,
+    inspection_date TEXT,
+    inspected_by TEXT,
+    result TEXT DEFAULT 'Pending',  -- Pending / Pass / Fail (derived from items)
+    reinspection INTEGER DEFAULT 0, -- 1 = repeat after an earlier failure
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS inspection_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inspection_id INTEGER REFERENCES inspections(id) ON DELETE CASCADE,
+    itp_item_id INTEGER REFERENCES itp_items(id),
+    description TEXT,
+    check_type TEXT DEFAULT 'Hold',
+    result TEXT DEFAULT 'Pending',  -- Pending / Pass / Fail / N/A
+    checked_by TEXT,
+    remarks TEXT
+);
+
+-- Non-conformances. Finding a defect matters less than closing it: an NCR
+-- left open is a defect still in the building, and the record proves it was
+-- known about.
+CREATE TABLE IF NOT EXISTS ncrs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ncr_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    inspection_id INTEGER REFERENCES inspections(id),
+    raised_date TEXT,
+    raised_by TEXT,
+    description TEXT,
+    severity TEXT DEFAULT 'Minor',  -- Minor / Major / Critical
+    root_cause TEXT,
+    corrective_action TEXT,         -- fix this occurrence
+    preventive_action TEXT,         -- stop it recurring
+    status TEXT DEFAULT 'Open',     -- Open / Closed
+    closed_date TEXT,
+    closed_by TEXT,
+    remarks TEXT
+);
+
 -- ----------------------------- retention releases (Phase 8, Wave 2)
 -- Retention is withheld on the bill itself (bills/ra_bills/sub_bills already
 -- carry retention_amt); what was missing is any record of it coming BACK.
@@ -758,6 +817,9 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_inspitems_insp ON inspection_items(inspection_id);
+CREATE INDEX IF NOT EXISTS idx_insp_site ON inspections(site_id);
+CREATE INDEX IF NOT EXISTS idx_ncrs_status ON ncrs(status);
 CREATE INDEX IF NOT EXISTS idx_retrel_doc ON retention_releases(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_reqitems_req ON requisition_items(requisition_id);
 CREATE INDEX IF NOT EXISTS idx_grn_po ON goods_receipts(purchase_order_id);

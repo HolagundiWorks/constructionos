@@ -16,7 +16,7 @@ SECTIONS_CATALOG = [
                  'Equipment']),
     ('Projects', ['Projects']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
-                    'Equipment Hire', 'Consumption', 'Site Reports', 'Timeline']),
+                    'Equipment Hire', 'Consumption', 'Site Reports', 'Quality', 'Timeline']),
     ('Billing', ['Rate Book', 'Quotations', 'Estimates', 'Contracts',
                  'BOQ / RA Bills', 'Variations', 'Running Bills',
                  'Tax Invoice']),

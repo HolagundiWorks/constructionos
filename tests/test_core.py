@@ -37,6 +37,7 @@ import numwords
 import posting
 import procurement
 import projman
+import quality
 import reports
 import retention
 import statutory
@@ -771,6 +772,84 @@ class TestRetention(unittest.TestCase):
                  {'withheld': 5000, 'released': 5000, 'due_date': '2026-08-01'}]
         soon = retention.upcoming(lines, 60, as_on='2026-07-19')
         self.assertEqual(len(soon), 1)            # settled line excluded
+
+
+class TestQualityGate(unittest.TestCase):
+    """The gate answers 'may the work proceed', which is not the same
+    question as 'did anything fail'."""
+
+    def _item(self, check_type, result):
+        return {'check_type': check_type, 'result': result}
+
+    def test_unanswered_hold_point_blocks_even_with_no_failure(self):
+        items = [self._item(quality.HOLD, quality.PENDING),
+                 self._item(quality.RECORD, quality.PASS)]
+        allowed, reason = quality.may_proceed(items)
+        self.assertFalse(allowed)
+        self.assertIn('not yet signed off', reason)
+
+    def test_failed_hold_point_blocks_with_a_different_reason(self):
+        allowed, reason = quality.may_proceed(
+            [self._item(quality.HOLD, quality.FAIL)])
+        self.assertFalse(allowed)
+        self.assertIn('FAILED', reason)
+
+    def test_all_holds_cleared_allows_work(self):
+        items = [self._item(quality.HOLD, quality.PASS),
+                 self._item(quality.HOLD, quality.NA)]
+        allowed, _ = quality.may_proceed(items)
+        self.assertTrue(allowed)
+
+    def test_witness_point_does_not_block(self):
+        """A contractor cannot be held hostage by an engineer who did not attend."""
+        allowed, _ = quality.may_proceed(
+            [self._item(quality.WITNESS, quality.PENDING),
+             self._item(quality.HOLD, quality.PASS)])
+        self.assertTrue(allowed)
+
+    def test_blank_checklist_is_pending_not_a_pass(self):
+        """Unrecorded is exactly how an inspection gets skipped."""
+        self.assertEqual(quality.inspection_result([]), quality.PENDING)
+
+    def test_result_is_pending_until_every_hold_and_witness_answered(self):
+        items = [self._item(quality.HOLD, quality.PASS),
+                 self._item(quality.WITNESS, quality.PENDING)]
+        self.assertEqual(quality.inspection_result(items), quality.PENDING)
+
+    def test_any_failure_fails_the_inspection(self):
+        items = [self._item(quality.HOLD, quality.PASS),
+                 self._item(quality.RECORD, quality.FAIL)]
+        self.assertEqual(quality.inspection_result(items), quality.FAIL)
+
+    def test_all_answered_passes(self):
+        items = [self._item(quality.HOLD, quality.PASS),
+                 self._item(quality.WITNESS, quality.NA),
+                 self._item(quality.RECORD, quality.PENDING)]
+        self.assertEqual(quality.inspection_result(items), quality.PASS)
+
+    def test_first_time_pass_rate_excludes_reinspections(self):
+        rows = [{'result': quality.PASS, 'reinspection': 0},
+                {'result': quality.PASS, 'reinspection': 1},   # a repeat
+                {'result': quality.FAIL, 'reinspection': 0},
+                {'result': quality.PENDING, 'reinspection': 0}]  # not counted
+        self.assertEqual(quality.first_time_pass_rate(rows), 33.33)
+
+    def test_first_time_pass_rate_is_none_with_nothing_inspected(self):
+        self.assertIsNone(quality.first_time_pass_rate([]))
+
+    def test_ncr_age_and_summary(self):
+        ncrs = [{'status': 'Open', 'raised_date': '2026-01-01'},
+                {'status': 'Open', 'raised_date': '2026-07-01'},
+                {'status': 'Closed', 'raised_date': '2026-01-01'}]
+        s = quality.ncr_summary(ncrs, as_on='2026-07-20')
+        self.assertEqual(s['open'], 2)
+        self.assertEqual(s['closed'], 1)
+        self.assertEqual(s['oldest_open_days'], 200)
+        self.assertAlmostEqual(s['closure_rate'], 33.33, places=1)
+
+    def test_closed_ncr_age_stops_at_closure(self):
+        self.assertEqual(
+            quality.ncr_age_days('2026-01-01', '2026-01-11', '2026-07-20'), 10)
 
 
 class TestCompanyRegistry(unittest.TestCase):
