@@ -1,6 +1,6 @@
 # Construction OS — Roadmap
 
-_Last updated: 2026-07-10_
+_Last updated: 2026-07-19_
 
 Audience: **small civil contractors in tier-2 / tier-3 Indian cities** (see
 `PRODUCT.md`). Every phase is judged by one question: _does this help a solo
@@ -59,7 +59,7 @@ cash-first views; the contractor never needs the journal to run the business.
 
 ---
 
-## Phase 2 — Get paid & submit 🚧 (in progress)
+## Phase 2 — Get paid & submit ✅ (built)
 
 Contractors live and die by the **printed bill they hand over**.
 
@@ -78,15 +78,19 @@ Contractors live and die by the **printed bill they hand over**.
 - ✅ Print/PDF for the remaining docs: quotation, PO (DocumentFrame "Print /
   Export"), and vendor invoice (with GST/TDS breakup) — all via
   `bill_export.build_statement_html` + `report_open.save_and_open_html`.
-- ⏳ Configurable invoice **number series** (prefix + financial-year reset).
-- ⏳ Further CBS features (Specification library, Rate Books, branded
-  proposal/contract documents, company logo) — only the estimate flow was
-  ported so far.
+- ✅ Configurable invoice **number series** (prefix + financial-year reset) —
+  `numbering.py` + Tools "Invoice Number Series"; tax-invoice auto-numbering
+  honours it (e.g. `INV/2026-27/001`, restarting each April).
+- ✅ **Rate Book / Specification library** — a schedule of standard priced items
+  with specs (`rate_book`, Billing > Rate Book), reusable in estimates/BOQs.
 - ✅ Department-friendly **RA bill formats** — PWD-style abstract with tender
   quantities, upto-date amounts, memorandum of payments and signature block
-  (`bill_export.build_ra_pwd_html`); **deviation statement** (tender vs
-  executed qty per item, `civil.deviation_row`); **part-rate** on draft RA
-  bill items with automatic re-roll of the payable figures (`tab_boq_ra.py`).
+  (`bill_export.build_ra_pwd_html`); **part-rate** on draft RA bill items with
+  automatic re-roll of the payable figures (`tab_boq_ra.py`); and a **deviation
+  statement** (tender vs executed qty per item) both per-bill from the RA Bill
+  frame (`civil.deviation_row`) and as a standalone contract-level tab
+  (`civil.deviation`, BOQ / RA Bills > Deviation).
+- ⏳ Branded proposal/contract documents.
 
 ---
 
@@ -103,14 +107,15 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 - ✅ Auto-recover advances (mark `advances.recovered`, FIFO, close when fully
   recovered) when a payout deducts them; "Record as Payments" is now idempotent
   (skips a labourer's week already recorded).
-- ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
+- ✅ Optional PF/ESI/labour-cess (off the main flow — most are informal):
+  `statutory.py` maths, optional PF/ESI No fields on the labour master, and a
+  standalone "Statutory" calculator under Muster & Wages.
 
 ---
 
-## Phase 4 — Trust & ease 🚧 (started early)
+## Phase 4 — Trust & ease ✅ (built)
 
-Adoption blockers for non-technical, single-PC users. Two essentials landed
-early because they are pure trust wins:
+Adoption blockers for non-technical, single-PC users.
 
 - ✅ **Backup & restore** — one-click copy of the SQLite file to a chosen folder
   / USB, date-stamped; guarded restore that first makes a safety copy
@@ -118,16 +123,21 @@ early because they are pure trust wins:
 - ✅ **Fix the sharpest edge** — `CrudFrame` delete now catches
   `IntegrityError` and shows a plain-language dialog instead of a stack trace
   (AGENTS.md §4).
-- ⏳ **Vernacular UI** — Hindi/Hinglish labels via a simple string table;
-  language toggle. Plain words over accounting jargon.
-- ⏳ **Guided, low-typing entry** — defaults to today's date, remembers last
-  site/party, dropdown-first, inline "add new" for masters.
-- ⏳ Audit the remaining error paths so **no stack trace ever reaches the user**.
-- ⏳ First-run **sample data / setup wizard** (create first site + client).
+- ✅ **Vernacular UI** — Hindi/Hinglish labels for the navigation layer via a
+  string table (`i18n.py`) + language toggle in Tools; graceful English
+  fallback for untranslated keys.
+- ✅ **Guided, low-typing entry** — date fields default to today and Site (etc.)
+  remembers the last selection, per table+column (`CrudFrame`/`Field` TODAY +
+  remember).
+- ✅ Audit the remaining error paths — an app-wide Tk `report_callback_exception`
+  handler (`errors.py`) turns any uncaught callback error into a plain-language
+  dialog, so **no stack trace ever reaches the user**.
+- ✅ First-run **setup wizard** (`tab_wizard.py`) — firm details + first site +
+  first client on a fresh book, shown once.
 
 ---
 
-## Phase 5 — Compliance made simple 🚧 (mostly built)
+## Phase 5 — Compliance made simple ✅ (built)
 
 Enough to keep the contractor and their CA happy, no more.
 
@@ -137,14 +147,16 @@ Enough to keep the contractor and their CA happy, no more.
 - ✅ **Input vs output GST** position (output tax − input credit → payable /
   carry-forward).
 - ✅ **TDS register** — TDS deducted on vendor invoices, month-filtered.
-- ⏳ Bring **running bills / RA bills** into the outward GST view (currently
-  only tax invoices count as outward supply).
+- ✅ **Running / RA bills in the outward GST view** — Output GST now spans tax
+  invoices + RA + running bills (works-contract supply at a configurable
+  Works GST %), with a Source column so RA-only billers are covered.
+- ✅ **HSN-wise summary** (GSTR-1 style) of outward supplies by HSN/SAC.
 - ⏳ e-invoice / e-way-bill field readiness (data captured now, integration
-  later); HSN-wise summary.
+  later).
 
 ---
 
-## Phase 6 — Insight 🚧 (started)
+## Phase 6 — Insight ✅ (built)
 
 Simple, honest numbers — not exec dashboards.
 
@@ -152,26 +164,32 @@ Simple, honest numbers — not exec dashboards.
   cost (material issued + labour cash paid + equipment hire), profit & margin %
   (`tab_insight.py`, `money.profit_margin`).
 - ✅ **Receivables / Payables** — per client/vendor outstanding at a glance.
-- ⏳ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets;
-  needs payments linked to specific bills first (a Phase 1 follow-up).
-- ⏳ **Material budget vs actual** — estimate/BOQ vs consumed (builds on the
-  consumption reconciliation).
-- ⏳ Contract/BOQ **progress %** (measured value ÷ BOQ value).
+- ✅ **Receivable / payable ageing** — 0–30 / 30–60 / 60–90 / 90+ buckets;
+  bills FIFO-settled by receipts/payments then aged by date (`ageing.py`).
+- ✅ **Material budget vs actual** (value) — theoretical consumption (norm ×
+  work done) vs actual issued, valued at the material's standard rate
+  (`analytics.material_budget`).
+- ✅ Contract/BOQ **progress %** (measured value ÷ BOQ value,
+  `analytics.contract_progress`).
 
 ---
 
-## Phase 7 — Advanced (optional, opt-in) ⏳
+## Phase 7 — Advanced (optional, opt-in) 🚧 (mostly built)
 
 Power features that must never complicate the core.
 
-- 🚧 **Auto-posting to double-entry** — a **"Auto-Post Documents"** action posts
-  balanced journal entries for tax invoices, vendor invoices, and payments
-  (`posting.py` rules + `journal_post.post_all`, idempotent). Remaining:
-  running/RA bills (need a retention-receivable account), payroll, and a
-  P&L / balance sheet built on the resulting ledger.
-- ⏳ **Subcontractor / work-order billing** — back-to-back BOQ, sub RA bills,
-  retention & TDS on works contract.
-- ⏳ **Multi-year / multi-firm** files, optional cloud backup.
+- ✅ **Auto-posting to double-entry** — a **"Auto-Post Documents"** action posts
+  balanced journal entries for tax invoices, vendor invoices, payments, **paid
+  payroll**, and **subcontractor bills** (`posting.py` rules +
+  `journal_post.post_all`, idempotent).
+- ✅ **P&L and Balance Sheet** built on the posted ledger (`reports.py`,
+  Accounting > Profit & Loss / Balance Sheet), with a tie-out check.
+- ✅ **Subcontractor / work-order billing** — work orders (+ items) and sub
+  running bills with retention & works-contract TDS (`subcontract.py`,
+  `tab_subcontract.py`); posts Dr Subcontractor Charges / Cr Retention + TDS +
+  Payable.
+- ⏳ Running/RA bills into the ledger (need a retention-receivable posting);
+  **multi-year / multi-firm** files, optional cloud backup.
 
 ---
 
@@ -198,8 +216,10 @@ dependency and localhost-only).
 - ✅ Deterministic **quick answers** (cash/receivables/payables/month billed)
   that work with **no LLM** — the offline floor.
 - ✅ Model/host configured in Tools; graceful "start Ollama" status when absent.
-- ⏳ Optional embeddings for larger schemas; conversational follow-ups; charts
-  from results.
+- ✅ Schema/examples cover the newer modules (subcontractors, work orders, rate
+  book, BOQ) and results render a monospace **bar chart** for (label, number)
+  answers (`assistant.text_bar_chart`).
+- ⏳ Optional embeddings for larger schemas; conversational follow-ups.
 
 ## Enterprise hardening (added on request)
 

@@ -28,13 +28,25 @@ zero-dependency Dolibarr for the construction trade. The trajectory is:
 - **Site execution & quality** (built): material consumption reconciliation
   (theoretical vs actual) and site registers (DPR, cube tests, material tests,
   plant log) — see §16.
-- **Finance & accounting** (foundation built): GST (CGST/SGST/IGST) and TDS
-  computation, a chart of accounts, a double-entry journal, and a trial
-  balance.
-- **Next** (not built — see §14): auto-posting business documents (bills,
-  vendor invoices, payroll) into the journal; GST returns (GSTR-style
-  summaries); ageing/outstanding reports; payments & receipts; multi-site P&L;
-  subcontractor/work-order billing.
+- **Finance & accounting** (built): GST (CGST/SGST/IGST) and TDS computation, a
+  chart of accounts, a double-entry journal, a trial balance, and **P&L +
+  balance sheet** on the posted ledger (`reports.py`).
+- **Money & compliance** (built): payments & receipts, party balances, cash
+  book, home dashboard; GST registers (output incl. RA/running bills, input,
+  HSN summary, 3B-style net position) and a TDS register.
+- **Insight** (built): site profitability, receivables/payables, **ageing**
+  (0-30/30-60/60-90/90+), **contract/BOQ progress %**, and **material budget
+  vs actual**.
+- **Auto-posting** (built): idempotent journal entries for tax invoices, vendor
+  invoices, payments, paid payroll, and subcontractor bills (`journal_post`).
+- **Subcontractor/work-order billing** (built): work orders + sub running bills
+  with retention & works-contract TDS (`subcontract.py`, `tab_subcontract.py`).
+- **Trust & ease** (built): first-run setup wizard, today-default + remember-
+  last low-typing entry, Hindi/Hinglish navigation (`i18n.py`), and an app-wide
+  no-stack-trace error handler (`errors.py`).
+- **Next** (not built — see §14): running/RA bills posted with a retention-
+  receivable account; e-invoice / e-way-bill integration; embeddings for the
+  assistant; multi-year / multi-firm files.
 
 The **Indian context** matters: money figures carry GST split into CGST+SGST
 (intra-state) or IGST (inter-state); vendor payments are subject to TDS;
@@ -116,33 +128,44 @@ construction_app/
 ├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── posting.py              # PURE double-entry posting rules: balanced journal lines per document type (uses CoA codes). No tkinter/DB.
-├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices + payments. DB-only, no tkinter.
+├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices, payments, paid payroll, sub bills. DB-only, no tkinter.
+├── reports.py              # PURE financial statements on the ledger: profit_and_loss + balance_sheet (from account debit/credit totals). No tkinter/DB.
+├── ageing.py               # PURE receivable/payable ageing: FIFO-settle dated bills by receipts, bucket the remainder 0-30/30-60/60-90/90+. No tkinter/DB.
+├── analytics.py            # PURE progress/budget: contract_progress (measured÷BOQ) + material_budget (value). No tkinter/DB.
+├── numbering.py            # PURE document numbering: Indian financial year + configurable invoice series (prefix + FY reset). No tkinter/DB.
+├── subcontract.py          # PURE subcontractor bill maths: retention + works-contract TDS → net payable (reuses civil + finance). No tkinter/DB.
+├── statutory.py            # PURE optional labour statutory maths: EPF, ESI, BOCW labour cess. No tkinter/DB.
+├── i18n.py                 # Navigation-layer vernacular string table (English/Hindi/Hinglish) + language toggle; t(key) with English fallback. No tkinter.
+├── errors.py               # App-wide Tk report_callback_exception handler → plain-language dialog (no stack trace reaches the user).
+├── tab_subcontract.py      # Subcontractors: Work Orders (DocumentFrame) + Sub Bills (value-based, retention/TDS/net, printable).
+├── tab_statutory.py        # Standalone PF/ESI/labour-cess calculator (off the main flow), under Muster & Wages.
+├── tab_wizard.py           # First-run setup wizard: firm details + first site + first client, shown once on a fresh book.
 ├── civil.py                # PURE civil maths: measurement-book qty, RA-bill qty split & totals, consumption reconciliation, cube strength. No tkinter/DB.
 ├── money.py                # PURE cash-first maths: signed cash, running/closing balance, party outstanding. No tkinter/DB.
 ├── numwords.py             # PURE Indian rupees-in-words (lakh/crore) for printed invoices. No tkinter/DB.
 ├── wages.py                # PURE day-fraction + gross/deduction/net wage maths (shared by muster/payout/payroll). No tkinter/DB.
 ├── bill_export.py          # PURE HTML builders: bill, RA abstract, GST tax invoice (+words), generic statement. No tkinter/DB.
 ├── crud_frame.py           # Generic reusable "list + form" widget (CrudFrame) and Field descriptor.
-├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment master CRUD + shared *_options fk helpers.
+├── tab_masters.py          # Sites, Clients, Materials (with std rate), Labor (+ optional PF/ESI no), Equipment, Rate Book masters + *_options fk helpers.
 ├── tab_vendor.py           # Vendor master (CrudFrame) + a read-only spend/hire rollup view.
 ├── tab_warehouse.py        # Material ledger (CrudFrame) + a computed-on-the-fly stock summary view.
 ├── tab_labor.py            # Attendance (CrudFrame), Advances (CrudFrame), Payroll (bespoke). days_present_for = wages.day_fraction.
 ├── tab_muster.py           # Muster roll (fast daily attendance) + weekly wage payout (feeds Payments) + thekedar master & ledger.
-├── tab_documents.py        # DocumentFrame generic class (header + line items) → Quotations, Purchase Orders. Contracts is a plain CrudFrame.
+├── tab_documents.py        # DocumentFrame generic class (header + line items, with Print/Export) -> Quotations, Purchase Orders. Contracts is a plain CrudFrame.
 ├── estimate.py             # PURE estimate roll-up (subtotal→contingency→taxable→GST→grand total), ported from CBS. No tkinter/DB.
 ├── tab_estimate.py         # Estimates (bespoke, ported from Construction-Billing-System): contingency + GST + grand total + printable estimate document.
 ├── tab_billing.py          # BillingTab: bespoke Bills/Running Bills with running-total math + "Make Bill" HTML export (bill_export).
 ├── tab_tax_invoice.py      # GST Tax Invoices (outward, to clients): HSN, CGST/SGST/IGST, printable invoice with amount-in-words.
 ├── tab_vendor_invoice.py   # Vendor invoices (bespoke, GST/TDS via finance) + PO↔invoice ReconciliationView.
-├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA (Running Account) bill generation & abstract export.
+├── tab_boq_ra.py           # BOQ per contract + Measurement Book + RA bills + Deviation Statement (PWD-style tendered-vs-executed).
 ├── tab_consumption.py      # Consumption norms + work-done log + theoretical-vs-actual reconciliation view.
 ├── tab_site_reports.py     # DPR, Cube Tests (auto strength/result), Material Tests, Plant Log (CrudFrames).
 ├── tab_home.py             # Plain-language dashboard: cash in hand, receivables, payables, active sites, month billed/collected.
 ├── tab_money.py            # Payments & Receipts + Party Balances + Cash Book (cash-first, Phase 1).
-├── tab_insight.py          # Site Profitability (revenue vs material/labour/hire) + Receivables/Payables. Computed + printable.
-├── tab_gst.py              # GST & TDS summaries: Output GST (sales), Input GST (purchases), net-position summary, TDS register. Computed + printable.
-├── tab_accounting.py       # Chart of Accounts (CrudFrame) + JournalFrame (double-entry) + TrialBalance report — ADVANCED / for the CA.
-├── tab_tools.py            # Backup & Restore of the single SQLite file (data safety).
+├── tab_insight.py          # Site Profitability + Contract Progress (measured/BOQ) + Material Budget + Receivables/Payables + Ageing. Computed + printable.
+├── tab_gst.py              # GST & TDS: Output GST (tax invoices + RA/running bills), Input GST, HSN summary, net-position, TDS register. Computed + printable.
+├── tab_accounting.py       # Chart of Accounts + Journal + Trial Balance + Profit & Loss + Balance Sheet (reports.py) — ADVANCED / for the CA.
+├── tab_tools.py            # Backup & Restore + Firm details (incl. Works GST %) + Invoice number series + Language + Modules + AI settings.
 ├── tab_equipment_hire.py   # Equipment Hire CrudFrame + _compute_hire_total on_save hook.
 ├── tab_timeline.py         # TimelineTab: CrudFrame for tasks + a hand-drawn Canvas Gantt chart.
 └── construction.db         # Created at runtime — never commit; it's user data, not source (git-ignored).
@@ -340,15 +363,17 @@ signed balance in its normal direction if you build ledger/P&L views later.
 
 **Auto-posting** (Phase 7): the Journal's **"Auto-Post Documents"** button runs
 `journal_post.post_all(conn)`, which posts a balanced entry for every tax
-invoice, vendor invoice, and payment not already posted. The posting *rules*
-(which accounts, debit vs credit) live in the pure `posting.py`; the engine in
-`journal_post.py` resolves account codes to ids, checks
-`journal_entries.(source, source_id)` for idempotency, and inserts. Because
-every generated entry balances, the trial balance stays balanced no matter how
-many documents are posted. **Running bills and RA bills are not auto-posted**
-(their client-withheld retention is an asset the seeded CoA doesn't model — see
-§14). If you add a document type, add a `*_lines` rule in `posting.py` and a
-loop in `post_all`, keeping each entry balanced.
+invoice, vendor invoice, payment, **paid payroll run**, and **subcontractor
+bill** (Approved/Paid) not already posted. The posting *rules* (which accounts,
+debit vs credit) live in the pure `posting.py`; the engine in `journal_post.py`
+resolves account codes to ids, checks `journal_entries.(source, source_id)` for
+idempotency, and inserts. Because every generated entry balances, the trial
+balance stays balanced no matter how many documents are posted — and the
+**Profit & Loss / Balance Sheet** views (`reports.py`) read straight off the
+resulting per-account totals. **Running bills and RA bills to clients are still
+not auto-posted** (their client-withheld retention is an asset the seeded CoA
+doesn't model — see §14). If you add a document type, add a `*_lines` rule in
+`posting.py` and a loop in `post_all`, keeping each entry balanced.
 
 ## 10. Database schema quick reference
 
@@ -380,8 +405,9 @@ vendors 1──* material_ledger(vendor_id, meaningful only for txn_type='IN')
             / equipment_hire / purchase_orders / vendor_invoices
 
 clients 1──* quotations / contracts
-labor   1──* attendance / advances / payroll
+labor   1──* attendance / advances / payroll   (labor also carries optional pf_no/esi_no)
 contracts 1──* bills            (running bill chain — §6)
+contracts 1──* boq_items 1──* measurements     (measurement book — §15)
 
 quotations       1──* quotation_items        (ON DELETE CASCADE)
 estimates        1──* estimate_items         (ON DELETE CASCADE)
@@ -390,19 +416,32 @@ purchase_orders  1──* purchase_order_items    (ON DELETE CASCADE)
 purchase_orders  1──* vendor_invoices         (purchase_order_id, nullable)
 vendor_invoices  1──* vendor_invoice_items    (ON DELETE CASCADE)
 
+work_orders      1──* work_order_items         (ON DELETE CASCADE)
+work_orders      1──* sub_bills                (work_order_id; subcontractor billing — §7)
+rate_book                                      (standalone schedule of rates / specs)
+
 accounts        1──* journal_lines            (account_id, NO cascade)
 accounts        1──* accounts                 (parent_id self-reference)
 journal_entries 1──* journal_lines            (ON DELETE CASCADE)
 ```
 
-**Six** child tables declare `ON DELETE CASCADE`: `quotation_items`,
+Newer tables (see the relevant §): `work_orders`, `work_order_items`,
+`sub_bills` (subcontractor billing), `rate_book` (rate/spec library), plus the
+`materials.rate` and `labor.pf_no`/`esi_no` columns. `app_settings` also holds
+config keys added along the way: `works_gst_pct`, `invoice_prefix` /
+`invoice_width` / `invoice_fy_reset`, `language`, `setup_done`, and
+`last:<table>:<column>` remember-last values.
+
+**Seven** child tables declare `ON DELETE CASCADE`: `quotation_items`,
 `estimate_items`, `bill_items`, `purchase_order_items`,
-`vendor_invoice_items`, `journal_lines`. Everything else relies on app-level
-`delete_*` methods to clean up children (e.g. `DocumentFrame.delete_header`
-deletes items before the header). `CrudFrame.delete_selected` does **not**
-cascade for any table — the §4 gap. In particular, deleting an `account`
-referenced by a `journal_line`, or a `vendor`/`site` referenced by children,
-raises `IntegrityError`.
+`vendor_invoice_items`, `work_order_items`, `journal_lines`. Everything else
+relies on app-level `delete_*` methods to clean up children (e.g.
+`DocumentFrame.delete_header` deletes items before the header).
+`CrudFrame.delete_selected` does **not** cascade for any table — the §4 gap. In
+particular, deleting an `account` referenced by a `journal_line`, a
+`work_order` referenced by a `sub_bill`, or a `vendor`/`site` referenced by
+children, raises `IntegrityError` — now shown as a friendly dialog both by the
+CrudFrame guard and the app-wide handler in `errors.py`.
 
 ## 11. Conventions to follow when extending
 
@@ -781,3 +820,70 @@ Caveat: project cost/revenue is derived **via the project's `site_id`** (not a
 hard project↔transaction link), so two projects sharing a site would share those
 figures — fine for the common one-site-per-project case; note it if you add
 multi-project sites.
+
+## 23. Later modules (billing, compliance, insight, subcontractors, trust)
+
+This section indexes the modules added after the core ERP, so an agent extending
+them knows where the maths and UI live. Every pure module below is `python -c`
+testable and has no tkinter/DB.
+
+**Billing & documents**
+- `numbering.py` — `financial_year` (Indian Apr–Mar), `build_number`,
+  `next_serial`/`next_number`. Drives tax-invoice auto-numbering; config in
+  `app_settings` (`invoice_prefix`/`invoice_width`/`invoice_fy_reset`), edited in
+  Tools. Serial is derived by scanning numbers already in use, so it's robust to
+  deletes/manual numbers. Reuse it for other document series.
+- `DocumentFrame` now has a **Print / Export** button (`tab_documents.py`) →
+  quotations & POs render via `bill_export.build_statement_html`; the vendor
+  invoice tab has its own export with GST/TDS breakup.
+- Rate Book / Specification library: `rate_book` table + `build_rate_book_tab`
+  (a plain CrudFrame under Billing) — a PWD-style schedule of rates to reuse.
+- Deviation statement: `civil.deviation` (tendered BOQ vs executed measured qty
+  → excess/saving) + the `DeviationStatement` view in `tab_boq_ra.py`.
+
+**Compliance (`tab_gst.py`)**
+- Output GST now spans tax invoices **plus** RA + running bills (works-contract
+  supply at `app_settings.works_gst_pct`, default 18), with a Source column.
+- `hsn_summary` — GSTR-1-style HSN/SAC-wise taxable + tax from tax-invoice items.
+
+**Insight (`tab_insight.py`)**
+- `ageing.py` — FIFO-settle a party's dated bills by total receipts/payments,
+  then bucket the remainder 0-30/30-60/60-90/90+. Receivables age client bills +
+  RA bills; payables age vendor invoices.
+- `analytics.py` — `contract_progress` (measured value ÷ BOQ value, uncapped so
+  deviations show) and `material_budget` (theoretical vs actual consumption
+  valued at the material's `rate`).
+
+**Accounting reports (`reports.py`)**
+- `profit_and_loss` and `balance_sheet` from per-account debit/credit totals
+  (the same rows the trial balance uses); current-period profit folds into
+  equity so the sheet ties out. Views in `tab_accounting.py`.
+
+**Subcontractors (Phase 7, §7-style)**
+- `subcontract.py` — `sub_bill_totals` (retention via `civil.ra_bill_totals` +
+  works-contract TDS via `finance.compute_tds`). Tables `work_orders` (+items)
+  and `sub_bills`. UI `tab_subcontract.py`. Posting rule
+  `posting.sub_bill_lines` + a `post_all` loop (Approved/Paid).
+
+**Labour statutory (optional, off the main flow)**
+- `statutory.py` — EPF, ESI (below-threshold split), BOCW labour cess. Optional
+  `labor.pf_no`/`esi_no` fields; a standalone `StatutoryCalculator`
+  (`tab_statutory.py`) under Muster & Wages. Nothing auto-deducts.
+
+**Trust & ease (Phase 4)**
+- `tab_wizard.py` — one-time first-run setup (firm details + first site/client),
+  gated on `app_settings.setup_done` and empty masters.
+- Low-typing: `crud_frame.Field(default=TODAY, remember=True)` — date fields
+  prefill today; `remember` persists the last value per `last:<table>:<column>`
+  and prefills it next time. Applied across the CrudFrame ops tabs.
+- `i18n.py` — navigation-layer vernacular (English/Hindi/Hinglish) with English
+  fallback; `main` localises tab/section labels via `i18n.t` (internal label
+  keys stay English so `BUILDERS`/toggles are unaffected). Language in
+  `app_settings.language`, toggled in Tools.
+- `errors.py` — `install(root)` sets `report_callback_exception` so any uncaught
+  callback error becomes a plain-language dialog (full traceback still logged to
+  stderr). No stack trace ever reaches the user.
+
+**When you extend these**: keep new maths in the pure module, add a `python -c`
+assertion, wire the tab, and register any new top-level module in
+`modules.SECTIONS_CATALOG` + `main.BUILDERS` + (optionally) an `i18n` entry.
