@@ -562,4 +562,6 @@ def build_muster_tab(parent, db_getter):
     nb.add(WeeklyPayoutFrame(nb, db_getter), text='Weekly Payout')
     nb.add(_build_thekedars(nb, db_getter), text='Thekedars')
     nb.add(ThekedarLedgerFrame(nb, db_getter), text='Thekedar Ledger')
+    from tab_statutory import StatutoryCalculator
+    nb.add(StatutoryCalculator(nb, db_getter), text='Statutory')
     return nb

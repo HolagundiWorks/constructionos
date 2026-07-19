@@ -83,6 +83,9 @@ def build_labor_tab(parent, db_getter):
         Field('phone', 'Phone'),
         Field('status', 'Status', kind='combo',
               options=['Active', 'Inactive'], default='Active'),
+        # Optional statutory identifiers (blank for informal labour).
+        Field('pf_no', 'PF No (optional)'),
+        Field('esi_no', 'ESI No (optional)'),
     ]
     return CrudFrame(parent, db_getter, 'labor', fields, 'Labor')
 

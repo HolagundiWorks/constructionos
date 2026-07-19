@@ -677,6 +677,8 @@ _ADD_COLUMNS = [
     ('estimate_items', 'item_code', 'TEXT'),
     ('timeline_tasks', 'project_id', 'INTEGER'),
     ('materials', 'rate', 'REAL DEFAULT 0'),
+    ('labor', 'pf_no', 'TEXT'),
+    ('labor', 'esi_no', 'TEXT'),
 ]
 
 
