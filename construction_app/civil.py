@@ -64,6 +64,23 @@ def ra_bill_totals(this_bill_value, previous_value, retention_pct,
     }
 
 
+def deviation_row(boq_qty, executed_qty, rate):
+    """Deviation of executed vs tendered quantity for one BOQ item.
+
+    ``executed_qty`` is the cumulative (upto-date) measured quantity. Positive
+    deviation = excess over tender, negative = saving. ``deviation_pct`` is
+    against the tendered quantity (None when the tendered qty is 0, e.g. an
+    extra item). ``amount_effect`` prices the deviation at the BOQ rate.
+    """
+    boq_qty = round(float(boq_qty or 0), 3)
+    executed_qty = round(float(executed_qty or 0), 3)
+    dev = round(executed_qty - boq_qty, 3)
+    pct = round(dev / boq_qty * 100.0, 2) if boq_qty else None
+    return {'boq_qty': boq_qty, 'executed_qty': executed_qty,
+            'deviation_qty': dev, 'deviation_pct': pct,
+            'amount_effect': round(dev * float(rate or 0), 2)}
+
+
 def reconcile_consumption(theoretical, actual):
     """Theoretical vs actual material consumption.
 

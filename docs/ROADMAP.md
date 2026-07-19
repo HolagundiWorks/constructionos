@@ -78,16 +78,21 @@ Contractors live and die by the **printed bill they hand over**.
 - ✅ Print/PDF for the remaining docs: quotation, PO (DocumentFrame "Print /
   Export"), and vendor invoice (with GST/TDS breakup) — all via
   `bill_export.build_statement_html` + `report_open.save_and_open_html`.
-- ⏳ Configurable invoice **number series** (prefix + financial-year reset).
+- ✅ Configurable invoice **number series** — prefix + financial-year reset
+  (e.g. `INV/25-26/007`), max-serial-based so deletions never collide
+  (`docnum.py`, settings in Tools > Firm Details).
+- ✅ Department-friendly **RA bill formats** — PWD-style abstract with tender
+  quantities, upto-date amounts, memorandum of payments and signature block
+  (`bill_export.build_ra_pwd_html`); **deviation statement** (tender vs
+  executed qty per item, `civil.deviation_row`); **part-rate** on draft RA
+  bill items with automatic re-roll of the payable figures (`tab_boq_ra.py`).
 - ⏳ Further CBS features (Specification library, Rate Books, branded
   proposal/contract documents, company logo) — only the estimate flow was
   ported so far.
-- ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
-  statement, part-rate handling).
 
 ---
 
-## Phase 3 — Labour reality 🚧 (mostly built)
+## Phase 3 — Labour reality ✅ (built)
 
 How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
@@ -100,7 +105,10 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 - ✅ Auto-recover advances (mark `advances.recovered`, FIFO, close when fully
   recovered) when a payout deducts them; "Record as Payments" is now idempotent
   (skips a labourer's week already recorded).
-- ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
+- ✅ Optional PF/ESI/labour-cess percentages (off by default — most are
+  informal): set in Tools > Firm Details, applied on gross by the weekly
+  payout (`wages.statutory_deduction` / `wage_net_full`), shown on the payout
+  sheet only when in use.
 
 ---
 

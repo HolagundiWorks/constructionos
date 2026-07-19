@@ -224,7 +224,8 @@ class MusterRollFrame(ttk.Frame):
 
 # ============================================================ Weekly Payout
 class WeeklyPayoutFrame(ttk.Frame):
-    COLUMNS = ('labor_id', 'name', 'days', 'gross', 'deduction', 'net')
+    COLUMNS = ('labor_id', 'name', 'days', 'gross', 'deduction', 'statutory',
+               'net')
 
     def __init__(self, parent, db_getter):
         super().__init__(parent)
@@ -249,7 +250,8 @@ class WeeklyPayoutFrame(ttk.Frame):
 
         self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings', height=11)
         heads = {'labor_id': 'ID', 'name': 'Name', 'days': 'Days',
-                 'gross': 'Gross', 'deduction': 'Adv. Deduct', 'net': 'Net Pay'}
+                 'gross': 'Gross', 'deduction': 'Adv. Deduct',
+                 'statutory': 'PF/ESI/Cess', 'net': 'Net Pay'}
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=60 if col in ('labor_id', 'days') else 130,
@@ -296,6 +298,18 @@ class WeeklyPayoutFrame(ttk.Frame):
 
         conn = self.db_getter()
         try:
+            # Optional statutory percentages (Tools > Firm Details; blank = off).
+            st = {r['key']: r['value'] for r in conn.execute(
+                "SELECT key, value FROM app_settings WHERE key IN "
+                "('pf_pct', 'esi_pct', 'labour_cess_pct')")}
+
+            def pct(key):
+                try:
+                    return float(st.get(key) or 0)
+                except ValueError:
+                    return 0.0
+
+            pf, esi, cess = pct('pf_pct'), pct('esi_pct'), pct('labour_cess_pct')
             labour = conn.execute(
                 "SELECT id, name, daily_wage FROM labor "
                 "WHERE status = 'Active' AND site_id = ? ORDER BY name",
@@ -309,7 +323,8 @@ class WeeklyPayoutFrame(ttk.Frame):
                 adv = conn.execute(
                     "SELECT COALESCE(SUM(amount - recovered), 0) AS b FROM advances "
                     "WHERE labor_id = ? AND status = 'Open'", (lab['id'],)).fetchone()['b']
-                w = wages.wage_net(days, lab['daily_wage'], adv)
+                w = wages.wage_net_full(days, lab['daily_wage'], adv,
+                                        pf, esi, cess)
                 if days == 0 and w['net'] == 0:
                     continue
                 self._rows.append({'labor_id': lab['id'], 'name': lab['name'],
@@ -323,7 +338,7 @@ class WeeklyPayoutFrame(ttk.Frame):
             self.tree.insert('', 'end', values=(
                 r['labor_id'], r['name'], '{:.2f}'.format(r['days']),
                 '{:.2f}'.format(r['gross']), '{:.2f}'.format(r['deduction']),
-                '{:.2f}'.format(r['net'])))
+                '{:.2f}'.format(r['statutory']), '{:.2f}'.format(r['net'])))
         self.summary_var.set('Week {} to {}   —   total net payout {:.2f}'.format(
             s, e, round(total, 2)))
 
@@ -331,15 +346,23 @@ class WeeklyPayoutFrame(ttk.Frame):
         if not self._rows:
             messagebox.showinfo('Nothing to export', 'Compute a week first.')
             return
-        rows = [(r['name'], '{:.2f}'.format(r['days']), '{:.2f}'.format(r['gross']),
-                 '{:.2f}'.format(r['deduction']), '{:.2f}'.format(r['net']))
-                for r in self._rows]
+        # The statutory column only appears on the printout when in use.
+        with_stat = any(r.get('statutory') for r in self._rows)
+        headers = ['Name', 'Days', 'Gross', 'Adv. Deduct'] + \
+            (['PF/ESI/Cess'] if with_stat else []) + ['Net Pay']
+        rows = []
+        for r in self._rows:
+            row = [r['name'], '{:.2f}'.format(r['days']),
+                   '{:.2f}'.format(r['gross']), '{:.2f}'.format(r['deduction'])]
+            if with_stat:
+                row.append('{:.2f}'.format(r.get('statutory', 0)))
+            row.append('{:.2f}'.format(r['net']))
+            rows.append(tuple(row))
         html = bill_export.build_statement_html(
             'Weekly Wage Payout',
             ['Site: {}'.format(self.site_var.get()),
              'Week: {} to {}'.format(*self._period)],
-            ['Name', 'Days', 'Gross', 'Adv. Deduct', 'Net Pay'],
-            rows, summary=self.summary_var.get())
+            headers, rows, summary=self.summary_var.get())
         _save_and_open_html(html, 'weekly_payout.html')
 
     def record_payments(self):

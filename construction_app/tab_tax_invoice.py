@@ -14,6 +14,7 @@ keys ``company_name`` / ``seller_gstin`` / ``seller_address`` when set.
 
 import os
 import webbrowser
+from datetime import date
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
@@ -21,6 +22,7 @@ from ui_guard import can_write
 
 import finance
 import bill_export
+import docnum
 from tab_masters import client_options
 
 
@@ -250,9 +252,21 @@ class TaxInvoiceTab(ttk.Frame):
         conn = self.db_getter()
         try:
             if not v['invoice_no']:
-                # Auto-number when left blank: INV-<next serial>.
-                n = conn.execute('SELECT COUNT(*) AS c FROM tax_invoices').fetchone()['c']
-                v['invoice_no'] = 'INV-{}'.format(n + 1)
+                # Auto-number when left blank, from the configurable series
+                # (Tools > Firm Details): prefix + optional financial-year
+                # reset, max-serial-based so deletions never cause duplicates.
+                settings = {r['key']: r['value'] for r in conn.execute(
+                    "SELECT key, value FROM app_settings WHERE key IN "
+                    "('invoice_prefix', 'invoice_fy_reset')")}
+                prefix = (settings.get('invoice_prefix') or '').strip() or 'INV'
+                fy = ''
+                if settings.get('invoice_fy_reset') == 'Yes':
+                    # Fall back to today when the typed date is blank/invalid.
+                    fy = docnum.fy_label(v['invoice_date']) or \
+                        docnum.fy_label(date.today().isoformat())
+                existing = [r['invoice_no'] for r in conn.execute(
+                    'SELECT invoice_no FROM tax_invoices')]
+                v['invoice_no'] = docnum.next_doc_no(existing, prefix, fy)
             cols = list(v.keys())
             cur = conn.execute('INSERT INTO tax_invoices ({}) VALUES ({})'.format(
                 ', '.join(cols), ', '.join(['?'] * len(cols))),

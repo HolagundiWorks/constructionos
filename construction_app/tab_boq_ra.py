@@ -31,6 +31,13 @@ def contract_options(conn):
                 'SELECT id, contract_no FROM contracts ORDER BY id DESC')]
 
 
+def _company_name(conn):
+    """Firm name from app_settings (Tools > Firm Details), for printouts."""
+    row = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
+    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+
+
 def _fill_contract_combo(combo, mapping, options, include_blank=False):
     display = ['{} - {}'.format(i, n) for i, n in options]
     mapping.clear()
@@ -520,6 +527,8 @@ class RABillFrame(ttk.Frame):
         ttk.Button(actions, text='Update Status', command=self.update_status).pack(side='left', padx=3)
         ttk.Button(actions, text='Delete Bill', command=self.delete_bill).pack(side='left', padx=3)
         ttk.Button(actions, text='Export Abstract (HTML)', command=self.export_bill).pack(side='left', padx=3)
+        ttk.Button(actions, text='Export PWD Abstract', command=self.export_pwd).pack(side='left', padx=3)
+        ttk.Button(actions, text='Export Deviation Stmt', command=self.export_deviation).pack(side='left', padx=3)
 
         abstract = ttk.LabelFrame(self, text='Abstract'); abstract.pack(fill='both', expand=True, padx=8, pady=4)
         headings2 = {'item': 'Item', 'unit': 'Unit', 'upto_qty': 'Qty Upto',
@@ -531,6 +540,18 @@ class RABillFrame(ttk.Frame):
             self.item_tree.heading(col, text=headings2[col])
             self.item_tree.column(col, width=140 if col == 'item' else 95, anchor='w')
         self.item_tree.pack(fill='both', expand=True, padx=4, pady=4)
+
+        # Part rate: pay an incomplete item below its BOQ rate (Draft bills
+        # only). Edits the selected abstract line's rate and recomputes the
+        # bill's payable figures.
+        pr = ttk.Frame(abstract); pr.pack(fill='x', padx=4, pady=(0, 4))
+        ttk.Label(pr, text='Part Rate').pack(side='left')
+        self.part_rate_var = tk.StringVar()
+        ttk.Entry(pr, textvariable=self.part_rate_var, width=10).pack(side='left', padx=4)
+        ttk.Button(pr, text='Apply to Selected Item',
+                   command=self.apply_part_rate).pack(side='left', padx=4)
+        ttk.Label(pr, text='(Draft bills only; enter the reduced rate — the '
+                           'BOQ rate applies again on the next bill)').pack(side='left')
 
     def refresh_contracts(self):
         conn = self.db_getter()
@@ -581,12 +602,12 @@ class RABillFrame(ttk.Frame):
             if bill:
                 self.status_var.set(bill['status'])
             for r in conn.execute(
-                    "SELECT TRIM(COALESCE(b.item_no,'')||' '||COALESCE(b.description,'')) AS item, "
+                    "SELECT ri.id, TRIM(COALESCE(b.item_no,'')||' '||COALESCE(b.description,'')) AS item, "
                     "b.unit, ri.upto_qty, ri.previous_qty, ri.current_qty, "
                     "ri.rate, ri.current_amount FROM ra_bill_items ri "
                     "LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
                     "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (self.selected_id,)):
-                self.item_tree.insert('', 'end', values=(
+                self.item_tree.insert('', 'end', iid=str(r['id']), values=(
                     r['item'] or '-', r['unit'] or '', '{:.3f}'.format(r['upto_qty']),
                     '{:.3f}'.format(r['previous_qty']), '{:.3f}'.format(r['current_qty']),
                     '{:.2f}'.format(r['rate']), '{:.2f}'.format(r['current_amount'])))
@@ -662,6 +683,163 @@ class RABillFrame(ttk.Frame):
                             '{} generated: net payable {:.2f}.'.format(
                                 bill_no, totals['net_payable']))
         self.refresh_bills()
+
+    def apply_part_rate(self):
+        if not can_write():
+            return
+        if self.selected_id is None:
+            messagebox.showinfo('No selection', 'Select an RA bill.')
+            return
+        sel = self.item_tree.selection()
+        if not sel:
+            messagebox.showinfo('No item', 'Select an abstract line first.')
+            return
+        rate = _num(self.part_rate_var.get())
+        if rate is None or rate < 0:
+            messagebox.showerror('Invalid rate', 'Part rate must be a number.')
+            return
+        item_id = int(sel[0])
+        conn = self.db_getter()
+        try:
+            bill = conn.execute(
+                'SELECT status, previous_value, retention_pct, other_deductions '
+                'FROM ra_bills WHERE id = ?', (self.selected_id,)).fetchone()
+            if bill is None:
+                return
+            if bill['status'] != 'Draft':
+                messagebox.showinfo(
+                    'Not a draft',
+                    'Part rate can only be applied while the bill is a Draft.')
+                return
+            item = conn.execute(
+                'SELECT current_qty FROM ra_bill_items WHERE id = ?',
+                (item_id,)).fetchone()
+            if item is None:
+                return
+            conn.execute(
+                'UPDATE ra_bill_items SET rate = ?, current_amount = ? '
+                'WHERE id = ?',
+                (rate, round(item['current_qty'] * rate, 2), item_id))
+            # Re-roll the bill's payable figures from the re-priced items.
+            this_bill_value = conn.execute(
+                'SELECT COALESCE(SUM(current_amount), 0) AS t '
+                'FROM ra_bill_items WHERE ra_bill_id = ?',
+                (self.selected_id,)).fetchone()['t']
+            totals = civil.ra_bill_totals(
+                this_bill_value, bill['previous_value'],
+                bill['retention_pct'], bill['other_deductions'])
+            conn.execute(
+                'UPDATE ra_bills SET this_bill_value = ?, cumulative_value = ?, '
+                'retention_amt = ?, net_payable = ? WHERE id = ?',
+                (totals['this_bill_value'], totals['cumulative_value'],
+                 totals['retention_amt'], totals['net_payable'],
+                 self.selected_id))
+            conn.commit()
+        finally:
+            conn.close()
+        bid = self.selected_id
+        self.refresh_bills()
+        if self.tree.exists(str(bid)):
+            self.tree.selection_set(str(bid))
+
+    def _save_html(self, html, default_name, title):
+        path = filedialog.asksaveasfilename(
+            title=title, defaultextension='.html', initialfile=default_name,
+            filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+        if not path:
+            return
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(html)
+        webbrowser.open('file://' + os.path.abspath(path))
+
+    def _bill_context(self, conn):
+        """Selected bill + its contract/client/site rows (any may be None)."""
+        bill = conn.execute('SELECT * FROM ra_bills WHERE id = ?',
+                            (self.selected_id,)).fetchone()
+        contract = client = site = None
+        if bill and bill['contract_id'] is not None:
+            contract = conn.execute('SELECT * FROM contracts WHERE id = ?',
+                                    (bill['contract_id'],)).fetchone()
+        if contract is not None:
+            if contract['client_id'] is not None:
+                client = conn.execute('SELECT * FROM clients WHERE id = ?',
+                                      (contract['client_id'],)).fetchone()
+            if contract['site_id'] is not None:
+                site = conn.execute('SELECT * FROM sites WHERE id = ?',
+                                    (contract['site_id'],)).fetchone()
+        return bill, contract, client, site
+
+    def export_pwd(self):
+        if self.selected_id is None:
+            messagebox.showinfo('No selection', 'Select an RA bill to export.')
+            return
+        conn = self.db_getter()
+        try:
+            bill, contract, client, site = self._bill_context(conn)
+            items = conn.execute(
+                "SELECT b.item_no, b.description, b.unit, b.qty AS boq_qty, "
+                "b.rate AS boq_rate, ri.upto_qty, ri.previous_qty, "
+                "ri.current_qty, ri.rate, ri.current_amount "
+                "FROM ra_bill_items ri LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
+                "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (self.selected_id,)).fetchall()
+            company = _company_name(conn)
+        finally:
+            conn.close()
+        if bill is None:
+            return
+        html = bill_export.build_ra_pwd_html(bill, contract, client, site,
+                                             items, company_name=company)
+        safe = (bill['bill_no'] or 'ra_bill').replace('/', '-').replace(' ', '_')
+        self._save_html(html, '{}_pwd_abstract.html'.format(safe),
+                        'Save PWD-style abstract')
+
+    def export_deviation(self):
+        """Deviation statement: tendered BOQ qty vs executed qty upto this bill."""
+        if self.selected_id is None:
+            messagebox.showinfo('No selection', 'Select an RA bill first.')
+            return
+        conn = self.db_getter()
+        try:
+            bill, contract, client, site = self._bill_context(conn)
+            items = conn.execute(
+                "SELECT b.item_no, b.description, b.unit, b.qty AS boq_qty, "
+                "b.rate AS boq_rate, ri.upto_qty "
+                "FROM ra_bill_items ri LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
+                "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (self.selected_id,)).fetchall()
+            company = _company_name(conn)
+        finally:
+            conn.close()
+        if bill is None:
+            return
+        rows = []
+        net_effect = 0.0
+        for it in items:
+            d = civil.deviation_row(it['boq_qty'], it['upto_qty'], it['boq_rate'])
+            net_effect += d['amount_effect']
+            rows.append((
+                it['item_no'] or '-', it['description'] or '', it['unit'] or '',
+                '{:.2f}'.format(it['boq_rate'] or 0),
+                '{:.3f}'.format(d['boq_qty']), '{:.3f}'.format(d['executed_qty']),
+                '{:+.3f}'.format(d['deviation_qty']),
+                '-' if d['deviation_pct'] is None
+                else '{:+.1f}%'.format(d['deviation_pct']),
+                '{:+.2f}'.format(d['amount_effect'])))
+        html = bill_export.build_statement_html(
+            'Deviation Statement — {}'.format(bill['bill_no'] or ''),
+            ['Contract: {}'.format((contract['contract_no'] if contract else None) or '-'),
+             'Client: {}'.format((client['name'] if client else None) or '-'),
+             'Site: {}'.format((site['name'] if site else None) or '-'),
+             'Quantities executed upto {}'.format(bill['bill_date'] or '-')],
+            ['Item', 'Description', 'Unit', 'Rate', 'Tender Qty',
+             'Executed Qty', 'Deviation Qty', 'Deviation', 'Amount Effect'],
+            rows,
+            summary='Net effect of deviations at BOQ rates: {:+.2f} '
+                    '({})'.format(round(net_effect, 2),
+                                  'excess' if net_effect >= 0 else 'saving'),
+            company_name=company)
+        safe = (bill['bill_no'] or 'ra_bill').replace('/', '-').replace(' ', '_')
+        self._save_html(html, '{}_deviation.html'.format(safe),
+                        'Save deviation statement')
 
     def update_status(self):
         if not can_write():
