@@ -23,6 +23,7 @@ from ui_guard import can_write
 
 import civil
 import bill_export
+import report_open
 
 
 def contract_options(conn):
@@ -923,9 +924,110 @@ def _blank(value):
     return str(value)
 
 
+class DeviationStatement(ttk.Frame):
+    """PWD-style deviation statement: tendered BOQ vs executed (measured).
+
+    For each BOQ item of a contract, tendered qty (BOQ) is compared with the
+    executed qty (sum of measurements) at the BOQ rate, showing the deviation
+    quantity/amount and whether it is an Excess or a Saving. Printable.
+    """
+
+    COLUMNS = ('item', 'desc', 'unit', 'rate', 'tender_qty', 'exec_qty',
+               'dev_qty', 'dev_amt', 'status')
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._map = {}
+        self._rows = []
+        self.contract_var = tk.StringVar()
+
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Deviation Statement',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+
+        sel = ttk.Frame(self); sel.pack(fill='x', padx=8, pady=(0, 4))
+        ttk.Label(sel, text='Contract').pack(side='left')
+        self.combo = ttk.Combobox(sel, textvariable=self.contract_var, width=26,
+                                  state='readonly')
+        self.combo.pack(side='left', padx=6)
+        self.combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        ttk.Button(sel, text='Reload', command=self.reload).pack(side='left')
+
+        heads = {'item': 'Item', 'desc': 'Description', 'unit': 'Unit',
+                 'rate': 'Rate', 'tender_qty': 'BOQ Qty', 'exec_qty': 'Exec Qty',
+                 'dev_qty': 'Dev Qty', 'dev_amt': 'Dev Amount', 'status': 'Status'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=heads[col])
+            self.tree.column(col, width=160 if col == 'desc' else 85, anchor='w')
+        self.tree.tag_configure('excess', background='#ffebee')
+        self.tree.tag_configure('saving', background='#e8f5e9')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.summary_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
+        self.reload()
+
+    def reload(self):
+        conn = self.db_getter()
+        try:
+            opts = contract_options(conn)
+        finally:
+            conn.close()
+        self._map = {'{} - {}'.format(i, n): i for i, n in opts}
+        self.combo['values'] = ['{} - {}'.format(i, n) for i, n in opts]
+        if opts and not self.contract_var.get():
+            self.contract_var.set('{} - {}'.format(opts[0][0], opts[0][1]))
+        self.refresh()
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._rows = []
+        raw = self.contract_var.get().strip()
+        if not raw:
+            return
+        cid = self._map.get(raw, raw.split(' - ')[0])
+        conn = self.db_getter()
+        try:
+            rows = conn.execute(
+                "SELECT b.item_no, b.description, b.unit, b.qty AS tender, b.rate, "
+                "COALESCE((SELECT SUM(m.quantity) FROM measurements m "
+                "WHERE m.boq_item_id = b.id), 0) AS executed "
+                "FROM boq_items b WHERE b.contract_id = ? ORDER BY b.id",
+                (cid,)).fetchall()
+        finally:
+            conn.close()
+        tot_dev = 0.0
+        for r in rows:
+            d = civil.deviation(r['tender'], r['executed'], r['rate'])
+            tot_dev += d['deviation_amount']
+            tag = {'Excess': 'excess', 'Saving': 'saving'}.get(d['status'], '')
+            row = (r['item_no'] or '-', r['description'] or '', r['unit'] or '',
+                   '{:.2f}'.format(r['rate'] or 0),
+                   '{:.3f}'.format(d['tender_qty']),
+                   '{:.3f}'.format(d['executed_qty']),
+                   '{:.3f}'.format(d['deviation_qty']),
+                   '{:.2f}'.format(d['deviation_amount']), d['status'])
+            self.tree.insert('', 'end', values=row, tags=(tag,))
+            self._rows.append(row)
+        self.summary_var.set('Net deviation amount: {:,.2f}'.format(round(tot_dev, 2)))
+
+    def export(self):
+        html = bill_export.build_statement_html(
+            'Deviation Statement', ['Contract: {}'.format(self.contract_var.get())],
+            ['Item', 'Description', 'Unit', 'Rate', 'BOQ Qty', 'Exec Qty',
+             'Dev Qty', 'Dev Amount', 'Status'], self._rows,
+            summary=self.summary_var.get())
+        report_open.save_and_open_html(html, 'deviation_statement.html')
+
+
 def build_boq_ra_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(BOQFrame(nb, db_getter), text='BOQ')
     nb.add(MeasurementFrame(nb, db_getter), text='Measurement Book')
     nb.add(RABillFrame(nb, db_getter), text='RA Bills')
+    nb.add(DeviationStatement(nb, db_getter), text='Deviation')
     return nb

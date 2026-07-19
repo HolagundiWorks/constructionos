@@ -547,6 +547,18 @@ CREATE TABLE IF NOT EXISTS milestones (
     notes TEXT
 );
 
+-- Rate Book / Specification library: standard priced items with specs, reused
+-- when preparing estimates and BOQs (like a PWD schedule of rates).
+CREATE TABLE IF NOT EXISTS rate_book (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    category TEXT,
+    description TEXT,
+    unit TEXT,
+    rate REAL DEFAULT 0,
+    specification TEXT
+);
+
 -- Subcontractor / work-order billing (back-to-back BOQ to a subcontractor).
 CREATE TABLE IF NOT EXISTS work_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -56,6 +56,11 @@ class AssistantTab(ttk.Frame):
         self.tree = ttk.Treeview(self, show='headings', height=9)
         self.tree.pack(fill='both', expand=True, padx=10, pady=4)
 
+        # A simple monospace bar chart, shown only for (label, number) results.
+        self.chart_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.chart_var, justify='left',
+                  font=('Courier', 9)).pack(anchor='w', padx=12, pady=(0, 4))
+
         self.sql_var = tk.StringVar()
         ttk.Label(self, textvariable=self.sql_var, foreground='#888',
                   wraplength=780, justify='left',
@@ -123,14 +128,20 @@ class AssistantTab(ttk.Frame):
     def _render(self, result):
         self._busy = False
         self.ask_btn.configure(state='normal')
+        columns, rows = result.get('columns', []), result.get('rows', [])
         if 'error' in result:
             self.answer_var.set('⚠ ' + result['error'])
-            self._set_table(result.get('columns', []), result.get('rows', []))
+            self._set_table(columns, rows)
+            self._set_chart(columns, rows)
             self.sql_var.set(result.get('sql', ''))
             return
         self.answer_var.set(result.get('summary') or 'Done.')
-        self._set_table(result.get('columns', []), result.get('rows', []))
+        self._set_table(columns, rows)
+        self._set_chart(columns, rows)
         self.sql_var.set('SQL: ' + result.get('sql', ''))
+
+    def _set_chart(self, columns, rows):
+        self.chart_var.set(assistant.text_bar_chart(columns, rows))
 
     def _set_table(self, columns, rows):
         self.tree.delete(*self.tree.get_children())

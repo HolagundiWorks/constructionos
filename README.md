@@ -16,24 +16,36 @@ documents, and the beginnings of full accounting:
 - **Estimates** — priced BOQ estimates with contingency and GST rolled up to a
   grand total, and a printable estimate document (amount in words).
 - **Civil billing** — a BOQ per contract, a Measurement Book (Nos × L × B × D),
-  and measurement-driven RA (Running Account) bills with a printable abstract.
+  measurement-driven RA (Running Account) bills with a printable abstract, and a
+  PWD-style **deviation statement** (tendered vs executed, excess/saving).
+- **Rate Book** — a schedule of standard priced items with specifications, to
+  reuse when preparing estimates and BOQs.
 - **Tax invoices** — GST tax invoices for clients (HSN/SAC, CGST/SGST/IGST,
-  amount in words), printable to hand over or share.
-- **Procurement** — purchase orders, vendor invoices with GST/TDS, and
-  PO↔invoice reconciliation.
+  amount in words), printable, with a **configurable number series** (prefix +
+  financial-year reset, e.g. `INV/2026-27/001`).
+- **Procurement** — purchase orders, vendor invoices with GST/TDS, PO↔invoice
+  reconciliation, and print/export on every document.
+- **Subcontractors** — work orders and subcontractor running bills with
+  retention and works-contract TDS, printable.
 - **Site & quality** — material consumption reconciliation (theoretical vs
   actual), daily progress reports, cube-test and material-test registers, and a
   plant/machinery log.
 - **Money (cash-first)** — payments & receipts, party balances ("who owes
   whom"), a cash/day book with running balance, and a plain-language home
   dashboard (cash in hand, receivables, payables).
-- **Insight** — site-wise profitability (revenue vs material/labour/hire) and
-  receivables/payables at a glance.
-- **GST & TDS** — output/input GST registers, a net-position summary, and a
-  TDS register, month-filtered and printable (for return time).
+- **Insight** — site-wise profitability, **receivables/payables ageing**
+  (0-30/30-60/60-90/90+), **contract/BOQ progress %**, and **material budget vs
+  actual**.
+- **GST & TDS** — output GST (tax invoices + RA/running bills) and input GST
+  registers, an **HSN-wise summary**, a net-position (3B-style) summary, and a
+  TDS register — month-filtered and printable (for return time).
 - **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
   chart of accounts, a double-entry journal with one-click auto-posting of
-  invoices & payments, and a trial balance (for the CA).
+  invoices, payments, payroll & subcontractor bills, a trial balance, and a
+  **Profit & Loss + Balance Sheet** on the ledger (for the CA).
+- **Easy to adopt** — a **first-run setup wizard**, dates that default to today
+  and fields that remember your last site, **Hindi/Hinglish** menu labels, and a
+  friendly dialog instead of any error trace.
 - **Security (optional)** — off by default (opens straight in). An office can
   switch on sign-in with user accounts, roles (Admin/Operator/Viewer), PBKDF2
   password hashing, account lockout, and an audit log.
@@ -75,16 +87,19 @@ grouped into eight top-level sections, each holding its related tabs:
 - **Home** — plain-language dashboard (cash in hand, receivables, payables).
 - **Masters** — Sites, Clients, Vendors, Materials, Labour, Equipment.
 - **Operations** — Warehouse (ledger + stock), Muster & Wages (muster roll,
-  weekly payout, thekedar ledger), Labour Ops (attendance/advances/payroll),
-  Equipment Hire, Consumption reconciliation, Site Reports, Timeline/Gantt.
-- **Billing** — Quotations, Estimates, Contracts, BOQ / RA Bills, Running Bills,
-  Tax Invoice.
-- **Purchases** — Purchase Orders, Vendor Invoices (with PO reconciliation).
+  weekly payout, thekedar ledger, statutory PF/ESI/cess calculator), Labour Ops
+  (attendance/advances/payroll), Equipment Hire, Consumption reconciliation,
+  Site Reports, Timeline/Gantt.
+- **Billing** — Rate Book, Quotations, Estimates, Contracts, BOQ / RA Bills
+  (incl. deviation statement), Running Bills, Tax Invoice.
+- **Purchases** — Purchase Orders, Vendor Invoices (with PO reconciliation),
+  Subcontractors (work orders + sub bills).
 - **Money** — Cash & Parties (payments, party balances, cash book), Insight
-  (site profitability, receivables/payables).
-- **Accounts** — GST & TDS registers, and Accounting (chart of accounts,
-  journal with auto-posting, trial balance).
-- **Tools** — Backup & Settings (backup/restore, firm details, Modules),
+  (profitability, progress %, material budget, receivables/payables + ageing).
+- **Accounts** — GST & TDS registers (with HSN summary), and Accounting (chart
+  of accounts, journal with auto-posting, trial balance, P&L, balance sheet).
+- **Tools** — Backup & Settings (backup/restore, firm details, invoice series,
+  language, Modules),
   Users & Security (optional login, roles, lockout), and the Audit Log.
 
 ## Project layout

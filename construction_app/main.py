@@ -20,6 +20,7 @@ import assets
 import auth
 import session
 import i18n
+import errors
 from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
@@ -28,7 +29,7 @@ from tab_money import build_money_tab
 from tab_insight import build_insight_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
                          build_materials_tab, build_labor_tab,
-                         build_equipment_tab)
+                         build_equipment_tab, build_rate_book_tab)
 from tab_vendor import build_vendors_tab
 from tab_warehouse import build_warehouse_tab
 from tab_labor import build_labor_tab as build_labor_ops_tab
@@ -69,6 +70,7 @@ BUILDERS = {
     'Consumption': build_consumption_tab,
     'Site Reports': build_site_reports_tab,
     'Timeline': build_timeline_tab,
+    'Rate Book': build_rate_book_tab,
     'Quotations': build_quotations_tab,
     'Estimates': build_estimate_tab,
     'Contracts': build_contracts_tab,
@@ -124,6 +126,7 @@ def main():
     root.title('Construction OS — Construction Management')
     root.geometry('1180x760')
     _apply_app_icon(root)
+    errors.install(root)   # no stack trace ever reaches the user
 
     if require_login:
         root.withdraw()                      # hide until authenticated

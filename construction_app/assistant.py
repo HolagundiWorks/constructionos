@@ -78,6 +78,18 @@ SCHEMA_DOCS = [
     {'table': 'milestones', 'keywords': 'milestone project progress target payment stage',
      'columns': "id, project_id, name, target_date, actual_date, amount, status",
      'desc': "Project milestones. status Pending/Done."},
+    {'table': 'work_orders', 'keywords': 'work order subcontractor petti theka sub awarded',
+     'columns': 'id, wo_no, vendor_id, site_id, contract_id, wo_date, retention_pct, tds_pct, status, total_amount',
+     'desc': 'Work orders awarded to subcontractors (vendor_id is the sub). total_amount is the WO value.'},
+    {'table': 'sub_bills', 'keywords': 'subcontractor sub bill running retention tds net payable petti',
+     'columns': 'id, work_order_id, bill_no, bill_date, status, this_bill_value, retention_amt, tds_amount, net_payable',
+     'desc': "Subcontractor running bills against a work order. net_payable is owed to the sub. status Approved/Paid counts as billed."},
+    {'table': 'rate_book', 'keywords': 'rate book schedule rates specification standard item price',
+     'columns': 'id, code, category, description, unit, rate, specification',
+     'desc': 'Standard priced items (schedule of rates) with specifications.'},
+    {'table': 'boq_items', 'keywords': 'boq item tender quantity rate amount contract',
+     'columns': 'id, contract_id, item_no, description, unit, qty, rate, amount',
+     'desc': 'Tendered BOQ items per contract. qty is the BOQ (tendered) quantity.'},
 ]
 
 # Few-shot (question -> SQL) examples grounded in the schema above.
@@ -94,6 +106,14 @@ EXAMPLES = [
      'sql': "SELECT COALESCE(SUM(l.qty),0) AS qty_out FROM material_ledger l JOIN materials m ON m.id=l.material_id JOIN sites s ON s.id=l.site_id WHERE l.txn_type='OUT' AND m.name LIKE '%cement%' AND s.name LIKE '%A%'"},
     {'q': 'List labour present today',
      'sql': "SELECT l.name FROM attendance a JOIN labor l ON l.id=a.labor_id WHERE a.att_date=date('now') AND a.status IN ('Present','Overtime','Half Day')"},
+    {'q': 'How much do I owe subcontractors?',
+     'sql': "SELECT COALESCE(SUM(net_payable),0) AS sub_payable FROM sub_bills WHERE status IN ('Approved','Paid')"},
+    {'q': 'Total retention withheld from subcontractors',
+     'sql': "SELECT COALESCE(SUM(retention_amt),0) AS retention FROM sub_bills"},
+    {'q': 'Which BOQ items are over-run on contract C1?',
+     'sql': "SELECT b.description, b.qty AS boq_qty, COALESCE((SELECT SUM(m.quantity) FROM measurements m WHERE m.boq_item_id=b.id),0) AS executed FROM boq_items b JOIN contracts k ON k.id=b.contract_id WHERE k.contract_no LIKE '%C1%' AND COALESCE((SELECT SUM(m.quantity) FROM measurements m WHERE m.boq_item_id=b.id),0) > b.qty"},
+    {'q': 'Total TDS deducted on vendor invoices this year',
+     'sql': "SELECT COALESCE(SUM(tds_amount),0) AS tds FROM vendor_invoices WHERE substr(invoice_date,1,4)=strftime('%Y','now')"},
 ]
 
 SQL_SYSTEM = (
@@ -114,7 +134,8 @@ _VALID_TABLES = {d['table'] for d in SCHEMA_DOCS} | {
     'accounts', 'journal_entries', 'journal_lines', 'timeline_tasks', 'advances',
     'payroll', 'work_done_entries', 'consumption_norms', 'daily_progress',
     'cube_tests', 'material_tests', 'plant_logs', 'purchase_orders',
-    'quotations', 'quotation_items', 'equipment', 'projects', 'milestones'}
+    'quotations', 'quotation_items', 'equipment', 'projects', 'milestones',
+    'work_orders', 'work_order_items', 'sub_bills', 'rate_book', 'boq_items'}
 
 
 # ------------------------------------------------------------------ config
@@ -245,6 +266,45 @@ def _summarize(question, columns, rows, model, host):
         if not rows:
             return 'No matching records found.'
         return 'Found {} row(s). See the table below.'.format(len(rows))
+
+
+# ------------------------------------------------------------- text charts
+def text_bar_chart(columns, rows, width=40, max_bars=15):
+    """A monospace bar chart when results look like (label, number) pairs.
+
+    Picks the first text-ish column as the label and the first numeric column
+    as the value; returns '' when the shape isn't chartable. Pure — the caller
+    decides where to show it.
+    """
+    if not rows or len(columns) < 2:
+        return ''
+
+    def as_num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    value_idx = None
+    for i in range(len(columns)):
+        if all(as_num(r[i]) is not None for r in rows):
+            value_idx = i
+            break
+    if value_idx is None:
+        return ''
+    label_idx = 0 if value_idx != 0 else (1 if len(columns) > 1 else 0)
+
+    pairs = [(str(r[label_idx]), as_num(r[value_idx])) for r in rows][:max_bars]
+    peak = max((abs(v) for _l, v in pairs), default=0)
+    if not peak:
+        return ''
+    label_w = min(24, max(len(l) for l, _v in pairs))
+    lines = ['{}  |  {}'.format(columns[label_idx], columns[value_idx])]
+    for label, val in pairs:
+        bar = '#' * int(round(abs(val) / peak * width))
+        lines.append('{:<{w}} | {} {:,.2f}'.format(
+            label[:label_w], bar, val, w=label_w))
+    return '\n'.join(lines)
 
 
 # ------------------------------------------------------- deterministic quick
