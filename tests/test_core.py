@@ -34,6 +34,7 @@ import finance
 import money
 import numbering
 import numwords
+import planning
 import posting
 import procurement
 import projman
@@ -850,6 +851,59 @@ class TestQualityGate(unittest.TestCase):
     def test_closed_ncr_age_stops_at_closure(self):
         self.assertEqual(
             quality.ncr_age_days('2026-01-01', '2026-01-11', '2026-07-20'), 10)
+
+
+class TestPlanning(unittest.TestCase):
+    """PPC and CVR both exist to show trouble while it can still be fixed."""
+
+    WEEK = [{'status': 'Done'}, {'status': 'Done'},
+            {'status': 'Not done', 'reason': 'Material not available'},
+            {'status': 'Not done', 'reason': 'Material not available'},
+            {'status': 'Not done', 'reason': 'Labour short'}]
+
+    def test_ppc_counts_only_finished_work(self):
+        self.assertEqual(planning.ppc(self.WEEK), 40.0)
+
+    def test_partial_work_is_a_miss_not_progress(self):
+        """Counting part-done as progress is how a programme slips quietly."""
+        self.assertEqual(planning.ppc([{'status': 'Partial'},
+                                       {'status': 'Done'}]), 50.0)
+
+    def test_ppc_is_none_when_nothing_was_promised(self):
+        self.assertIsNone(planning.ppc([]))
+
+    def test_reasons_are_ranked_worst_first(self):
+        reasons = planning.reasons_for_misses(self.WEEK)
+        self.assertEqual(reasons[0], ('Material not available', 2))
+        self.assertEqual(reasons[1], ('Labour short', 1))
+
+    def test_missing_reason_is_named_not_dropped(self):
+        reasons = planning.reasons_for_misses([{'status': 'Not done'}])
+        self.assertEqual(reasons, [('Not stated', 1)])
+
+    def test_ppc_trend_averages_only_scored_weeks(self):
+        t = planning.ppc_trend({'2026-07-06': [{'status': 'Done'}],
+                                '2026-07-13': [{'status': 'Not done'}],
+                                '2026-07-20': []})
+        self.assertEqual(t['average'], 50.0)     # the empty week is ignored
+        self.assertEqual(len(t['weeks']), 3)
+
+    def test_cvr_margins_and_loss_detection(self):
+        result = planning.cvr({'Material': (100000, 90000),
+                               'Labour': (50000, 70000)})
+        self.assertEqual(result['cost'], 150000)
+        self.assertEqual(result['value'], 160000)
+        self.assertEqual(result['margin'], 10000)
+        self.assertEqual(result['losing'], ['Material'])
+
+    def test_cvr_sorts_the_worst_head_first(self):
+        result = planning.cvr({'Good': (10, 100), 'Bad': (100, 10)})
+        self.assertEqual(result['rows'][0]['head'], 'Bad')
+
+    def test_cvr_handles_zero_value_without_dividing_by_zero(self):
+        result = planning.cvr({'Material': (100000, 0)})
+        self.assertIsNone(result['margin_pct'])
+        self.assertEqual(result['margin'], -100000)
 
 
 class TestCompanyRegistry(unittest.TestCase):

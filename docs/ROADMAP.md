@@ -345,10 +345,17 @@ the leverage is in making the SOP step impossible to skip.
   is derived from its lines, never typed, so it cannot contradict the evidence.
   A failed check raises a pre-filled **NCR** with root cause, corrective and
   preventive action; the log headlines how long the oldest open one has sat.
-- ⏳ **Weekly look-ahead + Percent Plan Complete** — a light Last-Planner view;
-  traditional planning completes only ~54% of what it promises weekly.
-- ⏳ **Cost-Value Reconciliation per project** — cost incurred vs value earned
-  by cost head, to catch a loss-making job early.
+- ✅ **Weekly look-ahead + Percent Plan Complete** — Operations > Look-ahead
+  (`planning.py`, `tab_planning.py`). Record what the site *promises* for the
+  week, then score it. PPC is **binary** — a part-finished task is a miss,
+  because counting it as progress is how a programme slips while every line
+  looks busy. The score says the plan was unreliable; the **ranked reasons for
+  misses** say why, and that is the half that changes anything.
+- ✅ **Cost-Value Reconciliation** — cost incurred vs value earned per head
+  (material issued, labour paid, plant hire, subcontract) against approved
+  billing, worst head first. Value is apportioned across heads by their share
+  of cost — the standard CVR simplification, stated on screen rather than
+  implied to be measured.
 - ⏳ **Approval gates as workflow** — estimate review, PO approval and bill
   certification as real gates with approver and timestamp (roles already exist).
 - ⏳ **KPI dashboard** — PPC, DSO/ageing, CVR, % spend-under-PO, unbilled

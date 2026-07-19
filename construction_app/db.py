@@ -602,6 +602,24 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------- weekly look-ahead / commitments (Phase 8, Wave 3)
+-- Last Planner: what the site PROMISES to finish this week, scored at the end
+-- of it. Binary by design - a part-finished task is a miss, because counting
+-- it as progress is how a programme slips while every line looks busy. The
+-- reason for a miss names the constraint that will bite again next week.
+CREATE TABLE IF NOT EXISTS commitments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    week_start TEXT,                -- Monday of the plan week
+    task TEXT,
+    responsible TEXT,
+    planned_qty REAL DEFAULT 0,
+    unit TEXT,
+    status TEXT DEFAULT 'Not done', -- Done / Not done
+    reason TEXT,                    -- why it was missed
+    remarks TEXT
+);
+
 -- ------------------------- ITP / inspections / NCR (Phase 8, Wave 3)
 -- The test registers record results; these record the *gate*. An ITP line
 -- marked Hold stops work until it is signed off - "no pour without a
@@ -817,6 +835,7 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_commit_week ON commitments(site_id, week_start);
 CREATE INDEX IF NOT EXISTS idx_inspitems_insp ON inspection_items(inspection_id);
 CREATE INDEX IF NOT EXISTS idx_insp_site ON inspections(site_id);
 CREATE INDEX IF NOT EXISTS idx_ncrs_status ON ncrs(status);
