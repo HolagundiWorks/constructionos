@@ -19,7 +19,10 @@ from ui_guard import can_write
 
 import finance
 import journal_post
+import reports
+import bill_export
 from crud_frame import CrudFrame, Field
+from tab_money import _save_and_open_html
 
 
 ACCOUNT_TYPES = ['Asset', 'Liability', 'Income', 'Expense', 'Equity']
@@ -489,9 +492,152 @@ class TrialBalance(ttk.Frame):
                     abs(total_d - total_c)))
 
 
+def _account_totals(conn):
+    """Per-account debit/credit totals — the basis for TB / P&L / balance sheet."""
+    return conn.execute(
+        'SELECT a.code, a.name, a.type, '
+        'COALESCE(SUM(jl.debit), 0) AS debit, '
+        'COALESCE(SUM(jl.credit), 0) AS credit '
+        'FROM accounts a LEFT JOIN journal_lines jl ON jl.account_id = a.id '
+        'GROUP BY a.id ORDER BY a.code').fetchall()
+
+
+class ProfitAndLoss(ttk.Frame):
+    """P&L on the posted ledger: income less expense = net profit."""
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._lines = []
+
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Profit & Loss',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='right', padx=2)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+
+        self.tree = ttk.Treeview(self, columns=('particulars', 'amount'),
+                                 show='headings')
+        self.tree.heading('particulars', text='Particulars')
+        self.tree.heading('amount', text='Amount')
+        self.tree.column('particulars', width=280, anchor='w')
+        self.tree.column('amount', width=140, anchor='w')
+        self.tree.tag_configure('head', background='#eceff1')
+        self.tree.tag_configure('total', background='#e8f5e9')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.summary_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
+        self.refresh()
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        conn = self.db_getter()
+        try:
+            pl = reports.profit_and_loss(_account_totals(conn))
+        finally:
+            conn.close()
+        self._lines = []
+
+        def add(particulars, amount, tag=''):
+            val = '' if amount is None else '{:,.2f}'.format(amount)
+            self.tree.insert('', 'end', values=(particulars, val), tags=(tag,))
+            self._lines.append((particulars, val))
+
+        add('INCOME', None, 'head')
+        for name, amt in pl['income']:
+            add('  ' + name, amt)
+        add('Total Income', pl['total_income'], 'total')
+        add('EXPENSES', None, 'head')
+        for name, amt in pl['expense']:
+            add('  ' + name, amt)
+        add('Total Expenses', pl['total_expense'], 'total')
+        label = 'Net Profit' if pl['net_profit'] >= 0 else 'Net Loss'
+        add(label, abs(pl['net_profit']), 'total')
+        self.summary_var.set('{}: {:,.2f}'.format(label, abs(pl['net_profit'])))
+
+    def export(self):
+        html = bill_export.build_statement_html(
+            'Profit & Loss', ['As on today (posted ledger)'],
+            ['Particulars', 'Amount'], self._lines, summary=self.summary_var.get())
+        _save_and_open_html(html, 'profit_and_loss.html')
+
+
+class BalanceSheet(ttk.Frame):
+    """Balance sheet on the posted ledger: assets vs liabilities + equity."""
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._lines = []
+
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Balance Sheet',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='right', padx=2)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+
+        self.tree = ttk.Treeview(self, columns=('particulars', 'amount'),
+                                 show='headings')
+        self.tree.heading('particulars', text='Particulars')
+        self.tree.heading('amount', text='Amount')
+        self.tree.column('particulars', width=280, anchor='w')
+        self.tree.column('amount', width=140, anchor='w')
+        self.tree.tag_configure('head', background='#eceff1')
+        self.tree.tag_configure('total', background='#e8f5e9')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.summary_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
+        self.refresh()
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        conn = self.db_getter()
+        try:
+            bs = reports.balance_sheet(_account_totals(conn))
+        finally:
+            conn.close()
+        self._lines = []
+
+        def add(particulars, amount, tag=''):
+            val = '' if amount is None else '{:,.2f}'.format(amount)
+            self.tree.insert('', 'end', values=(particulars, val), tags=(tag,))
+            self._lines.append((particulars, val))
+
+        add('ASSETS', None, 'head')
+        for name, amt in bs['assets']:
+            add('  ' + name, amt)
+        add('Total Assets', bs['total_assets'], 'total')
+        add('LIABILITIES', None, 'head')
+        for name, amt in bs['liabilities']:
+            add('  ' + name, amt)
+        add('EQUITY', None, 'head')
+        for name, amt in bs['equity']:
+            add('  ' + name, amt)
+        add('Total Liabilities + Equity', bs['total_liabilities_equity'], 'total')
+        if bs['balanced']:
+            self.summary_var.set('Balanced: assets = liabilities + equity = '
+                                 '{:,.2f}'.format(bs['total_assets']))
+        else:
+            self.summary_var.set(
+                'OUT OF BALANCE by {:,.2f} — run Auto-Post and check the journal.'
+                .format(abs(bs['total_assets'] - bs['total_liabilities_equity'])))
+
+    def export(self):
+        html = bill_export.build_statement_html(
+            'Balance Sheet', ['As on today (posted ledger)'],
+            ['Particulars', 'Amount'], self._lines, summary=self.summary_var.get())
+        _save_and_open_html(html, 'balance_sheet.html')
+
+
 def build_accounting_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(build_chart_of_accounts(nb, db_getter), text='Chart of Accounts')
     nb.add(JournalFrame(nb, db_getter), text='Journal')
     nb.add(TrialBalance(nb, db_getter), text='Trial Balance')
+    nb.add(ProfitAndLoss(nb, db_getter), text='Profit & Loss')
+    nb.add(BalanceSheet(nb, db_getter), text='Balance Sheet')
     return nb

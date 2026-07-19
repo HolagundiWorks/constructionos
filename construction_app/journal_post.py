@@ -83,5 +83,16 @@ def post_all(conn):
                      narration, r['ref_no'], lines)
         posted += 1
 
+    # Paid payroll runs (the monthly-payroll path, distinct from muster ->
+    # payments). Only 'Paid' rows post, so an unpaid draft doesn't hit the books.
+    for r in conn.execute("SELECT * FROM payroll WHERE status = 'Paid'"):
+        if not (r['net_amount'] or 0) or _already_posted(conn, 'Payroll', r['id']):
+            continue
+        lines = posting.payroll_lines(r['net_amount'])
+        _write_entry(conn, accounts, 'Payroll', r['id'], r['generated_date'],
+                     'Wages {}/{}'.format(r['month'] or '', r['year'] or ''),
+                     None, lines)
+        posted += 1
+
     conn.commit()
     return posted

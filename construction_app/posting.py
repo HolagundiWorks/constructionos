@@ -79,5 +79,18 @@ def payment_lines(direction, party_type, mode, amount):
     return _nonzero([_line(dr, debit=amount), _line(acct, credit=amount)])
 
 
+def payroll_lines(net_amount, mode='Cash'):
+    """A paid payroll run: Dr Labour & Wages; Cr Cash/Bank.
+
+    Only the *net* actually disbursed is expensed here — any advance recovered
+    via the deduction was already paid out (and expensed) when the advance was
+    given, so expensing net avoids double counting.
+    """
+    return _nonzero([
+        _line(LABOUR, debit=net_amount),
+        _line(mode_account(mode), credit=net_amount),
+    ])
+
+
 def lines_balanced(lines, eps=0.01):
     return abs(sum(l['debit'] for l in lines) - sum(l['credit'] for l in lines)) <= eps
