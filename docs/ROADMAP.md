@@ -75,7 +75,9 @@ Contractors live and die by the **printed bill they hand over**.
 - ✅ **Estimates** upgraded (ported from Construction-Billing-System): priced
   BOQ with contingency + GST → grand total, printable estimate document with
   amount in words (`tab_estimate.py`, `estimate.py`).
-- ⏳ Print/PDF for the remaining docs: quotation, PO, vendor invoice.
+- ✅ Print/PDF for the remaining docs: quotation, PO (DocumentFrame "Print /
+  Export"), and vendor invoice (with GST/TDS breakup) — all via
+  `bill_export.build_statement_html` + `report_open.save_and_open_html`.
 - ⏳ Configurable invoice **number series** (prefix + financial-year reset).
 - ⏳ Further CBS features (Specification library, Rate Books, branded
   proposal/contract documents, company logo) — only the estimate flow was

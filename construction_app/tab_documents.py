@@ -14,6 +14,8 @@ this file.
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+import bill_export
+import report_open
 from crud_frame import CrudFrame, Field
 from ui_guard import can_write
 from tab_masters import site_options, client_options, vendor_options
@@ -96,6 +98,7 @@ class DocumentFrame(ttk.Frame):
         ttk.Button(hbtns, text='Add Doc', command=self.add_header).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Update Doc', command=self.update_header).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Delete Doc', command=self.delete_header).pack(side='left', padx=3)
+        ttk.Button(hbtns, text='Print / Export', command=self.export_document).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Clear', command=self.clear_header).pack(side='left', padx=3)
 
         # ---------------- items ----------------
@@ -263,6 +266,46 @@ class DocumentFrame(ttk.Frame):
         if self.header_tree.selection():
             self.header_tree.selection_remove(self.header_tree.selection())
         self.refresh_items()
+
+    def export_document(self):
+        """Render the selected document (header fields + items + total) to HTML."""
+        if self.selected_header_id is None:
+            messagebox.showinfo('No selection', 'Select a document to export.')
+            return
+        conn = self.db_getter()
+        try:
+            cols = ['id'] + [f.key for f in self.header_fields] + [self.total_col]
+            row = conn.execute('SELECT {} FROM {} WHERE id = ?'.format(
+                ', '.join(cols), self.header_table),
+                (self.selected_header_id,)).fetchone()
+            items = conn.execute(
+                'SELECT description, unit, qty, rate, amount FROM {} '
+                'WHERE {} = ? ORDER BY id'.format(self.item_table, self.fk_col),
+                (self.selected_header_id,)).fetchall()
+        finally:
+            conn.close()
+        if row is None:
+            return
+        # Header field label:value pairs, resolving fk ids back to their labels.
+        meta = []
+        for f in self.header_fields:
+            val = row[f.key]
+            if val in (None, ''):
+                continue
+            if f.kind == 'fk':
+                val = next((d for d, i in self._fk_maps.get(f.key, {}).items()
+                            if str(i) == str(val)), val)
+            meta.append('{}: {}'.format(f.label, val))
+        item_rows = [(str(idx), it['description'] or '', it['unit'] or '',
+                      '{:.2f}'.format(it['qty'] or 0), '{:.2f}'.format(it['rate'] or 0),
+                      '{:.2f}'.format(it['amount'] or 0))
+                     for idx, it in enumerate(items, start=1)]
+        html = bill_export.build_statement_html(
+            self.title, meta,
+            ['#', 'Description', 'Unit', 'Qty', 'Rate', 'Amount'], item_rows,
+            summary='Total: {:,.2f}'.format(row[self.total_col] or 0))
+        report_open.save_and_open_html(
+            html, self.title.lower().replace(' ', '_') + '.html')
 
     # ------------------------------------------------------------- item ops
     def refresh_items(self):

@@ -17,7 +17,9 @@ from tkinter import ttk, messagebox
 
 from ui_guard import can_write
 
+import bill_export
 import finance
+import report_open
 from tab_masters import vendor_options
 
 
@@ -107,6 +109,7 @@ class VendorInvoiceEntry(ttk.Frame):
         ttk.Button(hbtns, text='Add Invoice', command=self.add_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Update Selected', command=self.update_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Delete Invoice', command=self.delete_invoice).pack(side='left', padx=3)
+        ttk.Button(hbtns, text='Print / Export', command=self.export_invoice).pack(side='left', padx=3)
         ttk.Button(hbtns, text='Clear', command=self.clear_invoice).pack(side='left', padx=3)
 
         # ---------------- items ----------------
@@ -367,6 +370,62 @@ class VendorInvoiceEntry(ttk.Frame):
         if self.tree.selection():
             self.tree.selection_remove(self.tree.selection())
         self.refresh_items()
+
+    # -------------------------------------------------------------- export
+    def export_invoice(self):
+        """Render the selected vendor invoice (header + items + GST/TDS
+        breakup) to a printable HTML document and open it in the browser."""
+        if self.selected_id is None:
+            messagebox.showinfo('No selection', 'Select an invoice to export.')
+            return
+        conn = self.db_getter()
+        try:
+            r = conn.execute(
+                "SELECT vi.*, v.name AS vendor_name, v.gst_no AS vendor_gstin, "
+                "po.po_no AS po_no FROM vendor_invoices vi "
+                "LEFT JOIN vendors v ON v.id = vi.vendor_id "
+                "LEFT JOIN purchase_orders po ON po.id = vi.purchase_order_id "
+                "WHERE vi.id = ?", (self.selected_id,)).fetchone()
+            items = conn.execute(
+                'SELECT description, unit, qty, rate, amount '
+                'FROM vendor_invoice_items WHERE vendor_invoice_id = ? '
+                'ORDER BY id', (self.selected_id,)).fetchall()
+        finally:
+            conn.close()
+        if r is None:
+            return
+
+        meta = ['Vendor: {}'.format(r['vendor_name'] or '-')]
+        if r['vendor_gstin']:
+            meta.append('Vendor GSTIN: {}'.format(r['vendor_gstin']))
+        if r['invoice_no']:
+            meta.append('Invoice No: {}'.format(r['invoice_no']))
+        if r['invoice_date']:
+            meta.append('Invoice Date: {}'.format(r['invoice_date']))
+        if r['po_no']:
+            meta.append('Against PO: {}'.format(r['po_no']))
+        meta.append('Supply: {}'.format(
+            'Inter-state (IGST)' if r['interstate'] else 'Intra-state (CGST+SGST)'))
+
+        item_rows = [(str(idx), it['description'] or '', it['unit'] or '',
+                      '{:.2f}'.format(it['qty'] or 0),
+                      '{:.2f}'.format(it['rate'] or 0),
+                      '{:.2f}'.format(it['amount'] or 0))
+                     for idx, it in enumerate(items, start=1)]
+
+        summary = ('Subtotal {:,.2f}  |  GST {:,.2f}  |  TDS {:,.2f}  |  '
+                   'Total {:,.2f}  |  Net Payable {:,.2f}'.format(
+                       r['subtotal'] or 0, r['tax_amount'] or 0,
+                       r['tds_amount'] or 0, r['total_amount'] or 0,
+                       r['net_payable'] or 0))
+
+        html = bill_export.build_statement_html(
+            'Vendor Invoice', meta,
+            ['#', 'Description', 'Unit', 'Qty', 'Rate', 'Amount'], item_rows,
+            summary=summary)
+        default = 'vendor_invoice_{}.html'.format(
+            (r['invoice_no'] or self.selected_id))
+        report_open.save_and_open_html(html, default)
 
     # ------------------------------------------------------------- item ops
     def refresh_items(self):
