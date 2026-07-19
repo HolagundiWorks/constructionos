@@ -15,6 +15,8 @@ run.
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from ui_guard import can_write
+
 import finance
 import journal_post
 from crud_frame import CrudFrame, Field
@@ -203,6 +205,8 @@ class JournalFrame(ttk.Frame):
         self.refresh_lines()
 
     def auto_post(self):
+        if not can_write():
+            return
         """Generate balanced journal entries from unposted business documents."""
         conn = self.db_getter()
         try:
@@ -217,6 +221,8 @@ class JournalFrame(ttk.Frame):
         self.refresh_entries()
 
     def add_entry(self):
+        if not can_write():
+            return
         conn = self.db_getter()
         try:
             conn.execute(
@@ -232,6 +238,8 @@ class JournalFrame(ttk.Frame):
         self.clear_entry()
 
     def update_entry(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an entry.')
             return
@@ -249,6 +257,8 @@ class JournalFrame(ttk.Frame):
         self.refresh_entries()
 
     def delete_entry(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an entry.')
             return
@@ -349,6 +359,8 @@ class JournalFrame(ttk.Frame):
             self.tree.selection_set(str(self.selected_id))
 
     def add_line(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No entry', 'Select or add a journal entry first.')
             return
@@ -368,6 +380,8 @@ class JournalFrame(ttk.Frame):
         self.clear_line()
 
     def update_line(self):
+        if not can_write():
+            return
         if self.selected_line_id is None:
             messagebox.showinfo('No selection', 'Select a line.')
             return
@@ -386,6 +400,8 @@ class JournalFrame(ttk.Frame):
         self._after_line_change()
 
     def delete_line(self):
+        if not can_write():
+            return
         if self.selected_line_id is None:
             messagebox.showinfo('No selection', 'Select a line.')
             return

@@ -16,6 +16,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import money as m
 import bill_export
 
@@ -245,6 +247,8 @@ class PaymentsFrame(ttk.Frame):
         }
 
     def add(self):
+        if not can_write():
+            return
         d = self._collect()
         if d is None:
             return
@@ -261,6 +265,8 @@ class PaymentsFrame(ttk.Frame):
         self.clear()
 
     def update(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an entry.')
             return
@@ -279,6 +285,8 @@ class PaymentsFrame(ttk.Frame):
             conn.close()
 
     def delete(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an entry.')
             return

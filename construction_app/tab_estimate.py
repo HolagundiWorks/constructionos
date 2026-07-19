@@ -16,6 +16,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import estimate as estimate_calc
 import bill_export
 from tab_masters import site_options
@@ -223,6 +225,8 @@ class EstimateTab(ttk.Frame):
         }
 
     def add_estimate(self):
+        if not can_write():
+            return
         v = self._header_values()
         if v is None:
             return
@@ -243,6 +247,8 @@ class EstimateTab(ttk.Frame):
         self.clear_estimate()
 
     def update_estimate(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an estimate.')
             return
@@ -263,6 +269,8 @@ class EstimateTab(ttk.Frame):
         self._set_totals_label(t)
 
     def delete_estimate(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an estimate.')
             return
@@ -372,6 +380,8 @@ class EstimateTab(ttk.Frame):
         self._set_totals_label(t)
 
     def add_item(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No estimate', 'Select an estimate first.')
             return
@@ -391,6 +401,8 @@ class EstimateTab(ttk.Frame):
         self.clear_item()
 
     def update_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return
@@ -409,6 +421,8 @@ class EstimateTab(ttk.Frame):
         self._after_item_change()
 
     def delete_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return

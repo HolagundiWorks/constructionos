@@ -22,6 +22,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import bill_export
 from tab_masters import site_options  # noqa: F401  (kept for parity/imports)
 
@@ -251,6 +253,8 @@ class BillingTab(ttk.Frame):
         self.refresh_items()
 
     def add_bill(self):
+        if not can_write():
+            return
         contract_id = self._contract_id()
         if contract_id is None:
             messagebox.showinfo('No contract', 'Select a contract.')
@@ -280,6 +284,8 @@ class BillingTab(ttk.Frame):
         self.clear_bill()
 
     def update_bill(self):
+        if not can_write():
+            return
         if self.selected_bill_id is None:
             messagebox.showinfo('No selection', 'Select a bill to update.')
             return
@@ -313,6 +319,8 @@ class BillingTab(ttk.Frame):
         self.refresh_bills()
 
     def delete_bill(self):
+        if not can_write():
+            return
         if self.selected_bill_id is None:
             messagebox.showinfo('No selection', 'Select a bill to delete.')
             return
@@ -450,6 +458,8 @@ class BillingTab(ttk.Frame):
                 self.i['unit'].get().strip(), qty, rate, qty * rate)
 
     def add_item(self):
+        if not can_write():
+            return
         if self.selected_bill_id is None:
             messagebox.showinfo('No bill', 'Select a bill first.')
             return
@@ -469,6 +479,8 @@ class BillingTab(ttk.Frame):
         self.clear_item()
 
     def update_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return
@@ -487,6 +499,8 @@ class BillingTab(ttk.Frame):
         self.refresh_items()
 
     def delete_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return

@@ -9,6 +9,8 @@ from datetime import date
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from ui_guard import can_write
+
 import wages
 from crud_frame import CrudFrame, Field
 from tab_masters import labor_options
@@ -113,6 +115,8 @@ class PayrollFrame(ttk.Frame):
             conn.close()
 
     def generate_payroll(self):
+        if not can_write():
+            return
         try:
             month = int(self.month_var.get())
             year = int(self.year_var.get())
@@ -175,6 +179,8 @@ class PayrollFrame(ttk.Frame):
         self.refresh()
 
     def mark_paid(self):
+        if not can_write():
+            return
         sel = self.tree.selection()
         if not sel:
             messagebox.showinfo('No selection', 'Select a payroll row.')

@@ -690,6 +690,14 @@ only when `auth.security_enabled` **and** at least one user exists.
   action. When security is off there is no session and both default to
   full-access (single-user) — so gate as `(not security_enabled) or is_admin()`
   for bootstrap-friendly panels (see `SecurityTab._management_allowed`).
+- **Viewer read-only enforcement**: every write entry point calls
+  `ui_guard.can_write()` (a one-line `if not can_write(): return`) — a Viewer
+  sees a "read-only" dialog and the write is skipped. It's enforced centrally in
+  `CrudFrame` (add/update/delete) and `DocumentFrame`, and in each bespoke
+  financial tab's write methods (payments, tax/vendor invoices, bills, estimate,
+  BOQ/measurement/RA, muster save + payout, journal + auto-post, payroll). When
+  you add a new write action, add the same guard as its first line.
+  `ui_guard` is a thin tkinter wrapper so `session` stays GUI-free.
 - **Audit log**: `auth.audit(conn, actor, action, entity, entity_id, detail)`
   appends to `audit_log`; logins, failures, user-management, and the security
   toggle are recorded. Viewable in **Tools > Audit Log**. `audit()` is

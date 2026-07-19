@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from crud_frame import CrudFrame, Field
+from ui_guard import can_write
 from tab_masters import site_options, client_options, vendor_options
 
 
@@ -194,6 +195,8 @@ class DocumentFrame(ttk.Frame):
         self.refresh_items()
 
     def add_header(self):
+        if not can_write():
+            return
         values = self._collect_header()
         if values is None:
             return
@@ -210,6 +213,8 @@ class DocumentFrame(ttk.Frame):
         self.clear_header()
 
     def update_header(self):
+        if not can_write():
+            return
         if self.selected_header_id is None:
             messagebox.showinfo('No selection', 'Select a document to update.')
             return
@@ -228,6 +233,8 @@ class DocumentFrame(ttk.Frame):
         self.refresh_headers()
 
     def delete_header(self):
+        if not can_write():
+            return
         if self.selected_header_id is None:
             messagebox.showinfo('No selection', 'Select a document to delete.')
             return
@@ -302,6 +309,8 @@ class DocumentFrame(ttk.Frame):
         }
 
     def add_item(self):
+        if not can_write():
+            return
         if self.selected_header_id is None:
             messagebox.showinfo('No document', 'Select a document first.')
             return
@@ -325,6 +334,8 @@ class DocumentFrame(ttk.Frame):
         self.clear_item()
 
     def update_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item to update.')
             return
@@ -347,6 +358,8 @@ class DocumentFrame(ttk.Frame):
         self._reselect_header()
 
     def delete_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item to delete.')
             return

@@ -19,6 +19,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import civil
 import bill_export
 
@@ -157,6 +159,8 @@ class BOQFrame(ttk.Frame):
         }
 
     def add(self):
+        if not can_write():
+            return
         collected = self._collect()
         if collected is None:
             return
@@ -174,6 +178,8 @@ class BOQFrame(ttk.Frame):
         self.refresh_items(); self.clear()
 
     def update(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a BOQ item.')
             return
@@ -194,6 +200,8 @@ class BOQFrame(ttk.Frame):
         self.refresh_items()
 
     def delete(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a BOQ item.')
             return
@@ -392,6 +400,8 @@ class MeasurementFrame(ttk.Frame):
         }
 
     def add(self):
+        if not can_write():
+            return
         d = self._collect()
         if d is None:
             return
@@ -407,6 +417,8 @@ class MeasurementFrame(ttk.Frame):
         self.refresh_items(); self.clear()
 
     def update(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a measurement.')
             return
@@ -425,6 +437,8 @@ class MeasurementFrame(ttk.Frame):
         self.refresh_items()
 
     def delete(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a measurement.')
             return
@@ -580,6 +594,8 @@ class RABillFrame(ttk.Frame):
             conn.close()
 
     def generate(self):
+        if not can_write():
+            return
         cid = self._contract_id()
         if cid is None:
             messagebox.showinfo('No contract', 'Select a contract.')
@@ -648,6 +664,8 @@ class RABillFrame(ttk.Frame):
         self.refresh_bills()
 
     def update_status(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an RA bill.')
             return
@@ -661,6 +679,8 @@ class RABillFrame(ttk.Frame):
         self.refresh_bills()
 
     def delete_bill(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an RA bill.')
             return

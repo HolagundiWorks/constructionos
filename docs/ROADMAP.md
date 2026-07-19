@@ -95,8 +95,9 @@ How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
   printable payout sheet, and one-click "Record as Payments" into the cash book.
 - ✅ **Thekedar / labour-contractor ledger** — master + Work/Paid running
   balance, printable.
-- ⏳ Auto-recover advances (mark `advances.recovered`) when a payout deducts
-  them, and de-dupe re-runs of "Record as Payments".
+- ✅ Auto-recover advances (mark `advances.recovered`, FIFO, close when fully
+  recovered) when a payout deducts them; "Record as Payments" is now idempotent
+  (skips a labourer's week already recorded).
 - ⏳ Optional PF/ESI/labour-cess fields (off by default — most are informal).
 
 ---
@@ -205,7 +206,9 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
   Tools > Users & Security / Audit Log).
 - ✅ **DB robustness** — WAL journaling, `busy_timeout`, enforced foreign keys.
 - ✅ **Operations** — indexes on hot foreign keys for speed at scale.
-- ⏳ Per-tab write/delete gating for Viewers (framework in place; most data tabs
+- ✅ Per-tab write/delete gating for Viewers — enforced in CrudFrame,
+  DocumentFrame, and all bespoke financial tabs via `ui_guard.can_write()`.
+- ⏳ (was) Per-tab write/delete gating for Viewers — remaining tabs
   not yet gated); at-rest encryption would need a native dep (out of scope).
 
 ## Cross-cutting, always-on

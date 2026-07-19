@@ -17,6 +17,8 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import finance
 import bill_export
 from tab_masters import client_options
@@ -240,6 +242,8 @@ class TaxInvoiceTab(ttk.Frame):
         }
 
     def add_invoice(self):
+        if not can_write():
+            return
         v = self._header_values()
         if v is None:
             return
@@ -261,6 +265,8 @@ class TaxInvoiceTab(ttk.Frame):
         self.clear_invoice()
 
     def update_invoice(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an invoice.')
             return
@@ -283,6 +289,8 @@ class TaxInvoiceTab(ttk.Frame):
             'Total {total_amount:.2f}'.format(**tot))
 
     def delete_invoice(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an invoice.')
             return
@@ -398,6 +406,8 @@ class TaxInvoiceTab(ttk.Frame):
             'Total {total_amount:.2f}'.format(**tot))
 
     def add_item(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No invoice', 'Select an invoice first.')
             return
@@ -417,6 +427,8 @@ class TaxInvoiceTab(ttk.Frame):
         self.clear_item()
 
     def update_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return
@@ -435,6 +447,8 @@ class TaxInvoiceTab(ttk.Frame):
         self._after_item_change()
 
     def delete_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return

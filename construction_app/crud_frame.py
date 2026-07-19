@@ -14,6 +14,8 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from ui_guard import can_write
+
 
 class Field:
     """Descriptor for one form field / table column.
@@ -187,6 +189,8 @@ class CrudFrame(ttk.Frame):
             self.vars[field.key].set('' if val is None else str(val))
 
     def add(self):
+        if not can_write():
+            return
         values = self._collect_values()
         if values is None:
             return
@@ -207,6 +211,8 @@ class CrudFrame(ttk.Frame):
         self.clear()
 
     def update(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a row to update.')
             return
@@ -227,6 +233,8 @@ class CrudFrame(ttk.Frame):
         self.refresh()
 
     def delete_selected(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select a row to delete.')
             return

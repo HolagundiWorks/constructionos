@@ -19,6 +19,8 @@ from datetime import date, datetime, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+from ui_guard import can_write
+
 import wages
 import money as m
 import bill_export
@@ -38,6 +40,34 @@ def _save_and_open_html(html, default_name):
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(html)
     webbrowser.open('file://' + os.path.abspath(path))
+
+
+def _recover_advances(conn, labor_id, amount):
+    """Mark ``amount`` of a labourer's open advances as recovered (FIFO).
+
+    Closes an advance once fully recovered. Because the open-balance query uses
+    ``amount - recovered`` for ``status='Open'`` advances, recovering here stops
+    the same advance being deducted again in a later payout. DB-only, testable.
+    """
+    remaining = round(float(amount or 0), 2)
+    if remaining <= 0:
+        return
+    advances = conn.execute(
+        "SELECT id, amount, recovered FROM advances "
+        "WHERE labor_id = ? AND status = 'Open' ORDER BY adv_date, id",
+        (labor_id,)).fetchall()
+    for adv in advances:
+        if remaining <= 0:
+            break
+        outstanding = round((adv['amount'] or 0) - (adv['recovered'] or 0), 2)
+        if outstanding <= 0:
+            continue
+        take = min(outstanding, remaining)
+        new_recovered = round((adv['recovered'] or 0) + take, 2)
+        status = 'Closed' if new_recovered >= (adv['amount'] or 0) - 1e-6 else 'Open'
+        conn.execute('UPDATE advances SET recovered = ?, status = ? WHERE id = ?',
+                     (new_recovered, status, adv['id']))
+        remaining = round(remaining - take, 2)
 
 
 def _fill_sites(combo, mapping, conn, include_all=False):
@@ -163,6 +193,8 @@ class MusterRollFrame(ttk.Frame):
             self.tree.item(iid, values=vals)
 
     def save(self):
+        if not can_write():
+            return
         rows = self.tree.get_children()
         if not rows:
             messagebox.showinfo('Nothing to save', 'Load a site first.')
@@ -311,6 +343,8 @@ class WeeklyPayoutFrame(ttk.Frame):
         _save_and_open_html(html, 'weekly_payout.html')
 
     def record_payments(self):
+        if not can_write():
+            return
         if not self._rows:
             messagebox.showinfo('Nothing to record', 'Compute a week first.')
             return
@@ -325,20 +359,36 @@ class WeeklyPayoutFrame(ttk.Frame):
             return
         site_id = self._site_id()
         s, e = self._period
+        narration = 'Wages {} to {}'.format(s, e)
+        recorded = skipped = 0
         conn = self.db_getter()
         try:
             for r in payable:
+                # Idempotent: don't double-record the same labourer's week.
+                exists = conn.execute(
+                    "SELECT 1 FROM payments WHERE party_type='Labour' "
+                    "AND party_id=? AND narration=? LIMIT 1",
+                    (r['labor_id'], narration)).fetchone()
+                if exists:
+                    skipped += 1
+                    continue
                 conn.execute(
                     "INSERT INTO payments (pay_date, direction, party_type, "
                     "party_id, party_name, mode, amount, site_id, narration) "
                     "VALUES (?, 'Payment', 'Labour', ?, ?, 'Cash', ?, ?, ?)",
-                    (e, r['labor_id'], r['name'], r['net'], site_id,
-                     'Wages {} to {}'.format(s, e)))
+                    (e, r['labor_id'], r['name'], r['net'], site_id, narration))
+                # Mark the deducted advance as recovered so it isn't taken again.
+                _recover_advances(conn, r['labor_id'], r['deduction'])
+                recorded += 1
             conn.commit()
         finally:
             conn.close()
-        messagebox.showinfo('Recorded',
-                            'Wage payments recorded in Money > Cash Book.')
+        self.compute()   # reflect the now-recovered advances
+        messagebox.showinfo(
+            'Recorded',
+            'Recorded {} wage payment(s) in Money > Cash Book; skipped {} '
+            'already recorded. Advance deductions marked recovered.'.format(
+                recorded, skipped))
 
 
 # ============================================================ Thekedar ledger
@@ -455,6 +505,8 @@ class ThekedarLedgerFrame(ttk.Frame):
             self.thekedar_var.get().split(' - ', 1)[-1], bal))
 
     def add_entry(self):
+        if not can_write():
+            return
         tid = self._thekedar_id()
         if tid is None:
             messagebox.showinfo('No thekedar', 'Select a thekedar.')
@@ -478,6 +530,8 @@ class ThekedarLedgerFrame(ttk.Frame):
         self.refresh()
 
     def delete_entry(self):
+        if not can_write():
+            return
         sel = self.tree.selection()
         if not sel:
             messagebox.showinfo('No selection', 'Select an entry to delete.')

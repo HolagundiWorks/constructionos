@@ -15,6 +15,8 @@ flags Over/Under-billed variances beyond a tolerance.
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from ui_guard import can_write
+
 import finance
 from tab_masters import vendor_options
 
@@ -287,6 +289,8 @@ class VendorInvoiceEntry(ttk.Frame):
         }
 
     def add_invoice(self):
+        if not can_write():
+            return
         v = self._header_values()
         if v is None:
             return
@@ -305,6 +309,8 @@ class VendorInvoiceEntry(ttk.Frame):
         self.clear_invoice()
 
     def update_invoice(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an invoice.')
             return
@@ -329,6 +335,8 @@ class VendorInvoiceEntry(ttk.Frame):
             'Net {net_payable:.2f}'.format(**tot))
 
     def delete_invoice(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an invoice.')
             return
@@ -411,6 +419,8 @@ class VendorInvoiceEntry(ttk.Frame):
             self.tree.selection_set(str(self.selected_id))
 
     def add_item(self):
+        if not can_write():
+            return
         if self.selected_id is None:
             messagebox.showinfo('No invoice', 'Select an invoice first.')
             return
@@ -430,6 +440,8 @@ class VendorInvoiceEntry(ttk.Frame):
         self.clear_item()
 
     def update_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return
@@ -448,6 +460,8 @@ class VendorInvoiceEntry(ttk.Frame):
         self._after_item_change()
 
     def delete_item(self):
+        if not can_write():
+            return
         if self.selected_item_id is None:
             messagebox.showinfo('No selection', 'Select a line item.')
             return
