@@ -19,7 +19,7 @@ SECTIONS_CATALOG = [
                     'Equipment Hire', 'Consumption', 'Site Reports', 'Timeline']),
     ('Billing', ['Quotations', 'Estimates', 'Contracts', 'BOQ / RA Bills',
                  'Running Bills', 'Tax Invoice']),
-    ('Purchases', ['Purchase Orders', 'Vendor Invoices']),
+    ('Purchases', ['Purchase Orders', 'Vendor Invoices', 'Subcontractors']),
     ('Money', ['Cash & Parties', 'Insight']),
     ('Accounts', ['GST & TDS', 'Accounting']),
 ]

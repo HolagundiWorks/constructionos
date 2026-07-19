@@ -83,6 +83,20 @@ def post_all(conn):
                      narration, r['ref_no'], lines)
         posted += 1
 
+    # Subcontractor running bills (Approved/Paid). Dr Subcontractor Charges;
+    # Cr Retention Payable + TDS Payable + Payable.
+    for r in conn.execute(
+            "SELECT * FROM sub_bills WHERE status IN ('Approved','Paid')"):
+        if not (r['this_bill_value'] or 0) or _already_posted(conn, 'SubBill', r['id']):
+            continue
+        lines = posting.sub_bill_lines(
+            r['this_bill_value'], r['retention_amt'], r['tds_amount'],
+            r['other_deductions'], r['net_payable'])
+        _write_entry(conn, accounts, 'SubBill', r['id'], r['bill_date'],
+                     ('Sub bill ' + (r['bill_no'] or '')).strip(), r['bill_no'],
+                     lines)
+        posted += 1
+
     # Paid payroll runs (the monthly-payroll path, distinct from muster ->
     # payments). Only 'Paid' rows post, so an unpaid draft doesn't hit the books.
     for r in conn.execute("SELECT * FROM payroll WHERE status = 'Paid'"):

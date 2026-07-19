@@ -17,10 +17,12 @@ INPUT_GST = '1300'
 PAYABLE = '2000'
 GST_PAYABLE = '2100'
 TDS_PAYABLE = '2200'
+RETENTION_PAYABLE = '2300'
 EQUITY = '3000'
 REVENUE = '4000'
 MATERIALS = '5000'
 LABOUR = '5100'
+SUBCONTRACT = '5300'
 OTHER_EXPENSE = '5900'
 
 
@@ -77,6 +79,20 @@ def payment_lines(direction, party_type, mode, amount):
     else:
         dr = OTHER_EXPENSE
     return _nonzero([_line(dr, debit=amount), _line(acct, credit=amount)])
+
+
+def sub_bill_lines(this_bill_value, retention_amt, tds_amount, other_deductions,
+                   net_payable):
+    """Subcontractor running bill: Dr Subcontractor Charges (full work value);
+    Cr Retention Payable + TDS Payable + Other (as expense recovery) + Payable
+    (net to the sub)."""
+    return _nonzero([
+        _line(SUBCONTRACT, debit=this_bill_value),
+        _line(RETENTION_PAYABLE, credit=retention_amt),
+        _line(TDS_PAYABLE, credit=tds_amount),
+        _line(OTHER_EXPENSE, credit=other_deductions),
+        _line(PAYABLE, credit=net_payable),
+    ])
 
 
 def payroll_lines(net_amount, mode='Cash'):

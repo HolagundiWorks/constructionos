@@ -547,6 +547,49 @@ CREATE TABLE IF NOT EXISTS milestones (
     notes TEXT
 );
 
+-- Subcontractor / work-order billing (back-to-back BOQ to a subcontractor).
+CREATE TABLE IF NOT EXISTS work_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wo_no TEXT,
+    vendor_id INTEGER REFERENCES vendors(id),   -- subcontractor (vendor master)
+    site_id INTEGER REFERENCES sites(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    wo_date TEXT,
+    description TEXT,
+    retention_pct REAL DEFAULT 0,
+    tds_pct REAL DEFAULT 0,
+    status TEXT DEFAULT 'Draft',   -- Draft / Awarded / Running / Closed / Cancelled
+    total_amount REAL DEFAULT 0,   -- pre-tax items subtotal (derived)
+    notes TEXT
+);
+CREATE TABLE IF NOT EXISTS work_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_order_id INTEGER REFERENCES work_orders(id) ON DELETE CASCADE,
+    item_no TEXT,
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sub_bills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_order_id INTEGER REFERENCES work_orders(id),
+    bill_no TEXT,
+    bill_date TEXT,
+    status TEXT DEFAULT 'Draft',   -- Draft / Approved / Paid
+    this_bill_value REAL DEFAULT 0,
+    previous_value REAL DEFAULT 0,
+    cumulative_value REAL DEFAULT 0,
+    retention_pct REAL DEFAULT 0,
+    retention_amt REAL DEFAULT 0,
+    tds_pct REAL DEFAULT 0,
+    tds_amount REAL DEFAULT 0,
+    other_deductions REAL DEFAULT 0,
+    net_payable REAL DEFAULT 0,
+    remarks TEXT
+);
+
 -- --------------------------------------------- operations indexes (hot paths)
 -- Declared last so every referenced table already exists.
 CREATE INDEX IF NOT EXISTS idx_attendance_labor ON attendance(labor_id);
@@ -577,6 +620,8 @@ CREATE INDEX IF NOT EXISTS idx_thekedar_entries ON thekedar_entries(thekedar_id)
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
 CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
 """
 
 

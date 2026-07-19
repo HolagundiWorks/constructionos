@@ -41,6 +41,7 @@ from tab_boq_ra import build_boq_ra_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
+from tab_subcontract import build_subcontract_tab
 from tab_accounting import build_accounting_tab
 from tab_gst import build_gst_tab
 from tab_equipment_hire import build_equipment_hire_tab
@@ -74,6 +75,7 @@ BUILDERS = {
     'Tax Invoice': build_tax_invoice_tab,
     'Purchase Orders': build_purchase_orders_tab,
     'Vendor Invoices': build_vendor_invoices_tab,
+    'Subcontractors': build_subcontract_tab,
     'Cash & Parties': build_money_tab,
     'Insight': build_insight_tab,
     'GST & TDS': build_gst_tab,
