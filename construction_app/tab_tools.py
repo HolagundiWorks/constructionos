@@ -61,15 +61,20 @@ class ToolsTab(ttk.Frame):
         firm = ttk.LabelFrame(self, text='Firm Details (shown on tax invoices)')
         firm.pack(fill='x', padx=12, pady=(6, 6))
         self.firm = {'company_name': tk.StringVar(), 'seller_gstin': tk.StringVar(),
-                     'seller_address': tk.StringVar()}
+                     'seller_address': tk.StringVar(), 'works_gst_pct': tk.StringVar()}
         for idx, (key, label) in enumerate([
                 ('company_name', 'Firm Name'), ('seller_gstin', 'GSTIN'),
-                ('seller_address', 'Address')]):
+                ('seller_address', 'Address'),
+                ('works_gst_pct', 'Works GST %')]):
             cell = ttk.Frame(firm); cell.grid(row=idx // 2, column=idx % 2, padx=6, pady=4, sticky='w')
             ttk.Label(cell, text=label, width=12).pack(side='left')
             ttk.Entry(cell, textvariable=self.firm[key], width=30).pack(side='left')
+        ttk.Label(firm, text='Works GST % is the GST rate applied to RA / running '
+                             'bills in the Output GST view (typical works contract '
+                             'rate is 18%).', wraplength=540, foreground='#666',
+                  justify='left').grid(row=2, column=0, columnspan=2, padx=6, sticky='w')
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
-            .grid(row=2, column=0, padx=6, pady=6, sticky='w')
+            .grid(row=3, column=0, padx=6, pady=6, sticky='w')
 
         # --- AI Assistant (local Ollama) ---
         ai = ttk.LabelFrame(self, text='AI Assistant (local Ollama)')
@@ -131,11 +136,11 @@ class ToolsTab(ttk.Frame):
         try:
             saved = {r['key']: r['value'] for r in conn.execute(
                 "SELECT key, value FROM app_settings WHERE key IN "
-                "('company_name', 'seller_gstin', 'seller_address')")}
+                "('company_name', 'seller_gstin', 'seller_address', 'works_gst_pct')")}
         finally:
             conn.close()
         for key, var in self.firm.items():
-            var.set(saved.get(key, ''))
+            var.set(saved.get(key, '18' if key == 'works_gst_pct' else ''))
         conn = self.db_getter()
         try:
             states = modules.enabled_map(conn)
