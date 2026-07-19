@@ -560,6 +560,83 @@ class TestCarryForward(unittest.TestCase):
         self.assertNotIn('no_such_table', copied)
 
 
+class TestSchemaMigration(unittest.TestCase):
+    """Opening an OLDER data file must work.
+
+    Every other test starts from a fresh database, which is exactly why this
+    class exists: a released build once could not open any pre-existing file
+    because an index referenced a column that a migration had not yet added,
+    and the failing index aborted the script before the migration ran.
+    """
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _make_legacy_file(self):
+        """A database from before timeline_tasks.project_id existed."""
+        import sqlite3 as sq
+        conn = sq.connect(self.path)
+        conn.execute('CREATE TABLE timeline_tasks ('
+                     'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                     'site_id INTEGER, task_name TEXT, start_date TEXT, '
+                     'end_date TEXT, duration_days REAL DEFAULT 0, '
+                     'status TEXT, dependency TEXT)')
+        conn.execute("INSERT INTO timeline_tasks (task_name) VALUES ('Old task')")
+        conn.commit()
+        conn.close()
+
+    def test_init_db_opens_a_legacy_file(self):
+        self._make_legacy_file()
+        self.db.init_db()          # must not raise "no such column: project_id"
+        conn = self.db.get_conn()
+        try:
+            cols = [r['name'] for r in conn.execute(
+                'PRAGMA table_info(timeline_tasks)')]
+            self.assertIn('project_id', cols, 'migration did not run')
+            # the user's existing row must survive the migration
+            self.assertEqual(
+                conn.execute('SELECT COUNT(*) FROM timeline_tasks').fetchone()[0], 1)
+        finally:
+            conn.close()
+
+    def test_indexes_exist_after_migrating_a_legacy_file(self):
+        self._make_legacy_file()
+        self.db.init_db()
+        conn = self.db.get_conn()
+        try:
+            idx = [r['name'] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'")]
+            self.assertIn('idx_timeline_project', idx,
+                          'index on the migrated column was never created')
+        finally:
+            conn.close()
+
+    def test_init_db_is_repeatable_on_a_legacy_file(self):
+        self._make_legacy_file()
+        self.db.init_db()
+        self.db.init_db()          # reopening the app must stay clean
+        conn = self.db.get_conn()
+        try:
+            cols = [r['name'] for r in conn.execute(
+                'PRAGMA table_info(timeline_tasks)')]
+            self.assertEqual(cols.count('project_id'), 1)
+        finally:
+            conn.close()
+
+
 class TestSchema(unittest.TestCase):
     def test_init_db_is_idempotent_and_seeds_the_chart(self):
         import db

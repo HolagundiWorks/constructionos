@@ -602,8 +602,20 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
--- --------------------------------------------- operations indexes (hot paths)
--- Declared last so every referenced table already exists.
+"""
+
+# Indexes live OUTSIDE ``SCHEMA`` on purpose, and are applied only after
+# ``_apply_column_migrations``.
+#
+# An index on a column that arrived via a migration — ``timeline_tasks
+# .project_id`` is the live example — cannot be created on a database that
+# predates that column. ``CREATE TABLE IF NOT EXISTS`` is a no-op on an
+# existing table, so the column is still missing at this point and SQLite
+# raises "no such column". While these lived inside SCHEMA the whole
+# ``executescript`` aborted before the migration that would have added the
+# column ever ran, which made the app unable to open **any** pre-existing
+# data file. Add new indexes here, never in SCHEMA.
+INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_attendance_labor ON attendance(labor_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(att_date);
 CREATE INDEX IF NOT EXISTS idx_advances_labor ON advances(labor_id);
@@ -696,21 +708,36 @@ _ADD_COLUMNS = [
 
 
 def init_db():
-    """Create every table if it does not already exist, migrate, then seed."""
+    """Create tables, migrate columns onto older files, index, then seed.
+
+    The order matters: an index may reference a column that only exists after
+    a migration, so ``INDEXES`` must come after ``_apply_column_migrations``.
+    Getting this wrong once made the app unable to open any existing data file.
+    """
     conn = get_conn()
     try:
         conn.executescript(SCHEMA)
         conn.commit()
         _apply_column_migrations(conn)
+        conn.executescript(INDEXES)
+        conn.commit()
         seed_default_accounts(conn)
     finally:
         conn.close()
 
 
 def _apply_column_migrations(conn):
+    """Add columns introduced after a table first shipped.
+
+    Skips tables that don't exist: ``PRAGMA table_info`` on an unknown table
+    returns no rows, and ``ALTER TABLE`` on one would raise.
+    """
     for table, column, decl in _ADD_COLUMNS:
         cols = [r['name'] for r in conn.execute(
             'PRAGMA table_info({})'.format(table))]
+        if not cols:
+            continue          # table absent — SCHEMA will have created it, or
+                              # it belongs to a module that isn't installed
         if column not in cols:
             conn.execute('ALTER TABLE {} ADD COLUMN {} {}'.format(
                 table, column, decl))
