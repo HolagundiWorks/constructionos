@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 import ageing
 import allocation
+import approval
 import analytics
 import cashflow
 import civil
@@ -904,6 +905,69 @@ class TestPlanning(unittest.TestCase):
         result = planning.cvr({'Material': (100000, 0)})
         self.assertIsNone(result['margin_pct'])
         self.assertEqual(result['margin'], -100000)
+
+
+class TestApproval(unittest.TestCase):
+    """An approval is a status PLUS who and when; the status alone is not
+    evidence, which is the gap this closes."""
+
+    def test_pending_when_never_decided(self):
+        self.assertEqual(approval.status_for('Bill', 1, {}), approval.PENDING)
+
+    def test_latest_decision_wins(self):
+        """Rejected then approved reads as approved, not the other way round."""
+        rows = [
+            {'doc_type': 'Bill', 'doc_id': 1, 'action': 'Rejected',
+             'approved_at': '2026-07-01T10:00:00'},
+            {'doc_type': 'Bill', 'doc_id': 1, 'action': 'Approved',
+             'approved_at': '2026-07-05T09:00:00'},
+        ]
+        idx = approval.latest_by_doc(rows)
+        self.assertEqual(approval.status_for('Bill', 1, idx), approval.APPROVED)
+        self.assertTrue(approval.is_approved('Bill', 1, idx))
+
+    def test_out_of_order_rows_still_resolve_to_the_newest(self):
+        rows = [
+            {'doc_type': 'Bill', 'doc_id': 1, 'action': 'Approved',
+             'approved_at': '2026-07-05T09:00:00'},
+            {'doc_type': 'Bill', 'doc_id': 1, 'action': 'Rejected',
+             'approved_at': '2026-07-01T10:00:00'},
+        ]
+        idx = approval.latest_by_doc(rows)
+        self.assertEqual(approval.status_for('Bill', 1, idx), approval.APPROVED)
+
+    def test_documents_are_tracked_separately(self):
+        rows = [{'doc_type': 'Bill', 'doc_id': 1, 'action': 'Approved',
+                 'approved_at': '2026-07-05T09:00:00'}]
+        idx = approval.latest_by_doc(rows)
+        self.assertFalse(approval.is_approved('Bill', 2, idx))
+        self.assertFalse(approval.is_approved('RABill', 1, idx))
+
+    def test_summarise_reports_value_not_just_count(self):
+        """Twenty small POs waiting is a nuisance; one big bill is a problem."""
+        pending = [{'label': 'Purchase order', 'amount': 5000},
+                   {'label': 'Purchase order', 'amount': 3000},
+                   {'label': 'RA bill', 'amount': 400000}]
+        s = approval.summarise(pending)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['amount'], 408000)
+        self.assertEqual(s['largest'], 400000)
+        self.assertEqual(s['by_type']['Purchase order']['count'], 2)
+        self.assertEqual(s['by_type']['RA bill']['amount'], 400000)
+
+    def test_summarise_empty(self):
+        s = approval.summarise([])
+        self.assertEqual(s['count'], 0)
+        self.assertEqual(s['amount'], 0)
+        self.assertEqual(s['largest'], 0)
+
+    def test_every_approvable_type_has_a_complete_mapping(self):
+        """A half-filled mapping would crash only when that document appeared."""
+        for doc_type, spec in approval.APPROVABLE.items():
+            self.assertEqual(len(spec), 6, doc_type)
+            table, _num, status_col, pending, new_status, label = spec
+            self.assertTrue(table and status_col and new_status and label)
+            self.assertTrue(pending, doc_type)
 
 
 class TestCompanyRegistry(unittest.TestCase):

@@ -602,6 +602,21 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------------- approvals (Phase 8, Wave 3)
+-- The documents already carry status words, but a status anyone can change
+-- with no record of who or when is not an approval. This records the person
+-- and the moment. Deliberately one step, not a chain: a solo contractor who
+-- is also the approver gains nothing from routing work to themselves twice.
+CREATE TABLE IF NOT EXISTS approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_type TEXT,                  -- Estimate / PurchaseOrder / Bill / RABill / SubBill / Variation
+    doc_id INTEGER,
+    action TEXT DEFAULT 'Approved', -- Approved / Rejected
+    approved_by TEXT,
+    approved_at TEXT,
+    note TEXT
+);
+
 -- ------------------- weekly look-ahead / commitments (Phase 8, Wave 3)
 -- Last Planner: what the site PROMISES to finish this week, scored at the end
 -- of it. Binary by design - a part-finished task is a miss, because counting
@@ -835,6 +850,7 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_commit_week ON commitments(site_id, week_start);
 CREATE INDEX IF NOT EXISTS idx_inspitems_insp ON inspection_items(inspection_id);
 CREATE INDEX IF NOT EXISTS idx_insp_site ON inspections(site_id);

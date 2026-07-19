@@ -333,7 +333,7 @@ the leverage is in making the SOP step impossible to skip.
   completion date is shown as held *with that reason* rather than given an
   invented date.
 
-### Wave 3 — quality & planning (P1) ✅ complete bar approval workflow
+### Wave 3 — quality & planning (P1) ✅ complete
 
 - ✅ **ITP hold-points + NCR log** — Operations > Quality (`quality.py`,
   `tab_quality.py`). An ITP checklist per activity/stage marks each check
@@ -356,8 +356,15 @@ the leverage is in making the SOP step impossible to skip.
   billing, worst head first. Value is apportioned across heads by their share
   of cost — the standard CVR simplification, stated on screen rather than
   implied to be measured.
-- ⏳ **Approval gates as workflow** — estimate review, PO approval and bill
-  certification as real gates with approver and timestamp (roles already exist).
+- ✅ **Approval gates** — Money > Approvals (`approval.py`, `tab_approvals.py`).
+  One queue for everything sitting in draft: estimates, purchase orders,
+  running and RA bills, subcontractor bills and variations, with their value.
+  Approving advances the document's own status **and** writes an approval row
+  recording who and when, plus an audit entry — a status anyone can change was
+  never evidence, and that pairing is the whole point. Rejecting records the
+  decision and leaves the document in place, because a rejected bill is sent
+  back, not deleted. Deliberately a **single step, not a chain** — multi-level
+  approval is an explicit non-goal for a contractor who is also the approver.
 - ✅ **KPI dashboard** — Money > Key Numbers (`tab_kpi.py`). Unbilled
   variations, invoiced-without-a-receipt, % spend under PO, receivables and
   the 90+ slab, retention due for release, PPC and its biggest cause of
