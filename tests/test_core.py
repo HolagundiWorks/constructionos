@@ -18,6 +18,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import date
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
@@ -25,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import ageing
 import allocation
 import analytics
+import cashflow
 import civil
 import company
 import estimate
@@ -580,6 +582,64 @@ class TestAllocation(unittest.TestCase):
         self.assertEqual(pos['billed'], 150000)
         self.assertEqual(pos['allocated'], 100000)
         self.assertEqual(pos['outstanding'], 50000)
+
+
+class TestCashFlow(unittest.TestCase):
+    """The forecast's job is to name the week the money runs out."""
+
+    TODAY = '2026-07-06'          # a Monday
+
+    def test_expected_date_applies_the_payment_lag(self):
+        self.assertEqual(
+            cashflow.expected_date('2026-07-06', 45, self.TODAY),
+            date(2026, 8, 20))
+
+    def test_an_overdue_bill_lands_today_not_in_the_past(self):
+        # money you are still waiting for must stay in the forecast
+        self.assertEqual(
+            cashflow.expected_date('2026-01-01', 30, self.TODAY),
+            date(2026, 7, 6))
+
+    def test_bucket_start_snaps_to_monday_or_first(self):
+        self.assertEqual(cashflow.bucket_start('2026-07-09'), date(2026, 7, 6))
+        self.assertEqual(
+            cashflow.bucket_start('2026-07-09', cashflow.BUCKET_MONTH),
+            date(2026, 7, 1))
+
+    def test_running_balance_and_first_negative(self):
+        inflows = [('2026-07-27', 50000, 'client')]
+        outflows = [('2026-07-13', 80000, 'vendor')]
+        r = cashflow.forecast(inflows, outflows, opening_balance=10000,
+                              today=self.TODAY, periods=4)
+        self.assertEqual(r['buckets'][0]['balance'], 10000)
+        self.assertEqual(r['buckets'][1]['balance'], -70000)   # 10k - 80k
+        self.assertEqual(r['first_negative'], date(2026, 7, 13))
+        self.assertEqual(r['closing_balance'], -20000)         # +50k later
+
+    def test_no_shortfall_reports_none(self):
+        r = cashflow.forecast([('2026-07-13', 90000, 'c')], [], 0,
+                              self.TODAY, 4)
+        self.assertIsNone(r['first_negative'])
+
+    def test_money_beyond_the_horizon_is_not_lost(self):
+        """Folding late items into the last bucket keeps totals reconciling."""
+        r = cashflow.forecast([('2027-01-01', 25000, 'c')], [], 0,
+                              self.TODAY, 4)
+        self.assertEqual(r['total_in'], 25000)
+        self.assertEqual(r['buckets'][-1]['in'], 25000)
+
+    def test_wage_outflows_repeat_across_the_horizon(self):
+        out = cashflow.wage_outflows(20000, self.TODAY, 4)
+        self.assertEqual(len(out), 4)
+        self.assertEqual(sum(a for _d, a, _l in out), 80000)
+
+    def test_no_wage_bill_means_no_wage_rows(self):
+        self.assertEqual(cashflow.wage_outflows(0, self.TODAY, 4), [])
+
+    def test_monthly_buckets_scale_the_weekly_wage(self):
+        out = cashflow.wage_outflows(10000, self.TODAY, 2, cashflow.BUCKET_MONTH)
+        self.assertEqual(len(out), 2)
+        self.assertAlmostEqual(out[0][1], round(10000 * 52 / 12.0, 2), places=2)
 
 
 class TestCompanyRegistry(unittest.TestCase):

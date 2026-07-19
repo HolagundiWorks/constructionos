@@ -21,7 +21,7 @@ SECTIONS_CATALOG = [
                  'BOQ / RA Bills', 'Variations', 'Running Bills',
                  'Tax Invoice']),
     ('Purchases', ['Purchase Orders', 'Vendor Invoices', 'Subcontractors']),
-    ('Money', ['Cash & Parties', 'Insight']),
+    ('Money', ['Cash & Parties', 'Cash Flow', 'Insight']),
     ('Accounts', ['GST & TDS', 'Accounting']),
 ]
 

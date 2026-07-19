@@ -271,7 +271,7 @@ the leverage is in making the SOP step impossible to skip.
 - No pour without a **QC hold-point** sign-off (quality).
 - No sub work without a work order (already enforced ✅).
 
-### Wave 1 — revenue & cash (P0, the three biggest leaks)
+### Wave 1 — revenue & cash (P0, the three biggest leaks) ✅ complete
 
 - ✅ **Variation / change-order register** — Billing > Variations. Per contract:
   description, reason, letter/email reference (the paper trail that makes a
@@ -296,9 +296,15 @@ the leverage is in making the SOP step impossible to skip.
   previously showed zero receivables), but if you raise both an RA bill and a
   tax invoice for the same work, that work will count twice — the same
   double-count caveat the GST view already carries.
-- ⏳ **Cash-flow forecast** — contracting fails on **liquidity, not
-  profitability**. Projected inflows (expected bill dates) vs outflows
-  (payables, payroll, hire) with a running projected balance.
+- ✅ **Cash-flow forecast** — Money > Cash Flow (`cashflow.py`,
+  `tab_cashflow.py`). Weekly or monthly buckets from cash in hand: open client
+  bills as inflows, open vendor and subcontractor payables plus the weekly wage
+  bill as outflows, both sides **lagged** by editable day counts because being
+  paid on the due date is not how the trade works. It names **the first period
+  the running balance goes negative** and tints those rows. Open positions come
+  from the same allocation-aware query as the ageing view, and an overdue bill
+  lands today rather than dropping out of the forecast; anything past the
+  horizon folds into the last bucket so totals still reconcile.
 
 ### Wave 2 — procurement control (P0/P1)
 
