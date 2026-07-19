@@ -82,8 +82,11 @@ Contractors live and die by the **printed bill they hand over**.
 - ⏳ Further CBS features (Specification library, Rate Books, branded
   proposal/contract documents, company logo) — only the estimate flow was
   ported so far.
-- ⏳ Department-friendly **RA bill formats** (PWD-style abstract, deviation
-  statement, part-rate handling).
+- ✅ Department-friendly **RA bill formats** — PWD-style abstract with tender
+  quantities, upto-date amounts, memorandum of payments and signature block
+  (`bill_export.build_ra_pwd_html`); **deviation statement** (tender vs
+  executed qty per item, `civil.deviation_row`); **part-rate** on draft RA
+  bill items with automatic re-roll of the payable figures (`tab_boq_ra.py`).
 
 ---
 
