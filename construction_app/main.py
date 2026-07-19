@@ -20,6 +20,7 @@ import assets
 import auth
 import session
 from tab_login import LoginDialog
+from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
 from tab_assistant import build_assistant_tab
 from tab_money import build_money_tab
@@ -132,6 +133,9 @@ def main():
         root.deiconify()
         root.title('Construction OS — {} ({})'.format(
             session.username(), session.role()))
+
+    # First-run wizard on a fresh book (empty masters, not previously done).
+    maybe_run_setup(root, get)
 
     nb = ttk.Notebook(root)
     nb.pack(fill='both', expand=True)
