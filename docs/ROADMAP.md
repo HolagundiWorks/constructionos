@@ -52,7 +52,10 @@ The cash-first heart. This is what an owner-contractor opens the app for.
 
 _Follow-ups deferred to later phases:_ record a payment **against** a specific
 bill/invoice (link exists in schema, no UI yet); reconciled — not
-cash-vs-billed-approximate — receivables/payables.
+cash-vs-billed-approximate — receivables/payables. **This is now the highest-
+value open item in the app:** the Phase 6 ageing report ships without it, so it
+applies the lump receipts total oldest-first (a FIFO approximation). Until
+payments are bill-linked, ageing buckets are indicative rather than reconciled.
 
 _Repositioning note:_ the double-entry Accounting tab stays but moves behind the
 cash-first views; the contractor never needs the journal to run the business.
@@ -94,7 +97,7 @@ Contractors live and die by the **printed bill they hand over**.
 
 ---
 
-## Phase 3 — Labour reality 🚧 (mostly built)
+## Phase 3 — Labour reality ✅ (built)
 
 How T2/T3 sites actually run: daily muster, weekly payout, thekedars.
 
