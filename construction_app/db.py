@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS materials (
     name TEXT NOT NULL,
     unit TEXT,
     category TEXT,
-    hsn_code TEXT
+    hsn_code TEXT,
+    rate REAL DEFAULT 0       -- standard/reference rate (for budgets, estimates)
 );
 
 CREATE TABLE IF NOT EXISTS labor (
@@ -630,6 +631,7 @@ _ADD_COLUMNS = [
     ('estimates', 'gst_pct', 'REAL DEFAULT 0'),
     ('estimate_items', 'item_code', 'TEXT'),
     ('timeline_tasks', 'project_id', 'INTEGER'),
+    ('materials', 'rate', 'REAL DEFAULT 0'),
 ]
 
 

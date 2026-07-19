@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import ageing
+import analytics
 import money as m
 import bill_export
 from tab_money import _save_and_open_html
@@ -303,9 +304,203 @@ class Ageing(ttk.Frame):
         _save_and_open_html(html, title.lower().replace(' ', '_') + '.html')
 
 
+class ContractProgress(ttk.Frame):
+    """Physical progress per contract: measured value vs BOQ value.
+
+    BOQ value = SUM(boq_items.amount); measured value = SUM(measurement.quantity
+    x its boq_item.rate). Progress % = measured / BOQ (uncapped, so a deviation
+    over 100% is visible). Contracts with no BOQ are skipped.
+    """
+
+    COLUMNS = ('contract', 'site', 'boq', 'measured', 'progress', 'balance')
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._rows = []
+
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Contract / BOQ Progress',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='right', padx=2)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+
+        heads = {'contract': 'Contract', 'site': 'Site', 'boq': 'BOQ Value',
+                 'measured': 'Measured', 'progress': 'Progress %',
+                 'balance': 'Balance'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=heads[col])
+            self.tree.column(col, width=140 if col in ('contract', 'site') else 100,
+                             anchor='w')
+        self.tree.tag_configure('over', background='#fff8e1')
+        self.tree.tag_configure('done', background='#e8f5e9')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.refresh()
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        conn = self.db_getter()
+        try:
+            boq = _sum_map(conn,
+                "SELECT contract_id, SUM(amount) FROM boq_items GROUP BY contract_id")
+            measured = _sum_map(conn,
+                "SELECT b.contract_id, SUM(msr.quantity * b.rate) "
+                "FROM measurements msr JOIN boq_items b ON b.id = msr.boq_item_id "
+                "GROUP BY b.contract_id")
+            contracts = conn.execute(
+                "SELECT c.id, c.contract_no, s.name AS site FROM contracts c "
+                "LEFT JOIN sites s ON s.id = c.site_id ORDER BY c.contract_no").fetchall()
+        finally:
+            conn.close()
+
+        self._rows = []
+        for c in contracts:
+            boq_val = boq.get(c['id'], 0) or 0
+            if boq_val == 0:
+                continue
+            pr = analytics.contract_progress(boq_val, measured.get(c['id'], 0) or 0)
+            ppct = '-' if pr['progress_pct'] is None else \
+                '{:.1f}%'.format(pr['progress_pct'])
+            row = (c['contract_no'] or '-', c['site'] or '-',
+                   '{:.2f}'.format(pr['boq_value']),
+                   '{:.2f}'.format(pr['measured_value']), ppct,
+                   '{:.2f}'.format(pr['balance_value']))
+            tag = ''
+            if pr['progress_pct'] is not None:
+                tag = 'over' if pr['progress_pct'] > 100 else \
+                    ('done' if pr['progress_pct'] >= 99.5 else '')
+            self.tree.insert('', 'end', values=row, tags=(tag,))
+            self._rows.append(row)
+
+    def export(self):
+        html = bill_export.build_statement_html(
+            'Contract / BOQ Progress', ['As on today'],
+            ['Contract', 'Site', 'BOQ Value', 'Measured', 'Progress %',
+             'Balance'], self._rows)
+        _save_and_open_html(html, 'contract_progress.html')
+
+
+class MaterialBudget(ttk.Frame):
+    """Money view of material consumption for a site: theoretical requirement
+    (norm x work done) valued at the material's rate, vs actual issued value."""
+
+    COLUMNS = ('material', 'budget', 'actual', 'variance', 'overspend')
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._site_map = {}
+        self._rows = []
+        self.site_var = tk.StringVar()
+
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Material Budget vs Actual (value)',
+                  font=('TkDefaultFont', 12, 'bold')).pack(side='left')
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='right', padx=2)
+        ttk.Button(top, text='Refresh', command=self.reload).pack(side='right', padx=2)
+
+        sel = ttk.Frame(self); sel.pack(fill='x', padx=8, pady=(0, 4))
+        ttk.Label(sel, text='Site').pack(side='left')
+        self.site_combo = ttk.Combobox(sel, textvariable=self.site_var,
+                                       width=24, state='readonly')
+        self.site_combo.pack(side='left', padx=6)
+        self.site_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+
+        heads = {'material': 'Material', 'budget': 'Budget Value',
+                 'actual': 'Actual Value', 'variance': 'Variance',
+                 'overspend': 'Overspend %'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=heads[col])
+            self.tree.column(col, width=160 if col == 'material' else 110, anchor='w')
+        self.tree.tag_configure('over', background='#ffebee')
+        self.tree.tag_configure('ok', background='#e8f5e9')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+        self.summary_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
+        self.reload()
+
+    def reload(self):
+        conn = self.db_getter()
+        try:
+            opts = [(s['id'], s['name'])
+                    for s in conn.execute('SELECT id, name FROM sites ORDER BY name')]
+        finally:
+            conn.close()
+        self._site_map = {'{} - {}'.format(i, n): i for i, n in opts}
+        self.site_combo['values'] = ['{} - {}'.format(i, n) for i, n in opts]
+        if opts and not self.site_var.get():
+            self.site_var.set('{} - {}'.format(opts[0][0], opts[0][1]))
+        self.refresh()
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._rows = []
+        raw = self.site_var.get().strip()
+        if not raw:
+            return
+        site_id = self._site_map.get(raw, raw.split(' - ')[0])
+        conn = self.db_getter()
+        try:
+            theo = {}
+            for r in conn.execute(
+                    "SELECT n.material_id AS mid, m.name AS name, "
+                    "COALESCE(m.rate, 0) AS rate, "
+                    "SUM(w.qty * n.qty_per_unit) AS theo "
+                    "FROM work_done_entries w "
+                    "JOIN consumption_norms n ON n.activity = w.activity "
+                    "JOIN materials m ON m.id = n.material_id "
+                    "WHERE w.site_id = ? GROUP BY n.material_id", (site_id,)):
+                theo[r['mid']] = (r['name'], r['rate'] or 0, r['theo'] or 0)
+            actual = {}
+            for r in conn.execute(
+                    "SELECT l.material_id AS mid, m.name AS name, "
+                    "COALESCE(m.rate, 0) AS rate, SUM(l.qty) AS act "
+                    "FROM material_ledger l JOIN materials m ON m.id = l.material_id "
+                    "WHERE l.site_id = ? AND l.txn_type = 'OUT' "
+                    "GROUP BY l.material_id", (site_id,)):
+                actual[r['mid']] = (r['name'], r['rate'] or 0, r['act'] or 0)
+        finally:
+            conn.close()
+
+        tot_b = tot_a = 0.0
+        for mid in sorted(set(theo) | set(actual),
+                          key=lambda k: (theo.get(k) or actual.get(k))[0]):
+            name, rate, tq = theo.get(mid, (None, 0, 0))
+            name2, rate2, aq = actual.get(mid, (None, 0, 0))
+            name = name or name2
+            rate = rate or rate2
+            mb = analytics.material_budget(tq, aq, rate)
+            tot_b += mb['budget_value']; tot_a += mb['actual_value']
+            osp = '-' if mb['overspend_pct'] is None else \
+                '{:.1f}%'.format(mb['overspend_pct'])
+            tag = 'over' if mb['variance_value'] > 0 else 'ok'
+            row = (name, '{:.2f}'.format(mb['budget_value']),
+                   '{:.2f}'.format(mb['actual_value']),
+                   '{:.2f}'.format(mb['variance_value']), osp)
+            self.tree.insert('', 'end', values=row, tags=(tag,))
+            self._rows.append(row)
+        self.summary_var.set(
+            'Budget {:.2f}  |  Actual {:.2f}  |  Variance {:.2f}'.format(
+                round(tot_b, 2), round(tot_a, 2), round(tot_a - tot_b, 2)))
+
+    def export(self):
+        html = bill_export.build_statement_html(
+            'Material Budget vs Actual', ['Site: {}'.format(self.site_var.get())],
+            ['Material', 'Budget Value', 'Actual Value', 'Variance',
+             'Overspend %'], self._rows, summary=self.summary_var.get())
+        _save_and_open_html(html, 'material_budget.html')
+
+
 def build_insight_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(SiteProfitability(nb, db_getter), text='Site Profitability')
+    nb.add(ContractProgress(nb, db_getter), text='Contract Progress')
+    nb.add(MaterialBudget(nb, db_getter), text='Material Budget')
     nb.add(Outstanding(nb, db_getter, 'Receivable'), text='Receivables')
     nb.add(Outstanding(nb, db_getter, 'Payable'), text='Payables')
     nb.add(Ageing(nb, db_getter, 'Receivable'), text='Receivables Ageing')

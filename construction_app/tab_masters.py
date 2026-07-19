@@ -69,6 +69,7 @@ def build_materials_tab(parent, db_getter):
         Field('unit', 'Unit'),
         Field('category', 'Category'),
         Field('hsn_code', 'HSN Code'),
+        Field('rate', 'Std Rate', kind='number', default='0'),
     ]
     return CrudFrame(parent, db_getter, 'materials', fields, 'Materials')
 
