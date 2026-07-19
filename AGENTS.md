@@ -72,11 +72,13 @@ double-clicking one folder.
   helpers (`days_present_for`, `compute_net_payable`, `_compute_hire_total`,
   `_compute_duration`, `bill_export.build_bill_html`). This is the testable
   core; extend it there rather than burying new maths inside GUI callbacks.
-- **Tests**: there is still no committed automated test suite or CI. When you
-  change or add maths, exercise the pure functions with `python -c` (see §2)
-  and, if adding substantial logic, put real tests in a new `tests/` folder
-  using stdlib `unittest` — don't add `pytest` as a hard dependency without
-  confirming with the user.
+- **Tests**: there is now a committed suite in `tests/test_core.py` (stdlib
+  `unittest`, no pytest, no CI yet). Run it from the repo root with
+  `python -m unittest discover -s tests`. It covers the pure money maths
+  (finance, civil, money, wages, numbering, statutory, ageing, analytics,
+  estimate, subcontract, reports) and drives the **posting engine end-to-end
+  against a temporary SQLite database**. Add to it whenever you touch maths;
+  don't add `pytest` as a hard dependency without confirming with the user.
 
 ## 2. Running & verifying your changes
 
@@ -85,12 +87,16 @@ cd construction_app
 python main.py
 ```
 
-There is no headless test suite. To verify without a display:
+To verify without a display, run these three from the repo root — they are the
+full sweep used to validate changes:
 
 ```bash
-python -m py_compile *.py                          # syntax check every module
+python -m unittest discover -s tests               # 58 tests: maths + posting
+cd construction_app && python -m py_compile *.py   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
+
+The test suite needs no display: it never imports tkinter.
 
 Most containers have **no `tkinter`**. The GUI modules `import tkinter` at the
 top, so they can't be imported headlessly as-is. Two working strategies (both
