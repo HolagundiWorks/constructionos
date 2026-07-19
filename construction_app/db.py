@@ -602,6 +602,32 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------------------ variations / change orders (Phase 8)
+-- Work outside the original BOQ. Unbilled or unapproved extras are the largest
+-- source of unrecovered revenue in contracting, so this register exists to
+-- surface "approved but not yet billed" rather than to file paperwork.
+-- ``reference`` is the paper trail (client letter, email, drawing revision)
+-- that makes a claim defensible; ``billed_in`` records where it was finally
+-- recovered.
+CREATE TABLE IF NOT EXISTS variations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER REFERENCES contracts(id),
+    var_no TEXT,
+    var_date TEXT,
+    description TEXT,
+    reason TEXT,                    -- Client instruction / Site condition / Design change
+    reference TEXT,                 -- letter, email or drawing ref
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0,          -- qty x rate (derived on save)
+    status TEXT DEFAULT 'Raised',   -- Raised / Approved / Billed / Rejected
+    approved_by TEXT,
+    approved_date TEXT,
+    billed_in TEXT,                 -- RA/tax bill this was recovered in
+    remarks TEXT
+);
+
 """
 
 # Indexes live OUTSIDE ``SCHEMA`` on purpose, and are applied only after
@@ -646,6 +672,8 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
+CREATE INDEX IF NOT EXISTS idx_variations_status ON variations(status);
 """
 
 

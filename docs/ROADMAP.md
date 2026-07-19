@@ -273,10 +273,15 @@ the leverage is in making the SOP step impossible to skip.
 
 ### Wave 1 — revenue & cash (P0, the three biggest leaks)
 
-- ⏳ **Variation / change-order register, linked to billing** — unbilled or
-  unapproved "extra work" is the single largest source of *unrecovered
-  revenue* in contracting. Per contract: description, qty, rate, status
-  (Raised → Approved → Billed), and a link into the RA/tax bill.
+- ✅ **Variation / change-order register** — Billing > Variations. Per contract:
+  description, reason, letter/email reference (the paper trail that makes a
+  claim defensible), qty × rate, status Raised → Approved → Billed → Rejected,
+  approver, and which bill recovered it. Amount is derived and `VO-n` is
+  auto-numbered per contract from the highest serial, so deleting one cannot
+  reissue a number. The **Position** view headlines *approved but not yet
+  billed* — work the client has agreed to pay for that nobody has asked for —
+  and shows the revised contract value; rejected claims never inflate a total
+  (`variation.py`, `tab_variations.py`).
 - ⏳ **Payment ↔ bill/invoice allocation** — `payments.against_type/against_id`
   exists in the schema with **no UI**, so receivables and ageing are
   billed-minus-received *approximations*. Allocating a receipt against

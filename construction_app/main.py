@@ -41,6 +41,7 @@ from tab_projects import build_projects_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
+from tab_variations import build_variations_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -75,6 +76,7 @@ BUILDERS = {
     'Estimates': build_estimate_tab,
     'Contracts': build_contracts_tab,
     'BOQ / RA Bills': build_boq_ra_tab,
+    'Variations': build_variations_tab,
     'Running Bills': BillingTab,
     'Tax Invoice': build_tax_invoice_tab,
     'Purchase Orders': build_purchase_orders_tab,

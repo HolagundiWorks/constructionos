@@ -36,6 +36,7 @@ import projman
 import reports
 import statutory
 import subcontract
+import variation
 import wages
 
 
@@ -425,6 +426,70 @@ class TestJournalPostingEndToEnd(unittest.TestCase):
             'FROM journal_lines WHERE journal_entry_id = ?',
             (entry['id'],)).fetchone()
         self.assertAlmostEqual(d, entry['total_debit'], places=2)
+
+
+class TestVariations(unittest.TestCase):
+    """Variations decide whether extra work gets paid for, so the money
+    questions are: what is agreed but unasked-for, and what is still at risk."""
+
+    ROWS = [
+        {'status': 'Raised', 'qty': 10, 'rate': 500, 'amount': 5000},
+        {'status': 'Approved', 'qty': 4, 'rate': 2500, 'amount': 10000},
+        {'status': 'Approved', 'qty': 1, 'rate': 2000, 'amount': 2000},
+        {'status': 'Billed', 'qty': 2, 'rate': 1500, 'amount': 3000},
+        {'status': 'Rejected', 'qty': 100, 'rate': 900, 'amount': 90000},
+    ]
+
+    def test_amount_is_qty_times_rate(self):
+        self.assertEqual(variation.variation_amount(4, 2500), 10000)
+        self.assertEqual(variation.variation_amount(0, 2500), 0)
+
+    def test_approved_unbilled_is_the_headline(self):
+        s = variation.summarise(self.ROWS)
+        self.assertEqual(s['approved_unbilled'], 12000)   # the money to chase
+
+    def test_pending_and_billed_are_separated(self):
+        s = variation.summarise(self.ROWS)
+        self.assertEqual(s['pending_approval'], 5000)
+        self.assertEqual(s['billed'], 3000)
+
+    def test_rejected_never_counts_as_revenue(self):
+        s = variation.summarise(self.ROWS)
+        self.assertEqual(s['rejected'], 90000)
+        # a refused claim must not inflate the countable total
+        self.assertEqual(s['counted_total'], 5000 + 12000 + 3000)
+
+    def test_amount_falls_back_to_qty_times_rate(self):
+        s = variation.summarise([{'status': 'Approved', 'qty': 3, 'rate': 100}])
+        self.assertEqual(s['approved_unbilled'], 300)
+
+    def test_unknown_status_is_treated_as_raised_not_dropped(self):
+        s = variation.summarise([{'status': 'Weird', 'amount': 700}])
+        self.assertEqual(s['pending_approval'], 700)
+
+    def test_empty_register(self):
+        s = variation.summarise([])
+        self.assertEqual(s['counted_total'], 0)
+        self.assertEqual(s['approved_unbilled'], 0)
+
+    def test_contract_impact_counts_only_agreed_work(self):
+        impact = variation.contract_impact(1000000, self.ROWS)
+        # approved (12000) + billed (3000); the raised 5000 is not agreed yet
+        self.assertEqual(impact['agreed_variations'], 15000)
+        self.assertEqual(impact['revised_value'], 1015000)
+        self.assertEqual(impact['pending_variations'], 5000)
+        self.assertEqual(impact['variation_pct'], 1.5)
+
+    def test_contract_impact_with_no_original_value(self):
+        impact = variation.contract_impact(0, self.ROWS)
+        self.assertIsNone(impact['variation_pct'])   # would divide by zero
+        self.assertEqual(impact['revised_value'], 15000)
+
+    def test_next_var_no_uses_max_not_count(self):
+        # deleting VO-2 must not let VO-3 be reissued
+        self.assertEqual(variation.next_var_no(['VO-1', 'VO-3']), 'VO-4')
+        self.assertEqual(variation.next_var_no([]), 'VO-1')
+        self.assertEqual(variation.next_var_no(['junk', None, 'VO-2']), 'VO-3')
 
 
 class TestCompanyRegistry(unittest.TestCase):
