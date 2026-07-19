@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
 
 import ageing
+import allocation
 import analytics
 import civil
 import company
@@ -490,6 +491,95 @@ class TestVariations(unittest.TestCase):
         self.assertEqual(variation.next_var_no(['VO-1', 'VO-3']), 'VO-4')
         self.assertEqual(variation.next_var_no([]), 'VO-1')
         self.assertEqual(variation.next_var_no(['junk', None, 'VO-2']), 'VO-3')
+
+
+class TestAllocation(unittest.TestCase):
+    """Allocation is what turns ageing from a FIFO guess into a reconciled
+    position, so the tests focus on the guard rails and the hybrid fallback."""
+
+    DOCS = [
+        {'doc_type': 'Bill', 'doc_id': 1, 'date': '2026-01-10',
+         'number': 'B-1', 'amount': 100000},
+        {'doc_type': 'Bill', 'doc_id': 2, 'date': '2026-05-10',
+         'number': 'B-2', 'amount': 50000},
+    ]
+
+    def test_open_documents_reduces_by_allocation(self):
+        allocs = [{'doc_type': 'Bill', 'doc_id': 1, 'amount': 40000}]
+        docs = allocation.open_documents(self.DOCS, allocs)
+        self.assertEqual(docs[0]['open'], 60000)
+        self.assertEqual(docs[1]['open'], 50000)
+
+    def test_over_allocation_cannot_drive_open_negative(self):
+        allocs = [{'doc_type': 'Bill', 'doc_id': 1, 'amount': 999999}]
+        docs = allocation.open_documents(self.DOCS, allocs)
+        self.assertEqual(docs[0]['open'], 0)
+
+    def test_unallocated_amount(self):
+        allocs = [{'amount': 30000}, {'amount': 20000}]
+        self.assertEqual(allocation.unallocated_amount(100000, allocs), 50000)
+        # never negative, even if data is inconsistent
+        self.assertEqual(allocation.unallocated_amount(10000, allocs), 0)
+
+    def test_validate_rejects_allocating_more_than_the_payment(self):
+        ok, msg = allocation.validate(50000, [
+            {'amount': 40000, 'open': 100000, 'number': 'B-1'},
+            {'amount': 20000, 'open': 100000, 'number': 'B-2'}])
+        self.assertFalse(ok)
+        self.assertIn('50,000', msg)
+
+    def test_validate_rejects_allocating_more_than_a_doc_is_worth(self):
+        ok, msg = allocation.validate(100000, [
+            {'amount': 80000, 'open': 60000, 'number': 'B-1'}])
+        self.assertFalse(ok)
+        self.assertIn('B-1', msg)
+
+    def test_validate_rejects_negative(self):
+        ok, _ = allocation.validate(100, [{'amount': -5, 'open': 100}])
+        self.assertFalse(ok)
+
+    def test_validate_accepts_a_clean_split(self):
+        ok, msg = allocation.validate(100000, [
+            {'amount': 60000, 'open': 100000, 'number': 'B-1'},
+            {'amount': 40000, 'open': 50000, 'number': 'B-2'}])
+        self.assertTrue(ok, msg)
+
+    def test_suggest_fifo_fills_oldest_first(self):
+        docs = allocation.open_documents(self.DOCS, [])
+        proposal = allocation.suggest_fifo(docs, 120000)
+        self.assertEqual(proposal[allocation.doc_key('Bill', 1)], 100000)
+        self.assertEqual(proposal[allocation.doc_key('Bill', 2)], 20000)
+
+    def test_suggest_fifo_stops_when_money_runs_out(self):
+        docs = allocation.open_documents(self.DOCS, [])
+        proposal = allocation.suggest_fifo(docs, 30000)
+        self.assertEqual(proposal, {allocation.doc_key('Bill', 1): 30000})
+
+    def test_explicit_allocation_beats_fifo_for_ageing(self):
+        """A client paying the NEW bill while disputing the old one is exactly
+        the case FIFO gets wrong."""
+        allocs = [{'doc_type': 'Bill', 'doc_id': 2, 'amount': 50000}]
+        items = allocation.open_items_for_ageing(self.DOCS, allocs)
+        # the old bill is still fully open; the new one is settled
+        self.assertEqual(items, [('2026-01-10', 100000.0)])
+
+    def test_unallocated_receipts_still_apply_fifo(self):
+        """A half-migrated ledger must still add up."""
+        items = allocation.open_items_for_ageing(self.DOCS, [], 100000)
+        self.assertEqual(items, [('2026-05-10', 50000.0)])
+
+    def test_no_allocation_matches_the_old_behaviour_exactly(self):
+        pairs = [(d['date'], d['amount']) for d in self.DOCS]
+        self.assertEqual(
+            allocation.open_items_for_ageing(self.DOCS, [], 60000),
+            ageing.apply_receipts_fifo(pairs, 60000))
+
+    def test_party_position_totals(self):
+        allocs = [{'doc_type': 'Bill', 'doc_id': 1, 'amount': 100000}]
+        pos = allocation.party_position(self.DOCS, allocs, as_on='2026-06-10')
+        self.assertEqual(pos['billed'], 150000)
+        self.assertEqual(pos['allocated'], 100000)
+        self.assertEqual(pos['outstanding'], 50000)
 
 
 class TestCompanyRegistry(unittest.TestCase):

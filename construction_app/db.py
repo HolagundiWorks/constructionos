@@ -602,6 +602,20 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------------- payment -> bill allocation (Phase 8)
+-- A receipt is usually a lump sum covering several bills, so the single
+-- payments.against_type/against_id pair cannot express it. This table splits a
+-- payment across the documents it actually settles, which is what turns ageing
+-- from a FIFO guess into a reconciled position. Cascades with its payment: an
+-- allocation has no meaning once the payment is gone.
+CREATE TABLE IF NOT EXISTS payment_allocations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+    doc_type TEXT,        -- Bill / RABill / TaxInvoice / VendorInvoice
+    doc_id INTEGER,
+    amount REAL DEFAULT 0
+);
+
 -- ------------------------------------ variations / change orders (Phase 8)
 -- Work outside the original BOQ. Unbilled or unapproved extras are the largest
 -- source of unrecovered revenue in contracting, so this register exists to
@@ -672,6 +686,8 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_payalloc_payment ON payment_allocations(payment_id);
+CREATE INDEX IF NOT EXISTS idx_payalloc_doc ON payment_allocations(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
 CREATE INDEX IF NOT EXISTS idx_variations_status ON variations(status);
 """

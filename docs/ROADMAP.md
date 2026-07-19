@@ -282,11 +282,20 @@ the leverage is in making the SOP step impossible to skip.
   billed* — work the client has agreed to pay for that nobody has asked for —
   and shows the revised contract value; rejected claims never inflate a total
   (`variation.py`, `tab_variations.py`).
-- ⏳ **Payment ↔ bill/invoice allocation** — `payments.against_type/against_id`
-  exists in the schema with **no UI**, so receivables and ageing are
-  billed-minus-received *approximations*. Allocating a receipt against
-  specific open bills turns ageing into real reconciliation. Long flagged as
-  the top open item (see the Phase 1 follow-up note).
+- ✅ **Payment ↔ bill/invoice allocation** — Money > Payments > *Allocate to
+  Bills* splits a receipt across the documents it settles (`allocation.py`,
+  `tab_allocate.py`, new `payment_allocations` table). Ageing now uses those
+  allocations, falling back to oldest-first only for receipts still
+  unallocated — so a part-migrated ledger keeps adding up and allocating
+  nothing reproduces the old numbers exactly. This matters: a client paying
+  the newest bill while disputing an old one looked, under FIFO, like a client
+  with no aged debt. The allocation dialog and the ageing view share one
+  document query so they can never disagree.
+  _Note:_ receivables now include **tax invoices** as well as bills/RA bills.
+  That closes a blind spot (a contractor billing only by tax invoice
+  previously showed zero receivables), but if you raise both an RA bill and a
+  tax invoice for the same work, that work will count twice — the same
+  double-count caveat the GST view already carries.
 - ⏳ **Cash-flow forecast** — contracting fails on **liquidity, not
   profitability**. Projected inflows (expected bill dates) vs outflows
   (payables, payroll, hire) with a running projected balance.

@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import ageing
+import allocation
 import analytics
 import money as m
 import bill_export
@@ -194,10 +195,14 @@ class Outstanding(ttk.Frame):
 class Ageing(ttk.Frame):
     """Age each party's outstanding into 0-30 / 30-60 / 60-90 / 90+ slabs.
 
-    Receipts/payments aren't linked to specific bills, so we settle a party's
-    dated bills oldest-first (FIFO) by their total received/paid, then age
-    whatever is still open (`ageing.party_ageing`). Receivables age client
-    bills + RA bills by bill date; payables age vendor invoices by invoice date.
+    Where a receipt has been **allocated** to specific bills (Money > Payments >
+    Allocate to Bills), that allocation is used — this is reconciled ageing.
+    Anything still unallocated falls back to settling oldest-first, so a
+    part-migrated ledger keeps adding up (`allocation.open_items_for_ageing`).
+
+    The document set comes from ``tab_allocate.party_documents`` so this view
+    and the allocation dialog can never disagree about what a party owes:
+    client bills + RA bills + tax invoices, vendor invoices at net payable.
     """
 
     COLUMNS = ('party', '0-30', '30-60', '60-90', '90+', 'total')
@@ -228,20 +233,11 @@ class Ageing(ttk.Frame):
                   font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=4)
         self.refresh()
 
-    def _bills_by_party(self, conn):
-        """Return {party_id: [(date, amount), ...]} and {party_id: settled}."""
-        bills = {}
+    def _party_data(self, conn):
+        """(parties, settled-by-party) for this side of the ledger."""
         if self.mode == 'Receivable':
             parties = conn.execute(
                 'SELECT id, name FROM clients ORDER BY name').fetchall()
-            rows = conn.execute(
-                "SELECT c.client_id AS pid, b.bill_date AS d, b.net_payable AS a "
-                "FROM bills b JOIN contracts c ON c.id = b.contract_id "
-                "WHERE b.status IN ('Approved','Paid') "
-                "UNION ALL "
-                "SELECT c.client_id AS pid, r.bill_date AS d, r.net_payable AS a "
-                "FROM ra_bills r JOIN contracts c ON c.id = r.contract_id "
-                "WHERE r.status IN ('Approved','Paid')").fetchall()
             settled = _sum_map(conn,
                 "SELECT party_id, SUM(amount) FROM payments "
                 "WHERE direction = 'Receipt' AND party_type = 'Client' "
@@ -249,35 +245,50 @@ class Ageing(ttk.Frame):
         else:
             parties = conn.execute(
                 'SELECT id, name FROM vendors ORDER BY name').fetchall()
-            rows = conn.execute(
-                "SELECT vendor_id AS pid, invoice_date AS d, net_payable AS a "
-                "FROM vendor_invoices").fetchall()
             settled = _sum_map(conn,
                 "SELECT party_id, SUM(amount) FROM payments "
                 "WHERE direction = 'Payment' AND party_type = 'Vendor' "
                 "AND party_id IS NOT NULL GROUP BY party_id")
-        for r in rows:
-            if r['pid'] is None:
-                continue
-            bills.setdefault(r['pid'], []).append((r['d'], r['a'] or 0))
-        return parties, bills, settled
+        return parties, settled
 
     def refresh(self):
+        from tab_allocate import party_documents
+        party_type = 'Client' if self.mode == 'Receivable' else 'Vendor'
         for item in self.tree.get_children():
             self.tree.delete(item)
         conn = self.db_getter()
         try:
-            parties, bills, settled = self._bills_by_party(conn)
+            parties, settled = self._party_data(conn)
+            docs_by_party, allocs_by_party = {}, {}
+            for p in parties:
+                docs_by_party[p['id']] = party_documents(conn, party_type, p['id'])
+            for r in conn.execute(
+                    'SELECT p.party_id AS pid, pa.doc_type, pa.doc_id, pa.amount '
+                    'FROM payment_allocations pa '
+                    'JOIN payments p ON p.id = pa.payment_id '
+                    'WHERE p.party_type = ? AND p.party_id IS NOT NULL',
+                    (party_type,)):
+                allocs_by_party.setdefault(r['pid'], []).append(
+                    {'doc_type': r['doc_type'], 'doc_id': r['doc_id'],
+                     'amount': r['amount']})
         finally:
             conn.close()
 
         self._rows = []
         totals = {b: 0.0 for b in ageing.BUCKETS}
         for p in parties:
-            party_bills = bills.get(p['id'])
-            if not party_bills:
+            docs = docs_by_party.get(p['id']) or []
+            if not docs:
                 continue
-            aged = ageing.party_ageing(party_bills, settled.get(p['id'], 0) or 0)
+            allocs = allocs_by_party.get(p['id'], [])
+            # Receipts not tied to any bill still reduce the balance, oldest
+            # first — otherwise allocating one receipt would make the rest of
+            # a party's payments vanish from the ageing.
+            allocated = sum(allocation.money(a['amount']) for a in allocs)
+            unallocated = max(allocation.money(settled.get(p['id'], 0) or 0)
+                              - allocation.money(allocated), 0.0)
+            aged = ageing.age_open_items(
+                allocation.open_items_for_ageing(docs, allocs, unallocated))
             if aged['total'] == 0:
                 continue
             for b in ageing.BUCKETS:

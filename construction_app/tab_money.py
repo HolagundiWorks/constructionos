@@ -136,6 +136,8 @@ class PaymentsFrame(ttk.Frame):
         ttk.Button(btns, text='Add', command=self.add).pack(side='left', padx=3)
         ttk.Button(btns, text='Update', command=self.update).pack(side='left', padx=3)
         ttk.Button(btns, text='Delete', command=self.delete).pack(side='left', padx=3)
+        ttk.Button(btns, text='Allocate to Bills…',
+                   command=self.allocate).pack(side='left', padx=3)
         ttk.Button(btns, text='Clear', command=self.clear).pack(side='left', padx=3)
         ttk.Button(btns, text='Refresh', command=self.reload).pack(side='left', padx=3)
 
@@ -189,6 +191,32 @@ class PaymentsFrame(ttk.Frame):
                 r['party_name'] or '-', r['mode'], '{:.2f}'.format(r['amount']),
                 r['ref_no'] or '', r['site'] or '', r['narration'] or ''),
                 tags=(tag,))
+
+    def allocate(self):
+        """Split the selected payment across the bills it settles."""
+        if self.selected_id is None:
+            messagebox.showinfo('No selection',
+                                'Select a payment or receipt first.')
+            return
+        conn = self.db_getter()
+        try:
+            row = conn.execute('SELECT * FROM payments WHERE id = ?',
+                               (self.selected_id,)).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return
+        if row['party_type'] not in ('Client', 'Vendor') or not row['party_id']:
+            messagebox.showinfo(
+                'Nothing to allocate against',
+                'Allocation applies to a named Client or Vendor — those are '
+                'the parties that have bills. This entry is "{}".'.format(
+                    row['party_type'] or 'Other'))
+            return
+        from tab_allocate import AllocateDialog
+        dlg = AllocateDialog(self.winfo_toplevel(), self.db_getter, row)
+        self.wait_window(dlg)
+        self.reload()
 
     def _on_select(self, _e=None):
         sel = self.tree.selection()
