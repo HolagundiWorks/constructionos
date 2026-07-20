@@ -22,6 +22,7 @@ from tkinter import ttk, messagebox, filedialog
 from ui_guard import can_write
 
 import wages
+import muster
 import money as m
 import bill_export
 from crud_frame import CrudFrame, Field
@@ -40,6 +41,13 @@ def _save_and_open_html(html, default_name):
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(html)
     webbrowser.open('file://' + os.path.abspath(path))
+
+
+def _company_name(conn):
+    """Firm name from app_settings (Tools > Firm Details), for printouts."""
+    row = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
+    return (row['value'] if row and row['value'] else '') or 'Construction OS'
 
 
 def _recover_advances(conn, labor_id, amount):
@@ -262,6 +270,10 @@ class WeeklyPayoutFrame(ttk.Frame):
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 8))
         ttk.Button(btns, text='Export Payout Sheet', command=self.export).pack(side='left', padx=3)
+        ttk.Button(btns, text='Muster Roll (Form 21)',
+                   command=self.export_muster_roll).pack(side='left', padx=3)
+        ttk.Button(btns, text='Unpaid Wages (Form 21A)',
+                   command=self.export_unpaid).pack(side='left', padx=3)
         ttk.Button(btns, text='Record as Payments', command=self.record_payments).pack(side='left', padx=3)
 
     def reload_sites(self):
@@ -341,6 +353,92 @@ class WeeklyPayoutFrame(ttk.Frame):
             ['Name', 'Days', 'Gross', 'Adv. Deduct', 'Net Pay'],
             rows, summary=self.summary_var.get())
         _save_and_open_html(html, 'weekly_payout.html')
+
+    # ---------------------------------------------------- Form 21 / 21A
+    def _roll_context(self, conn, site_id, start, end):
+        """Everything the Form 21 documents need for one wage period.
+
+        Unlike ``compute``, this keeps workers with no attendance: the muster
+        roll is the record of who was *on the books* for the period, and
+        dropping a zero-day worker would hide someone who should have been
+        marked. ``compute`` is about who to pay, which is a different question.
+        """
+        labour = conn.execute(
+            "SELECT id, name, father_name, skill, daily_wage FROM labor "
+            "WHERE status = 'Active' AND site_id = ? ORDER BY name",
+            (site_id,)).fetchall()
+        atts = conn.execute(
+            'SELECT a.labor_id, a.att_date, a.status, a.hours FROM attendance a '
+            'JOIN labor l ON l.id = a.labor_id '
+            'WHERE l.site_id = ? AND a.att_date BETWEEN ? AND ?',
+            (site_id, start, end)).fetchall()
+        advances = {r['labor_id']: r['b'] for r in conn.execute(
+            "SELECT labor_id, COALESCE(SUM(amount - recovered), 0) AS b "
+            "FROM advances WHERE status = 'Open' GROUP BY labor_id")}
+        lines = muster.roll_lines(labour, atts, start, end, advances)
+
+        # Value of work measured on this site in the same period — Part II.
+        measured = conn.execute(
+            'SELECT COALESCE(SUM(m.quantity * b.rate), 0) AS v '
+            'FROM measurements m '
+            'JOIN boq_items b ON b.id = m.boq_item_id '
+            'JOIN contracts c ON c.id = m.contract_id '
+            'WHERE c.site_id = ? AND m.mb_date BETWEEN ? AND ?',
+            (site_id, start, end)).fetchone()['v']
+
+        narration = 'Wages {} to {}'.format(start, end)
+        paid_ids = [r['party_id'] for r in conn.execute(
+            "SELECT party_id FROM payments WHERE party_type = 'Labour' "
+            "AND narration = ?", (narration,))]
+        return lines, measured, paid_ids
+
+    def _period_or_warn(self):
+        if not self._rows and not self._period:
+            messagebox.showinfo('No period', 'Compute a week first.')
+            return None
+        return self._period
+
+    def export_muster_roll(self):
+        """Print the muster roll in CPWA Form 21 shape."""
+        period = self._period_or_warn()
+        site_id = self._site_id()
+        if period is None or site_id is None:
+            if site_id is None:
+                messagebox.showinfo('No site', 'Select a site.')
+            return
+        s, e = period
+        conn = self.db_getter()
+        try:
+            lines, measured, _paid = self._roll_context(conn, site_id, s, e)
+            company = _company_name(conn)
+        finally:
+            conn.close()
+        total = muster.summarise_roll(lines)
+        html = bill_export.build_muster_roll_html(
+            lines, muster.period_dates(s, e), s, e,
+            site_name=self.site_var.get(), company_name=company,
+            reconciliation=muster.work_reconciliation(total['gross'], measured))
+        _save_and_open_html(html, 'muster_roll_{}.html'.format(s))
+
+    def export_unpaid(self):
+        """Register of Unpaid Wages (Form 21A) for the computed period."""
+        period = self._period_or_warn()
+        site_id = self._site_id()
+        if period is None or site_id is None:
+            if site_id is None:
+                messagebox.showinfo('No site', 'Select a site.')
+            return
+        s, e = period
+        conn = self.db_getter()
+        try:
+            lines, _measured, paid_ids = self._roll_context(conn, site_id, s, e)
+            company = _company_name(conn)
+        finally:
+            conn.close()
+        unpaid = muster.unpaid_lines(lines, paid_ids)
+        html = bill_export.build_unpaid_wages_html(
+            unpaid, s, e, site_name=self.site_var.get(), company_name=company)
+        _save_and_open_html(html, 'unpaid_wages_{}.html'.format(s))
 
     def record_payments(self):
         if not can_write():

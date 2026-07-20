@@ -39,6 +39,7 @@ import finance
 import hse
 import mb
 import money
+import muster
 import numbering
 import numwords
 import planning
@@ -1397,6 +1398,213 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestMusterRoll(unittest.TestCase):
+    """CPWA Form 21: the nominal roll, the day grid, and unpaid wages."""
+
+    def _worker(self, wid, name, wage=600, father='', skill='Mason'):
+        return {'id': wid, 'name': name, 'father_name': father,
+                'skill': skill, 'daily_wage': wage}
+
+    def _att(self, wid, day, status='Present', hours=8):
+        return {'labor_id': wid, 'att_date': day, 'status': status,
+                'hours': hours}
+
+    # --- period ---
+    def test_period_is_inclusive_of_both_ends(self):
+        days = muster.period_dates('2026-04-01', '2026-04-07')
+        self.assertEqual(len(days), 7)
+        self.assertEqual(days[0].isoformat(), '2026-04-01')
+        self.assertEqual(days[-1].isoformat(), '2026-04-07')
+
+    def test_bad_or_inverted_dates_give_an_empty_period(self):
+        # A mistyped date must not spin a loop or raise mid-payroll.
+        self.assertEqual(muster.period_dates('2026-04-07', '2026-04-01'), [])
+        self.assertEqual(muster.period_dates('not a date', '2026-04-07'), [])
+        self.assertEqual(muster.period_dates(None, None), [])
+
+    def test_single_day_period(self):
+        self.assertEqual(len(muster.period_dates('2026-04-01', '2026-04-01')), 1)
+
+    # --- the roll ---
+    def test_roll_grid_marks_each_day_and_totals_the_days(self):
+        workers = [self._worker(1, 'Ramesh', 600)]
+        atts = [self._att(1, '2026-04-01'),
+                self._att(1, '2026-04-02', 'Half Day'),
+                self._att(1, '2026-04-03', 'Absent'),
+                self._att(1, '2026-04-04', 'Overtime', hours=12)]
+        lines = muster.roll_lines(workers, atts, '2026-04-01', '2026-04-05')
+        line = lines[0]
+        self.assertEqual(line['cells'], ['P', '½', 'A', 'O', '-'])
+        self.assertEqual(line['days'], 1 + 0.5 + 0 + 1.5)
+        self.assertEqual(line['gross'], round(3.0 * 600, 2))
+
+    def test_unmarked_days_show_a_dash_not_an_absence(self):
+        # "Not marked" and "marked absent" are different claims on a document
+        # that gets signed; the grid must not silently convert one to the other.
+        lines = muster.roll_lines([self._worker(1, 'Ramesh')], [],
+                                  '2026-04-01', '2026-04-03')
+        self.assertEqual(lines[0]['cells'], ['-', '-', '-'])
+        self.assertEqual(lines[0]['days'], 0)
+
+    def test_worker_with_no_attendance_still_appears_on_the_roll(self):
+        lines = muster.roll_lines(
+            [self._worker(1, 'Ramesh'), self._worker(2, 'Suresh')],
+            [self._att(1, '2026-04-01')], '2026-04-01', '2026-04-01')
+        self.assertEqual([l['name'] for l in lines], ['Ramesh', 'Suresh'])
+
+    def test_advance_is_deducted_but_never_makes_pay_negative(self):
+        lines = muster.roll_lines(
+            [self._worker(1, 'Ramesh', 600)],
+            [self._att(1, '2026-04-01')], '2026-04-01', '2026-04-01',
+            advances={1: 5000})
+        self.assertEqual(lines[0]['gross'], 600)
+        self.assertEqual(lines[0]['deduction'], 600)
+        self.assertEqual(lines[0]['net'], 0)
+
+    def test_roll_totals(self):
+        workers = [self._worker(1, 'Ramesh', 600), self._worker(2, 'Suresh', 500)]
+        atts = [self._att(1, '2026-04-01'), self._att(2, '2026-04-01')]
+        total = muster.summarise_roll(
+            muster.roll_lines(workers, atts, '2026-04-01', '2026-04-01'))
+        self.assertEqual(total['workers'], 2)
+        self.assertEqual(total['days'], 2)
+        self.assertEqual(total['gross'], 1100)
+        self.assertEqual(total['net'], 1100)
+
+    # --- Form 21A ---
+    def test_unpaid_register_lists_only_earners_without_a_payment(self):
+        workers = [self._worker(1, 'Ramesh'), self._worker(2, 'Suresh'),
+                   self._worker(3, 'Absent Ali')]
+        atts = [self._att(1, '2026-04-01'), self._att(2, '2026-04-01')]
+        lines = muster.roll_lines(workers, atts, '2026-04-01', '2026-04-01')
+
+        unpaid = muster.unpaid_lines(lines, paid_ids=[1])
+        self.assertEqual([l['name'] for l in unpaid], ['Suresh'])
+        self.assertEqual(muster.unpaid_total(lines, [1]), 600)
+
+    def test_absent_worker_is_not_an_unpaid_wage(self):
+        # Zero earnings is an absence, not a liability; listing it would bury
+        # the real unpaid amounts.
+        lines = muster.roll_lines([self._worker(1, 'Ali')], [],
+                                  '2026-04-01', '2026-04-01')
+        self.assertEqual(muster.unpaid_lines(lines, paid_ids=[]), [])
+
+    def test_paid_ids_match_across_int_and_string(self):
+        lines = muster.roll_lines([self._worker(1, 'Ramesh')],
+                                  [self._att(1, '2026-04-01')],
+                                  '2026-04-01', '2026-04-01')
+        self.assertEqual(muster.unpaid_lines(lines, paid_ids=['1']), [])
+        self.assertEqual(muster.unpaid_lines(lines, paid_ids=[1]), [])
+
+    # --- Part II ---
+    def test_reconciliation_ratio_and_threshold(self):
+        r = muster.work_reconciliation(30000, 100000)
+        self.assertEqual(r['ratio_pct'], 30.0)
+        self.assertEqual(r['difference'], 70000)
+        self.assertFalse(r['needs_explanation'])
+
+        high = muster.work_reconciliation(80000, 100000)
+        self.assertEqual(high['ratio_pct'], 80.0)
+        self.assertTrue(high['needs_explanation'])
+
+    def test_wages_with_nothing_measured_is_flagged_not_divided_by_zero(self):
+        r = muster.work_reconciliation(30000, 0)
+        self.assertIsNone(r['ratio_pct'])       # undefined, not infinite
+        self.assertTrue(r['unmeasured'])
+
+    def test_no_wages_and_no_measurement_is_not_flagged(self):
+        r = muster.work_reconciliation(0, 0)
+        self.assertFalse(r['unmeasured'])
+        self.assertFalse(r['needs_explanation'])
+
+
+class TestMusterRollExport(unittest.TestCase):
+    def setUp(self):
+        import bill_export
+        self.be = bill_export
+        self.workers = [{'id': 1, 'name': 'Ramesh Kumar',
+                         'father_name': 'Shyam Lal', 'skill': 'Mason',
+                         'daily_wage': 600},
+                        {'id': 2, 'name': 'Suresh', 'father_name': '',
+                         'skill': 'Coolie', 'daily_wage': 450}]
+        self.atts = [{'labor_id': 1, 'att_date': '2026-04-01',
+                      'status': 'Present', 'hours': 8},
+                     {'labor_id': 2, 'att_date': '2026-04-01',
+                      'status': 'Half Day', 'hours': 4}]
+        self.lines = muster.roll_lines(self.workers, self.atts,
+                                       '2026-04-01', '2026-04-03')
+
+    def _html(self, **kw):
+        params = {'lines': self.lines,
+                  'dates': muster.period_dates('2026-04-01', '2026-04-03'),
+                  'start': '2026-04-01', 'end': '2026-04-03',
+                  'site_name': 'Ward 7',
+                  'reconciliation': muster.work_reconciliation(825, 20000)}
+        params.update(kw)
+        return self.be.build_muster_roll_html(**params)
+
+    def test_roll_has_both_parts_and_the_signature_column(self):
+        html = self._html()
+        self.assertIn('PART I (NOMINAL ROLL)', html)
+        self.assertIn('WAGES AGAINST WORK MEASURED', html)
+        self.assertIn('Signature / Thumb', html)
+        self.assertIn("Father's name", html)
+        self.assertIn('Shyam Lal', html)
+
+    def test_signature_column_is_left_blank_to_be_signed_on_paper(self):
+        # A pre-filled acknowledgement would be worthless as evidence.
+        html = self._html()
+        self.assertIn('<td class="sign"></td>', html)
+
+    def test_day_columns_match_the_period_length(self):
+        html = self._html()
+        header = html[html.index('<thead>'):html.index('</thead>')]
+        self.assertEqual(header.count('<th class="day">'), 3)
+        body = html[html.index('<tbody>'):html.index('</tbody>')]
+        self.assertEqual(body.count('<td class="day">'), 6)   # 2 workers x 3
+
+    def test_totals_row_lines_up_under_its_columns(self):
+        html = self._html()
+        foot = html[html.index('<tfoot>'):html.index('</tfoot>')]
+        # TOTAL spans the 4 identity columns + 3 day columns
+        self.assertIn('colspan="7"', foot)
+
+    def test_unmeasured_period_is_called_out(self):
+        html = self._html(reconciliation=muster.work_reconciliation(825, 0))
+        self.assertIn('no work was measured', html)
+
+    def test_high_labour_ratio_asks_for_a_reason(self):
+        html = self._html(reconciliation=muster.work_reconciliation(9000, 10000))
+        self.assertIn('Record the reason below', html)
+
+    def test_empty_roll_renders(self):
+        html = self._html(lines=[])
+        self.assertIn('No labour on this roll', html)
+
+    def test_names_are_escaped(self):
+        lines = muster.roll_lines(
+            [{'id': 1, 'name': '<b>x</b>', 'daily_wage': 100}], [],
+            '2026-04-01', '2026-04-01')
+        html = self._html(lines=lines)
+        self.assertNotIn('<b>x</b>', html)
+
+    # --- Form 21A ---
+    def test_unpaid_register_totals_and_words(self):
+        unpaid = muster.unpaid_lines(self.lines, paid_ids=[1])
+        html = self.be.build_unpaid_wages_html(
+            unpaid, '2026-04-01', '2026-04-03', site_name='Ward 7')
+        self.assertIn('REGISTER OF UNPAID WAGES', html)
+        self.assertIn('Suresh', html)
+        self.assertNotIn('Ramesh', html)
+        self.assertIn('225.00', html)            # 0.5 day x 450
+        self.assertIn('remain payable', html)
+
+    def test_empty_unpaid_register_says_so_plainly(self):
+        html = self.be.build_unpaid_wages_html(
+            [], '2026-04-01', '2026-04-03')
+        self.assertIn('Nothing outstanding', html)
 
 
 class TestForm26Recoveries(unittest.TestCase):

@@ -485,10 +485,42 @@ returned, and payment waits another cycle.
   TDS as a cost would understate both profit and what the client still owes.
   Note 1500 TDS *Receivable* is the mirror of the existing 2200 TDS *Payable*:
   same word, opposite side of the balance sheet.
-- ⏳ **Muster Roll Form 21** — Part I nominal roll with the payee
-  signature/thumb-impression column, Part II reconciling work done against
-  wages paid, and the Register of Unpaid Wages (Form 21A). There is currently
-  no muster print at all.
+- ✅ **Muster Roll Form 21** (`muster.py`, two builders in `bill_export`).
+  There was no muster print at all — attendance went in and only a payout
+  summary came out.
+
+  **Part I** is the nominal roll: name *and father's name* (common names are
+  everywhere on site and this is a payment record), a day-by-day attendance
+  grid, rate, days, gross, advance recovered, net — and the payee **signature /
+  thumb-impression column**, which is the reason the form exists. It prints
+  blank on purpose: it is signed on paper at the moment of payment, and a
+  pre-filled acknowledgement would be worthless as evidence. For cash-paid
+  informal labour the signed muster is often the only proof a payment happened,
+  which matters to the contractor under a labour inspection.
+
+  The grid distinguishes **not marked (`-`) from marked absent (`A`)**. On a
+  document somebody signs, those are different claims, and silently converting
+  one to the other would be a small forgery.
+
+  The roll lists **everyone on the books**, including a worker with zero days;
+  the payout list deliberately does not. Who was engaged and who gets paid are
+  different questions, and dropping the zero-day worker from the roll would
+  hide someone who should have been marked.
+
+  **Form 21A (Register of Unpaid Wages)** is *derived* — anyone who earned but
+  has no recorded payment for the period — so it cannot drift out of step with
+  what was actually disbursed. Zero-earners are excluded: an absence is not a
+  liability, and listing it would bury the real unpaid amounts.
+
+  **Part II is an honest approximation and is documented as one.** The
+  statutory form reconciles work done *by that labour* against the measurement
+  book. This app does not record which worker executed which BOQ item, so it
+  compares the period's wage bill against the value of work measured in the
+  same period. That answers the question the form exists to ask — is the wage
+  bill proportionate to what got built — without pretending to a per-worker
+  attribution the data cannot support. A period with wages but no measurement
+  is flagged rather than divided by zero: that is a measurement gap, not a
+  100% labour ratio.
 - ⏳ **Security-deposit ledger** — 5% performance guarantee plus 2.5% deducted
   from every running bill, accumulating across bills, with the ₹5 lakh
   bank-guarantee release threshold flagged. Configurable, because state PWDs

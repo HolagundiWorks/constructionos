@@ -1097,6 +1097,9 @@ _ADD_COLUMNS = [
     ('ra_bills', 'tds_amt', 'REAL DEFAULT 0'),
     ('ra_bills', 'cess_pct', 'REAL DEFAULT 0'),
     ('ra_bills', 'cess_amt', 'REAL DEFAULT 0'),
+    # CPWA Form 21 identifies a worker by name *and* father's name — common
+    # names are ubiquitous on site and the roll is a payment record.
+    ('labor', 'father_name', 'TEXT'),
 ]
 
 

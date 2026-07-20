@@ -92,6 +92,9 @@ def build_rate_book_tab(parent, db_getter):
 def build_labor_tab(parent, db_getter):
     fields = [
         Field('name', 'Name'),
+        # CPWA Form 21 identifies a worker by name and father's name; common
+        # names are everywhere on site and the muster roll is a payment record.
+        Field('father_name', "Father's Name"),
         Field('site_id', 'Site', kind='fk', options_func=site_options),
         Field('skill', 'Skill'),
         Field('daily_wage', 'Daily Wage', kind='number', default='0'),
