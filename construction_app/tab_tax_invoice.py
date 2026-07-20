@@ -21,6 +21,7 @@ from ui_guard import can_write
 
 import finance
 import numbering
+import einvoice
 import bill_export
 from tab_masters import client_options
 
@@ -92,7 +93,9 @@ class TaxInvoiceTab(ttk.Frame):
         form = ttk.Frame(hdr); form.pack(fill='x', padx=4, pady=4)
         for key, default in (('invoice_no', ''), ('invoice_date', ''),
                              ('place_of_supply', ''), ('gst_pct', '18'),
-                             ('notes', '')):
+                             ('notes', ''), ('irn', ''), ('irn_ack_no', ''),
+                             ('irn_ack_date', ''), ('eway_bill_no', ''),
+                             ('transporter', ''), ('vehicle_no', '')):
             self.h[key] = tk.StringVar(value=default)
         self.h['client'] = tk.StringVar()
         self.h['interstate'] = tk.StringVar(value='No')
@@ -115,6 +118,24 @@ class TaxInvoiceTab(ttk.Frame):
         self.totals_var = tk.StringVar(value='Taxable 0.00  |  GST 0.00  |  Total 0.00')
         ttk.Label(hdr, textvariable=self.totals_var,
                   font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=6, pady=(2, 4))
+
+        # E-invoice / e-way-bill fields. These come from the government portal;
+        # the app records and prints them but cannot generate them offline.
+        einv = ttk.LabelFrame(hdr, text='E-invoice / E-way bill (from the '
+                                        'portal — optional)')
+        einv.pack(fill='x', padx=4, pady=(2, 4))
+        self._entry(einv, 0, 0, 'IRN', 'irn')
+        self._entry(einv, 0, 1, 'Ack No', 'irn_ack_no')
+        self._entry(einv, 0, 2, 'Ack Date', 'irn_ack_date')
+        self._entry(einv, 1, 0, 'E-way Bill No', 'eway_bill_no')
+        self._entry(einv, 1, 1, 'Transporter', 'transporter')
+        self._entry(einv, 1, 2, 'Vehicle No', 'vehicle_no')
+        self.einv_var = tk.StringVar()
+        ttk.Label(einv, textvariable=self.einv_var, foreground='#8a5a00',
+                  wraplength=820, justify='left').grid(
+            row=2, column=0, columnspan=3, padx=6, pady=(0, 4), sticky='w')
+        for key in ('irn', 'eway_bill_no', 'vehicle_no'):
+            self.h[key].trace_add('write', lambda *a: self._check_einvoice())
 
         hbtns = ttk.Frame(hdr); hbtns.pack(fill='x', padx=4, pady=4)
         ttk.Button(hbtns, text='Add Invoice', command=self.add_invoice).pack(side='left', padx=3)
@@ -229,6 +250,9 @@ class TaxInvoiceTab(ttk.Frame):
         self.h['invoice_date'].set(r['invoice_date'] or '')
         self.h['place_of_supply'].set(r['place_of_supply'] or '')
         self.h['gst_pct'].set(str(r['gst_pct']))
+        for key in ('irn', 'irn_ack_no', 'irn_ack_date', 'eway_bill_no',
+                    'transporter', 'vehicle_no'):
+            self.h[key].set(r[key] or '')
         self.h['interstate'].set('Yes' if r['interstate'] else 'No')
         self.h['status'].set(r['status'] or 'Draft')
         self.h['notes'].set(r['notes'] or '')
@@ -258,7 +282,21 @@ class TaxInvoiceTab(ttk.Frame):
             'gst_pct': gst,
             'status': self.h['status'].get().strip() or 'Draft',
             'notes': self.h['notes'].get().strip(),
+            'irn': self.h['irn'].get().strip(),
+            'irn_ack_no': self.h['irn_ack_no'].get().strip(),
+            'irn_ack_date': self.h['irn_ack_date'].get().strip(),
+            'eway_bill_no': einvoice.normalise_eway(self.h['eway_bill_no'].get()),
+            'transporter': self.h['transporter'].get().strip(),
+            'vehicle_no': self.h['vehicle_no'].get().strip().upper(),
         }
+
+    def _check_einvoice(self):
+        """Live format check on the e-invoice / e-way fields — shape only."""
+        warns = einvoice.validate({
+            'irn': self.h['irn'].get(),
+            'eway_bill_no': self.h['eway_bill_no'].get(),
+            'vehicle_no': self.h['vehicle_no'].get()})
+        self.einv_var.set('  '.join(warns))
 
     def add_invoice(self):
         if not can_write():
@@ -330,10 +368,14 @@ class TaxInvoiceTab(ttk.Frame):
         self.selected_id = None
         for key, default in (('invoice_no', ''), ('invoice_date', ''),
                              ('place_of_supply', ''), ('gst_pct', '18'),
-                             ('notes', ''), ('client', '')):
+                             ('notes', ''), ('client', ''), ('irn', ''),
+                             ('irn_ack_no', ''), ('irn_ack_date', ''),
+                             ('eway_bill_no', ''), ('transporter', ''),
+                             ('vehicle_no', '')):
             self.h[key].set(default)
         self.h['interstate'].set('No')
         self.h['status'].set('Draft')
+        self.einv_var.set('')
         if self.tree.selection():
             self.tree.selection_remove(self.tree.selection())
         self.refresh_items()

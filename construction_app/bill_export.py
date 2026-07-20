@@ -16,6 +16,7 @@ from datetime import date
 from html import escape
 
 import assets
+import einvoice
 import estimate as estimate_calc
 import finance
 import mb
@@ -389,9 +390,36 @@ def build_tax_invoice_html(invoice, client=None, items=None, seller=None,
                     '<tr><td>SGST</td><td class="num">{}</td></tr>'.format(
                         _money(gst['cgst']), _money(gst['sgst'])))
 
+    # E-invoice / e-way panel: shown only when the portal fields are present.
+    # No QR is drawn — a real e-invoice QR encodes the portal's signed payload,
+    # which cannot be reproduced offline; the IRN is shown instead.
+    einv = einvoice.summarise(invoice)
+    einv_rows = []
+    if einv['irn']:
+        einv_rows.append('<tr><td class="k">IRN</td><td class="mono">{}</td>'
+                         '</tr>'.format(_text(einv['irn'])))
+        ack = ' '.join(x for x in (_text(g(invoice, 'irn_ack_no')),
+                                   _text(g(invoice, 'irn_ack_date'))) if x)
+        if ack.strip():
+            einv_rows.append('<tr><td class="k">Ack</td><td>{}</td></tr>'.format(
+                ack))
+    if einv['has_eway']:
+        einv_rows.append('<tr><td class="k">E-way Bill</td><td>{}</td>'
+                         '</tr>'.format(_text(einv['eway_bill_no'])))
+        transport = ' &nbsp;|&nbsp; '.join(
+            x for x in (_text(einv['transporter']),
+                        _text(einv['vehicle_no'])) if x)
+        if transport:
+            einv_rows.append('<tr><td class="k">Transport</td><td>{}</td>'
+                             '</tr>'.format(transport))
+    einv_html = ('<table class="einv"><tr><th colspan="2">E-invoice / E-way '
+                 'bill</th></tr>{}</table>'.format(''.join(einv_rows))
+                 if einv_rows else '')
+
     return _TAX_TEMPLATE.format(
         logo=_LOGO_TAG,
         company=_text(company_name),
+        einv=einv_html,
         seller_gstin=_text(g(seller, 'gstin') or '—'),
         seller_addr=_text(g(seller, 'address') or ''),
         invoice_no=_text(g(invoice, 'invoice_no') or '-'),
@@ -424,6 +452,14 @@ _TAX_TEMPLATE = """<meta charset="utf-8">
            border-bottom: 2px solid #333; padding-bottom: 10px; }}
   .meta td {{ padding: 2px 8px 2px 0; }}
   .meta td.k {{ color: #666; }}
+  table.einv {{ width: 100%; border-collapse: collapse; margin: 0 0 14px;
+                font-size: 11px; }}
+  table.einv th {{ background: #f2f4f7; text-align: left; padding: 4px 8px;
+                   border: 1px solid #ccc; }}
+  table.einv td {{ padding: 3px 8px; border: 1px solid #e0e3e8; }}
+  table.einv td.k {{ color: #666; width: 20%; }}
+  table.einv td.mono {{ font-family: 'Courier New', monospace;
+                        word-break: break-all; }}
   .parties {{ display: flex; gap: 20px; margin: 14px 0; }}
   .parties .box {{ flex: 1; border: 1px solid #ddd; border-radius: 6px;
                    padding: 8px 10px; }}
@@ -460,7 +496,7 @@ _TAX_TEMPLATE = """<meta charset="utf-8">
   </table>
 </div>
 <div class="doc-title">TAX INVOICE</div>
-
+{einv}
 <div class="parties">
   <div class="box">
     <h3>Bill To</h3>

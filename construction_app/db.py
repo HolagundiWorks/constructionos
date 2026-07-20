@@ -1211,6 +1211,16 @@ _ADD_COLUMNS = [
     ('projects', 'ld_cap_pct', 'REAL DEFAULT 10'),
     ('projects', 'eot_granted_days', 'INTEGER DEFAULT 0'),
     ('projects', 'contract_value', 'REAL DEFAULT 0'),
+    # E-invoice (IRP) and e-way-bill fields. The portal generates them; this
+    # app only stores what it gives back and prints them where a compliant
+    # invoice must show them. No QR: that encodes a signed payload no offline
+    # app can reproduce.
+    ('tax_invoices', 'irn', 'TEXT'),
+    ('tax_invoices', 'irn_ack_no', 'TEXT'),
+    ('tax_invoices', 'irn_ack_date', 'TEXT'),
+    ('tax_invoices', 'eway_bill_no', 'TEXT'),
+    ('tax_invoices', 'transporter', 'TEXT'),
+    ('tax_invoices', 'vehicle_no', 'TEXT'),
 ]
 
 

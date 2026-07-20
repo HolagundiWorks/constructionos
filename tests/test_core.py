@@ -35,6 +35,7 @@ import cashflow
 import civil
 import closeout
 import compliance
+import einvoice
 import company
 import estimate
 import finance
@@ -1403,6 +1404,82 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestEInvoice(unittest.TestCase):
+    """Format validation and readiness for e-invoice / e-way-bill fields."""
+
+    _GOOD_IRN = 'a' * 64
+
+    def test_blank_fields_never_warn(self):
+        # Absence is not an error: the module does not know a field is required.
+        self.assertEqual(einvoice.validate_irn(''), (True, ''))
+        self.assertEqual(einvoice.validate_eway(''), (True, ''))
+        self.assertEqual(einvoice.validate_vehicle(''), (True, ''))
+        self.assertEqual(einvoice.validate({}), [])
+
+    def test_irn_must_be_64_hex(self):
+        self.assertTrue(einvoice.validate_irn(self._GOOD_IRN)[0])
+        self.assertTrue(einvoice.validate_irn('9F' * 32)[0])
+        self.assertFalse(einvoice.validate_irn('abc123')[0])       # too short
+        self.assertFalse(einvoice.validate_irn('z' * 64)[0])       # not hex
+
+    def test_eway_is_twelve_digits_ignoring_grouping(self):
+        self.assertTrue(einvoice.validate_eway('123456789012')[0])
+        self.assertTrue(einvoice.validate_eway('1234 5678 9012')[0])
+        self.assertTrue(einvoice.validate_eway('1234-5678-9012')[0])
+        self.assertFalse(einvoice.validate_eway('12345')[0])
+        self.assertFalse(einvoice.validate_eway('12345678901A')[0])
+
+    def test_eway_normalises_to_bare_digits(self):
+        self.assertEqual(einvoice.normalise_eway('1234 5678 9012'),
+                         '123456789012')
+        # something that is not 12 digits is left as the user typed it
+        self.assertEqual(einvoice.normalise_eway('pending'), 'pending')
+
+    def test_vehicle_check_is_lenient_and_only_warns(self):
+        self.assertTrue(einvoice.validate_vehicle('KA25AB1234')[0])
+        self.assertTrue(einvoice.validate_vehicle('ka 25 ab 1234')[0])
+        self.assertTrue(einvoice.validate_vehicle('MH12A1234')[0])
+        ok, msg = einvoice.validate_vehicle('lorry')
+        self.assertFalse(ok)
+        self.assertIn('Recorded as entered', msg)   # warns, does not reject
+
+    def test_validate_collects_every_bad_field(self):
+        warns = einvoice.validate({'irn': 'nope', 'eway_bill_no': '12',
+                                   'vehicle_no': 'truck'})
+        self.assertEqual(len(warns), 3)
+
+    def test_summarise_reports_presence_and_shape(self):
+        s = einvoice.summarise({'irn': self._GOOD_IRN,
+                                'eway_bill_no': '1234 5678 9012',
+                                'vehicle_no': 'ka25ab1234',
+                                'transporter': 'VRL Logistics'})
+        self.assertTrue(s['has_einvoice'])
+        self.assertTrue(s['has_eway'])
+        self.assertEqual(s['eway_bill_no'], '123456789012')   # normalised
+        self.assertEqual(s['vehicle_no'], 'KA25AB1234')       # upper-cased
+        self.assertTrue(s['well_formed'])
+
+    def test_summarise_flags_malformed_but_still_reports_presence(self):
+        s = einvoice.summarise({'irn': 'bad', 'eway_bill_no': '999'})
+        self.assertTrue(s['has_einvoice'])       # present, even if malformed
+        self.assertFalse(s['well_formed'])
+        self.assertTrue(s['warnings'])
+
+    def test_empty_invoice_is_well_formed_and_empty(self):
+        s = einvoice.summarise({})
+        self.assertFalse(s['has_einvoice'])
+        self.assertFalse(s['has_eway'])
+        self.assertTrue(s['well_formed'])
+
+    def test_module_does_not_decide_what_is_required(self):
+        # It reports shape and presence, never obligation — a works contract is
+        # a service and may need no e-way bill at all.
+        src = ' '.join(dir(einvoice)).lower()
+        for banned in ('required', 'mandatory', 'threshold', 'turnover',
+                       'penalty'):
+            self.assertNotIn(banned, src)
 
 
 class TestBrandedDocuments(unittest.TestCase):

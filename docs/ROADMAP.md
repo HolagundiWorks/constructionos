@@ -174,8 +174,31 @@ Enough to keep the contractor and their CA happy, no more.
   invoices + RA + running bills (works-contract supply at a configurable
   Works GST %), with a Source column so RA-only billers are covered.
 - ✅ **HSN-wise summary** (GSTR-1 style) of outward supplies by HSN/SAC.
-- ⏳ e-invoice / e-way-bill field readiness (data captured now, integration
-  later).
+- ✅ **e-invoice / e-way-bill field readiness** (`einvoice.py`, fields on the
+  tax invoice + the printed invoice). Above a turnover threshold, or for goods
+  moving beyond a value, e-invoicing and e-way bills are mandatory — but
+  *generating* them needs a live call to the government portal, which an
+  offline app cannot make. What it can do is hold the fields the portal gives
+  back (IRN, acknowledgement, e-way-bill number, transporter, vehicle), check
+  they are the right *shape*, and print them where a compliant invoice must
+  show them.
+
+  Two things it deliberately does **not** do. It does not decide whether
+  e-invoicing or an e-way bill is *required* — that turns on turnover and on
+  whether the supply is goods or a service, and a works contract is a service
+  (SAC) that often needs no e-way bill at all. Nagging a service-only firm
+  trains it to ignore the app; telling a goods supplier it is fine when it is
+  not is a fine waiting to happen. So the checks are about shape (IRN is 64
+  hex, e-way is 12 digits, vehicle looks like a plate) and the readiness report
+  is about what is *present*, never what is *owed* — with a test asserting the
+  module contains no notion of "required", "mandatory", "threshold" or
+  "penalty".
+
+  And it does not fabricate the QR code: a real e-invoice QR encodes the
+  portal's signed payload, which cannot be reproduced offline, so the invoice
+  prints the IRN rather than a QR that would not verify. The e-invoice / e-way
+  panel appears on the printed invoice only when the fields are actually filled
+  in.
 
 ---
 
