@@ -1405,6 +1405,117 @@ class TestCarryForward(unittest.TestCase):
         self.assertNotIn('no_such_table', copied)
 
 
+class TestBrandedDocuments(unittest.TestCase):
+    """The shared letterhead and bank block, and that internal reports are
+    left exactly as they were."""
+
+    def setUp(self):
+        import bill_export
+        self.be = bill_export
+        self.firm = {'name': 'Sri Venkateswara Constructions',
+                     'gstin': '29ABCDE1234F1Z5',
+                     'address': 'Plot 14, Industrial Area, Hospet 583201',
+                     'phone': '9812345678', 'email': 'svc@example.com',
+                     'bank_name': 'SBI, Hospet', 'bank_account': '3012345678',
+                     'bank_ifsc': 'SBIN0001234'}
+
+    def test_letterhead_shows_every_detail_present(self):
+        html = self.be.letterhead_html(self.firm)
+        for part in ('Sri Venkateswara Constructions', '29ABCDE1234F1Z5',
+                     'Industrial Area', '9812345678', 'svc@example.com'):
+            self.assertIn(part, html)
+
+    def test_letterhead_drops_missing_lines_rather_than_printing_blanks(self):
+        # An empty "GSTIN:" on an unregistered firm looks like a mistake.
+        html = self.be.letterhead_html({'name': 'Small Firm'})
+        self.assertIn('Small Firm', html)
+        self.assertNotIn('GSTIN', html)
+        self.assertNotIn('Ph:', html)
+
+    def test_letterhead_falls_back_to_a_name(self):
+        self.assertIn('Construction OS', self.be.letterhead_html({}))
+        self.assertIn('Construction OS', self.be.letterhead_html(None))
+
+    def test_bank_block_needs_account_and_ifsc(self):
+        self.assertIn('3012345678', self.be.bank_block_html(self.firm))
+        self.assertIn('SBIN0001234', self.be.bank_block_html(self.firm))
+        # a half-filled block is worse than none — someone will try to use it
+        self.assertEqual(self.be.bank_block_html(
+            {'bank_name': 'SBI', 'bank_account': '30123'}), '')
+        self.assertEqual(self.be.bank_block_html({}), '')
+
+    def test_statement_with_firm_carries_letterhead_and_bank(self):
+        html = self.be.build_statement_html(
+            'Quotation', ['Quote No: Q-1'], ['Item', 'Amount'],
+            [('Brickwork', '50,000.00')], summary='Total: 50,000.00',
+            firm=self.firm)
+        self.assertIn('29ABCDE1234F1Z5', html)      # letterhead
+        self.assertIn('Payment to:', html)          # bank block
+        self.assertIn('3012345678', html)
+
+    def test_statement_without_firm_is_unchanged(self):
+        # The ~20 internal reports pass no firm and must render as before:
+        # bare name, no letterhead rule, no bank block.
+        html = self.be.build_statement_html(
+            'Cash Book', ['Site: Ward 7'], ['Date', 'Amount'],
+            [('2026-04-01', '1,000.00')], company_name='My Firm')
+        self.assertIn('My Firm', html)
+        self.assertNotIn('Payment to:', html)
+        # the branded header element must be absent (the CSS rule of the same
+        # name is always in the stylesheet, so match the div, not the word)
+        self.assertNotIn('<div class="letterhead">', html)
+        self.assertIn('<div class="company">My Firm</div>', html)
+
+    def test_firm_details_html_is_escaped(self):
+        html = self.be.letterhead_html({'name': '<script>x</script>'})
+        self.assertNotIn('<script>', html)
+        self.assertIn('&lt;script&gt;', html)
+
+
+class TestFirmDetails(unittest.TestCase):
+    """The firm-details reader over app_settings."""
+
+    def setUp(self):
+        import sqlite3
+        self.conn = sqlite3.connect(':memory:')
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute('CREATE TABLE app_settings '
+                          '(key TEXT PRIMARY KEY, value TEXT)')
+
+    def tearDown(self):
+        self.conn.close()
+
+    def _set(self, **kw):
+        for k, v in kw.items():
+            self.conn.execute('INSERT OR REPLACE INTO app_settings VALUES (?, ?)',
+                              (k, v))
+        self.conn.commit()
+
+    def test_maps_settings_keys_to_letterhead_keys(self):
+        import firm
+        self._set(company_name='ACME Builders', seller_gstin='29AAA',
+                  firm_bank_account='123', firm_bank_ifsc='SBIN0001')
+        d = firm.details(self.conn)
+        self.assertEqual(d['name'], 'ACME Builders')
+        self.assertEqual(d['gstin'], '29AAA')
+        self.assertTrue(firm.has_bank(d))
+
+    def test_absent_values_are_empty_not_missing(self):
+        import firm
+        d = firm.details(self.conn)
+        self.assertEqual(d['name'], 'Construction OS')   # falls back
+        self.assertEqual(d['gstin'], '')
+        self.assertFalse(firm.has_bank(d))
+
+    def test_panel_fields_and_reader_map_stay_in_step(self):
+        # tab_tools builds its panel from firm.FIELDS; every field key must be
+        # one the reader knows how to map, or the panel would save settings the
+        # letterhead never reads.
+        import firm
+        field_keys = {k for k, _ in firm.FIELDS}
+        self.assertTrue(field_keys.issubset(set(firm._MAP)))
+
+
 class TestBidding(unittest.TestCase):
     """Scorecard, evidence, and the vetoes that override the score."""
 

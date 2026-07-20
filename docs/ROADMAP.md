@@ -93,7 +93,27 @@ Contractors live and die by the **printed bill they hand over**.
   statement** (tender vs executed qty per item) both per-bill from the RA Bill
   frame (`civil.deviation_row`) and as a standalone contract-level tab
   (`civil.deviation`, BOQ / RA Bills > Deviation).
-- ⏳ Branded proposal/contract documents.
+- ✅ **Branded proposal / contract documents** (`firm.py`, shared
+  `bill_export.letterhead_html` / `bank_block_html`). Only the GST tax invoice
+  ever carried the firm's identity; every other document — quotations,
+  contracts, purchase orders, work orders — showed a bare company name. Now a
+  shared letterhead (logo, name, address, GSTIN, phone, email) sits on all of
+  them, and any document that asks for money carries a **bank block** to pay
+  into. Firm details gained phone, email and bank fields, entered once in
+  Tools.
+
+  Two deliberate small rules. A letterhead line with no value is **dropped,
+  not printed blank** — an empty "GSTIN:" on an unregistered firm reads as a
+  mistake. And the bank block needs **both account and IFSC** or it renders
+  nothing, because a half-filled payment instruction is worse than none:
+  someone will try to use it.
+
+  The change is backward-compatible by construction. `build_statement_html`
+  gained an optional `firm` argument; the ~20 internal reports that pass none
+  render exactly as before (bare name, no letterhead, no bank block), so only
+  the outward-facing documents were opted in. The settings panel and the
+  letterhead reader are both driven from `firm.FIELDS`, with a test asserting
+  they cannot list different things.
 
 ---
 

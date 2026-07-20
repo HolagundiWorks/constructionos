@@ -493,8 +493,51 @@ computer-generated tax invoice.</div>
 """
 
 
+def letterhead_html(firm):
+    """The firm's branded letterhead: logo, name, then address / GSTIN /
+    contact as available. A pure helper shared by every document so they look
+    like they came from the same office.
+
+    Lines with no value are dropped rather than printed blank — an empty
+    "GSTIN:" label on a firm that has not registered looks like a mistake.
+    """
+    firm = firm or {}
+    name = _text(firm.get('name') or 'Construction OS')
+    lines = []
+    if firm.get('address'):
+        lines.append(_text(firm['address']))
+    contact = []
+    if firm.get('gstin'):
+        contact.append('GSTIN: ' + _text(firm['gstin']))
+    if firm.get('phone'):
+        contact.append('Ph: ' + _text(firm['phone']))
+    if firm.get('email'):
+        contact.append(_text(firm['email']))
+    if contact:
+        lines.append(' &nbsp;|&nbsp; '.join(contact))
+    detail = ''.join('<div>{}</div>'.format(x) for x in lines)
+    return ('<div class="letterhead"><div class="lh-brand">{logo}</div>'
+            '<div class="lh-text"><div class="lh-name">{name}</div>{detail}'
+            '</div></div>').format(logo=_LOGO_TAG, name=name, detail=detail)
+
+
+def bank_block_html(firm):
+    """Payment instructions for a document that asks for money. Empty when the
+    firm has not entered enough bank detail to pay into — a half-filled block
+    is worse than none, because someone will try to use it."""
+    if not (firm and firm.get('bank_account') and firm.get('bank_ifsc')):
+        return ''
+    parts = []
+    if firm.get('bank_name'):
+        parts.append(_text(firm['bank_name']))
+    parts.append('A/c ' + _text(firm['bank_account']))
+    parts.append('IFSC ' + _text(firm['bank_ifsc']))
+    return ('<div class="bank"><strong>Payment to:</strong> {}</div>'.format(
+        ' &nbsp;|&nbsp; '.join(parts)))
+
+
 def build_statement_html(title, meta_lines, headers, rows, summary='',
-                         company_name='Construction OS'):
+                         company_name='Construction OS', firm=None):
     """Generic printable statement (party ledger, cash book, etc.).
 
     ``meta_lines`` is a list of strings shown under the title; ``headers`` a list
@@ -502,6 +545,12 @@ def build_statement_html(title, meta_lines, headers, rows, summary='',
     by the caller); ``summary`` an optional bold footer line. Columns whose
     header looks numeric (Amount/Balance/In/Out/Debit/Credit/Received/Paid/Cash)
     are right-aligned.
+
+    ``firm`` is an optional ``firm.details`` dict. When given, the document
+    carries the full branded letterhead (address, GSTIN, contact) and, if the
+    firm has bank details, a payment block — used for outward documents like
+    quotations. When absent the header is just the company name, exactly as
+    before, so the ~20 internal reports that call this are unchanged.
     """
     numeric_hints = ('amount', 'balance', 'in', 'out', 'debit', 'credit',
                      'received', 'paid', 'cash', 'value', 'qty')
@@ -524,9 +573,21 @@ def build_statement_html(title, meta_lines, headers, rows, summary='',
     summary_html = ('<div class="summary">{}</div>'.format(_text(summary))
                     if summary else '')
 
+    if firm:
+        header_html = letterhead_html(firm)
+        bank_html = bank_block_html(firm)
+        company = _text(firm.get('name') or company_name)
+    else:
+        # Unchanged behaviour for internal reports: bare logo + name line.
+        header_html = ('<div class="brand">{}</div>'
+                       '<div class="company">{}</div>').format(
+            _LOGO_TAG, _text(company_name))
+        bank_html = ''
+        company = _text(company_name)
+
     return _STATEMENT_TEMPLATE.format(
-        logo=_LOGO_TAG,
-        company=_text(company_name), title=_text(title), meta=meta_html,
+        header=header_html, bank=bank_html,
+        company=company, title=_text(title), meta=meta_html,
         ths=ths, rows=body_html, summary=summary_html,
         generated=_text(date.today().isoformat()))
 
@@ -539,6 +600,13 @@ _STATEMENT_TEMPLATE = """<meta charset="utf-8">
          margin: 28px; font-size: 12px; }}
   h1 {{ margin: 0 0 2px; font-size: 18px; }}
   .company {{ color: #666; margin-bottom: 8px; }}
+  .letterhead {{ display: flex; align-items: center; gap: 12px;
+                 border-bottom: 2px solid #333; padding-bottom: 8px;
+                 margin-bottom: 8px; }}
+  .lh-name {{ font-size: 18px; font-weight: bold; }}
+  .lh-text {{ color: #444; font-size: 11px; line-height: 1.4; }}
+  .bank {{ margin: 8px 0; padding: 6px 8px; background: #f7f8fa;
+           border: 1px solid #e0e3e8; font-size: 11px; }}
   .meta {{ margin: 6px 0 12px; color: #333; }}
   table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
   th, td {{ border: 1px solid #ccc; padding: 5px 8px; text-align: left; }}
@@ -550,12 +618,12 @@ _STATEMENT_TEMPLATE = """<meta charset="utf-8">
            border-top: 1px solid #eee; padding-top: 8px; }}
   @media print {{ body {{ margin: 0; }} }}
 </style>
-<div class="brand">{logo}</div>
-<div class="company">{company}</div>
+{header}
 <h1>{title}</h1>
 <div class="meta">{meta}</div>
 <table><thead><tr>{ths}</tr></thead><tbody>{rows}</tbody></table>
 {summary}
+{bank}
 <div class="foot">Developed by Human Centric Works, Hospet · Powered by Construction OS<br>Generated by {company} on {generated}.</div>
 """
 

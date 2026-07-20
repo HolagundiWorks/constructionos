@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 import bill_export
+import firm
 import report_open
 from crud_frame import CrudFrame, Field
 from ui_guard import can_write
@@ -282,6 +283,7 @@ class DocumentFrame(ttk.Frame):
                 'SELECT description, unit, qty, rate, amount FROM {} '
                 'WHERE {} = ? ORDER BY id'.format(self.item_table, self.fk_col),
                 (self.selected_header_id,)).fetchall()
+            firm_details = firm.details(conn)
         finally:
             conn.close()
         if row is None:
@@ -303,7 +305,8 @@ class DocumentFrame(ttk.Frame):
         html = bill_export.build_statement_html(
             self.title, meta,
             ['#', 'Description', 'Unit', 'Qty', 'Rate', 'Amount'], item_rows,
-            summary='Total: {:,.2f}'.format(row[self.total_col] or 0))
+            summary='Total: {:,.2f}'.format(row[self.total_col] or 0),
+            firm=firm_details)
         report_open.save_and_open_html(
             html, self.title.lower().replace(' ', '_') + '.html')
 
