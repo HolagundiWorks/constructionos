@@ -51,6 +51,7 @@ from tab_kpi import build_kpi_tab
 from tab_approvals import build_approvals_tab
 from tab_closeout import build_closeout_tab
 from tab_hse import build_hse_tab
+from tab_sourcing import build_sourcing_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -92,6 +93,7 @@ BUILDERS = {
     'Variations': build_variations_tab,
     'Running Bills': BillingTab,
     'Tax Invoice': build_tax_invoice_tab,
+    'Sourcing': build_sourcing_tab,
     'Purchase Orders': build_purchase_orders_tab,
     'Goods Receipt': build_grn_tab,
     'Vendor Invoices': build_vendor_invoices_tab,

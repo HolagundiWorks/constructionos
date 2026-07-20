@@ -383,7 +383,12 @@ the leverage is in making the SOP step impossible to skip.
 
 ### Wave 4 — completeness (P2, lower urgency at this scale)
 
-- ⏳ RFI + drawing-revision register (mainly PMC/departmental work).
+- ✅ **RFI + drawing-revision register** — Purchases > Sourcing
+  (`tab_sourcing.py`). RFIs record the question and the date it was asked: an
+  unanswered RFI is a delay with someone else's name on it, which matters when
+  the delay is eventually priced. The drawing register tracks revisions and
+  which copy is on site — building to a superseded drawing is rework nobody
+  planned for.
 - ✅ **HSE register** — Operations > Safety (`hse.py`, `tab_hse.py`). Permits
   to work, incidents (including near misses), toolbox talks and inductions,
   plus a Position summary. Deliberately small: safety paperwork that takes
@@ -407,8 +412,17 @@ the leverage is in making the SOP step impossible to skip.
   This matters beyond tidiness: handover starts the DLP clock, and the DLP is
   what releases retention — a drifting punch list is retention left
   uncollected. _(Lessons-learned feeding the rate library remains.)_
-- ⏳ Vendor depth (3 quotes, approved-vendor list, rating); plant PM + fuel log;
-  compliance calendar; bid/no-bid scorecard; baseline-vs-actual programme.
+- ✅ **Vendor depth** — Purchases > Sourcing (`sourcing.py`). Quotes recorded
+  against a requisition and compared, showing the **saving against the highest
+  quote** (what justifies bothering) and the spread. The cheapest is a
+  *recommendation with reasoning*, not a silent auto-pick: where it cannot
+  meet the required date the next one that can is recommended instead, because
+  late material costs more in idle labour than the price difference. Plus an
+  approved-vendor flag and a three-factor rating (quality / delivery / price)
+  — three because a ten-factor scorecard for eleven suppliers is a form nobody
+  fills in twice. Unrated vendors sort last rather than being assumed poor.
+- ⏳ Plant PM + fuel log; compliance calendar; bid/no-bid scorecard;
+  baseline-vs-actual programme.
 
 **Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
 predictive analytics beyond the local assistant, heavy multi-user cloud sync,

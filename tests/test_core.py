@@ -47,6 +47,7 @@ import projman
 import quality
 import reports
 import retention
+import sourcing
 import statutory
 import subcontract
 import variation
@@ -1197,6 +1198,71 @@ class TestHSE(unittest.TestCase):
         s = hse.summarise([], permits, 0, as_on='2026-07-20')
         self.assertEqual(s['open_permits'], 1)
         self.assertEqual(s['expired_permits'], 1)
+
+
+class TestSourcing(unittest.TestCase):
+    """Cheapest is a recommendation, not a decision — late material costs
+    more in idle labour than the price difference."""
+
+    QUOTES = [
+        {'id': 1, 'vendor': 'A', 'amount': 100000, 'delivery_date': '2026-09-01'},
+        {'id': 2, 'vendor': 'B', 'amount': 110000, 'delivery_date': '2026-07-25'},
+        {'id': 3, 'vendor': 'C', 'amount': 130000, 'delivery_date': '2026-07-20'},
+    ]
+
+    def test_compare_ranks_cheapest_first_and_quantifies_the_spread(self):
+        r = sourcing.compare_quotes(self.QUOTES)
+        self.assertEqual(r['cheapest']['vendor'], 'A')
+        self.assertEqual(r['highest']['vendor'], 'C')
+        self.assertEqual(r['saving_vs_highest'], 30000)
+        self.assertEqual(r['spread_pct'], 30.0)
+
+    def test_unpriced_quotes_are_counted_but_not_ranked(self):
+        """A quote with no price is an enquiry, not an offer."""
+        r = sourcing.compare_quotes(self.QUOTES + [{'id': 4, 'amount': 0}])
+        self.assertEqual(r['count'], 4)
+        self.assertEqual(r['priced'], 3)
+        self.assertEqual(len(r['ranked']), 3)
+
+    def test_no_priced_quotes(self):
+        r = sourcing.compare_quotes([{'id': 1, 'amount': 0}])
+        self.assertIsNone(r['cheapest'])
+        self.assertEqual(r['saving_vs_highest'], 0)
+
+    def test_recommends_cheapest_when_no_deadline(self):
+        best, note = sourcing.recommendation(self.QUOTES)
+        self.assertEqual(best['vendor'], 'A')
+        self.assertIn('Lowest price', note)
+
+    def test_recommends_the_cheapest_that_can_actually_deliver(self):
+        best, note = sourcing.recommendation(self.QUOTES, needed_by='2026-07-26')
+        self.assertEqual(best['vendor'], 'B')      # A is cheaper but too late
+        self.assertIn('idle labour', note)
+
+    def test_cheapest_wins_when_it_also_meets_the_date(self):
+        best, note = sourcing.recommendation(self.QUOTES, needed_by='2026-09-30')
+        self.assertEqual(best['vendor'], 'A')
+        self.assertIn('meets the required date', note)
+
+    def test_says_so_when_nothing_can_meet_the_date(self):
+        best, note = sourcing.recommendation(self.QUOTES, needed_by='2026-07-01')
+        self.assertEqual(best['vendor'], 'A')
+        self.assertIn('No quote meets', note)
+
+    def test_vendor_score_skips_unrated_factors(self):
+        """An unrated factor is unknown, not zero."""
+        self.assertEqual(sourcing.vendor_score({'quality': 4, 'delivery': 5,
+                                                'price': 3}), 4.0)
+        self.assertEqual(sourcing.vendor_score({'quality': 4, 'price': None}), 4.0)
+        self.assertIsNone(sourcing.vendor_score({}))
+
+    def test_unrated_vendors_sort_last_not_worst(self):
+        ranked = sourcing.rank_vendors([
+            {'name': 'Unrated'},
+            {'name': 'Good', 'quality': 5, 'delivery': 5, 'price': 5},
+            {'name': 'Poor', 'quality': 1, 'delivery': 1, 'price': 1}])
+        self.assertEqual([v['name'] for v, _s in ranked],
+                         ['Good', 'Poor', 'Unrated'])
 
 
 class TestCompanyRegistry(unittest.TestCase):

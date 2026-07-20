@@ -602,6 +602,60 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------- quotes, RFIs and drawings (Phase 8, Wave 4)
+-- A single quotation is not a price, it is an opening position. Recording
+-- three against one requisition makes the comparison possible and, as
+-- importantly, records that it was done.
+CREATE TABLE IF NOT EXISTS quotes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requisition_id INTEGER REFERENCES material_requisitions(id),
+    vendor_id INTEGER REFERENCES vendors(id),
+    quote_no TEXT,
+    quote_date TEXT,
+    description TEXT,
+    amount REAL DEFAULT 0,          -- pre-tax quoted value
+    delivery_date TEXT,             -- when they say they can supply
+    validity TEXT,
+    selected INTEGER DEFAULT 0,     -- 1 = this is the one we went with
+    remarks TEXT
+);
+
+-- Requests for information: a question that stops work until answered, and
+-- the dated record of when it was asked. An unanswered RFI is a delay with
+-- someone else's name on it, which matters when the delay is priced.
+CREATE TABLE IF NOT EXISTS rfis (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rfi_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    raised_date TEXT,
+    raised_by TEXT,
+    subject TEXT,
+    question TEXT,
+    required_by TEXT,
+    status TEXT DEFAULT 'Open',     -- Open / Answered / Closed
+    answer TEXT,
+    answered_date TEXT,
+    answered_by TEXT,
+    impact TEXT,                    -- cost / time impact if any
+    remarks TEXT
+);
+
+-- Drawing revisions. The discipline is simply that the latest revision is the
+-- one on site; building to a superseded drawing is rework nobody planned for.
+CREATE TABLE IF NOT EXISTS drawings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drawing_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    title TEXT,
+    revision TEXT,
+    revision_date TEXT,
+    received_date TEXT,
+    issued_to_site INTEGER DEFAULT 0,   -- 1 = the current copy is on site
+    superseded INTEGER DEFAULT 0,
+    remarks TEXT
+);
+
 -- ------------------------------- health & safety (Phase 8, Wave 4)
 -- Deliberately small. Safety at this scale is mostly informal, and a heavy
 -- module would simply go unfilled. These cover the jobs that actually kill
@@ -937,6 +991,9 @@ CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_snags_site ON snags(site_id, status);
+CREATE INDEX IF NOT EXISTS idx_quotes_req ON quotes(requisition_id);
+CREATE INDEX IF NOT EXISTS idx_rfis_status ON rfis(status);
+CREATE INDEX IF NOT EXISTS idx_drawings_no ON drawings(drawing_no, revision);
 CREATE INDEX IF NOT EXISTS idx_permits_site ON work_permits(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_incidents_site ON incidents(site_id, severity);
 CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);
@@ -1014,6 +1071,13 @@ _ADD_COLUMNS = [
     # Lets a PO line name a material from the master, so a goods receipt can
     # move real stock instead of guessing from a free-text description.
     ('purchase_order_items', 'material_id', 'INTEGER'),
+    # Approved-vendor flag and a three-factor rating. Kept to three because a
+    # ten-factor scorecard for a firm with eleven suppliers is a form nobody
+    # fills in twice.
+    ('vendors', 'approved', 'INTEGER DEFAULT 0'),
+    ('vendors', 'quality', 'REAL'),
+    ('vendors', 'delivery', 'REAL'),
+    ('vendors', 'price', 'REAL'),
 ]
 
 
