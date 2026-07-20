@@ -30,6 +30,7 @@ import ageing
 import allocation
 import approval
 import analytics
+import assistant
 import bidding
 import cashflow
 import civil
@@ -1406,6 +1407,80 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestAssistantRetrieval(unittest.TestCase):
+    """TF-IDF retrieval ranks the distinctive table first, and a follow-up
+    inherits context from the previous question."""
+
+    def _tables(self, question, context='', k=4):
+        docs, _ex = assistant.retrieve(question, k_tables=k, context=context)
+        return [d['table'] for d in docs]
+
+    def test_distinctive_word_finds_its_table(self):
+        # 'retention' is rare and specific; it should pull the RA-bill / bill
+        # tables, not a table that merely shares a common word.
+        top = self._tables('how much retention have I withheld?')
+        self.assertTrue(any(t in ('ra_bills', 'bills', 'sub_bills')
+                            for t in top[:2]))
+
+    def test_muster_question_finds_attendance_and_labour(self):
+        top = self._tables('show muster attendance days for labour')
+        self.assertTrue(any(t in ('attendance', 'labor') for t in top[:3]))
+
+    def test_a_common_word_does_not_dominate(self):
+        # 'site' appears in most tables; a question about vendors owed money
+        # should still surface the vendor tables, not just anything site-ish.
+        top = self._tables('which vendors do I owe money to on this site?')
+        self.assertTrue(any('vendor' in t for t in top[:3]))
+
+    def test_retrieval_always_returns_something(self):
+        # Even a question with no catalog words falls back rather than empty.
+        docs, exs = assistant.retrieve('xyzzy plugh frobnicate')
+        self.assertTrue(docs)
+
+    def test_follow_up_context_changes_retrieval(self):
+        # A terse follow-up on its own is ambiguous; with the prior question as
+        # context it should retrieve the same subject area.
+        alone = self._tables('and last month?')
+        withctx = self._tables('and last month?',
+                               context='how much GST did I collect')
+        gst_words = ('tax_invoices', 'vendor_invoices')
+        self.assertTrue(any(t in gst_words for t in withctx))
+        # context genuinely moved the ranking
+        self.assertNotEqual(alone, withctx)
+
+    def test_prompt_includes_recent_questions_for_follow_ups(self):
+        docs, exs = assistant.retrieve('and for site B?')
+        prompt = assistant.build_sql_prompt(
+            'and for site B?', docs, exs,
+            history=[{'question': 'what did I spend on cement?'},
+                     {'question': 'and on steel?'}])
+        self.assertIn('Earlier questions', prompt)
+        self.assertIn('what did I spend on cement?', prompt)
+        # only the last two are carried
+        big = [{'question': 'q{}'.format(i)} for i in range(5)]
+        p2 = assistant.build_sql_prompt('now?', docs, exs, history=big)
+        self.assertIn('q4', p2)
+        self.assertNotIn('q0', p2)
+
+    def test_prompt_without_history_is_unchanged(self):
+        docs, exs = assistant.retrieve('cash in hand')
+        prompt = assistant.build_sql_prompt('cash in hand', docs, exs)
+        self.assertNotIn('Earlier questions', prompt)
+
+    def test_tfidf_index_covers_every_catalog_doc(self):
+        self.assertEqual(len(assistant._DOC_VECS), len(assistant.SCHEMA_DOCS))
+
+    def test_module_uses_no_neural_embedding_dependency(self):
+        # The stdlib-only rule forbids a model dependency; this is TF-IDF, not
+        # neural embeddings, and must stay that way.
+        src = open(os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), os.pardir,
+            'construction_app', 'assistant.py'), encoding='utf-8').read()
+        for banned in ('import numpy', 'import torch', 'sentence_transformers',
+                       'import openai'):
+            self.assertNotIn(banned, src)
 
 
 class TestProjectCost(unittest.TestCase):

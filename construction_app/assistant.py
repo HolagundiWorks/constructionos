@@ -150,32 +150,98 @@ def get_config(conn):
 
 
 # ---------------------------------------------------------------- retrieval
+#
+# Ranking is TF-IDF cosine over the schema catalog, not raw keyword overlap.
+# Overlap counts every shared word equally, so a common token like 'site' or
+# 'date' — which appears in most tables — pulls in the wrong table as strongly
+# as a rare, discriminating one like 'retention' or 'muster'. TF-IDF down-
+# weights the common tokens and normalises by document length, so the table
+# that is *distinctively* about the question wins. It is not neural embeddings
+# (those would need a model and a pip/native dependency, which the stdlib-only
+# rule forbids) — it is the honest stdlib vector-space retrieval, and it is
+# what matters as the catalog grows.
+import math
+from collections import Counter
+
+
 def _tokens(text):
     return set(re.findall(r'[a-z0-9]+', (text or '').lower()))
 
 
-def retrieve(question, k_tables=9, k_examples=4):
-    """Rank schema docs + examples by keyword overlap with the question."""
-    q = _tokens(question)
+def _counts(text):
+    return Counter(re.findall(r'[a-z0-9]+', (text or '').lower()))
 
-    def score_doc(d):
-        return len(q & _tokens(d['table'] + ' ' + d['keywords'] + ' ' + d['desc']))
-    docs = sorted(SCHEMA_DOCS, key=score_doc, reverse=True)
-    chosen = [d for d in docs if score_doc(d) > 0][:k_tables] or docs[:6]
 
-    def score_ex(e):
-        return len(q & _tokens(e['q']))
-    exs = sorted(EXAMPLES, key=score_ex, reverse=True)[:k_examples]
+def _doc_text(d):
+    return '{} {} {}'.format(d['table'], d['keywords'], d['desc'])
+
+
+def _build_index(docs):
+    """Precompute idf and each doc's tf-idf vector once, at import."""
+    n = len(docs) or 1
+    df = Counter()
+    doc_counts = []
+    for d in docs:
+        c = _counts(_doc_text(d))
+        doc_counts.append(c)
+        for tok in c:
+            df[tok] += 1
+    idf = {tok: math.log((n + 1) / (freq + 1)) + 1.0 for tok, freq in df.items()}
+    vecs = []
+    for c in doc_counts:
+        vec = {tok: tf * idf[tok] for tok, tf in c.items()}
+        norm = math.sqrt(sum(v * v for v in vec.values())) or 1.0
+        vecs.append((vec, norm))
+    return idf, vecs
+
+
+_IDF, _DOC_VECS = _build_index(SCHEMA_DOCS)
+
+
+def _query_vector(text):
+    vec = {tok: tf * _IDF.get(tok, 1.0) for tok, tf in _counts(text).items()}
+    norm = math.sqrt(sum(v * v for v in vec.values())) or 1.0
+    return vec, norm
+
+
+def _cosine(qvec, qnorm, dvec, dnorm):
+    small, big = (qvec, dvec) if len(qvec) <= len(dvec) else (dvec, qvec)
+    dot = sum(w * big.get(tok, 0.0) for tok, w in small.items())
+    return dot / (qnorm * dnorm)
+
+
+def retrieve(question, k_tables=9, k_examples=4, context=''):
+    """Rank schema docs by TF-IDF cosine with the question (plus any prior
+    context, so a terse follow-up still retrieves the right tables)."""
+    query = '{} {}'.format(question or '', context or '').strip()
+    qvec, qnorm = _query_vector(query)
+    scored = [(_cosine(qvec, qnorm, dvec, dnorm), d)
+              for d, (dvec, dnorm) in zip(SCHEMA_DOCS, _DOC_VECS)]
+    scored.sort(key=lambda sd: sd[0], reverse=True)
+    chosen = [d for s, d in scored if s > 0][:k_tables] or \
+        [d for _s, d in scored[:6]]
+
+    q = _tokens(query)
+    exs = sorted(EXAMPLES, key=lambda e: len(q & _tokens(e['q'])),
+                 reverse=True)[:k_examples]
     return chosen, exs
 
 
-def build_sql_prompt(question, docs, examples):
+def build_sql_prompt(question, docs, examples, history=None):
     schema = '\n'.join(
         '- {}({}) — {}'.format(d['table'], d['columns'], d['desc']) for d in docs)
     shots = '\n'.join('Q: {}\nSQL: {}'.format(e['q'], e['sql']) for e in examples)
+    # Give the model the last couple of questions so a follow-up like "and for
+    # last month?" or "what about site B?" resolves against what came before.
+    recent = [h for h in (history or []) if h.get('question')][-2:]
+    convo = ''
+    if recent:
+        convo = ('Earlier questions in this conversation (the new question may '
+                 'refer back to them):\n{}\n\n'.format(
+                     '\n'.join('- {}'.format(h['question']) for h in recent)))
     return ('Schema (only these tables/columns exist):\n{}\n\n'
-            'Examples:\n{}\n\n'
-            'Q: {}\nSQL:'.format(schema, shots, question))
+            'Examples:\n{}\n\n{}'
+            'Q: {}\nSQL:'.format(schema, shots, convo, question))
 
 
 # --------------------------------------------------------------- sql safety
@@ -226,18 +292,27 @@ def safe_execute(sql):
 
 
 # ---------------------------------------------------------------- answering
-def answer(question, model=None, host=None):
-    """Full RAG turn. Returns a dict: {sql, columns, rows, summary} or {error}."""
+def answer(question, model=None, host=None, history=None):
+    """Full RAG turn. Returns a dict: {sql, columns, rows, summary} or {error}.
+
+    ``history`` is a list of prior turn dicts (each with a ``question`` key);
+    it steers retrieval and is shown to the model so a follow-up question that
+    refers back — "and for last month?", "what about the other site?" —
+    resolves instead of being answered in a vacuum.
+    """
     host = host or ollama_client.DEFAULT_HOST
     model = model or ollama_client.DEFAULT_MODEL
     if not ollama_client.available(host):
         return {'error': "Ollama isn't running. Start it (`ollama serve`) and pull "
                          "a model (`ollama pull {}`), or use the quick buttons "
                          "above which work without it.".format(model)}
-    docs, examples = retrieve(question)
+    context = ' '.join(h.get('question', '')
+                       for h in (history or [])[-2:])
+    docs, examples = retrieve(question, context=context)
     try:
-        raw = ollama_client.generate(build_sql_prompt(question, docs, examples),
-                                     model=model, host=host, system=SQL_SYSTEM)
+        raw = ollama_client.generate(
+            build_sql_prompt(question, docs, examples, history=history),
+            model=model, host=host, system=SQL_SYSTEM)
     except ollama_client.OllamaError as exc:
         return {'error': str(exc)}
     sql = extract_sql(raw)

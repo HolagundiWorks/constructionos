@@ -338,7 +338,24 @@ dependency and localhost-only).
 - ✅ Schema/examples cover the newer modules (subcontractors, work orders, rate
   book, BOQ) and results render a monospace **bar chart** for (label, number)
   answers (`assistant.text_bar_chart`).
-- ⏳ Optional embeddings for larger schemas; conversational follow-ups.
+- ✅ **Assistant: better retrieval + conversational follow-ups**
+  (`assistant.py`). Retrieval was raw keyword overlap, which counts every
+  shared word equally — a common token like 'site' or 'date' pulled in the
+  wrong table as strongly as a rare, discriminating one. It is now **TF-IDF
+  cosine** over the schema catalog: common tokens are down-weighted, documents
+  normalised by length, so the table that is *distinctively* about the question
+  wins ('retention' finds the bill tables, 'muster' finds attendance). This is
+  the honest stdlib answer to "embeddings for larger schemas" — a proper
+  vector-space retrieval — and it is labelled as TF-IDF, **not** neural
+  embeddings, which would need a model and a pip/native dependency the
+  stdlib-only rule forbids (a test asserts no such import creeps in).
+
+  **Follow-ups** now work: the last couple of questions are kept and both steer
+  retrieval and are shown to the model, so "and for last month?" or "what about
+  the other site?" resolve against what came before instead of being answered
+  in a vacuum. A "New topic" button forgets the thread so an unrelated question
+  is not muddled by stale context; only the question and a short summary are
+  kept per turn, capped, so the context stays small.
 
 ## Enterprise hardening (added on request)
 

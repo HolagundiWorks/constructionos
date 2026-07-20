@@ -21,6 +21,8 @@ class AssistantTab(ttk.Frame):
         super().__init__(parent)
         self.db_getter = db_getter
         self._busy = False
+        # Recent turns, so a follow-up question can refer back to the last one.
+        self.history = []
 
         head = ttk.Frame(self); head.pack(fill='x', padx=10, pady=(10, 4))
         ttk.Label(head, text='Ask about your data',
@@ -43,6 +45,10 @@ class AssistantTab(ttk.Frame):
         entry.bind('<Return>', lambda e: self.ask())
         self.ask_btn = ttk.Button(ask, text='Ask', command=self.ask)
         self.ask_btn.pack(side='left')
+        # Follow-ups build on the last couple of questions; New topic forgets
+        # them so an unrelated question is not muddled by stale context.
+        ttk.Button(ask, text='New topic',
+                   command=self.new_topic).pack(side='left', padx=(4, 0))
 
         ttk.Label(self, text='e.g. "how much does Sharma owe me?", "cash received '
                              'this month", "which vendors do I owe?"',
@@ -117,11 +123,21 @@ class AssistantTab(ttk.Frame):
         self._set_table([], [])
         self.sql_var.set('')
         model, host = self._config()
-        threading.Thread(target=self._worker, args=(question, model, host),
+        # Snapshot the history for this turn (the worker runs off-thread).
+        history = list(self.history)
+        self._pending_q = question
+        threading.Thread(target=self._worker, args=(question, model, host, history),
                          daemon=True).start()
 
-    def _worker(self, question, model, host):
-        result = assistant.answer(question, model=model, host=host)
+    def new_topic(self):
+        """Forget the conversation so the next question starts fresh."""
+        self.history = []
+        self.q_var.set('')
+        self.answer_var.set('New topic — ask anything.')
+
+    def _worker(self, question, model, host, history):
+        result = assistant.answer(question, model=model, host=host,
+                                  history=history)
         # Marshal back onto the UI thread.
         self.after(0, lambda: self._render(result))
 
@@ -139,6 +155,12 @@ class AssistantTab(ttk.Frame):
         self._set_table(columns, rows)
         self._set_chart(columns, rows)
         self.sql_var.set('SQL: ' + result.get('sql', ''))
+        # Remember this turn so the next question can follow on. Only the
+        # question and a short summary are kept — enough to resolve a
+        # reference, not the whole result set. Capped so context stays small.
+        self.history.append({'question': getattr(self, '_pending_q', ''),
+                             'summary': result.get('summary', '')})
+        self.history = self.history[-4:]
 
     def _set_chart(self, columns, rows):
         self.chart_var.set(assistant.text_bar_chart(columns, rows))
