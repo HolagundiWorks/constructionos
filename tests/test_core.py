@@ -32,6 +32,7 @@ import approval
 import analytics
 import cashflow
 import civil
+import closeout
 import company
 import estimate
 import finance
@@ -1057,6 +1058,79 @@ class TestWriteGuards(unittest.TestCase):
                 live.add((name, fn))
         self.assertEqual(self.EXEMPT - live, set(),
                          'EXEMPT lists functions that no longer write SQL')
+
+
+class TestCloseout(unittest.TestCase):
+    """Readiness decides when handover happens, which decides when the DLP
+    clock starts, which decides when retention comes back."""
+
+    def _snag(self, status=closeout.OPEN, severity=closeout.MINOR,
+              trade='Painting', target=None):
+        return {'status': status, 'severity': severity, 'trade': trade,
+                'target_date': target}
+
+    def test_only_verified_counts_toward_readiness(self):
+        """Fixed is the contractor's claim; Verified is the client agreeing."""
+        snags = [self._snag(closeout.VERIFIED), self._snag(closeout.FIXED),
+                 self._snag(closeout.OPEN), self._snag(closeout.VERIFIED)]
+        self.assertEqual(closeout.readiness(snags), 50.0)
+
+    def test_readiness_is_none_with_no_snags(self):
+        """An empty list may be a perfect job or an inspection nobody did."""
+        self.assertIsNone(closeout.readiness([]))
+
+    def test_open_snags_block_handover(self):
+        allowed, reason = closeout.may_hand_over([self._snag(closeout.OPEN)])
+        self.assertFalse(allowed)
+        self.assertIn('not yet fixed', reason)
+
+    def test_a_blocker_stops_handover_on_its_own(self):
+        snags = [self._snag(closeout.FIXED, closeout.BLOCKER)]
+        allowed, reason = closeout.may_hand_over(snags)
+        self.assertFalse(allowed)
+        self.assertIn('blocker', reason.lower())
+
+    def test_fixed_but_unverified_does_not_block(self):
+        """Waiting on the client's walk-round is scheduling, not a defect."""
+        allowed, reason = closeout.may_hand_over([self._snag(closeout.FIXED)])
+        self.assertTrue(allowed)
+        self.assertIn('awaiting', reason)
+
+    def test_all_verified_is_clear(self):
+        allowed, reason = closeout.may_hand_over([self._snag(closeout.VERIFIED)])
+        self.assertTrue(allowed)
+        self.assertIn('verified', reason.lower())
+
+    def test_no_snags_allows_handover(self):
+        allowed, _ = closeout.may_hand_over([])
+        self.assertTrue(allowed)
+
+    def test_overdue_needs_a_target_date_and_ignores_verified(self):
+        self.assertTrue(closeout.is_overdue(
+            self._snag(target='2026-01-01'), as_on='2026-07-20'))
+        self.assertFalse(closeout.is_overdue(
+            self._snag(target='2027-01-01'), as_on='2026-07-20'))
+        self.assertFalse(closeout.is_overdue(self._snag(), as_on='2026-07-20'))
+        self.assertFalse(closeout.is_overdue(
+            self._snag(closeout.VERIFIED, target='2026-01-01'), as_on='2026-07-20'))
+
+    def test_by_trade_ranks_who_to_chase_and_drops_verified(self):
+        snags = [self._snag(trade='Plumbing'), self._snag(trade='Plumbing'),
+                 self._snag(trade='Tiling'),
+                 self._snag(closeout.VERIFIED, trade='Painting')]
+        self.assertEqual(closeout.by_trade(snags),
+                         [('Plumbing', 2), ('Tiling', 1)])
+
+    def test_summary_pulls_it_together(self):
+        snags = [self._snag(closeout.OPEN, closeout.BLOCKER, target='2026-01-01'),
+                 self._snag(closeout.VERIFIED)]
+        s = closeout.summarise(snags, as_on='2026-07-20')
+        self.assertEqual(s['total'], 2)
+        self.assertEqual(s['open'], 1)
+        self.assertEqual(s['blockers'], 1)
+        self.assertEqual(s['overdue'], 1)
+        self.assertEqual(s['readiness'], 50.0)
+        self.assertFalse(s['may_hand_over'])
 
 
 class TestCompanyRegistry(unittest.TestCase):

@@ -49,6 +49,7 @@ from tab_quality import build_quality_tab
 from tab_planning import build_planning_tab
 from tab_kpi import build_kpi_tab
 from tab_approvals import build_approvals_tab
+from tab_closeout import build_closeout_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -79,6 +80,7 @@ BUILDERS = {
     'Site Reports': build_site_reports_tab,
     'Quality': build_quality_tab,
     'Look-ahead': build_planning_tab,
+    'Closeout': build_closeout_tab,
     'Timeline': build_timeline_tab,
     'Rate Book': build_rate_book_tab,
     'Quotations': build_quotations_tab,

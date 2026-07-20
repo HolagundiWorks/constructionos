@@ -602,6 +602,31 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------- closeout / snag list (Phase 8, Wave 4)
+-- The end of a job is where money quietly goes missing: the last payment and
+-- the whole retention balance wait on a punch list nobody is tracking.
+-- Fixed is the contractor's claim; Verified is the client's agreement, and
+-- only the second counts toward readiness. Handover starts the DLP clock,
+-- which is what eventually releases retention.
+CREATE TABLE IF NOT EXISTS snags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    snag_no TEXT,
+    raised_date TEXT,
+    location TEXT,                  -- flat 302, lobby, terrace
+    description TEXT,
+    trade TEXT,                     -- who fixes it: plumbing, painting, tiling
+    severity TEXT DEFAULT 'Minor',  -- Minor / Major / Blocker
+    status TEXT DEFAULT 'Open',     -- Open / Fixed / Verified
+    assigned_to TEXT,
+    target_date TEXT,
+    fixed_date TEXT,
+    verified_date TEXT,
+    verified_by TEXT,
+    remarks TEXT
+);
+
 -- ------------------------------- approvals (Phase 8, Wave 3)
 -- The documents already carry status words, but a status anyone can change
 -- with no record of who or when is not an approval. This records the person
@@ -850,6 +875,7 @@ CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_snags_site ON snags(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_commit_week ON commitments(site_id, week_start);
 CREATE INDEX IF NOT EXISTS idx_inspitems_insp ON inspection_items(inspection_id);

@@ -385,7 +385,17 @@ the leverage is in making the SOP step impossible to skip.
 
 - ⏳ RFI + drawing-revision register (mainly PMC/departmental work).
 - ⏳ HSE module (induction, toolbox, permit, incident) — often informal here.
-- ⏳ Closeout: snag list, lessons-learned feeding the rate library.
+- ✅ **Closeout: snag list + handover readiness** — Operations > Closeout
+  (`closeout.py`, `tab_closeout.py`). The punch list per site, then a
+  readiness view: what proportion is verified, what is overdue, which trades
+  are holding it up, and a plain answer to *can this be handed over?*
+  **Verified counts, Fixed does not** — Fixed is the contractor's claim,
+  Verified is the client agreeing, and only the second one ends the argument.
+  A Blocker stops handover on its own; a Fixed-but-unverified snag does not,
+  since waiting on the client's walk-round is scheduling rather than a defect.
+  This matters beyond tidiness: handover starts the DLP clock, and the DLP is
+  what releases retention — a drifting punch list is retention left
+  uncollected. _(Lessons-learned feeding the rate library remains.)_
 - ⏳ Vendor depth (3 quotes, approved-vendor list, rating); plant PM + fuel log;
   compliance calendar; bid/no-bid scorecard; baseline-vs-actual programme.
 
