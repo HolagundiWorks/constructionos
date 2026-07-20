@@ -26,7 +26,7 @@ SECTIONS_CATALOG = [
                    'Vendor Invoices', 'Subcontractors']),
     ('Money', ['Key Numbers', 'Approvals', 'Cash & Parties', 'Cash Flow',
                'Retention', 'Insight']),
-    ('Accounts', ['GST & TDS', 'Accounting']),
+    ('Accounts', ['GST & TDS', 'Compliance', 'Accounting']),
 ]
 
 # Flat list of every toggleable module label, in catalog order.

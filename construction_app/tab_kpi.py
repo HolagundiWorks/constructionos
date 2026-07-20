@@ -170,6 +170,30 @@ class KPIDashboard(ttk.Frame):
                     '{:,.2f}'.format(rsum['outstanding']), NONE,
                     'Earned money held by others until the DLP expires.'))
 
+        # --- statutory filings
+        # Function-local import for the same reason as retention_lines above:
+        # a tab module importing another tab module at module scope loops.
+        from tab_compliance import open_obligations
+        csum = open_obligations(conn)
+        if not csum['total']:
+            out.append(('Statutory filings due', '—', NONE,
+                        'No compliance calendar built yet (Accounts > '
+                        'Compliance).'))
+        else:
+            out.append(('Statutory filings overdue', str(csum['overdue']),
+                        ACT if csum['overdue'] else GOOD,
+                        'Late by up to {} days. Late fees and interest run '
+                        'per day, and a late GSTR-1 holds up your customer\'s '
+                        'input credit.'.format(csum['max_days_late'])
+                        if csum['overdue'] else 'Nothing has slipped.'))
+            nxt = csum['next']
+            out.append(('  next filing due',
+                        '{} on {}'.format(nxt['name'], nxt['due_date'])
+                        if nxt else '—',
+                        WATCH if csum['due_soon'] else NONE,
+                        '{} due in the next 30 days.'.format(csum['due_soon'])
+                        if nxt else 'Nothing due in the next 30 days.'))
+
         # --- plan reliability
         commits = conn.execute('SELECT * FROM commitments').fetchall()
         weeks = {}

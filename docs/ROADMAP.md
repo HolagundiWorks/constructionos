@@ -421,8 +421,36 @@ the leverage is in making the SOP step impossible to skip.
   approved-vendor flag and a three-factor rating (quality / delivery / price)
   — three because a ten-factor scorecard for eleven suppliers is a form nobody
   fills in twice. Unrated vendors sort last rather than being assumed poor.
-- ⏳ Plant PM + fuel log; compliance calendar; bid/no-bid scorecard;
-  baseline-vs-actual programme.
+- ✅ **Statutory compliance calendar** (`compliance.py`, new Compliance tab
+  under Accounts, feeding two KPIs). Every other deadline in this app is money
+  the contractor is *owed*; these are the ones where being late costs them
+  directly — late fees per day, interest on unpaid tax, and a late GSTR-1 that
+  holds up the customer's input credit. Nobody sends a reminder, and a firm
+  without a full-time accountant finds out from a notice.
+
+  Generates a financial year's filings from a rule table for whichever regimes
+  the firm ticks — GST (monthly / QRMP / composition), TDS, PF, ESI, BOCW cess,
+  income tax. **Nothing ticked yields nothing, not everything:** showing a sole
+  proprietor their ESI obligations trains them to ignore the calendar.
+
+  The rules encode the exceptions people actually get wrong: **March TDS is due
+  30 April, not 7 April**, and the **Q4 26Q return is 31 May, not 30 April**.
+  Due days clamp into short months rather than rolling forward, since rolling
+  forward moves a deadline.
+
+  Rebuilding is **idempotent and non-destructive** — `INSERT OR IGNORE` against
+  a unique (obligation, period) index. The instinct on seeing a wrong date is
+  to press rebuild, and losing a year of filing history to that would be
+  unforgivable. Due dates are stored per row, not recomputed on read, so a date
+  the department extends by notification can be corrected in place and stays
+  corrected.
+
+  **No penalty or late-fee figure is computed, and a test enforces that.**
+  Those rates change often and vary by return, turnover and whether the return
+  is nil. Days late plus the firm's accountant beats a confident wrong number.
+  The calendar likewise says plainly that these are standard dates and a
+  notification overrides them.
+- ⏳ Plant PM + fuel log; bid/no-bid scorecard; baseline-vs-actual programme.
 
 **Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
 predictive analytics beyond the local assistant, heavy multi-user cloud sync,

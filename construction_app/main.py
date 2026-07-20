@@ -59,6 +59,7 @@ from tab_vendor_invoice import build_vendor_invoices_tab
 from tab_subcontract import build_subcontract_tab
 from tab_accounting import build_accounting_tab
 from tab_gst import build_gst_tab
+from tab_compliance import build_compliance_tab
 from tab_equipment_hire import build_equipment_hire_tab
 from tab_timeline import build_timeline_tab
 from tab_tools import build_tools_tab
@@ -107,6 +108,7 @@ BUILDERS = {
     'Retention': build_retention_tab,
     'Insight': build_insight_tab,
     'GST & TDS': build_gst_tab,
+    'Compliance': build_compliance_tab,
     'Accounting': build_accounting_tab,
 }
 

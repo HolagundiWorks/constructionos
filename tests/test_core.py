@@ -33,6 +33,7 @@ import analytics
 import cashflow
 import civil
 import closeout
+import compliance
 import company
 import estimate
 import finance
@@ -1399,6 +1400,177 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestComplianceCalendar(unittest.TestCase):
+    """Statutory due dates. The March exceptions are the point of this suite."""
+
+    # --- financial year ---
+    def test_financial_year_runs_april_to_march(self):
+        self.assertEqual(compliance.current_fy('2026-04-01'), 2026)
+        self.assertEqual(compliance.current_fy('2027-03-31'), 2026)
+        self.assertEqual(compliance.current_fy('2026-03-31'), 2025)
+        self.assertEqual(compliance.fy_label(2026), 'FY 2026-27')
+
+    def test_fy_label_pads_the_century_rollover(self):
+        self.assertEqual(compliance.fy_label(2099), 'FY 2099-00')
+
+    def test_monthly_periods_run_april_to_march(self):
+        p = compliance.periods_for_fy(compliance.MONTHLY, 2026)
+        self.assertEqual(len(p), 12)
+        self.assertEqual(p[0], ('2026-04', 2026, 4))
+        self.assertEqual(p[-1], ('2027-03', 2027, 3))
+
+    def test_quarters_end_jun_sep_dec_mar(self):
+        p = compliance.periods_for_fy(compliance.QUARTERLY, 2026)
+        self.assertEqual([(y, m) for _l, y, m in p],
+                         [(2026, 6), (2026, 9), (2026, 12), (2027, 3)])
+
+    # --- ordinary due dates ---
+    def test_gst_monthly_returns(self):
+        # April 2026 supplies: GSTR-1 by 11 May, GSTR-3B by 20 May.
+        self.assertEqual(compliance.due_date('gstr1', 2026, 4).isoformat(),
+                         '2026-05-11')
+        self.assertEqual(compliance.due_date('gstr3b', 2026, 4).isoformat(),
+                         '2026-05-20')
+
+    def test_pf_and_esi_are_the_fifteenth_of_the_next_month(self):
+        for key in ('pf_ecr', 'esi'):
+            self.assertEqual(compliance.due_date(key, 2026, 4).isoformat(),
+                             '2026-05-15')
+
+    def test_advance_tax_falls_inside_its_own_quarter(self):
+        # 15 June / 15 Sep / 15 Dec / 15 March — offset zero, not one.
+        due = [compliance.due_date('advance_tax', y, m).isoformat()
+               for _l, y, m in compliance.periods_for_fy(
+                   compliance.QUARTERLY, 2026)]
+        self.assertEqual(due, ['2026-06-15', '2026-09-15', '2026-12-15',
+                               '2027-03-15'])
+
+    def test_annual_returns(self):
+        # FY 2026-27 ends March 2027: ITR 31 Jul 2027, GSTR-9 31 Dec 2027.
+        self.assertEqual(compliance.due_date('itr', 2027, 3).isoformat(),
+                         '2027-07-31')
+        self.assertEqual(compliance.due_date('gstr9', 2027, 3).isoformat(),
+                         '2027-12-31')
+
+    # --- the exceptions people get wrong ---
+    def test_march_tds_payment_is_30_april_not_7_april(self):
+        self.assertEqual(compliance.due_date('tds_payment', 2026, 2).isoformat(),
+                         '2026-03-07')          # ordinary month
+        self.assertEqual(compliance.due_date('tds_payment', 2027, 3).isoformat(),
+                         '2027-04-30')          # the March exception
+
+    def test_q4_tds_return_is_31_may_not_30_april(self):
+        self.assertEqual(compliance.due_date('tds_26q', 2026, 6).isoformat(),
+                         '2026-07-31')          # Q1
+        self.assertEqual(compliance.due_date('tds_26q', 2027, 3).isoformat(),
+                         '2027-05-31')          # Q4
+
+    def test_due_day_clamps_into_short_months(self):
+        # A 30th-of-next-month rule against a January period lands on 28/29 Feb,
+        # never rolling forward into March.
+        due = compliance.due_date('bocw_cess', 2027, 1)
+        self.assertEqual(due.month, 2)
+        self.assertIn(due.day, (28, 29))
+
+    def test_unknown_obligation_returns_none_rather_than_raising(self):
+        self.assertIsNone(compliance.due_date('not_a_filing', 2026, 4))
+
+    # --- applicability ---
+    def test_calendar_only_includes_ticked_regimes(self):
+        gst_only = compliance.calendar_for_fy(2026, {compliance.GST})
+        keys = {r['obligation'] for r in gst_only}
+        self.assertEqual(keys, {'gstr1', 'gstr3b', 'gstr9'})
+        self.assertNotIn('pf_ecr', keys)
+
+    def test_nothing_ticked_yields_nothing_not_everything(self):
+        # Showing a sole proprietor their ESI obligations trains them to
+        # ignore the calendar.
+        self.assertEqual(compliance.calendar_for_fy(2026, set()), [])
+        self.assertEqual(compliance.calendar_for_fy(2026, None), [])
+
+    def test_calendar_is_sorted_by_due_date(self):
+        rows = compliance.calendar_for_fy(
+            2026, {compliance.GST, compliance.TDS, compliance.PF})
+        self.assertEqual([r['due_date'] for r in rows],
+                         sorted(r['due_date'] for r in rows))
+
+    def test_gst_registered_firm_gets_twelve_of_each_monthly_return(self):
+        rows = compliance.calendar_for_fy(2026, {compliance.GST})
+        self.assertEqual(len([r for r in rows if r['obligation'] == 'gstr3b']), 12)
+        self.assertEqual(len([r for r in rows if r['obligation'] == 'gstr9']), 1)
+
+    # --- status ---
+    def test_status_transitions(self):
+        self.assertEqual(
+            compliance.status('2026-05-20', None, as_on='2026-04-01'),
+            compliance.UPCOMING)
+        self.assertEqual(
+            compliance.status('2026-05-20', None, as_on='2026-05-15'),
+            compliance.DUE)
+        self.assertEqual(
+            compliance.status('2026-05-20', None, as_on='2026-05-21'),
+            compliance.OVERDUE)
+
+    def test_filed_beats_overdue_even_when_filed_late(self):
+        # The calendar's job is what still needs doing; lateness is preserved
+        # on the row, not in the status.
+        self.assertEqual(
+            compliance.status('2026-05-20', '2026-06-01', as_on='2026-07-01'),
+            compliance.FILED)
+        self.assertEqual(
+            compliance.days_late('2026-05-20', '2026-06-01'), 12)
+
+    def test_days_late_is_zero_when_on_time_and_none_when_unknowable(self):
+        self.assertEqual(compliance.days_late('2026-05-20', '2026-05-19'), 0)
+        self.assertIsNone(compliance.days_late(None))
+
+    def test_due_on_the_day_itself_is_not_yet_overdue(self):
+        self.assertEqual(
+            compliance.status('2026-05-20', None, as_on='2026-05-20'),
+            compliance.DUE)
+
+    # --- roll-ups ---
+    def _rows(self):
+        return [{'obligation': 'gstr1', 'due_date': '2026-04-11',
+                 'filed_date': '2026-04-10', 'name': 'GSTR-1'},
+                {'obligation': 'gstr3b', 'due_date': '2026-04-20',
+                 'filed_date': None, 'name': 'GSTR-3B'},
+                {'obligation': 'pf_ecr', 'due_date': '2026-05-15',
+                 'filed_date': None, 'name': 'PF'},
+                {'obligation': 'esi', 'due_date': '2026-07-15',
+                 'filed_date': None, 'name': 'ESI'}]
+
+    def test_overdue_and_upcoming_partition_the_unfiled(self):
+        late = compliance.overdue(self._rows(), as_on='2026-05-01')
+        self.assertEqual([r['name'] for r in late], ['GSTR-3B'])
+
+        soon = compliance.upcoming(self._rows(), within_days=30,
+                                   as_on='2026-05-01')
+        self.assertEqual([r['name'] for r in soon], ['PF'])   # ESI is 75 days out
+
+    def test_summary_counts(self):
+        s = compliance.summarise(self._rows(), as_on='2026-05-01')
+        self.assertEqual(s['total'], 4)
+        self.assertEqual(s['filed'], 1)
+        self.assertEqual(s['overdue'], 1)
+        self.assertEqual(s['due_soon'], 1)
+        self.assertEqual(s['max_days_late'], 11)      # 20 Apr -> 1 May
+        self.assertEqual(s['next']['name'], 'PF')
+
+    def test_summary_of_an_empty_calendar(self):
+        s = compliance.summarise([])
+        self.assertEqual(s['total'], 0)
+        self.assertEqual(s['overdue'], 0)
+        self.assertIsNone(s['next'])
+
+    def test_module_computes_no_penalties(self):
+        # Late-fee and interest rates change often and vary by return; a
+        # confident wrong figure is worse than days-late plus an accountant.
+        src = ' '.join(dir(compliance)).lower()
+        for banned in ('penalty', 'late_fee', 'latefee', 'interest'):
+            self.assertNotIn(banned, src)
 
 
 class TestRateAnalysis(unittest.TestCase):

@@ -946,6 +946,21 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- Statutory filings the firm owes: one row per obligation per period, created
+-- from the rule table in compliance.py. due_date is stored rather than derived
+-- so a date the department has extended by notification can be edited on the
+-- row without the app silently overwriting it next time the calendar is built.
+CREATE TABLE IF NOT EXISTS compliance_filings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    obligation TEXT,                -- key from compliance.OBLIGATIONS
+    period TEXT,                    -- '2026-04', 'Q1 FY 2026-27', 'FY 2026-27'
+    due_date TEXT,
+    filed_date TEXT,                -- NULL until filed
+    ref_no TEXT,                    -- ARN / challan / acknowledgement number
+    amount REAL DEFAULT 0,
+    notes TEXT
+);
+
 -- Rate analysis on the CPWD DAR skeleton: inputs build up to a per-unit rate.
 -- No rate data is stored here beyond what the user enters — the DAR's own
 -- published rates are 2014-dated, so the rates come from the firm's own
@@ -1041,6 +1056,10 @@ CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
 CREATE INDEX IF NOT EXISTS idx_variations_status ON variations(status);
 CREATE INDEX IF NOT EXISTS idx_raitems_analysis
     ON rate_analysis_items(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_due
+    ON compliance_filings(due_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_compliance_period
+    ON compliance_filings(obligation, period);
 """
 
 

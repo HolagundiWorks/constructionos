@@ -48,6 +48,11 @@ MASTER_TABLES = [
     'thekedars',
     'consumption_norms',
     'rate_book',
+    # The analyses behind the rate book are a library too — losing them at the
+    # year boundary would leave rates nobody can justify. Parent first: ids are
+    # copied verbatim, so the child rows still point at the right analysis.
+    'rate_analysis',
+    'rate_analysis_items',
 ]
 
 # Not carried by default: 'users' (a different firm usually means different
