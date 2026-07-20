@@ -57,6 +57,11 @@ def _site_options(conn):
             for s in conn.execute('SELECT id, name FROM sites ORDER BY name')]
 
 
+def _project_options(conn):
+    return [(r['id'], r['name'])
+            for r in conn.execute('SELECT id, name FROM projects ORDER BY name')]
+
+
 def _parse_combo(raw, mapping):
     """Return (id, name) from a 'id - name' combo value, or (None, raw)."""
     raw = (raw or '').strip()
@@ -80,6 +85,7 @@ class PaymentsFrame(ttk.Frame):
         self.selected_id = None
         self._party_map = {}
         self._site_map = {}
+        self._project_map = {}
         self.v = {
             'pay_date': tk.StringVar(),
             'direction': tk.StringVar(value='Receipt'),
@@ -89,6 +95,7 @@ class PaymentsFrame(ttk.Frame):
             'amount': tk.StringVar(value='0'),
             'ref_no': tk.StringVar(),
             'site': tk.StringVar(),
+            'project': tk.StringVar(),
             'narration': tk.StringVar(),
         }
         self._build_ui()
@@ -131,6 +138,13 @@ class PaymentsFrame(ttk.Frame):
                                        state='readonly')
         self.site_combo.pack(side='left')
         self._entry(form, 2, 2, 'Narration', 'narration')
+        # Optional project tag, so a cost rolls up to a project even when its
+        # site hosts several. Blank keeps the old site-based attribution.
+        cell = ttk.Frame(form); cell.grid(row=3, column=0, padx=6, pady=4, sticky='w')
+        ttk.Label(cell, text='Project', width=12).pack(side='left')
+        self.project_combo = ttk.Combobox(cell, textvariable=self.v['project'],
+                                          width=20, state='readonly')
+        self.project_combo.pack(side='left')
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 8))
         ttk.Button(btns, text='Add', command=self.add).pack(side='left', padx=3)
@@ -160,6 +174,9 @@ class PaymentsFrame(ttk.Frame):
         try:
             self._site_map = {'{} - {}'.format(i, n): i for i, n in _site_options(conn)}
             self.site_combo['values'] = [''] + list(self._site_map.keys())
+            self._project_map = {'{} - {}'.format(i, n): i
+                                 for i, n in _project_options(conn)}
+            self.project_combo['values'] = [''] + list(self._project_map.keys())
             self._reload_parties(conn=conn)
             self._refresh_list(conn)
         finally:
@@ -244,6 +261,9 @@ class PaymentsFrame(ttk.Frame):
         self.v['ref_no'].set(r['ref_no'] or '')
         self.v['narration'].set(r['narration'] or '')
         self.v['site'].set(self._display_for(self._site_map, r['site_id']))
+        self.v['project'].set(self._display_for(
+            self._project_map, r['project_id'] if 'project_id' in r.keys()
+            else None))
 
     def _display_for(self, mapping, target_id):
         if target_id is None:
@@ -264,6 +284,7 @@ class PaymentsFrame(ttk.Frame):
             return None
         party_id, party_name = _parse_combo(self.v['party'].get(), self._party_map)
         site_id, _ = _parse_combo(self.v['site'].get(), self._site_map)
+        project_id, _ = _parse_combo(self.v['project'].get(), self._project_map)
         return {
             'pay_date': self.v['pay_date'].get().strip(),
             'direction': self.v['direction'].get(),
@@ -271,7 +292,8 @@ class PaymentsFrame(ttk.Frame):
             'party_id': party_id, 'party_name': party_name,
             'mode': self.v['mode'].get(), 'amount': round(amount, 2),
             'ref_no': self.v['ref_no'].get().strip(),
-            'site_id': site_id, 'narration': self.v['narration'].get().strip(),
+            'site_id': site_id, 'project_id': project_id,
+            'narration': self.v['narration'].get().strip(),
         }
 
     def add(self):
@@ -334,6 +356,7 @@ class PaymentsFrame(ttk.Frame):
         self.v['pay_date'].set(''); self.v['amount'].set('0')
         self.v['party'].set(''); self.v['ref_no'].set('')
         self.v['narration'].set(''); self.v['site'].set('')
+        self.v['project'].set('')
         if self.tree.selection():
             self.tree.selection_remove(self.tree.selection())
 

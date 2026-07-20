@@ -170,6 +170,30 @@ class KPIDashboard(ttk.Frame):
                     '{:,.2f}'.format(rsum['outstanding']), NONE,
                     'Earned money held by others until the DLP expires.'))
 
+        # --- project margin: a job running at a loss is the thing you most
+        # want to know before the final account, not after.
+        from tab_projects import project_cost_rollup
+        rolls = []
+        for r in conn.execute("SELECT id, name FROM projects "
+                              "WHERE status != 'Cancelled'"):
+            rolls.append((r['name'], project_cost_rollup(conn, r['id'])))
+        if rolls:
+            port = projectcost.portfolio(rolls)
+            if port['at_a_loss']:
+                out.append(('Projects running at a loss', str(port['at_a_loss']),
+                            ACT, 'Worst is {} at {:,.2f}. Costs have overtaken '
+                            'what is billed — before the final account, not '
+                            'after.'.format(port['worst'], port['worst_margin'])))
+            elif port['over_budget']:
+                out.append(('Projects over budget', str(port['over_budget']),
+                            WATCH, 'Cost has passed the budget on {}.'.format(
+                                ', '.join(port['over_budget_names'][:3]))))
+            if port['unattributed_total']:
+                out.append(('Untagged cost on shared sites',
+                            '{:,.2f}'.format(port['unattributed_total']), WATCH,
+                            'Cost on sites with more than one project, not yet '
+                            'tagged — tag it for a true per-project margin.'))
+
         # --- schedule contradictions: a dependency loop silently disables the
         # critical path, so it is worth surfacing on its own.
         from tab_timeline import project_schedule, worst_delay

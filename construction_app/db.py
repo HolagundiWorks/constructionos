@@ -1095,6 +1095,10 @@ CREATE INDEX IF NOT EXISTS idx_plantlogs_equipment
     ON plant_logs(equipment_id);
 CREATE INDEX IF NOT EXISTS idx_plantservices_equipment
     ON plant_services(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_project ON contracts(project_id);
+CREATE INDEX IF NOT EXISTS idx_payments_project ON payments(project_id);
+CREATE INDEX IF NOT EXISTS idx_matledger_project ON material_ledger(project_id);
+CREATE INDEX IF NOT EXISTS idx_taxinv_project ON tax_invoices(project_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compliance_period
     ON compliance_filings(obligation, period);
 """
@@ -1221,6 +1225,17 @@ _ADD_COLUMNS = [
     ('tax_invoices', 'eway_bill_no', 'TEXT'),
     ('tax_invoices', 'transporter', 'TEXT'),
     ('tax_invoices', 'vehicle_no', 'TEXT'),
+    # Optional project tagging on cost and revenue rows. Costs are site-scoped
+    # today, which cannot tell two projects on one site apart; this adds an
+    # explicit link without removing the site scoping. All nullable — existing
+    # rows stay untagged and roll up by site exactly as before. On contracts,
+    # so every bill and RA bill inherits a project through its contract_id.
+    ('contracts', 'project_id', 'INTEGER'),
+    ('tax_invoices', 'project_id', 'INTEGER'),
+    ('payments', 'project_id', 'INTEGER'),
+    ('material_ledger', 'project_id', 'INTEGER'),
+    ('equipment_hire', 'project_id', 'INTEGER'),
+    ('purchase_orders', 'project_id', 'INTEGER'),
 ]
 
 

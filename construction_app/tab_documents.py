@@ -19,7 +19,8 @@ import firm
 import report_open
 from crud_frame import CrudFrame, Field
 from ui_guard import can_write
-from tab_masters import site_options, client_options, vendor_options
+from tab_masters import (site_options, client_options, vendor_options,
+                         project_options)
 
 
 class DocumentFrame(ttk.Frame):
@@ -479,6 +480,8 @@ def build_purchase_orders_tab(parent, db_getter):
         Field('po_no', 'PO No'),
         Field('vendor_id', 'Vendor', kind='fk', options_func=vendor_options),
         Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('project_id', 'Project (optional)', kind='fk',
+              options_func=project_options),
         Field('po_date', 'PO Date'),
         Field('expected_date', 'Expected'),
         Field('gst_pct', 'GST %', kind='number', default='18'),
@@ -498,6 +501,10 @@ def build_contracts_tab(parent, db_getter):
         Field('contract_no', 'Contract No'),
         Field('site_id', 'Site', kind='fk', options_func=site_options),
         Field('client_id', 'Client', kind='fk', options_func=client_options),
+        # Tag the contract to a project so its bills and RA bills roll up per
+        # project. Optional — untagged contracts attribute by site as before.
+        Field('project_id', 'Project (optional)', kind='fk',
+              options_func=project_options),
         Field('contract_value', 'Value', kind='number', default='0'),
         Field('retention_pct', 'Retention %', kind='number', default='0'),
         Field('start_date', 'Start Date'),

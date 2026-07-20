@@ -89,14 +89,22 @@ class GanttView(ttk.Frame):
         super().__init__(parent)
         self.db_getter = db_getter
         self._site_map = {}
+        self._project_map = {}
 
         controls = ttk.Frame(self)
         controls.pack(fill='x', padx=8, pady=6)
-        ttk.Label(controls, text='Site filter').pack(side='left')
+        ttk.Label(controls, text='Project').pack(side='left')
+        self.project_var = tk.StringVar(value='All')
+        self.project_combo = ttk.Combobox(controls, textvariable=self.project_var,
+                                          width=22, state='readonly')
+        self.project_combo.pack(side='left', padx=4)
+        self.project_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        ttk.Label(controls, text='Site').pack(side='left', padx=(10, 0))
         self.site_var = tk.StringVar(value='All')
         self.site_combo = ttk.Combobox(controls, textvariable=self.site_var,
                                        width=22, state='readonly')
         self.site_combo.pack(side='left', padx=4)
+        self.site_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
         ttk.Button(controls, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
 
@@ -112,13 +120,24 @@ class GanttView(ttk.Frame):
             self._site_map = {'{} - {}'.format(sid, name): sid
                               for sid, name in options}
             self.site_combo['values'] = ['All'] + list(self._site_map.keys())
+            popts = [(r['id'], r['name']) for r in conn.execute(
+                'SELECT id, name FROM projects ORDER BY name')]
+            self._project_map = {'{} - {}'.format(pid, name): pid
+                                 for pid, name in popts}
+            self.project_combo['values'] = ['All'] + list(self._project_map.keys())
 
-            where = ''
+            # Project and site filters compose (AND); either can be 'All'.
+            clauses = []
             params = []
-            sel = self.site_var.get()
-            if sel != 'All' and sel in self._site_map:
-                where = 'WHERE site_id = ?'
-                params.append(self._site_map[sel])
+            psel = self.project_var.get()
+            if psel != 'All' and psel in self._project_map:
+                clauses.append('project_id = ?')
+                params.append(self._project_map[psel])
+            ssel = self.site_var.get()
+            if ssel != 'All' and ssel in self._site_map:
+                clauses.append('site_id = ?')
+                params.append(self._site_map[ssel])
+            where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
             sql = ('SELECT task_name, start_date, end_date, status '
                    'FROM timeline_tasks {} '
                    'ORDER BY start_date, id'.format(where))

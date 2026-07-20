@@ -288,9 +288,41 @@ The missing project layer, now in its own **Projects** section.
   dropped: silently ignoring it would shorten the critical path and understate
   the risk, so the view says which references matched nothing and warns the
   path may be understated until they are fixed.
-- ⏳ Hard project↔transaction links (costs are site-scoped today) — a larger,
-  ledger-wide refactor, deferred pending an explicit decision; per-project
-  Gantt filter.
+- ✅ **Project↔transaction links (additive)** (`projectcost.py`, new Project
+  Cost view in Projects, project pickers on the cost/contract forms, a
+  portfolio KPI). Costs were site-scoped, which cannot tell two projects on
+  one plot apart. This adds an optional `project_id` to the cost and revenue
+  rows and rolls them up per project — **without removing the site scoping**,
+  so nothing that works today regresses.
+
+  The attribution policy is the careful part, and it is deliberately
+  conservative. A row **explicitly tagged** to a project always counts. An
+  **untagged** row counts by site only when the project is the **sole** one on
+  its site — which reproduces exactly the old site-only rollup, so existing
+  untagged data behaves as before. An untagged row on a site with **more than
+  one** project is **not guessed**: it is reported as *unattributed*, with a
+  total, and a KPI surfaces it. Splitting it would invent a number; assigning
+  it to one project would rob the other. The honest "we cannot tell whose cost
+  this is until you tag it" beats a confident wrong split — verified end to
+  end: two projects on one plot each get only their tagged costs, the shared
+  untagged hire is flagged on both and counted on neither, and a sole-project
+  site still rolls untagged costs up by site.
+
+  Revenue rolls up through the existing `contract_id`: tagging a contract to a
+  project carries all its bills and RA bills across, so revenue needed no
+  per-bill picker. A portfolio KPI names the project running at the worst
+  margin — a job going backwards is worth knowing before the final account,
+  not after.
+- ✅ **Per-project Gantt filter** — the Gantt view gained a project filter
+  beside the site one; the two compose, so you can see one project's bars.
+
+**Deliberately NOT done — at-rest encryption.** Real symmetric encryption
+needs a pip/native crypto dependency, which breaks the stdlib-only rule the
+whole app depends on. Shipping weak stdlib "encryption" would be worse than
+none — it would promise a protection it cannot deliver, the same reason the
+app does not fabricate an e-invoice QR or quote a penalty figure. The honest
+answer is OS-level protection (BitLocker / an encrypted volume) around the
+single data file, which the multi-firm file model already suits.
 
 ## AI Assistant (added on request)
 

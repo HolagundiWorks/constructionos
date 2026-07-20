@@ -52,6 +52,7 @@ import posting
 import procurement
 import programme
 import projman
+import projectcost
 import quality
 import rateanalysis
 import reports
@@ -1405,6 +1406,111 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestProjectCost(unittest.TestCase):
+    """Per-project rollup. The attribution rule is what earns the module."""
+
+    def _row(self, category, amount, project_id=None, site_id=1):
+        return {'category': category, 'amount': amount,
+                'project_id': project_id, 'site_id': site_id}
+
+    # --- attribution ---
+    def test_tagged_row_always_counts(self):
+        r = self._row('material', 100, project_id=5, site_id=9)
+        self.assertEqual(
+            projectcost.attribution(r, 5, project_site_id=1, sole_on_site=False),
+            'tagged')
+
+    def test_tag_to_another_project_never_counts_even_on_our_site(self):
+        # An explicit tag wins over the site — otherwise tagging would be
+        # pointless the moment two projects shared a plot.
+        r = self._row('material', 100, project_id=7, site_id=1)
+        self.assertEqual(
+            projectcost.attribution(r, 5, project_site_id=1, sole_on_site=True),
+            'other')
+
+    def test_untagged_counts_by_site_only_when_sole_project_on_site(self):
+        r = self._row('material', 100, project_id=None, site_id=1)
+        self.assertEqual(
+            projectcost.attribution(r, 5, project_site_id=1, sole_on_site=True),
+            'by-site')
+        self.assertEqual(
+            projectcost.attribution(r, 5, project_site_id=1, sole_on_site=False),
+            'ambiguous')
+
+    def test_untagged_on_a_different_site_is_not_ours(self):
+        r = self._row('material', 100, project_id=None, site_id=2)
+        self.assertEqual(
+            projectcost.attribution(r, 5, project_site_id=1, sole_on_site=True),
+            'other')
+
+    # --- rollup, sole project on site (reproduces the old site rollup) ---
+    def test_sole_project_rolls_up_untagged_rows_by_site(self):
+        rows = [self._row('revenue', 500000),
+                self._row('material', 120000),
+                self._row('labour', 80000),
+                self._row('hire', 20000)]
+        r = projectcost.rollup(rows, project_id=5, project_site_id=1,
+                               sole_on_site=True, budget=300000)
+        self.assertEqual(r['total_cost'], 220000)
+        self.assertEqual(r['revenue'], 500000)
+        self.assertEqual(r['margin'], 280000)
+        self.assertEqual(r['margin_pct'], 56.0)
+        self.assertEqual(r['unattributed_cost'], 0)
+
+    def test_shared_site_does_not_guess_untagged_costs(self):
+        # Two projects on one site: untagged cost cannot be split, so it is
+        # reported unattributed, never assigned.
+        rows = [self._row('material', 100000, project_id=5),   # tagged to us
+                self._row('labour', 40000, project_id=None),   # untagged, shared
+                self._row('material', 25000, project_id=7)]    # other project
+        r = projectcost.rollup(rows, project_id=5, project_site_id=1,
+                               sole_on_site=False, budget=0)
+        self.assertEqual(r['total_cost'], 100000)          # only the tagged row
+        self.assertEqual(r['unattributed_cost'], 40000)
+        self.assertEqual(r['unattributed_count'], 1)
+
+    def test_budget_and_over_budget_flag(self):
+        rows = [self._row('material', 350000)]
+        r = projectcost.rollup(rows, 5, 1, True, budget=300000)
+        self.assertTrue(r['over_budget'])
+        self.assertGreater(r['budget_used_pct'], 100)
+
+    def test_loss_making_project_has_negative_margin(self):
+        rows = [self._row('revenue', 100000), self._row('material', 130000)]
+        r = projectcost.rollup(rows, 5, 1, True)
+        self.assertEqual(r['margin'], -30000)
+
+    def test_no_revenue_leaves_margin_pct_undefined(self):
+        r = projectcost.rollup([self._row('material', 1000)], 5, 1, True)
+        self.assertIsNone(r['margin_pct'])
+
+    def test_unknown_cost_category_falls_into_other(self):
+        rows = [self._row('mystery', 500, project_id=5)]
+        r = projectcost.rollup(rows, 5, 1, False)
+        self.assertEqual(r['by_category']['other'], 500)
+
+    def test_empty_rollup(self):
+        r = projectcost.rollup([], 5, 1, True, budget=100000)
+        self.assertEqual(r['total_cost'], 0)
+        self.assertEqual(r['margin'], 0)
+        self.assertFalse(r['over_budget'])
+
+    # --- portfolio ---
+    def test_portfolio_points_at_the_worst_project(self):
+        a = projectcost.rollup([self._row('revenue', 100000, site_id=1),
+                                self._row('material', 90000, site_id=1)],
+                               1, 1, True)
+        b = projectcost.rollup([self._row('revenue', 100000, site_id=2),
+                                self._row('material', 130000, site_id=2)],
+                               2, 2, True, budget=100000)
+        p = projectcost.portfolio([('Alpha', a), ('Beta', b)])
+        self.assertEqual(p['projects'], 2)
+        self.assertEqual(p['at_a_loss'], 1)
+        self.assertEqual(p['worst'], 'Beta')
+        self.assertEqual(p['worst_margin'], -30000)
+        self.assertEqual(p['over_budget'], 1)
 
 
 class TestCriticalPath(unittest.TestCase):
