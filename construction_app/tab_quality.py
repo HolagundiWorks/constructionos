@@ -23,6 +23,7 @@ from tkinter import ttk, messagebox
 import bill_export
 import quality
 import report_open
+import session
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options
 from ui_guard import can_write
@@ -330,16 +331,24 @@ class InspectionFrame(ttk.Frame):
         self._update_gate(rows)
 
     def _update_gate(self, rows):
-        """Derive the inspection result and say whether work may proceed."""
+        """Derive the inspection result and say whether work may proceed.
+
+        The derived result is persisted so other views agree with this one —
+        but only if the signed-in user may write. Selecting an inspection is a
+        read, and a read-only account should not cause a write; this checks
+        ``session`` directly rather than ``ui_guard.can_write`` so a Viewer
+        gets no warning dialog for simply looking at a record.
+        """
         result = quality.inspection_result(rows)
         allowed, reason = quality.may_proceed(rows)
-        conn = self.db_getter()
-        try:
-            conn.execute('UPDATE inspections SET result = ? WHERE id = ?',
-                         (result, self.selected_id))
-            conn.commit()
-        finally:
-            conn.close()
+        if session.can_write():
+            conn = self.db_getter()
+            try:
+                conn.execute('UPDATE inspections SET result = ? WHERE id = ?',
+                             (result, self.selected_id))
+                conn.commit()
+            finally:
+                conn.close()
         if not rows:
             self.gate_var.set('No checks loaded — use "Load Checklist".')
             self.gate_label.configure(foreground='#777')

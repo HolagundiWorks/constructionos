@@ -521,6 +521,10 @@ class CashBookView(ttk.Frame):
         self.refresh()
 
     def save_opening(self):
+        # The opening balance changes every figure in the cash book, so it is
+        # as much a write as recording a payment.
+        if not can_write():
+            return
         try:
             val = float(self.opening_var.get().strip() or 0)
         except ValueError:

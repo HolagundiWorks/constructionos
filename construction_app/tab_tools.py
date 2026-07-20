@@ -30,6 +30,7 @@ import branding
 import company
 import i18n
 import numbering
+from ui_guard import can_write
 
 
 class ToolsTab(ttk.Frame):
@@ -234,6 +235,8 @@ class ToolsTab(ttk.Frame):
         self.ai['assistant_host'].set(host)
 
     def save_ai(self):
+        if not can_write():
+            return
         conn = self.db_getter()
         try:
             for key, var in self.ai.items():
@@ -282,6 +285,8 @@ class ToolsTab(ttk.Frame):
             var.set(value)
 
     def save_modules(self):
+        if not can_write():
+            return
         states = {label: bool(var.get()) for label, var in self.module_vars.items()}
         conn = self.db_getter()
         try:
@@ -296,6 +301,8 @@ class ToolsTab(ttk.Frame):
                             'Changes apply the next time you open the app.')
 
     def save_firm(self):
+        if not can_write():
+            return
         conn = self.db_getter()
         try:
             for key, var in self.firm.items():
@@ -309,6 +316,8 @@ class ToolsTab(ttk.Frame):
         self.status_var.set('Firm details saved — they will appear on tax invoices.')
 
     def save_language(self):
+        if not can_write():
+            return
         code = self._lang_names.get(self.lang_var.get(), 'en')
         conn = self.db_getter()
         try:
@@ -322,6 +331,8 @@ class ToolsTab(ttk.Frame):
         self.status_var.set('Language saved — reopen the app to apply.')
 
     def save_series(self):
+        if not can_write():
+            return
         values = {
             'invoice_prefix': self.series['invoice_prefix'].get().strip() or 'INV',
             'invoice_width': self.series['invoice_width'].get().strip() or '3',
@@ -528,6 +539,8 @@ class ToolsTab(ttk.Frame):
 
     # -------------------------------------------------- synced-folder backup
     def choose_sync_folder(self):
+        if not can_write():
+            return
         folder = filedialog.askdirectory(
             title='Choose your cloud drive folder (Google Drive, OneDrive…)')
         if not folder:

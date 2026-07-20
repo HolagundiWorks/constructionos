@@ -248,13 +248,20 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
   Tools > Users & Security / Audit Log).
 - ✅ **DB robustness** — WAL journaling, `busy_timeout`, enforced foreign keys.
 - ✅ **Operations** — indexes on hot foreign keys for speed at scale.
-- 🚧 Per-tab write/delete gating for Viewers — `ui_guard.can_write()` is
-  enforced in CrudFrame, DocumentFrame and the bespoke **financial** tabs.
-  ⚠️ **Still ungated: the masters/operations tabs** (Projects, Masters,
-  Vendor, Warehouse, Consumption, Site Reports, Equipment Hire, Timeline,
-  Statutory, GST, Insight) — a Viewer can write there today, so the
-  read-only role is not yet fully enforced. _(Audited 2026-07-19; the two
-  bullets that previously stood here contradicted each other.)_
+- ✅ Per-tab write/delete gating for Viewers — `ui_guard.can_write()` is
+  enforced in CrudFrame and DocumentFrame (so every master/operations tab
+  built on them inherits it), in the bespoke financial tabs, and now in the
+  settings and cash-opening saves that were genuinely exposed.
+  _Correction:_ an earlier audit here claimed eleven masters/operations tabs
+  were ungated. That was a false positive from grepping each module for
+  `can_write` — those tabs are CrudFrame-based and were always covered. An
+  AST scan of the real write paths found **seven** genuinely unguarded
+  button actions: the six settings saves in Tools (firm details, invoice
+  series, language, AI config, modules, backup folder) and the cash-book
+  opening balance — a Viewer could change any of them. Also fixed: viewing
+  an inspection persisted its derived result, so a read-only account caused
+  a write. A source-level test now fails if a new unguarded write appears,
+  with a justified exemption list for derived-value helpers.
 - ⏳ At-rest encryption — would need a native dependency (out of scope).
 
 ## Phase 8 — SOP gap closure: turn records into gates 🚧

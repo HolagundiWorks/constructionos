@@ -14,7 +14,10 @@ rupees. ``test_journal_posting`` exercises the engine end-to-end against a real
 temporary SQLite database.
 """
 
+import ast
+import glob
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -968,6 +971,92 @@ class TestApproval(unittest.TestCase):
             table, _num, status_col, pending, new_status, label = spec
             self.assertTrue(table and status_col and new_status and label)
             self.assertTrue(pending, doc_type)
+
+
+class TestWriteGuards(unittest.TestCase):
+    """Every user-triggered write must be behind a role check.
+
+    This is a source-level test rather than a behavioural one on purpose: it
+    catches a *new* unguarded write the moment it is added, which is how the
+    gap arose in the first place. It is deliberately narrow — derived-value
+    helpers (``_recalc``, ``_compute_*``, CrudFrame ``on_save`` hooks) are
+    reached only from callers that already checked, so guarding them again
+    would be noise.
+    """
+
+    APP = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       os.pardir, 'construction_app')
+    WRITE_SQL = re.compile(r'\b(INSERT|UPDATE|DELETE)\b', re.I)
+
+    # Reached only from an already-guarded caller, or from first-run setup
+    # that must work before any account exists.
+    EXEMPT = {
+        ('tab_accounting.py', '_recalc'), ('tab_documents.py', '_recalc_total'),
+        ('tab_estimate.py', '_recalc'), ('tab_tax_invoice.py', '_recalc'),
+        ('tab_vendor_invoice.py', '_recalc'),
+        ('tab_equipment_hire.py', '_compute_hire_total'),
+        ('tab_site_reports.py', '_compute_cube'),
+        ('tab_timeline.py', '_compute_duration'),
+        ('tab_variations.py', '_compute_amount'),
+        ('tab_muster.py', '_recover_advances'),
+        ('tab_allocate.py', 'save_allocations'),
+        ('tab_approvals.py', 'record'),
+        ('tab_retention.py', 'save'),
+        ('tab_quality.py', '_update_gate'),
+        ('tab_wizard.py', '_finish'), ('tab_wizard.py', '_skip'),
+    }
+
+    def _writers(self, path):
+        """(function name, guarded?) for every function containing write SQL."""
+        tree = ast.parse(open(path, encoding='utf-8').read())
+        out = []
+        for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+            writes = False
+            for call in [n for n in ast.walk(fn) if isinstance(n, ast.Call)]:
+                if getattr(call.func, 'attr', '') not in ('execute', 'executemany'):
+                    continue
+                for c in ast.walk(call):
+                    if (isinstance(c, ast.Constant) and isinstance(c.value, str)
+                            and self.WRITE_SQL.search(c.value)):
+                        writes = True
+            if not writes:
+                continue
+            guarded = any(isinstance(n, ast.Name) and n.id in ('can_write',)
+                          for n in ast.walk(fn))
+            out.append((fn.name, guarded))
+        return out
+
+    def test_no_unguarded_write_paths(self):
+        offenders = []
+        for path in sorted(glob.glob(os.path.join(self.APP, 'tab_*.py'))):
+            name = os.path.basename(path)
+            for fn, guarded in self._writers(path):
+                if not guarded and (name, fn) not in self.EXEMPT:
+                    offenders.append('{}::{}'.format(name, fn))
+        self.assertEqual(offenders, [],
+                         'unguarded write paths (add can_write() or justify in '
+                         'EXEMPT): {}'.format(offenders))
+
+    def test_settings_saves_are_guarded(self):
+        """The gap that was actually shipped: a Viewer could rewrite firm
+        details, the invoice series and the cash opening balance."""
+        tools = dict(self._writers(os.path.join(self.APP, 'tab_tools.py')))
+        for fn in ('save_firm', 'save_ai', 'save_series', 'save_language',
+                   'choose_sync_folder'):
+            self.assertTrue(tools.get(fn), 'tab_tools.{} is unguarded'.format(fn))
+        money = dict(self._writers(os.path.join(self.APP, 'tab_money.py')))
+        self.assertTrue(money.get('save_opening'), 'save_opening is unguarded')
+
+    def test_exempt_list_stays_honest(self):
+        """An exemption for a function that no longer writes is stale, and a
+        stale exemption is how a real gap gets hidden later."""
+        live = set()
+        for path in glob.glob(os.path.join(self.APP, 'tab_*.py')):
+            name = os.path.basename(path)
+            for fn, _g in self._writers(path):
+                live.add((name, fn))
+        self.assertEqual(self.EXEMPT - live, set(),
+                         'EXEMPT lists functions that no longer write SQL')
 
 
 class TestCompanyRegistry(unittest.TestCase):
