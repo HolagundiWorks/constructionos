@@ -28,9 +28,12 @@ import os
 import re
 import sqlite3
 
-# Registry lives beside the code, not beside any one company file.
-REGISTRY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             'companies.json')
+import paths
+
+# The registry of company files. From source it sits beside the code; an
+# installed build keeps it in the per-user data folder alongside the databases
+# it points at (see paths.py). Not beside any one company file.
+REGISTRY_PATH = paths.data_path('companies.json')
 
 # Masters worth carrying into a new year / new firm. Ordered so that parents
 # land before anything that references them. Deliberately excludes every

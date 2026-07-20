@@ -10,7 +10,11 @@ expected to fail soft if the file or Tk PNG support is missing.
 import base64
 import os
 
-RES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+import paths
+
+# Resources are read-only. From source they sit next to the code; in an
+# installed (frozen) build they are read from the bundle's unpack dir.
+RES_DIR = paths.resource_path('resources')
 
 LOGO_SQUARE = os.path.join(RES_DIR, 'logo_square.png')
 LOGO_RECT = os.path.join(RES_DIR, 'logo_rectangle.png')

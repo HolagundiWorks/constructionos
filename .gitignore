@@ -16,3 +16,9 @@ venv/
 
 # Ollama Manager runtime settings (user data)
 ollama_manager/settings.json
+
+# Installer build artifacts (the scripts are tracked; their output is not)
+installer/build/
+installer/dist/
+installer/output/
+installer/venv/

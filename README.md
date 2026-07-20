@@ -79,6 +79,21 @@ On first launch the app creates a SQLite database file, `construction.db`,
 next to the code. That file is your data — it is **not** tracked in git
 (see `.gitignore`); back it up if it matters.
 
+## Install it (Windows, no Python needed)
+
+To give a contractor a normal double-click install — no Python, no internet,
+no admin rights — build a Windows installer from `installer/`:
+
+```powershell
+cd installer
+.\build.ps1              # PyInstaller + Inno Setup  -> Setup.exe
+.\build.ps1 -Portable   # or a portable .zip, no Inno Setup needed
+```
+
+An installed build keeps the user's data in `%LOCALAPPDATA%\Construction OS`
+instead of next to the code, so it runs from a read-only Program Files folder
+and an uninstall never deletes their books. See `installer/README.md`.
+
 ## What's inside
 
 The UI is a single tabbed window. To keep the top tab bar uncluttered, tabs are

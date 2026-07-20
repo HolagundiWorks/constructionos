@@ -1409,6 +1409,61 @@ class TestCarryForward(unittest.TestCase):
         self.assertNotIn('no_such_table', copied)
 
 
+class TestPaths(unittest.TestCase):
+    """Where the app keeps its files, run from source vs installed (frozen)."""
+
+    def setUp(self):
+        import paths
+        self.paths = paths
+        self._frozen = getattr(sys, 'frozen', None)
+        self._meipass = getattr(sys, '_MEIPASS', None)
+
+    def tearDown(self):
+        for attr, val in (('frozen', self._frozen), ('_MEIPASS', self._meipass)):
+            if val is None:
+                if hasattr(sys, attr):
+                    delattr(sys, attr)
+            else:
+                setattr(sys, attr, val)
+
+    def test_from_source_data_stays_next_to_the_code(self):
+        # Running from source must not move an existing construction.db.
+        if hasattr(sys, 'frozen'):
+            del sys.frozen
+        self.assertFalse(self.paths.is_frozen())
+        here = os.path.dirname(os.path.abspath(self.paths.__file__))
+        self.assertEqual(self.paths.data_dir(), here)
+        self.assertEqual(self.paths.resource_base(), here)
+
+    def test_frozen_build_redirects_data_to_a_per_user_folder(self):
+        sys.frozen = True
+        sys._MEIPASS = os.path.join('X:', 'app', '_internal')
+        try:
+            self.assertTrue(self.paths.is_frozen())
+            # resources come from the bundle
+            self.assertEqual(self.paths.resource_base(), sys._MEIPASS)
+            # data goes to a writable per-user dir, NOT the read-only bundle
+            data = self.paths.data_dir()
+            self.assertNotEqual(data, sys._MEIPASS)
+            self.assertIn(self.paths.APP_DIR_NAME, data)
+        finally:
+            del sys.frozen, sys._MEIPASS
+
+    def test_data_and_resource_path_helpers_join_correctly(self):
+        self.assertTrue(self.paths.data_path('construction.db')
+                        .endswith('construction.db'))
+        rp = self.paths.resource_path('resources', 'app.ico')
+        self.assertTrue(rp.endswith(os.path.join('resources', 'app.ico')))
+
+    def test_db_and_registry_route_through_paths(self):
+        # The two writable globals must derive from paths, not a hard-coded
+        # source-dir join, or an installed build writes into Program Files.
+        import db, company
+        self.assertEqual(db.DB_PATH, self.paths.data_path('construction.db'))
+        self.assertEqual(company.REGISTRY_PATH,
+                         self.paths.data_path('companies.json'))
+
+
 class TestAssistantRetrieval(unittest.TestCase):
     """TF-IDF retrieval ranks the distinctive table first, and a follow-up
     inherits context from the previous question."""

@@ -13,9 +13,13 @@ does its work, and closes it. The rest of the app receives ``get_conn`` itself
 import os
 import sqlite3
 
-# Database file lives next to the code so the app is self-contained and runs
-# from anywhere Python runs.
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "construction.db")
+import paths
+
+# Database file location. From source this is next to the code, so the app
+# stays self-contained; an installed build redirects it to a per-user folder
+# under %LOCALAPPDATA% because the install directory is read-only. See paths.py.
+# Reassigned at runtime when switching company files (see tab_tools).
+DB_PATH = paths.data_path("construction.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sites (
