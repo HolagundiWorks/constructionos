@@ -22,6 +22,7 @@ from tkinter import ttk, messagebox, filedialog
 from ui_guard import can_write
 
 import civil
+import mb
 import bill_export
 import report_open
 
@@ -44,6 +45,15 @@ def _fill_contract_combo(combo, mapping, options, include_blank=False):
     mapping.clear()
     mapping.update({'{} - {}'.format(i, n): i for i, n in options})
     combo['values'] = ([''] + display) if include_blank else display
+
+
+def _col(row, key, default=''):
+    """Read a column that may predate a migration on an old data file."""
+    try:
+        val = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+    return default if val is None else val
 
 
 def _combo_id(var, mapping):
@@ -249,8 +259,9 @@ class MeasurementFrame(ttk.Frame):
         self.item_var = tk.StringVar()
         self.v = {k: tk.StringVar() for k in
                   ('mb_date', 'mb_ref', 'description', 'nos', 'length',
-                   'breadth', 'depth', 'remarks')}
+                   'breadth', 'depth', 'remarks', 'measured_by', 'checked_by')}
         self.qty_var = tk.StringVar(value='0.000')
+        self.check_var = tk.StringVar()
         self._build_ui()
         self.refresh_contracts()
 
@@ -281,7 +292,9 @@ class MeasurementFrame(ttk.Frame):
         entries = [('mb_date', 'MB Date'), ('mb_ref', 'MB Ref'),
                    ('description', 'Location'), ('nos', 'Nos'),
                    ('length', 'Length'), ('breadth', 'Breadth'),
-                   ('depth', 'Depth'), ('remarks', 'Remarks')]
+                   ('depth', 'Depth'), ('remarks', 'Remarks'),
+                   ('measured_by', 'Measured By'),
+                   ('checked_by', 'Checked By')]
         for idx, (key, label) in enumerate(entries):
             pos = idx + 1
             cell = ttk.Frame(form); cell.grid(row=pos // 3, column=pos % 3, padx=6, pady=4, sticky='w')
@@ -291,8 +304,10 @@ class MeasurementFrame(ttk.Frame):
             if key in ('nos', 'length', 'breadth', 'depth'):
                 self.v[key].trace_add('write', lambda *a: self._live_qty())
 
+        # Row 4: the ten entry cells above fill rows 0-3 (pos // 3), so the
+        # quantity readout has to sit clear of them.
         qcell = ttk.Frame(form)
-        qcell.grid(row=3, column=1, padx=6, pady=4, sticky='w')
+        qcell.grid(row=4, column=0, padx=6, pady=4, sticky='w')
         ttk.Label(qcell, text='Quantity', width=11).pack(side='left')
         ttk.Label(qcell, textvariable=self.qty_var,
                   font=('TkDefaultFont', 10, 'bold')).pack(side='left')
@@ -302,6 +317,82 @@ class MeasurementFrame(ttk.Frame):
         ttk.Button(btns, text='Update', command=self.update).pack(side='left', padx=3)
         ttk.Button(btns, text='Delete', command=self.delete).pack(side='left', padx=3)
         ttk.Button(btns, text='Clear', command=self.clear).pack(side='left', padx=3)
+        ttk.Button(btns, text='Export Measurement Book (Form 23)',
+                   command=self.export_mb).pack(side='right', padx=3)
+        ttk.Label(btns, textvariable=self.check_var,
+                  foreground='#8a5a00').pack(side='right', padx=8)
+
+    def export_mb(self):
+        """Print the book in Form 23 layout (a CMB for works >= Rs 15 lakh)."""
+        cid = self._contract_id()
+        if cid is None:
+            messagebox.showinfo('No contract', 'Select a contract first.')
+            return
+        conn = self.db_getter()
+        try:
+            contract, client, site = self._contract_context(conn, cid)
+            rows = conn.execute(
+                "SELECT m.*, b.item_no, b.unit FROM measurements m "
+                "LEFT JOIN boq_items b ON b.id = m.boq_item_id "
+                "WHERE m.contract_id = ? ORDER BY m.id", (cid,)).fetchall()
+            boq = conn.execute(
+                'SELECT id, item_no, description, unit, qty FROM boq_items '
+                'WHERE contract_id = ? ORDER BY id', (cid,)).fetchall()
+            company = _company_name(conn)
+        finally:
+            conn.close()
+        if not rows:
+            messagebox.showinfo('Nothing to print',
+                                'No measurements recorded for this contract.')
+            return
+        html = bill_export.build_mb_html(
+            contract, client, site, rows, boq_items=boq,
+            company_name=company, issues=mb.integrity_issues(rows))
+        safe = (_col(contract, 'contract_no', '') or 'contract').replace(
+            '/', '-').replace(' ', '_')
+        self._save_html(html, '{}_measurement_book.html'.format(safe),
+                        'Save measurement book')
+
+    def _contract_context(self, conn, cid):
+        """Contract row plus its client and site (any may be None)."""
+        contract = conn.execute('SELECT * FROM contracts WHERE id = ?',
+                                (cid,)).fetchone()
+        client = site = None
+        if contract is not None:
+            if contract['client_id'] is not None:
+                client = conn.execute('SELECT * FROM clients WHERE id = ?',
+                                      (contract['client_id'],)).fetchone()
+            if contract['site_id'] is not None:
+                site = conn.execute('SELECT * FROM sites WHERE id = ?',
+                                    (contract['site_id'],)).fetchone()
+        return contract, client, site
+
+    def _save_html(self, html, default_name, title):
+        path = filedialog.asksaveasfilename(
+            title=title, defaultextension='.html', initialfile=default_name,
+            filetypes=[('HTML document', '*.html'), ('All files', '*.*')])
+        if not path:
+            return
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(html)
+        webbrowser.open('file://' + os.path.abspath(path))
+
+    def _refresh_check(self, rows):
+        """Surface record-integrity errors in the tab, not only on the print.
+
+        A duplicated or zero measurement is a billing error, so it should be
+        visible while entering rather than discovered at certification.
+        """
+        errors = len(mb.blocking_issues(rows))
+        warnings = len(mb.integrity_issues(rows)) - errors
+        if errors:
+            self.check_var.set('{} record error{} — see Form 23 export'.format(
+                errors, '' if errors == 1 else 's'))
+        elif warnings:
+            self.check_var.set('{} record warning{}'.format(
+                warnings, '' if warnings == 1 else 's'))
+        else:
+            self.check_var.set('')
 
     def _live_qty(self):
         self.qty_var.set('{:.3f}'.format(civil.measurement_quantity(
@@ -346,21 +437,26 @@ class MeasurementFrame(ttk.Frame):
             self.tree.delete(item)
         cid = self._contract_id()
         if cid is None:
+            self.check_var.set('')
             return
         conn = self.db_getter()
         try:
-            sql = ("SELECT m.id, m.mb_date, m.mb_ref, "
+            # boq_item_id comes along for the record check, which keys the
+            # duplicate test on it.
+            sql = ("SELECT m.id, m.mb_date, m.mb_ref, m.boq_item_id, "
                    "TRIM(COALESCE(b.item_no,'')||' '||COALESCE(b.description,'')) AS item, "
                    "m.description, m.nos, m.length, m.breadth, m.depth, m.quantity "
                    "FROM measurements m "
                    "LEFT JOIN boq_items b ON b.id = m.boq_item_id "
                    "WHERE m.contract_id = ? ORDER BY m.id")
-            for r in conn.execute(sql, (cid,)):
+            rows = conn.execute(sql, (cid,)).fetchall()
+            for r in rows:
                 self.tree.insert('', 'end', iid=str(r['id']), values=(
                     r['id'], r['mb_date'], r['mb_ref'], r['item'] or '-',
                     r['description'], _blank(r['nos']), _blank(r['length']),
                     _blank(r['breadth']), _blank(r['depth']),
                     '{:.3f}'.format(r['quantity'] or 0)))
+            self._refresh_check(rows)
         finally:
             conn.close()
 
@@ -386,6 +482,8 @@ class MeasurementFrame(ttk.Frame):
         self.v['nos'].set(_blank(r['nos'])); self.v['length'].set(_blank(r['length']))
         self.v['breadth'].set(_blank(r['breadth'])); self.v['depth'].set(_blank(r['depth']))
         self.v['remarks'].set(r['remarks'] or '')
+        self.v['measured_by'].set(_col(r, 'measured_by'))
+        self.v['checked_by'].set(_col(r, 'checked_by'))
         self._live_qty()
 
     def _collect(self):
@@ -405,6 +503,8 @@ class MeasurementFrame(ttk.Frame):
             'nos': _num(self.v['nos'].get()), 'length': _num(self.v['length'].get()),
             'breadth': _num(self.v['breadth'].get()), 'depth': _num(self.v['depth'].get()),
             'quantity': qty, 'remarks': self.v['remarks'].get().strip(),
+            'measured_by': self.v['measured_by'].get().strip(),
+            'checked_by': self.v['checked_by'].get().strip(),
         }
 
     def add(self):

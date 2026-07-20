@@ -432,6 +432,61 @@ control.
 
 ---
 
+## Phase 9 — statutory forms: what the department actually asks for 🚧
+
+Driven by `docs/RESEARCH-sop-primary-sources.md`, the primary-source research
+run (CPWD Works Manual, CPWA Code Book of Forms, CPWD Analysis of Rates). Where
+Phase 8 asked _"is the process gated?"_, this phase asks a narrower and more
+literal question: **when a contractor submits to a PWD division, does the paper
+this app produces match the form the department is expecting?**
+
+That distinction matters because the two failure modes are different. A missing
+gate costs money slowly, through leakage. A bill on the wrong format is simply
+returned, and payment waits another cycle.
+
+- ✅ **Measurement Book in Form 23 layout** (`mb.py`, `bill_export.build_mb_html`).
+  Entries group into pages by MB reference — in entry order, not sorted, because
+  MB references are free text ('12', '12A', 'Vol II p.7') and sorting them
+  lexically would reorder the book. Each page closes with its total and the
+  dated "Measured by me" certificate; the document ends with an abstract of
+  measured-against-tendered quantity per BOQ item.
+
+  For works of ₹15 lakh and above it titles itself a **Computerised Measurement
+  Book** and cites Works Manual Para 7.12, which is the provision that makes a
+  contractor-prepared MB acceptable for departmental submission. Below that
+  threshold it deliberately does *not* claim CMB status — printing that on a
+  work which does not qualify would misrepresent the document — and says so.
+
+  The **record check** is the part with money attached. Para 7.5 forbids blank,
+  void and duplicated entries, so `mb.integrity_issues` flags a measurement
+  repeated on the same page (same item, same location, same dimensions) as an
+  error, alongside zero/negative quantities and missing dates. A duplicate is
+  otherwise invisible: it flows through the RA bill as a real quantity and is
+  billed twice. The count surfaces in the tab while entering, not only on the
+  printout, because the point is to catch it before certification.
+- ⏳ **RA bill Memorandum of Payments in Form 26 shape** — replace the single
+  "other recoveries" lump with the statutory recovery block: (i) Taxes/TDS
+  (ii) Security Deposit (iii) Other.
+- ⏳ **Muster Roll Form 21** — Part I nominal roll with the payee
+  signature/thumb-impression column, Part II reconciling work done against
+  wages paid, and the Register of Unpaid Wages (Form 21A). There is currently
+  no muster print at all.
+- ⏳ **Security-deposit ledger** — 5% performance guarantee plus 2.5% deducted
+  from every running bill, accumulating across bills, with the ₹5 lakh
+  bank-guarantee release threshold flagged. Configurable, because state PWDs
+  vary (Arunachal deducts 10% per bill against CPWD's 2.5%).
+- ⏳ **Rate analysis on the DAR skeleton** — material + labour + sundries →
+  +1% water → +15% CPOH, with water and scaffolding as per-item toggles rather
+  than hard-coded, since they apply only to wet/access items.
+
+**Standing caveat for this phase:** CPWD is the dominant template, not a
+universal standard, and the GCC 2019 supersedes some Works Manual terms
+(notably payment timelines). Anything this app *prints as a rule* must cite the
+governing contract, and anything state-variable ships as a configurable default
+rather than a constant.
+
+---
+
 ## Cross-cutting, always-on
 
 - Keep **pure stdlib / tkinter / single-SQLite / no-pip**.

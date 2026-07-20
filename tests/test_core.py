@@ -37,6 +37,7 @@ import company
 import estimate
 import finance
 import hse
+import mb
 import money
 import numbering
 import numwords
@@ -1396,6 +1397,229 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestMeasurementBook(unittest.TestCase):
+    """Measurement book structure and the Works Manual record rules.
+
+    The duplicate check is the one carrying money: a measurement entered twice
+    is billed twice, and nothing else in the app would catch it.
+    """
+
+    def _row(self, rid, ref='12', item=1, date_='2026-04-01', desc='Footing F1',
+             nos=2, length=3.0, breadth=2.0, depth=1.5, qty=None):
+        return {'id': rid, 'mb_ref': ref, 'boq_item_id': item, 'mb_date': date_,
+                'description': desc, 'nos': nos, 'length': length,
+                'breadth': breadth, 'depth': depth,
+                'quantity': qty if qty is not None else
+                civil.measurement_quantity(nos, length, breadth, depth)}
+
+    # --- CMB eligibility (Works Manual Para 7.12) ---
+    def test_cmb_threshold_is_fifteen_lakh(self):
+        self.assertEqual(mb.CMB_THRESHOLD, 1500000.0)
+        self.assertTrue(mb.cmb_eligible(1500000))       # inclusive at the mark
+        self.assertTrue(mb.cmb_eligible(2500000))
+        self.assertFalse(mb.cmb_eligible(1499999))
+        self.assertFalse(mb.cmb_eligible(0))
+        self.assertFalse(mb.cmb_eligible(None))
+        self.assertFalse(mb.cmb_eligible('not a number'))
+
+    # --- page grouping ---
+    def test_pages_keep_entry_order_not_lexical_order(self):
+        rows = [self._row(1, ref='9'), self._row(2, ref='10'),
+                self._row(3, ref='9'), self._row(4, ref='8A')]
+        pages = mb.group_pages(rows)
+        self.assertEqual([ref for ref, _ in pages], ['9', '10', '8A'])
+        self.assertEqual([r['id'] for r in pages[0][1]], [1, 3])
+
+    def test_blank_page_reference_groups_under_unnumbered(self):
+        pages = mb.group_pages([self._row(1, ref=''), self._row(2, ref=None)])
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(pages[0][0], mb.UNNUMBERED)
+        self.assertEqual(len(pages[0][1]), 2)
+
+    def test_page_and_item_totals(self):
+        rows = [self._row(1, item=1), self._row(2, item=1, nos=1),
+                self._row(3, item=2, nos=1, length=1.0, breadth=1.0, depth=1.0)]
+        self.assertEqual(mb.page_total(rows), round(18.0 + 9.0 + 1.0, 3))
+        self.assertEqual(mb.item_totals(rows), {1: 27.0, 2: 1.0})
+
+    def test_empty_book_summarises_without_error(self):
+        s = mb.summarise([])
+        self.assertEqual(s['entries'], 0)
+        self.assertEqual(s['pages'], 0)
+        self.assertEqual(s['total_quantity'], 0)
+        self.assertIsNone(s['first_date'])
+        self.assertTrue(mb.may_certify([]))
+
+    # --- record integrity (Para 7.5) ---
+    def test_clean_book_raises_no_issues(self):
+        rows = [self._row(1), self._row(2, desc='Footing F2', item=2)]
+        self.assertEqual(mb.integrity_issues(rows), [])
+        self.assertTrue(mb.may_certify(rows))
+
+    def test_identical_entry_on_same_page_is_flagged_as_duplicate(self):
+        rows = [self._row(1), self._row(2)]        # same page, item, dims, desc
+        dupes = [i for i in mb.integrity_issues(rows) if 'twice' in i['issue']]
+        self.assertEqual(len(dupes), 1)
+        self.assertEqual(dupes[0]['id'], 2)        # the later entry is flagged
+        self.assertEqual(dupes[0]['severity'], 'error')
+        self.assertFalse(mb.may_certify(rows))
+
+    def test_same_dimensions_on_a_different_page_is_not_a_duplicate(self):
+        # Two identical footings genuinely measured on separate pages are
+        # normal; only a repeat within one page is the double-entry error.
+        rows = [self._row(1, ref='12'), self._row(2, ref='13')]
+        self.assertEqual(mb.integrity_issues(rows), [])
+
+    def test_same_dimensions_different_location_is_not_a_duplicate(self):
+        rows = [self._row(1, desc='Footing F1'), self._row(2, desc='Footing F2')]
+        self.assertEqual(mb.integrity_issues(rows), [])
+
+    def test_zero_quantity_is_a_blocking_error(self):
+        rows = [self._row(1, qty=0)]
+        issues = mb.blocking_issues(rows)
+        self.assertEqual(len(issues), 1)
+        self.assertIn('blank entries', issues[0]['issue'])
+        self.assertFalse(mb.may_certify(rows))
+
+    def test_negative_quantity_is_a_blocking_error(self):
+        self.assertEqual(len(mb.blocking_issues([self._row(1, qty=-5)])), 1)
+
+    def test_missing_date_blocks_but_missing_page_ref_only_warns(self):
+        undated = mb.integrity_issues([self._row(1, date_='')])
+        self.assertEqual([i['severity'] for i in undated], ['error'])
+
+        unnumbered = mb.integrity_issues([self._row(1, ref='')])
+        self.assertEqual([i['severity'] for i in unnumbered], ['warning'])
+        # a warning is a record lapse, not grounds to refuse the measurement
+        self.assertTrue(mb.may_certify([self._row(1, ref='')]))
+
+    def test_missing_particulars_warns(self):
+        issues = mb.integrity_issues([self._row(1, desc='')])
+        self.assertEqual([i['severity'] for i in issues], ['warning'])
+        self.assertIn('particulars', issues[0]['issue'])
+
+    def test_summary_counts_errors_and_warnings_separately(self):
+        # Each row must be distinct in location, or the duplicate check fires
+        # too and the counts under test stop meaning what they say.
+        rows = [self._row(1, qty=0, desc='Footing F1'),
+                self._row(2, ref='', desc='Footing F2'),
+                self._row(3, desc='Footing F3')]
+        s = mb.summarise(rows)
+        self.assertEqual(s['entries'], 3)
+        self.assertEqual(s['errors'], 1)
+        self.assertEqual(s['warnings'], 1)
+        self.assertEqual(s['first_date'], '2026-04-01')
+
+    def test_date_range_spans_the_book(self):
+        rows = [self._row(1, date_='2026-05-10'), self._row(2, date_='2026-04-02'),
+                self._row(3, date_='2026-06-30')]
+        self.assertEqual(mb.date_range(rows), ('2026-04-02', '2026-06-30'))
+
+    def test_certificate_falls_back_to_blank_rules_when_unsigned(self):
+        text = mb.certificate_text('', '', 3)
+        self.assertIn('____', text)                  # a line to sign on
+        self.assertIn('3 measurements', text)
+        signed = mb.certificate_text('R. Kumar, AE', '2026-04-30', 1)
+        self.assertIn('R. Kumar, AE', signed)
+        self.assertIn('1 measurement ', signed)      # singular, not "1 measurements"
+
+    def test_rows_may_be_sqlite_rows_with_missing_optional_columns(self):
+        # The module reads rows straight from a SELECT; a data file that
+        # predates the measured_by migration must not crash the check.
+        import sqlite3 as sq
+        conn = sq.connect(':memory:')
+        conn.row_factory = sq.Row
+        conn.execute('CREATE TABLE m (id INTEGER, mb_ref TEXT, mb_date TEXT, '
+                     'boq_item_id INTEGER, description TEXT, nos REAL, '
+                     'length REAL, breadth REAL, depth REAL, quantity REAL)')
+        conn.execute("INSERT INTO m VALUES (1,'12','2026-04-01',1,'F1',2,3,2,1.5,18)")
+        rows = conn.execute('SELECT * FROM m').fetchall()
+        try:
+            self.assertEqual(mb.integrity_issues(rows), [])
+            self.assertEqual(mb.summarise(rows)['entries'], 1)
+        finally:
+            conn.close()
+
+
+class TestMeasurementBookExport(unittest.TestCase):
+    """The Form 23 document. Rendering is checked, not styled."""
+
+    def setUp(self):
+        import bill_export
+        self.be = bill_export
+        self.rows = [{'id': 1, 'mb_ref': '12', 'boq_item_id': 1,
+                      'mb_date': '2026-04-01', 'description': 'Footing F1',
+                      'nos': 2, 'length': 3.0, 'breadth': 2.0, 'depth': 1.5,
+                      'quantity': 18.0, 'item_no': '2.1', 'unit': 'cum',
+                      'measured_by': 'R. Kumar, AE', 'checked_by': 'S. Rao, EE',
+                      'remarks': ''}]
+        self.boq = [{'id': 1, 'item_no': '2.1', 'description': 'PCC 1:4:8',
+                     'unit': 'cum', 'qty': 40.0}]
+
+    def _html(self, contract_value=2500000, **kw):
+        contract = {'contract_no': 'AG/2026/07', 'contract_value': contract_value,
+                    'work_name': 'Construction of Anganwadi Centre',
+                    'agreement_date': '2026-03-15', 'start_date': '2026-04-01',
+                    'end_date': '2026-10-01'}
+        params = {'contract': contract, 'client': {'name': 'PWD Division II'},
+                  'site': {'name': 'Ward 7'}, 'rows': self.rows,
+                  'boq_items': self.boq}
+        params.update(kw)
+        return self.be.build_mb_html(**params)
+
+    def test_large_work_prints_as_a_computerised_measurement_book(self):
+        html = self._html(contract_value=2500000)
+        self.assertIn('COMPUTERISED MEASUREMENT BOOK', html)
+        self.assertIn('Para 7.12', html)
+
+    def test_small_work_does_not_claim_cmb_status(self):
+        # Claiming CMB status below the threshold would misrepresent the
+        # document to the department.
+        html = self._html(contract_value=800000)
+        self.assertNotIn('COMPUTERISED MEASUREMENT BOOK', html)
+        self.assertIn('MEASUREMENT SHEET', html)
+        self.assertIn('below the Rs 15 lakh', html)
+
+    def test_header_carries_the_form_23_fields(self):
+        html = self._html()
+        for expected in ('Construction of Anganwadi Centre', 'AG/2026/07',
+                         '2026-03-15', 'Name of work', 'Date of commencement'):
+            self.assertIn(expected, html)
+
+    def test_entries_totals_and_certificate_render(self):
+        html = self._html()
+        self.assertIn('Footing F1', html)
+        self.assertIn('18.000', html)
+        self.assertIn('R. Kumar, AE', html)
+        self.assertIn('S. Rao, EE', html)
+        self.assertIn('Measured by me on 2026-04-01', html)
+
+    def test_abstract_shows_measured_against_tendered(self):
+        html = self._html()
+        self.assertIn('40.000', html)     # tendered
+        self.assertIn('45.0%', html)      # 18 of 40
+
+    def test_issues_panel_appears_only_when_there_are_issues(self):
+        clean = self._html(issues=[])
+        self.assertIn('Record check passed', clean)
+        self.assertNotIn('RECORD CHECK', clean)
+
+        flagged = self._html(issues=mb.integrity_issues(
+            [dict(self.rows[0]), dict(self.rows[0], id=2)]))
+        self.assertIn('RECORD CHECK', flagged)
+        self.assertIn('billed twice', flagged)
+
+    def test_description_is_html_escaped(self):
+        rows = [dict(self.rows[0], description='<script>alert(1)</script>')]
+        html = self._html(rows=rows)
+        self.assertNotIn('<script>', html)
+        self.assertIn('&lt;script&gt;', html)
+
+    def test_empty_book_renders_without_crashing(self):
+        html = self._html(rows=[])
+        self.assertIn('No measurements recorded', html)
 
 
 class TestSchemaMigration(unittest.TestCase):

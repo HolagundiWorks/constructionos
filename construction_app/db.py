@@ -1078,6 +1078,14 @@ _ADD_COLUMNS = [
     ('vendors', 'quality', 'REAL'),
     ('vendors', 'delivery', 'REAL'),
     ('vendors', 'price', 'REAL'),
+    # Measurement Book header fields required by CPWA Form 23. The name of work
+    # and the agreement date sit on the contract because one agreement covers
+    # the whole book; who measured and who checked sit on the entry, because a
+    # book spans months and the Works Manual wants a signature per set.
+    ('contracts', 'work_name', 'TEXT'),
+    ('contracts', 'agreement_date', 'TEXT'),
+    ('measurements', 'measured_by', 'TEXT'),
+    ('measurements', 'checked_by', 'TEXT'),
 ]
 
 
