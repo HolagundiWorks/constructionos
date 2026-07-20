@@ -170,6 +170,29 @@ class KPIDashboard(ttk.Frame):
                     '{:,.2f}'.format(rsum['outstanding']), NONE,
                     'Earned money held by others until the DLP expires.'))
 
+        # --- plant
+        from tab_plant import open_plant_alerts
+        psum = open_plant_alerts(conn)
+        if not psum['machines']:
+            out.append(('Plant due for service', '—', NONE,
+                        'No machines in the equipment master.'))
+        else:
+            need = psum['overdue'] + psum['due']
+            out.append(('Plant due for service', str(need),
+                        ACT if psum['overdue'] else
+                        WATCH if psum['due'] else GOOD,
+                        '{} overdue. A seizure mid-pour costs the machine, the '
+                        'pour and the day.'.format(psum['overdue'])
+                        if psum['overdue'] else
+                        'Due soon — order the parts before it bites.'
+                        if psum['due'] else 'Nothing overdue.'))
+            if psum['fuel_flags']:
+                out.append(('Fuel days above the usual rate',
+                            str(psum['fuel_flags']), WATCH,
+                            'About {:,.0f} litres more than those machines '
+                            'normally use. Questions to ask, not '
+                            'findings.'.format(psum['excess_litres'])))
+
         # --- statutory filings
         # Function-local import for the same reason as retention_lines above:
         # a tab module importing another tab module at module scope loops.

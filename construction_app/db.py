@@ -946,6 +946,20 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- Service history per machine. Kept as its own table rather than overwriting
+-- equipment.last_service_* so the record survives: "when was this last done
+-- and what did it cost" is the question asked when a machine starts failing.
+CREATE TABLE IF NOT EXISTS plant_services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment_id INTEGER REFERENCES equipment(id),
+    service_date TEXT,
+    service_type TEXT,              -- Routine / Repair / Breakdown
+    hours_at_service REAL DEFAULT 0,
+    cost REAL DEFAULT 0,
+    vendor_id INTEGER REFERENCES vendors(id),
+    notes TEXT
+);
+
 -- Statutory filings the firm owes: one row per obligation per period, created
 -- from the rule table in compliance.py. due_date is stored rather than derived
 -- so a date the department has extended by notification can be edited on the
@@ -1058,6 +1072,10 @@ CREATE INDEX IF NOT EXISTS idx_raitems_analysis
     ON rate_analysis_items(analysis_id);
 CREATE INDEX IF NOT EXISTS idx_compliance_due
     ON compliance_filings(due_date);
+CREATE INDEX IF NOT EXISTS idx_plantlogs_equipment
+    ON plant_logs(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_plantservices_equipment
+    ON plant_services(equipment_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compliance_period
     ON compliance_filings(obligation, period);
 """
@@ -1150,6 +1168,15 @@ _ADD_COLUMNS = [
     # CPWA Form 21 identifies a worker by name *and* father's name — common
     # names are ubiquitous on site and the roll is a payment record.
     ('labor', 'father_name', 'TEXT'),
+    # Preventive maintenance schedule per machine. Hours *and* days, because a
+    # machine idle through the monsoon still needs its oil changed.
+    ('equipment', 'service_interval_hours', 'REAL DEFAULT 0'),
+    ('equipment', 'service_interval_days', 'INTEGER DEFAULT 0'),
+    ('equipment', 'last_service_date', 'TEXT'),
+    ('equipment', 'make_model', 'TEXT'),
+    # Links a daily log to the equipment master. Older logs carry only free
+    # text, so plant.machine_key falls back to the name and both still group.
+    ('plant_logs', 'equipment_id', 'INTEGER'),
 ]
 
 

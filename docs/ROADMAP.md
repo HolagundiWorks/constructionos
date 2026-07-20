@@ -450,7 +450,40 @@ the leverage is in making the SOP step impossible to skip.
   is nil. Days late plus the firm's accountant beats a confident wrong number.
   The calendar likewise says plainly that these are standard dates and a
   notification overrides them.
-- ⏳ Plant PM + fuel log; bid/no-bid scorecard; baseline-vs-actual programme.
+- ✅ **Plant preventive maintenance + fuel analysis** (`plant.py`, new Plant tab
+  under Operations, feeding two KPIs). The daily plant log already captured
+  hours, diesel and downtime — nothing ever computed anything from them. The
+  daily entry stays in Site Reports where the site team already works; this tab
+  is what the log is *for*.
+
+  **Fuel: each machine is judged against its own median litres per hour.** Not
+  a fleet average, not a manufacturer figure. A JCB and a needle vibrator have
+  nothing to say to each other, and a spec sheet describes a new machine in a
+  laboratory — on a fleet average the JCB is flagged every day and the vibrator
+  never. The median rather than the mean because the outliers are exactly what
+  is being hunted and a mean quietly absorbs them. Nothing is reported until a
+  machine has enough history to have a norm; crying wolf early is how a signal
+  gets ignored. Diesel issued against a machine that logged **no hours** is a
+  separate, cleaner signal, reported on its own.
+
+  **Nothing is called theft.** Unusual consumption has innocent explanations —
+  a machine idling on standby, a tank filled the evening before — so the view
+  names days, machines and the baseline it judged them against, and leaves the
+  conclusion to the person who knows. Accusing a named operator on arithmetic
+  alone would be both wrong and, on a small site, unforgivable.
+
+  **Service falls due on hours run or elapsed days, whichever comes first** — a
+  mixer idle through the monsoon still needs its oil changed, and one that ran
+  flat out for a fortnight needs it early. A machine with no interval set reads
+  *not scheduled*, never OK: the app does not know it is fine. A log whose date
+  will not parse is **counted** toward hours since service rather than skipped,
+  because the two failure directions are not equal — counting services a
+  machine early, skipping leaves a seizure to happen.
+
+  Logs now link to the equipment master, since 'JCB', 'jcb' and 'JCB 3DX' are
+  one machine to everyone except a `GROUP BY`; the free-text field stays for
+  logs that predate the link, and grouping falls back to the name.
+- ⏳ Bid/no-bid scorecard; baseline-vs-actual programme.
 
 **Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
 predictive analytics beyond the local assistant, heavy multi-user cloud sync,

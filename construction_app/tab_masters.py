@@ -14,6 +14,11 @@ def site_options(conn):
             for r in conn.execute('SELECT id, name FROM sites ORDER BY name')]
 
 
+def equipment_options(conn):
+    return [(r['id'], r['name'])
+            for r in conn.execute('SELECT id, name FROM equipment ORDER BY name')]
+
+
 def client_options(conn):
     return [(r['id'], r['name'])
             for r in conn.execute('SELECT id, name FROM clients ORDER BY name')]
@@ -117,5 +122,14 @@ def build_equipment_tab(parent, db_getter):
         Field('status', 'Status', kind='combo',
               options=['Available', 'In Use', 'Maintenance'],
               default='Available'),
+        Field('make_model', 'Make / Model'),
+        # Service falls due on hours run or elapsed days, whichever comes
+        # first. Leave both at 0 for a machine with no schedule — the Plant
+        # tab then reports "not scheduled" rather than claiming it is fine.
+        Field('service_interval_hours', 'Service every (hours)',
+              kind='number', default='0'),
+        Field('service_interval_days', 'Service every (days)',
+              kind='number', default='0'),
+        Field('last_service_date', 'Last Serviced On'),
     ]
     return CrudFrame(parent, db_getter, 'equipment', fields, 'Equipment')

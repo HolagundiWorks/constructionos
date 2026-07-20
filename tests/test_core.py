@@ -21,7 +21,7 @@ import re
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
@@ -44,6 +44,7 @@ import muster
 import numbering
 import numwords
 import planning
+import plant
 import posting
 import procurement
 import projman
@@ -1400,6 +1401,212 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestPlantFuel(unittest.TestCase):
+    """Fuel analysis. The baseline choice is the whole design here."""
+
+    def _log(self, day, hours, diesel, name='JCB', eid=1, operator='Ravi',
+             downtime=0):
+        return {'log_date': day, 'equipment': name, 'equipment_id': eid,
+                'hours_run': hours, 'diesel_ltr': diesel,
+                'downtime_hrs': downtime, 'operator': operator}
+
+    def _steady(self, n=6, lph=5.0, eid=1, name='JCB'):
+        return [self._log('2026-04-{:02d}'.format(i + 1), 8, 8 * lph,
+                          name=name, eid=eid) for i in range(n)]
+
+    def test_litres_per_hour(self):
+        self.assertEqual(plant.litres_per_hour(8, 40), 5.0)
+
+    def test_no_hours_gives_no_rate_rather_than_infinity(self):
+        # A machine that sat still is not infinitely thirsty; that case is
+        # fuel_without_work's job, where it means something specific.
+        self.assertIsNone(plant.litres_per_hour(0, 40))
+        self.assertIsNone(plant.litres_per_hour(None, 40))
+
+    def test_availability(self):
+        self.assertEqual(plant.availability(6, 2), 75.0)
+        self.assertIsNone(plant.availability(0, 0))
+
+    def test_machine_grouping_prefers_the_id_and_folds_name_case(self):
+        rows = [self._log('2026-04-01', 8, 40, name='JCB', eid=7),
+                self._log('2026-04-02', 8, 40, name='jcb', eid=None),
+                self._log('2026-04-03', 8, 40, name='JCB', eid=None)]
+        groups = plant.group_by_machine(rows)
+        self.assertEqual(len(groups), 2)              # id 7, and 'jcb'
+        self.assertEqual(len(groups[('name', 'jcb')]), 2)
+
+    # --- outliers ---
+    def test_outlier_flagged_against_the_machines_own_median(self):
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 8, 8 * 9.0))    # 9 L/hr, +80%
+        flagged = plant.fuel_outliers(logs)
+        self.assertEqual(len(flagged), 1)
+        self.assertEqual(flagged[0]['log_date'], '2026-04-07')
+        self.assertEqual(flagged[0]['baseline'], 5.0)
+        self.assertEqual(flagged[0]['excess_pct'], 80.0)
+
+    def test_thirsty_machine_is_not_flagged_against_a_thrifty_one(self):
+        # A JCB and a vibrator have nothing to say to each other. Judged
+        # against a fleet average the JCB would be flagged every single day.
+        logs = self._steady(6, lph=2.0, eid=1, name='Vibrator')
+        logs += self._steady(6, lph=12.0, eid=2, name='JCB')
+        self.assertEqual(plant.fuel_outliers(logs), [])
+
+    def test_no_outliers_reported_below_the_minimum_sample(self):
+        # With three logs "unusual" means nothing, and crying wolf early is
+        # how a useful signal gets ignored.
+        # The wild day counts toward the sample too, so build one short of the
+        # threshold in total, not one short before adding it.
+        logs = self._steady(plant.MIN_SAMPLE - 2, lph=5.0)
+        logs.append(self._log('2026-04-20', 8, 8 * 20.0))
+        self.assertEqual(len(logs), plant.MIN_SAMPLE - 1)
+        self.assertEqual(plant.fuel_outliers(logs), [])
+
+        # one more usable day and the same wild reading is reported
+        logs.append(self._log('2026-04-21', 8, 8 * 5.0))
+        self.assertEqual(len(plant.fuel_outliers(logs)), 1)
+
+    def test_median_baseline_resists_the_outliers_being_hunted(self):
+        # Two wild days would drag a mean up far enough to hide themselves.
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 8, 8 * 30.0))
+        logs.append(self._log('2026-04-08', 8, 8 * 30.0))
+        flagged = plant.fuel_outliers(logs)
+        self.assertEqual(len(flagged), 2)
+        self.assertEqual(flagged[0]['baseline'], 5.0)
+
+    def test_tolerance_is_configurable(self):
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 8, 8 * 6.0))    # +20%
+        self.assertEqual(plant.fuel_outliers(logs, tolerance_pct=30), [])
+        self.assertEqual(len(plant.fuel_outliers(logs, tolerance_pct=10)), 1)
+
+    def test_outliers_sorted_worst_first(self):
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 8, 8 * 7.0))
+        logs.append(self._log('2026-04-08', 8, 8 * 12.0))
+        flagged = plant.fuel_outliers(logs)
+        self.assertEqual([f['log_date'] for f in flagged],
+                         ['2026-04-08', '2026-04-07'])
+
+    def test_fuel_without_work_is_its_own_signal(self):
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 0, 60))
+        nowork = plant.fuel_without_work(logs)
+        self.assertEqual(len(nowork), 1)
+        self.assertEqual(nowork[0]['diesel_ltr'], 60)
+        # and it does not also appear as a rate outlier
+        self.assertEqual(plant.fuel_outliers(logs), [])
+
+    def test_excess_litres_sizes_the_question(self):
+        logs = self._steady(6, lph=5.0)
+        logs.append(self._log('2026-04-07', 8, 8 * 9.0))
+        flagged = plant.fuel_outliers(logs)
+        self.assertEqual(plant.excess_litres(flagged), 32.0)   # (9-5) x 8
+
+    def test_machine_summary(self):
+        s = plant.summarise_machine(self._steady(4, lph=5.0))
+        self.assertEqual(s['logs'], 4)
+        self.assertEqual(s['hours'], 32)
+        self.assertEqual(s['diesel'], 160)
+        self.assertEqual(s['litres_per_hour'], 5.0)
+
+    def test_empty_logs_summarise_without_error(self):
+        s = plant.summarise_machine([])
+        self.assertEqual(s['logs'], 0)
+        self.assertIsNone(s['litres_per_hour'])
+        self.assertEqual(plant.fuel_outliers([]), [])
+
+
+class TestPlantMaintenance(unittest.TestCase):
+    """Service falls due on hours or days, whichever comes first."""
+
+    def _machine(self, **kw):
+        m = {'id': 1, 'name': 'JCB 3DX', 'service_interval_hours': 250,
+             'service_interval_days': 0, 'last_service_date': '2026-04-01'}
+        m.update(kw)
+        return m
+
+    def _logs(self, days, hours_each, start='2026-04-02'):
+        # Real consecutive dates — an earlier version of this helper produced
+        # '2026-04-42', which the module correctly refused to parse.
+        d0 = date.fromisoformat(start)
+        return [{'log_date': (d0 + timedelta(days=i)).isoformat(),
+                 'hours_run': hours_each, 'diesel_ltr': 0, 'downtime_hrs': 0}
+                for i in range(days)]
+
+    def test_hours_counted_only_after_the_last_service(self):
+        logs = [{'log_date': '2026-03-20', 'hours_run': 100},
+                {'log_date': '2026-04-05', 'hours_run': 30}]
+        self.assertEqual(
+            plant.hours_since_service(logs, '2026-04-01'), 30)
+
+    def test_never_serviced_counts_everything(self):
+        logs = [{'log_date': '2026-03-20', 'hours_run': 100}]
+        self.assertEqual(plant.hours_since_service(logs, None), 100)
+
+    def test_ok_then_due_then_overdue_on_hours(self):
+        m = self._machine(service_interval_hours=250)
+        ok = plant.service_status(m, self._logs(10, 8), as_on='2026-04-20')
+        self.assertEqual(ok['status'], plant.OK)
+        self.assertEqual(ok['hours_left'], 250 - 80)
+
+        due = plant.service_status(m, self._logs(29, 8), as_on='2026-04-30')
+        self.assertEqual(due['status'], plant.DUE)      # 18 hrs left of 250
+
+        over = plant.service_status(m, self._logs(40, 8), as_on='2026-05-15')
+        self.assertEqual(over['status'], plant.OVERDUE)
+
+    def test_idle_machine_still_falls_due_on_elapsed_days(self):
+        # The monsoon case: no hours at all, but the oil still ages.
+        m = self._machine(service_interval_hours=0, service_interval_days=90)
+        over = plant.service_status(m, [], as_on='2026-08-01')
+        self.assertEqual(over['status'], plant.OVERDUE)
+        self.assertLess(over['days_left'], 0)
+
+    def test_whichever_comes_first_wins(self):
+        m = self._machine(service_interval_hours=250, service_interval_days=90)
+        # plenty of days left, but the hours are gone
+        s = plant.service_status(m, self._logs(40, 8), as_on='2026-04-30')
+        self.assertEqual(s['status'], plant.OVERDUE)
+
+    def test_machine_with_no_schedule_is_not_claimed_to_be_fine(self):
+        m = self._machine(service_interval_hours=0, service_interval_days=0)
+        s = plant.service_status(m, self._logs(40, 8), as_on='2026-05-01')
+        self.assertEqual(s['status'], plant.UNKNOWN)
+        self.assertNotEqual(s['status'], plant.OK)
+
+    def test_days_interval_without_a_last_service_date_cannot_be_judged(self):
+        m = self._machine(service_interval_hours=0, service_interval_days=90,
+                          last_service_date='')
+        s = plant.service_status(m, [], as_on='2026-08-01')
+        self.assertEqual(s['status'], plant.UNKNOWN)
+        self.assertIsNone(s['days_left'])
+
+    def test_due_list_is_ordered_most_urgent_first(self):
+        a = plant.service_status(self._machine(id=1, name='A'),
+                                 self._logs(40, 8), as_on='2026-05-15')
+        b = plant.service_status(self._machine(id=2, name='B'),
+                                 self._logs(31, 8), as_on='2026-05-05')
+        due = plant.due_for_service([b, a])
+        self.assertEqual([d['name'] for d in due], ['A', 'B'])
+
+    def test_fleet_summary_counts_each_state(self):
+        statuses = [
+            plant.service_status(self._machine(id=1), self._logs(40, 8),
+                                 as_on='2026-05-15'),                 # overdue
+            plant.service_status(self._machine(id=2), self._logs(5, 8),
+                                 as_on='2026-04-10'),                 # ok
+            plant.service_status(self._machine(id=3,
+                                               service_interval_hours=0),
+                                 [], as_on='2026-04-10'),             # unknown
+        ]
+        s = plant.fleet_summary(statuses)
+        self.assertEqual(s['machines'], 3)
+        self.assertEqual(s['overdue'], 1)
+        self.assertEqual(s['unscheduled'], 1)
 
 
 class TestComplianceCalendar(unittest.TestCase):

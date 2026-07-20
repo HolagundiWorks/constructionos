@@ -61,6 +61,7 @@ from tab_accounting import build_accounting_tab
 from tab_gst import build_gst_tab
 from tab_compliance import build_compliance_tab
 from tab_equipment_hire import build_equipment_hire_tab
+from tab_plant import build_plant_tab
 from tab_timeline import build_timeline_tab
 from tab_tools import build_tools_tab
 
@@ -80,6 +81,7 @@ BUILDERS = {
     'Muster & Wages': build_muster_tab,
     'Labour Ops': build_labor_ops_tab,
     'Equipment Hire': build_equipment_hire_tab,
+    'Plant': build_plant_tab,
     'Consumption': build_consumption_tab,
     'Site Reports': build_site_reports_tab,
     'Quality': build_quality_tab,

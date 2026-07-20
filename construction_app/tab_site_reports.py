@@ -15,7 +15,7 @@ from tkinter import ttk
 
 import civil
 from crud_frame import CrudFrame, Field, TODAY
-from tab_masters import site_options
+from tab_masters import site_options, equipment_options
 
 
 def _compute_cube(conn, row_id, values):
@@ -88,7 +88,12 @@ def _build_plant_log(parent, db_getter):
     fields = [
         Field('log_date', 'Date', default=TODAY),
         Field('site_id', 'Site', kind='fk', options_func=site_options, remember=True),
-        Field('equipment', 'Equipment'),
+        # Pick the machine from the master so fuel history groups reliably —
+        # 'JCB', 'jcb' and 'JCB 3DX' are one machine to everyone except a
+        # GROUP BY. The free-text field stays for logs that predate the link.
+        Field('equipment_id', 'Machine', kind='fk',
+              options_func=equipment_options, remember=True),
+        Field('equipment', 'Equipment (if not in the master)'),
         Field('hours_run', 'Hours Run', kind='number', default='0'),
         Field('diesel_ltr', 'Diesel (L)', kind='number', default='0'),
         Field('downtime_hrs', 'Downtime (hrs)', kind='number', default='0'),
