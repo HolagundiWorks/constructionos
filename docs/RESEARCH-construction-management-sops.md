@@ -5,6 +5,11 @@ _Compiled 2026-07-19. Lens: mid-size construction/contracting firms, with a
 specific read for tier-2/tier-3 Indian civil contractors (the Construction OS
 audience). Sources listed at the end._
 
+> **Companion:** `RESEARCH-sop-primary-sources.md` covers the statutory detail
+> behind these practices — the CPWA forms, CPWD Works Manual rules, retention
+> regime and rate-analysis skeleton — with the source text quoted. This document
+> is *how to run the process*; that one is *what the forms and rules require*.
+
 ---
 
 ## 0. Executive summary
