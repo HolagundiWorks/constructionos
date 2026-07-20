@@ -483,7 +483,38 @@ the leverage is in making the SOP step impossible to skip.
   Logs now link to the equipment master, since 'JCB', 'jcb' and 'JCB 3DX' are
   one machine to everyone except a `GROUP BY`; the free-text field stays for
   logs that predate the link, and grouping falls back to the name.
-- ⏳ Bid/no-bid scorecard; baseline-vs-actual programme.
+- ✅ **Baseline-vs-actual programme, with LD exposure and EOT support**
+  (`programme.py`, new Baseline vs Actual view in Timeline, feeding a KPI).
+  The timeline let dates be edited in place, so the original plan vanished the
+  first time anything moved. That is the expensive gap: when a job finishes
+  late the contractor must prove *what* slipped and *whose fault it was*, and
+  "we remember it was the drawings" is not evidence.
+
+  Freezing the baseline turns the timeline into two money numbers.
+  **Liquidated damages exposure** — a percentage of contract value per week
+  capped at a percentage of the whole, part weeks counting as whole weeks, cap
+  applied last. Terms are per project, because they differ by contract.
+  **Extension of time** — delay attributed to the employer (late drawings,
+  access, a variation, exceptional weather) is normally excusable, and the view
+  shows what exposure would fall to if the claim succeeded.
+
+  **Claimable days take the largest excusable slip, never the sum.** Three
+  tasks each a fortnight late because the same drawings were late is a
+  fortnight of delay, not six weeks. Summing them is the commonest way an EOT
+  claim is inflated to the point of being rejected whole.
+
+  Three honesty constraints, all load-bearing. The LD figure is an **exposure
+  estimate on the terms entered**, never a statement of what will be charged —
+  contracts differ and departments remit. Days are **claimable, not granted**:
+  only the employer grants an extension. And **re-baselining destroys the
+  evidence**, so the confirmation quotes the real figures — "this erases 30
+  days of recorded delay and 30 days currently supporting a claim" — rather
+  than a generic caution nobody reads.
+
+  A late task with no cause recorded is called out separately: those are days
+  that cannot be claimed for, and the reason is far easier to establish now
+  than at the final account.
+- ⏳ Bid/no-bid scorecard.
 
 **Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
 predictive analytics beyond the local assistant, heavy multi-user cloud sync,

@@ -1177,6 +1177,21 @@ _ADD_COLUMNS = [
     # Links a daily log to the equipment master. Older logs carry only free
     # text, so plant.machine_key falls back to the name and both still group.
     ('plant_logs', 'equipment_id', 'INTEGER'),
+    # The frozen plan. Without it, editing a date destroys the evidence of
+    # what slipped — and with it any extension-of-time claim.
+    ('timeline_tasks', 'baseline_start', 'TEXT'),
+    ('timeline_tasks', 'baseline_end', 'TEXT'),
+    ('timeline_tasks', 'actual_start', 'TEXT'),
+    ('timeline_tasks', 'actual_end', 'TEXT'),
+    # Attribution decides whether a delay supports an EOT claim, so it belongs
+    # on the task that slipped, recorded when the reason is still known.
+    ('timeline_tasks', 'delay_cause', 'TEXT'),
+    ('timeline_tasks', 'delay_note', 'TEXT'),
+    # LD terms vary by contract, so they are per project, not constants.
+    ('projects', 'ld_pct_per_week', 'REAL DEFAULT 0.5'),
+    ('projects', 'ld_cap_pct', 'REAL DEFAULT 10'),
+    ('projects', 'eot_granted_days', 'INTEGER DEFAULT 0'),
+    ('projects', 'contract_value', 'REAL DEFAULT 0'),
 ]
 
 

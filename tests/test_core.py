@@ -47,6 +47,7 @@ import planning
 import plant
 import posting
 import procurement
+import programme
 import projman
 import quality
 import rateanalysis
@@ -1401,6 +1402,178 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestProgrammeBaseline(unittest.TestCase):
+    """Frozen plan vs actual, delay attribution, and LD exposure."""
+
+    def _task(self, tid, name, b_end, end, cause='', actual_end=None,
+              b_start='2026-04-01', start='2026-04-01'):
+        return {'id': tid, 'task_name': name, 'baseline_start': b_start,
+                'baseline_end': b_end, 'start_date': start, 'end_date': end,
+                'actual_start': None, 'actual_end': actual_end,
+                'delay_cause': cause, 'delay_note': '', 'status': 'In Progress'}
+
+    # --- slip ---
+    def test_slip_is_signed_and_early_is_negative(self):
+        self.assertEqual(programme.slip_days('2026-05-01', '2026-05-11'), 10)
+        self.assertEqual(programme.slip_days('2026-05-01', '2026-04-28'), -3)
+        self.assertEqual(programme.slip_days('2026-05-01', '2026-05-01'), 0)
+
+    def test_missing_baseline_gives_none_not_zero(self):
+        # "No baseline" and "on time" are different states; reporting the first
+        # as the second makes an unbaselined programme look healthy.
+        self.assertIsNone(programme.slip_days(None, '2026-05-01'))
+        self.assertIsNone(programme.slip_days('2026-05-01', None))
+
+    def test_actual_finish_beats_planned_finish(self):
+        t = self._task(1, 'Footings', '2026-05-01', '2026-05-20',
+                       actual_end='2026-05-10')
+        v = programme.task_variance(t)
+        self.assertEqual(v['finish'], '2026-05-10')
+        self.assertEqual(v['finish_slip'], 9)
+        self.assertTrue(v['complete'])
+
+    # --- programme level ---
+    def test_programme_finish_is_the_latest_task(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-05'),
+                 self._task(2, 'B', '2026-06-01', '2026-06-20')]
+        self.assertEqual(programme.programme_finish(tasks, 'baseline_end')
+                         .isoformat(), '2026-06-01')
+        self.assertEqual(programme.programme_finish(tasks, 'effective')
+                         .isoformat(), '2026-06-20')
+
+    def test_total_delay_is_the_programme_finish_slip(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-05'),
+                 self._task(2, 'B', '2026-06-01', '2026-06-20')]
+        s = programme.delay_summary(tasks)
+        self.assertEqual(s['total_delay_days'], 19)
+        self.assertEqual(s['late_tasks'], 2)
+
+    def test_claimable_days_take_the_largest_not_the_sum(self):
+        # Three tasks each a fortnight late for the same late drawings is a
+        # fortnight of delay, not six weeks. Summing is the commonest way an
+        # EOT claim gets inflated to the point of being rejected whole.
+        tasks = [self._task(i, 'T{}'.format(i), '2026-05-01', '2026-05-15',
+                            cause=programme.CLIENT) for i in (1, 2, 3)]
+        s = programme.delay_summary(tasks)
+        self.assertEqual(s['claimable_days'], 14)
+
+    def test_only_excusable_causes_are_claimable(self):
+        own = [self._task(1, 'A', '2026-05-01', '2026-05-15',
+                          cause=programme.OWN)]
+        self.assertEqual(programme.delay_summary(own)['claimable_days'], 0)
+
+        client = [self._task(1, 'A', '2026-05-01', '2026-05-15',
+                             cause=programme.CLIENT)]
+        self.assertEqual(programme.delay_summary(client)['claimable_days'], 14)
+
+        sub = [self._task(1, 'A', '2026-05-01', '2026-05-15',
+                          cause=programme.SUBCONTRACTOR)]
+        self.assertEqual(programme.delay_summary(sub)['claimable_days'], 0)
+
+    def test_excusable_set_is_overridable_for_a_harsher_contract(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-15',
+                            cause=programme.WEATHER)]
+        self.assertEqual(programme.delay_summary(tasks)['claimable_days'], 14)
+        strict = programme.delay_summary(tasks, excusable={programme.CLIENT})
+        self.assertEqual(strict['claimable_days'], 0)
+
+    def test_late_tasks_without_a_cause_are_counted_separately(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-15', cause=''),
+                 self._task(2, 'B', '2026-05-01', '2026-05-10',
+                            cause=programme.CLIENT)]
+        s = programme.delay_summary(tasks)
+        self.assertEqual(s['unattributed_tasks'], 1)
+
+    def test_unbaselined_tasks_are_reported_not_silently_ignored(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-15'),
+                 self._task(2, 'B', None, '2026-06-01')]
+        s = programme.delay_summary(tasks)
+        self.assertEqual(s['baselined'], 1)
+        self.assertEqual(s['unbaselined'], 1)
+
+    def test_early_programme_reports_negative_delay_and_no_late_tasks(self):
+        tasks = [self._task(1, 'A', '2026-05-10', '2026-05-01')]
+        s = programme.delay_summary(tasks)
+        self.assertEqual(s['total_delay_days'], -9)
+        self.assertEqual(s['late_tasks'], 0)
+
+    # --- liquidated damages ---
+    def test_part_weeks_count_as_whole_weeks(self):
+        ld = programme.ld_exposure(10000000, 8, pct_per_week=0.5, cap_pct=10)
+        self.assertEqual(ld['weeks_charged'], 2)      # 8 days -> 2 weeks
+        self.assertEqual(ld['exposure'], 100000)      # 2 x 0.5% x 1 crore
+
+    def test_exactly_seven_days_is_one_week(self):
+        self.assertEqual(
+            programme.ld_exposure(10000000, 7)['weeks_charged'], 1)
+
+    def test_cap_is_applied_last_and_reported(self):
+        # 60 weeks at 0.5% would be 30%; the 10% cap must bite.
+        ld = programme.ld_exposure(10000000, 420, pct_per_week=0.5, cap_pct=10)
+        self.assertEqual(ld['raw'], 3000000)
+        self.assertEqual(ld['exposure'], 1000000)
+        self.assertTrue(ld['at_cap'])
+
+    def test_no_delay_no_exposure(self):
+        ld = programme.ld_exposure(10000000, 0)
+        self.assertEqual(ld['exposure'], 0)
+        self.assertEqual(ld['weeks_charged'], 0)
+
+    def test_negative_delay_cannot_produce_a_credit(self):
+        self.assertEqual(programme.ld_exposure(10000000, -30)['exposure'], 0)
+
+    def test_net_delay_subtracts_the_extension_already_granted(self):
+        self.assertEqual(programme.net_delay(40, 15), 25)
+        self.assertEqual(programme.net_delay(10, 30), 0)   # never negative
+
+    # --- the whole position ---
+    def test_position_shows_what_a_successful_claim_would_save(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-29',
+                            cause=programme.CLIENT)]      # 28 days late
+        pos = programme.position(tasks, contract_value=10000000,
+                                 eot_granted_days=0,
+                                 pct_per_week=0.5, cap_pct=10)
+        self.assertEqual(pos['total_delay_days'], 28)
+        self.assertEqual(pos['net_delay_days'], 28)
+        self.assertEqual(pos['claimable_days'], 28)
+        self.assertEqual(pos['ld']['exposure'], 200000)    # 4 weeks
+        self.assertEqual(pos['exposure_if_claim_succeeds'], 0)
+
+    def test_granted_extension_reduces_exposure(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-29')]
+        pos = programme.position(tasks, contract_value=10000000,
+                                 eot_granted_days=14)
+        self.assertEqual(pos['net_delay_days'], 14)
+        self.assertEqual(pos['ld']['exposure'], 100000)    # 2 weeks
+
+    def test_position_on_an_empty_or_unbaselined_programme(self):
+        self.assertEqual(programme.position([])['baselined'], 0)
+        tasks = [self._task(1, 'A', None, '2026-06-01')]
+        pos = programme.position(tasks, contract_value=10000000)
+        self.assertEqual(pos['baselined'], 0)
+        self.assertEqual(pos['ld']['exposure'], 0)
+
+    # --- freezing ---
+    def test_baseline_payload_skips_tasks_with_no_planned_finish(self):
+        tasks = [self._task(1, 'A', None, '2026-05-01'),
+                 self._task(2, 'B', None, None)]
+        payload = programme.baseline_payload(tasks)
+        self.assertEqual([p[0] for p in payload], [1])
+
+    def test_rebaseline_warning_quotes_what_would_be_erased(self):
+        tasks = [self._task(1, 'A', '2026-05-01', '2026-05-29',
+                            cause=programme.CLIENT)]
+        warn = programme.rebaseline_warning(tasks)
+        self.assertEqual(warn['already_baselined'], 1)
+        self.assertEqual(warn['delay_days_erased'], 28)
+        self.assertEqual(warn['claimable_days_erased'], 28)
+
+    def test_nothing_baselined_means_nothing_to_warn_about(self):
+        tasks = [self._task(1, 'A', None, '2026-05-29')]
+        self.assertEqual(
+            programme.rebaseline_warning(tasks)['already_baselined'], 0)
 
 
 class TestPlantFuel(unittest.TestCase):

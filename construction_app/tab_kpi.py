@@ -170,6 +170,25 @@ class KPIDashboard(ttk.Frame):
                     '{:,.2f}'.format(rsum['outstanding']), NONE,
                     'Earned money held by others until the DLP expires.'))
 
+        # --- programme delay
+        from tab_timeline import worst_delay
+        wd = worst_delay(conn)
+        if wd is None:
+            out.append(('Programme delay', '—', NONE,
+                        'No project has a frozen baseline yet '
+                        '(Timeline > Baseline vs Actual).'))
+        else:
+            days = wd['net_delay_days']
+            out.append(('Worst programme delay',
+                        '{} day(s)'.format(days) if days else 'On time',
+                        ACT if days > 0 else GOOD,
+                        '{} — exposure {:,.2f} in liquidated damages on the '
+                        'terms recorded. {} day(s) of it may support an '
+                        'extension claim.'.format(
+                            wd['project'], wd['ld']['exposure'],
+                            wd['claimable_days'])
+                        if days else 'Nothing running late against baseline.'))
+
         # --- plant
         from tab_plant import open_plant_alerts
         psum = open_plant_alerts(conn)

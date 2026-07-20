@@ -30,6 +30,17 @@ def _build_projects(parent, db_getter):
         Field('status', 'Status', kind='combo',
               options=['Active', 'On Hold', 'Completed', 'Cancelled'],
               default='Active'),
+        # Delay terms, used by Timeline > Baseline vs Actual to estimate
+        # liquidated-damages exposure. They vary by contract, so they are set
+        # per project rather than assumed. Contract value is kept separate
+        # from budget: budget is what you expect to spend, contract value is
+        # what LDs are computed on.
+        Field('contract_value', 'Contract Value (for LDs)', kind='number',
+              default='0'),
+        Field('ld_pct_per_week', 'LD % per week', kind='number', default='0.5'),
+        Field('ld_cap_pct', 'LD cap %', kind='number', default='10'),
+        Field('eot_granted_days', 'Extension granted (days)', kind='number',
+              default='0'),
         Field('notes', 'Notes', width=200),
     ]
     return CrudFrame(parent, db_getter, 'projects', fields, 'Projects')
