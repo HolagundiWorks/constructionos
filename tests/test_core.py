@@ -30,6 +30,7 @@ import ageing
 import allocation
 import approval
 import analytics
+import bidding
 import cashflow
 import civil
 import closeout
@@ -1402,6 +1403,177 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestBidding(unittest.TestCase):
+    """Scorecard, evidence, and the vetoes that override the score."""
+
+    def _all(self, value):
+        return {f['key']: value for f in bidding.FACTORS}
+
+    def test_weights_sum_to_one_hundred(self):
+        self.assertEqual(sum(f['weight'] for f in bidding.FACTORS), 100)
+
+    def test_every_factor_has_both_anchors(self):
+        # A bare 1-5 scale invites everyone to pick 3; the anchors are what
+        # make two people score the same tender the same way.
+        for f in bidding.FACTORS:
+            self.assertTrue(f['low'].strip(), f['key'])
+            self.assertTrue(f['high'].strip(), f['key'])
+
+    def test_score_endpoints(self):
+        self.assertEqual(bidding.score(self._all(5)), 100.0)
+        self.assertEqual(bidding.score(self._all(1)), 0.0)
+        self.assertEqual(bidding.score(self._all(3)), 50.0)
+
+    def test_unscored_factors_are_excluded_not_treated_as_zero(self):
+        # A half-filled card should read as "what we know so far", not be
+        # punished as though the blanks were terrible.
+        partial = {'capability': 5, 'margin': 5}
+        self.assertEqual(bidding.score(partial), 100.0)
+        pct, done, of = bidding.completeness(partial)
+        self.assertEqual(done, 2)
+        self.assertEqual(of, len(bidding.FACTORS))
+
+    def test_nothing_scored_gives_no_score(self):
+        self.assertIsNone(bidding.score({}))
+        self.assertIsNone(bidding.score(None))
+
+    def test_out_of_range_scores_are_clamped(self):
+        self.assertEqual(bidding.score({'capability': 99}), 100.0)
+        self.assertEqual(bidding.score({'capability': -5}), 0.0)
+
+    def test_weighting_favours_the_heavier_factors(self):
+        heavy = {'capability': 5, 'logistics': 1}     # 25 vs 10
+        light = {'capability': 1, 'logistics': 5}
+        self.assertGreater(bidding.score(heavy), bidding.score(light))
+
+    # --- evidence ---
+    def test_client_evidence_sums_exposure_and_ages_it(self):
+        pos = {'outstanding': 500000,
+               'buckets': {'0-30': 100000, '30-60': 100000,
+                           '60-90': 150000, '90+': 150000}}
+        ev = bidding.client_evidence(pos, retention_held=200000,
+                                     tender_value=2000000)
+        self.assertEqual(ev['outstanding'], 500000)
+        self.assertEqual(ev['exposure'], 700000)        # incl. retention
+        self.assertEqual(ev['aged_overdue'], 300000)    # 60-90 and 90+
+        self.assertEqual(ev['exposure_pct_of_tender'], 35.0)
+
+    def test_aged_buckets_match_the_ageing_module_exactly(self):
+        # Substring matching got this wrong once: '30-60' contains '60'. If
+        # ageing.BUCKETS is ever renamed, this fails rather than silently
+        # counting current debt as overdue.
+        for label in bidding.AGED_BUCKETS:
+            self.assertIn(label, ageing.BUCKETS)
+        self.assertEqual(bidding.AGED_BUCKETS, ageing.BUCKETS[-2:])
+
+    def test_current_debt_is_not_counted_as_overdue(self):
+        pos = {'outstanding': 200000,
+               'buckets': {'0-30': 100000, '30-60': 100000}}
+        ev = bidding.client_evidence(pos, 0, 1000000)
+        self.assertEqual(ev['aged_overdue'], 0)
+        self.assertEqual(bidding.vetoes({}, ev, {}), [])
+
+    def test_no_client_history_is_flagged_not_assumed_good(self):
+        ev = bidding.client_evidence({}, 0, 1000000)
+        self.assertFalse(ev['has_history'])
+        warns = bidding.warnings({}, ev, {})
+        self.assertTrue(any('No trading history' in w for w in warns))
+
+    def test_workload_utilisation(self):
+        w = bidding.workload_evidence(8000000, 10000000, 3000000)
+        self.assertEqual(w['utilisation_pct'], 80.0)
+        self.assertEqual(w['utilisation_with_this_pct'], 110.0)
+
+    def test_workload_without_a_capacity_reports_none_not_zero(self):
+        w = bidding.workload_evidence(5000000, 0, 1000000)
+        self.assertIsNone(w['utilisation_pct'])
+
+    # --- vetoes: the reason this module exists ---
+    def test_a_veto_overrides_a_high_score(self):
+        # Five comfortable scores must not drown out one fatal factor.
+        good = self._all(5)
+        good['cashflow'] = 1
+        total = bidding.score(good)
+        self.assertGreater(total, bidding.MIN_SCORE_TO_BID)
+        result = bidding.assess(good, {}, {})
+        self.assertEqual(result['verdict'], bidding.NO_BID)
+        self.assertTrue(result['vetoes'])
+
+    def test_aged_debt_with_this_client_vetoes(self):
+        ev = bidding.client_evidence(
+            {'outstanding': 420000, 'buckets': {'90+': 420000}}, 0, 5000000)
+        v = bidding.vetoes(self._all(5), ev, {})
+        self.assertTrue(any('60 days old' in x for x in v))
+
+    def test_concentrated_exposure_vetoes(self):
+        ev = bidding.client_evidence({'outstanding': 900000, 'buckets': {}},
+                                     0, 2000000)         # 45% of tender
+        v = bidding.vetoes(self._all(5), ev, {})
+        self.assertTrue(any('already tied up' in x for x in v))
+
+    def test_full_order_book_vetoes(self):
+        w = bidding.workload_evidence(14000000, 10000000, 2000000)   # 160%
+        v = bidding.vetoes(self._all(5), {}, w)
+        self.assertTrue(any('capacity' in x for x in v))
+
+    def test_veto_thresholds_are_overridable(self):
+        ev = bidding.client_evidence({'outstanding': 900000, 'buckets': {}},
+                                     0, 2000000)
+        self.assertTrue(bidding.vetoes(self._all(5), ev, {},
+                                       exposure_veto_pct=25))
+        self.assertFalse(bidding.vetoes(self._all(5), ev, {},
+                                        exposure_veto_pct=60))
+
+    def test_clean_client_and_light_book_produce_no_vetoes(self):
+        ev = bidding.client_evidence({'outstanding': 0, 'buckets': {}},
+                                     0, 2000000)
+        w = bidding.workload_evidence(2000000, 10000000, 2000000)
+        self.assertEqual(bidding.vetoes(self._all(4), ev, w), [])
+
+    def test_vetoes_cite_evidence_rather_than_a_number(self):
+        # "Score 42" is not arguable; a figure and a reason is.
+        ev = bidding.client_evidence(
+            {'outstanding': 420000, 'buckets': {'90+': 420000}}, 0, 5000000)
+        v = bidding.vetoes(self._all(5), ev, {})
+        self.assertTrue(any('420,000' in x for x in v))
+
+    # --- verdict ---
+    def test_verdict_bands(self):
+        self.assertEqual(bidding.verdict(85, []), bidding.BID)
+        self.assertEqual(bidding.verdict(50, []), bidding.CONDITIONAL)
+        self.assertEqual(bidding.verdict(20, []), bidding.NO_BID)
+        self.assertEqual(bidding.verdict(95, ['fatal']), bidding.NO_BID)
+
+    def test_full_assessment_shape(self):
+        r = bidding.assess(self._all(4), bidding.client_evidence({}, 0, 0),
+                           bidding.workload_evidence(0, 0, 0))
+        self.assertEqual(r['verdict'], bidding.BID)
+        self.assertEqual(r['score'], 75.0)
+        self.assertEqual(r['completeness_pct'], 100)
+
+    # --- learning from outcomes ---
+    def test_outcome_review_compares_scoring_with_reality(self):
+        rows = [{'score': 80, 'verdict': bidding.BID, 'decision': 'Bid',
+                 'outcome': 'Won'},
+                {'score': 75, 'verdict': bidding.BID, 'decision': 'Bid',
+                 'outcome': 'Lost'},
+                {'score': 30, 'verdict': bidding.NO_BID, 'decision': 'Bid',
+                 'outcome': 'Won'},
+                {'score': 50, 'verdict': bidding.CONDITIONAL,
+                 'decision': 'No bid', 'outcome': 'Pending'}]
+        rev = bidding.outcome_review(rows)
+        self.assertEqual(rev['assessed'], 4)
+        self.assertEqual(rev['won'], 2)
+        self.assertEqual(rev['lost'], 1)
+        self.assertAlmostEqual(rev['win_rate'], 66.7, places=1)
+        self.assertEqual(rev['bid_against_advice'], 1)
+
+    def test_outcome_review_of_nothing(self):
+        rev = bidding.outcome_review([])
+        self.assertEqual(rev['assessed'], 0)
+        self.assertIsNone(rev['win_rate'])
 
 
 class TestProgrammeBaseline(unittest.TestCase):

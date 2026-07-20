@@ -37,6 +37,7 @@ from tab_muster import build_muster_tab
 from tab_documents import (build_quotations_tab, build_contracts_tab,
                            build_purchase_orders_tab)
 from tab_estimate import build_estimate_tab
+from tab_bidding import build_bidding_tab
 from tab_rateanalysis import build_rate_analysis_tab
 from tab_projects import build_projects_tab
 from tab_billing import BillingTab
@@ -91,6 +92,7 @@ BUILDERS = {
     'Timeline': build_timeline_tab,
     'Rate Book': build_rate_book_tab,
     'Rate Analysis': build_rate_analysis_tab,
+    'Bid / No Bid': build_bidding_tab,
     'Quotations': build_quotations_tab,
     'Estimates': build_estimate_tab,
     'Contracts': build_contracts_tab,

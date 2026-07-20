@@ -514,7 +514,38 @@ the leverage is in making the SOP step impossible to skip.
   A late task with no cause recorded is called out separately: those are days
   that cannot be claimed for, and the reason is far easier to establish now
   than at the final account.
-- ⏳ Bid/no-bid scorecard.
+- ✅ **Bid / no-bid scorecard** (`bidding.py`, new tab under Billing).
+  I argued against building this, on the grounds that a scorecard which only
+  weighs the estimator's own guesses is astrology with arithmetic. That
+  objection shaped the design rather than being ignored.
+
+  **Evidence comes from the firm's own ledger**, not from the person filling
+  the form: whether this client has actually paid past bills, how much of our
+  money (receivable plus retention) is already sitting with them, and how full
+  the order book is against a stated annual capacity. None of that is opinion,
+  and the payment record is the largest risk in this trade — a profitable job
+  for a client who pays at 180 days can still close the business.
+
+  **Judgement factors are anchored.** Each of the six describes what 1 and 5
+  concretely mean, because a bare 1-5 scale invites everyone to pick 3 and
+  produces a confident-looking 60 that means nothing. Unscored factors are
+  excluded and the weights renormalised, so a half-filled card reads as "what
+  we know so far" rather than being punished as though the blanks were bad.
+
+  **Vetoes override the score, and that is the whole point.** A weighted
+  average lets five comfortable scores drown out one fatal factor. No cash to
+  carry it, a client already months overdue, work we cannot actually do — those
+  are not worth 10% each, they end the conversation. The end-to-end run shows
+  it working: the *same* judgement score of 78.8 returns BID for a client who
+  pays and DO NOT BID for one sitting on ₹4.2 lakh at 125 days.
+
+  Vetoes are written as sentences citing the figure, because "score 42" is not
+  something anyone can argue with while "this client owes you 4,20,000 more
+  than 60 days old" is. The verdict says outright that it is advice.
+
+  The assessment records **what was actually decided and how it turned out**,
+  so the weights above can eventually be checked against the firm's own history
+  instead of being trusted forever.
 
 **Explicit non-goals** (protecting the founding thesis): BIM, IoT/drones,
 predictive analytics beyond the local assistant, heavy multi-user cloud sync,

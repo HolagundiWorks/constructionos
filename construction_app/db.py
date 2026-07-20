@@ -946,6 +946,25 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- Bid / no-bid assessments. Records the judgement scores, the advisory
+-- verdict, what was actually decided, and how it turned out — the last two
+-- are what let the scoring be checked against reality later instead of being
+-- trusted forever.
+CREATE TABLE IF NOT EXISTS bid_assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tender_ref TEXT,
+    title TEXT,
+    client_id INTEGER REFERENCES clients(id),
+    tender_value REAL DEFAULT 0,
+    submission_date TEXT,
+    scores TEXT,                    -- JSON {factor_key: 1..5}
+    score REAL,                     -- derived, NULL until anything is scored
+    verdict TEXT,                   -- derived advisory verdict
+    decision TEXT DEFAULT 'Not decided',   -- Bid / No bid / Not decided
+    outcome TEXT DEFAULT 'Pending',        -- Won / Lost / Withdrawn / Pending
+    notes TEXT
+);
+
 -- Service history per machine. Kept as its own table rather than overwriting
 -- equipment.last_service_* so the record survives: "when was this last done
 -- and what did it cost" is the question asked when a machine starts failing.
