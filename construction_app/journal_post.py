@@ -28,7 +28,17 @@ def _account_ids(conn):
 # _write_entry, so make sure they all exist before posting.
 _REQUIRED_ACCOUNTS = [
     (posting.RETENTION_RECEIVABLE, 'Retention Receivable', 'Asset'),
+    (posting.TDS_RECEIVABLE, 'TDS Receivable', 'Asset'),
 ]
+
+
+def _col(row, key, default=0):
+    """Read a column that may not exist yet on an older data file."""
+    try:
+        val = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+    return default if val is None else val
 
 
 def _ensure_accounts(conn):
@@ -129,7 +139,8 @@ def post_all(conn):
             continue
         lines = posting.ra_bill_lines(
             r['this_bill_value'], r['retention_amt'], r['other_deductions'],
-            r['net_payable'])
+            r['net_payable'], tds_amt=_col(r, 'tds_amt'),
+            cess_amt=_col(r, 'cess_amt'))
         _write_entry(conn, accounts, 'RABill', r['id'], r['bill_date'],
                      ('RA bill ' + (r['bill_no'] or '')).strip(), r['bill_no'],
                      lines)

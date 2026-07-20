@@ -583,7 +583,12 @@ class RABillFrame(ttk.Frame):
         self._cmap = {}
         self.contract_var = tk.StringVar()
         self.date_var = tk.StringVar()
-        self.retention_var = tk.StringVar(value='5')
+        # CPWD deducts 2.5% security deposit per running bill (Works Manual
+        # Para 21.2) on top of the 5% performance guarantee taken up front.
+        # State PWDs vary, so it is an editable default, not a constant.
+        self.retention_var = tk.StringVar(value='2.5')
+        self.tds_var = tk.StringVar(value='0')
+        self.cess_var = tk.StringVar(value='0')
         self.deduction_var = tk.StringVar(value='0')
         self.status_var = tk.StringVar(value='Draft')
         self._build_ui()
@@ -599,13 +604,17 @@ class RABillFrame(ttk.Frame):
 
         gen = ttk.LabelFrame(self, text='Generate RA Bill'); gen.pack(fill='x', padx=8, pady=4)
         for idx, (label, var, w) in enumerate([
-                ('Bill Date', self.date_var, 14), ('Retention %', self.retention_var, 8),
+                ('Bill Date', self.date_var, 14),
+                ('Security Deposit %', self.retention_var, 8),
+                ('Income Tax TDS %', self.tds_var, 8),
+                ('Labour Cess %', self.cess_var, 8),
                 ('Other Deductions', self.deduction_var, 10)]):
-            cell = ttk.Frame(gen); cell.grid(row=0, column=idx, padx=6, pady=4, sticky='w')
-            ttk.Label(cell, text=label, width=14).pack(side='left')
+            cell = ttk.Frame(gen)
+            cell.grid(row=idx // 3, column=idx % 3, padx=6, pady=4, sticky='w')
+            ttk.Label(cell, text=label, width=17).pack(side='left')
             ttk.Entry(cell, textvariable=var, width=w).pack(side='left')
         ttk.Button(gen, text='Generate RA Bill', command=self.generate) \
-            .grid(row=0, column=3, padx=8)
+            .grid(row=1, column=2, padx=8, sticky='e')
 
         hdr = ttk.LabelFrame(self, text='RA Bills'); hdr.pack(fill='both', expand=True, padx=8, pady=4)
         headings = {'id': 'ID', 'bill_no': 'Bill No', 'bill_date': 'Date',
@@ -724,9 +733,13 @@ class RABillFrame(ttk.Frame):
             return
         bill_date = self.date_var.get().strip()
         retention_pct = _num(self.retention_var.get(), 0.0)
+        tds_pct = _num(self.tds_var.get(), 0.0)
+        cess_pct = _num(self.cess_var.get(), 0.0)
         other = _num(self.deduction_var.get(), 0.0)
-        if retention_pct is None or other is None:
-            messagebox.showerror('Invalid number', 'Retention/Deductions must be numbers.')
+        if None in (retention_pct, tds_pct, cess_pct, other):
+            messagebox.showerror(
+                'Invalid number',
+                'Security deposit, TDS, cess and deductions must be numbers.')
             return
 
         conn = self.db_getter()
@@ -757,7 +770,8 @@ class RABillFrame(ttk.Frame):
                 "WHERE contract_id = ? AND status IN ('Approved', 'Paid')",
                 (cid,)).fetchone()['v']
             totals = civil.ra_bill_totals(this_bill_value, previous_value,
-                                          retention_pct, other)
+                                          retention_pct, other,
+                                          tds_pct=tds_pct, cess_pct=cess_pct)
             count = conn.execute('SELECT COUNT(*) AS c FROM ra_bills WHERE contract_id = ?',
                                  (cid,)).fetchone()['c']
             bill_no = 'RA-{}'.format(count + 1)
@@ -765,12 +779,14 @@ class RABillFrame(ttk.Frame):
             cur = conn.execute(
                 'INSERT INTO ra_bills (contract_id, bill_no, bill_date, status, '
                 'this_bill_value, previous_value, cumulative_value, retention_pct, '
-                'retention_amt, other_deductions, net_payable) '
-                "VALUES (?, ?, ?, 'Draft', ?, ?, ?, ?, ?, ?, ?)",
+                'retention_amt, tds_pct, tds_amt, cess_pct, cess_amt, '
+                'other_deductions, net_payable) '
+                "VALUES (?, ?, ?, 'Draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (cid, bill_no, bill_date, totals['this_bill_value'],
                  totals['previous_value'], totals['cumulative_value'],
-                 retention_pct, totals['retention_amt'], other,
-                 totals['net_payable']))
+                 retention_pct, totals['retention_amt'],
+                 tds_pct, totals['tds_amt'], cess_pct, totals['cess_amt'],
+                 other, totals['net_payable']))
             ra_id = cur.lastrowid
             conn.executemany(
                 'INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, upto_qty, '
@@ -803,7 +819,8 @@ class RABillFrame(ttk.Frame):
         conn = self.db_getter()
         try:
             bill = conn.execute(
-                'SELECT status, previous_value, retention_pct, other_deductions '
+                'SELECT status, previous_value, retention_pct, tds_pct, '
+                'cess_pct, other_deductions '
                 'FROM ra_bills WHERE id = ?', (self.selected_id,)).fetchone()
             if bill is None:
                 return
@@ -826,14 +843,22 @@ class RABillFrame(ttk.Frame):
                 'SELECT COALESCE(SUM(current_amount), 0) AS t '
                 'FROM ra_bill_items WHERE ra_bill_id = ?',
                 (self.selected_id,)).fetchone()['t']
+            # Every percentage recovery is charged on this bill's value, so
+            # re-pricing an item has to re-roll the tax lines as well. Leaving
+            # them at their old amounts would unbalance the posting and leave
+            # a memorandum whose recoveries do not sum to the deduction.
             totals = civil.ra_bill_totals(
                 this_bill_value, bill['previous_value'],
-                bill['retention_pct'], bill['other_deductions'])
+                bill['retention_pct'], bill['other_deductions'],
+                tds_pct=_col(bill, 'tds_pct', 0),
+                cess_pct=_col(bill, 'cess_pct', 0))
             conn.execute(
                 'UPDATE ra_bills SET this_bill_value = ?, cumulative_value = ?, '
-                'retention_amt = ?, net_payable = ? WHERE id = ?',
+                'retention_amt = ?, tds_amt = ?, cess_amt = ?, '
+                'net_payable = ? WHERE id = ?',
                 (totals['this_bill_value'], totals['cumulative_value'],
-                 totals['retention_amt'], totals['net_payable'],
+                 totals['retention_amt'], totals['tds_amt'],
+                 totals['cess_amt'], totals['net_payable'],
                  self.selected_id))
             conn.commit()
         finally:

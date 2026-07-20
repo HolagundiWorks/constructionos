@@ -999,6 +999,11 @@ def build_ra_pwd_html(bill, contract=None, client=None, site=None, items=None,
                  if any_part_rate else '')
 
     net = float(g(bill, 'net_payable', 0) or 0)
+    # The recovery block is itemised, so its own total has to be shown for the
+    # memorandum to be checkable line by line.
+    recoveries = sum(float(g(bill, k, 0) or 0) for k in
+                     ('retention_amt', 'tds_amt', 'cess_amt',
+                      'other_deductions'))
     return _RA_PWD_TEMPLATE.format(
         company=_text(company_name),
         bill_no=_text(g(bill, 'bill_no') or '-'),
@@ -1015,7 +1020,12 @@ def build_ra_pwd_html(bill, contract=None, client=None, site=None, items=None,
         this_bill_value=_money(g(bill, 'this_bill_value', 0)),
         retention_pct='{:g}'.format(float(g(bill, 'retention_pct', 0) or 0)),
         retention_amt=_money(g(bill, 'retention_amt', 0)),
+        tds_pct='{:g}'.format(float(g(bill, 'tds_pct', 0) or 0)),
+        tds_amt=_money(g(bill, 'tds_amt', 0)),
+        cess_pct='{:g}'.format(float(g(bill, 'cess_pct', 0) or 0)),
+        cess_amt=_money(g(bill, 'cess_amt', 0)),
         other_deductions=_money(g(bill, 'other_deductions', 0)),
+        total_recoveries=_money(recoveries),
         net_payable=_money(net),
         net_words=_text(numwords.rupees_in_words(net)),
         generated=_text(date.today().isoformat()),
@@ -1042,10 +1052,13 @@ _RA_PWD_TEMPLATE = """<meta charset="utf-8">
   td.num, th.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
   .muted {{ color: #999; text-align: center; font-style: italic; }}
   .muted-note {{ color: #666; font-size: 10px; margin-top: 4px; }}
-  .memo {{ margin-top: 16px; width: 420px; margin-left: auto; }}
+  .memo {{ margin-top: 16px; width: 460px; margin-left: auto; }}
   .memo h2 {{ font-size: 12px; letter-spacing: .5px; margin: 0 0 4px; }}
   .memo table {{ width: 100%; border-collapse: collapse; }}
   .memo td {{ padding: 4px 8px; border-bottom: 1px solid #eee; }}
+  .memo td.ind {{ padding-left: 20px; }}
+  .memo td.ind2 {{ padding-left: 38px; color: #444; }}
+  .memo tr.sub td {{ background: #f7f8fa; font-weight: bold; }}
   .memo tr.net td {{ border-top: 2px solid #333; border-bottom: none;
                      font-size: 13px; font-weight: bold; }}
   .words {{ margin-top: 8px; font-style: italic; }}
@@ -1089,9 +1102,19 @@ _RA_PWD_TEMPLATE = """<meta charset="utf-8">
     <tr><td>1. Total value of work done to date</td><td class="num">{cumulative_value}</td></tr>
     <tr><td>2. Deduct: value of previous bills</td><td class="num">{previous_value}</td></tr>
     <tr><td>3. Value of work since previous bill</td><td class="num">{this_bill_value}</td></tr>
-    <tr><td>4. Deduct: retention @ {retention_pct}%</td><td class="num">{retention_amt}</td></tr>
-    <tr><td>5. Deduct: other recoveries</td><td class="num">{other_deductions}</td></tr>
-    <tr class="net"><td>Net amount now payable</td><td class="num">{net_payable}</td></tr>
+    <tr class="sub"><td colspan="2">4. Deduct &mdash; RECOVERIES</td></tr>
+    <tr><td class="ind">(i) Taxes</td><td class="num"></td></tr>
+    <tr><td class="ind2">Income tax deducted at source @ {tds_pct}%</td>
+        <td class="num">{tds_amt}</td></tr>
+    <tr><td class="ind2">Labour cess @ {cess_pct}%</td>
+        <td class="num">{cess_amt}</td></tr>
+    <tr><td class="ind">(ii) Security deposit @ {retention_pct}%</td>
+        <td class="num">{retention_amt}</td></tr>
+    <tr><td class="ind">(iii) Other recoveries</td>
+        <td class="num">{other_deductions}</td></tr>
+    <tr class="sub"><td>Total recoveries</td>
+        <td class="num">{total_recoveries}</td></tr>
+    <tr class="net"><td>Net amount now payable by cheque</td><td class="num">{net_payable}</td></tr>
   </table>
 </div>
 <div class="words"><strong>Net payable in words:</strong> {net_words}</div>

@@ -1021,6 +1021,10 @@ DEFAULT_ACCOUNTS = [
     ('1200', 'Materials Inventory', 'Asset'),
     ('1300', 'Input GST Credit', 'Asset'),
     ('1400', 'Retention Receivable', 'Asset'),
+    # Tax the client deducted from our bill and paid on our behalf. An asset
+    # because we claim it against our own liability — distinct from 2200 TDS
+    # Payable, which is tax we deduct from a vendor and owe to the department.
+    ('1500', 'TDS Receivable', 'Asset'),
     ('2000', 'Accounts Payable', 'Liability'),
     ('2100', 'GST Payable', 'Liability'),
     ('2200', 'TDS Payable', 'Liability'),
@@ -1086,6 +1090,13 @@ _ADD_COLUMNS = [
     ('contracts', 'agreement_date', 'TEXT'),
     ('measurements', 'measured_by', 'TEXT'),
     ('measurements', 'checked_by', 'TEXT'),
+    # The statutory recovery block of a CPWA Form 26 running account bill:
+    # (i) taxes (ii) security deposit (iii) other. The security deposit is the
+    # existing retention_pct/retention_amt pair, so only the tax lines are new.
+    ('ra_bills', 'tds_pct', 'REAL DEFAULT 0'),
+    ('ra_bills', 'tds_amt', 'REAL DEFAULT 0'),
+    ('ra_bills', 'cess_pct', 'REAL DEFAULT 0'),
+    ('ra_bills', 'cess_amt', 'REAL DEFAULT 0'),
 ]
 
 

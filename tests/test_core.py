@@ -1399,6 +1399,129 @@ class TestCarryForward(unittest.TestCase):
         self.assertNotIn('no_such_table', copied)
 
 
+class TestForm26Recoveries(unittest.TestCase):
+    """The RA-bill recovery block: (i) taxes (ii) security deposit (iii) other.
+
+    The invariant that matters is that the recoveries and the net payable
+    always reconstruct the bill value — if they drift, the printed memorandum
+    stops adding up and the ledger posting stops balancing.
+    """
+
+    def test_all_recoveries_are_charged_on_this_bill_not_the_cumulative(self):
+        t = civil.ra_bill_totals(100000, 400000, 2.5, 0, tds_pct=2, cess_pct=1)
+        self.assertEqual(t['cumulative_value'], 500000)
+        self.assertEqual(t['retention_amt'], 2500)   # 2.5% of 100000, not 500000
+        self.assertEqual(t['tds_amt'], 2000)
+        self.assertEqual(t['cess_amt'], 1000)
+
+    def test_net_payable_is_value_less_every_recovery(self):
+        t = civil.ra_bill_totals(100000, 0, 2.5, 500, tds_pct=2, cess_pct=1)
+        self.assertEqual(t['total_recoveries'], 2500 + 2000 + 1000 + 500)
+        self.assertEqual(t['net_payable'], 100000 - 6000)
+        self.assertEqual(round(t['net_payable'] + t['total_recoveries'], 2),
+                         t['this_bill_value'])
+
+    def test_omitting_the_tax_rates_reproduces_the_old_arithmetic(self):
+        # Bills raised before the tax columns existed must roll up unchanged.
+        old = civil.ra_bill_totals(100000, 0, 5, 1000)
+        self.assertEqual(old['tds_amt'], 0)
+        self.assertEqual(old['cess_amt'], 0)
+        self.assertEqual(old['net_payable'], 100000 - 5000 - 1000)
+
+    def test_cpwd_default_security_deposit_is_two_and_a_half_percent(self):
+        t = civil.ra_bill_totals(200000, 0, 2.5, 0)
+        self.assertEqual(t['retention_amt'], 5000)
+
+    # --- the posting side ---
+    def test_posting_splits_recoveries_between_assets_and_expense(self):
+        t = civil.ra_bill_totals(100000, 0, 2.5, 500, tds_pct=2, cess_pct=1)
+        lines = posting.ra_bill_lines(
+            t['this_bill_value'], t['retention_amt'], t['other_deductions'],
+            t['net_payable'], tds_amt=t['tds_amt'], cess_amt=t['cess_amt'])
+        by_code = {l['code']: l for l in lines}
+
+        # retention and TDS are recoverable, so they are assets, not costs
+        self.assertEqual(by_code[posting.RETENTION_RECEIVABLE]['debit'], 2500)
+        self.assertEqual(by_code[posting.TDS_RECEIVABLE]['debit'], 2000)
+        # cess and other genuinely are costs the contractor bears
+        self.assertEqual(by_code[posting.OTHER_EXPENSE]['debit'], 1000 + 500)
+        self.assertEqual(by_code[posting.RECEIVABLE]['debit'], 94000)
+        self.assertEqual(by_code[posting.REVENUE]['credit'], 100000)
+
+    def test_posting_balances_across_a_range_of_rates(self):
+        for value in (1, 12345.67, 100000, 987654.32):
+            for sd, tds, cess, other in ((0, 0, 0, 0), (2.5, 2, 1, 0),
+                                         (10, 2, 1, 5000), (5, 0, 1, 0.01)):
+                t = civil.ra_bill_totals(value, 0, sd, other,
+                                         tds_pct=tds, cess_pct=cess)
+                lines = posting.ra_bill_lines(
+                    t['this_bill_value'], t['retention_amt'],
+                    t['other_deductions'], t['net_payable'],
+                    tds_amt=t['tds_amt'], cess_amt=t['cess_amt'])
+                self.assertTrue(
+                    posting.lines_balanced(lines),
+                    'unbalanced at value={} sd={} tds={} cess={} other={}'
+                    .format(value, sd, tds, cess, other))
+
+    def test_tds_receivable_is_not_the_tds_payable_account(self):
+        # Tax the client withholds from us is an asset we reclaim; tax we
+        # withhold from a vendor is a liability we owe. Same word, opposite
+        # side of the balance sheet.
+        self.assertNotEqual(posting.TDS_RECEIVABLE, posting.TDS_PAYABLE)
+        self.assertEqual(posting.TDS_RECEIVABLE, '1500')
+
+    def test_zero_recoveries_emit_no_empty_lines(self):
+        lines = posting.ra_bill_lines(100000, 0, 0, 100000)
+        self.assertEqual(len(lines), 2)          # receivable + revenue only
+        self.assertTrue(posting.lines_balanced(lines))
+
+
+class TestForm26Memorandum(unittest.TestCase):
+    """The printed memorandum must itemise recoveries and still reconcile."""
+
+    def _html(self, **over):
+        import bill_export
+        bill = {'bill_no': 'RA-2', 'bill_date': '2026-05-01', 'status': 'Approved',
+                'this_bill_value': 100000, 'previous_value': 400000,
+                'cumulative_value': 500000, 'retention_pct': 2.5,
+                'retention_amt': 2500, 'tds_pct': 2, 'tds_amt': 2000,
+                'cess_pct': 1, 'cess_amt': 1000, 'other_deductions': 500,
+                'net_payable': 94000}
+        bill.update(over)
+        return bill_export.build_ra_pwd_html(
+            bill, {'contract_no': 'AG/1', 'contract_value': 5000000},
+            {'name': 'PWD'}, {'name': 'Ward 7'},
+            [{'item_no': '2.1', 'description': 'PCC', 'unit': 'cum',
+              'boq_qty': 40, 'boq_rate': 4850, 'upto_qty': 20,
+              'previous_qty': 0, 'current_qty': 20, 'rate': 4850,
+              'current_amount': 97000}])
+
+    def test_recovery_block_is_itemised_in_form_26_order(self):
+        html = self._html()
+        for part in ('(i) Taxes', 'Income tax deducted at source @ 2%',
+                     'Labour cess @ 1%', '(ii) Security deposit @ 2.5%',
+                     '(iii) Other recoveries', 'Total recoveries'):
+            self.assertIn(part, html)
+        self.assertLess(html.index('(i) Taxes'), html.index('(ii) Security'))
+        self.assertLess(html.index('(ii) Security'), html.index('(iii) Other'))
+
+    def test_printed_recovery_total_matches_the_parts(self):
+        html = self._html()
+        self.assertIn('6,000.00', html)          # 2500 + 2000 + 1000 + 500
+        self.assertIn('94,000.00', html)         # net payable
+
+    def test_bill_without_tax_columns_still_renders(self):
+        # A bill row from before the migration has no tds_amt at all.
+        import bill_export
+        html = bill_export.build_ra_pwd_html(
+            {'bill_no': 'RA-1', 'this_bill_value': 50000,
+             'retention_amt': 2500, 'other_deductions': 0,
+             'net_payable': 47500},
+            items=[])
+        self.assertIn('MEMORANDUM OF PAYMENTS', html)
+        self.assertIn('2,500.00', html)
+
+
 class TestMeasurementBook(unittest.TestCase):
     """Measurement book structure and the Works Manual record rules.
 

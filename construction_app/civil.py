@@ -44,22 +44,42 @@ def ra_current(upto_qty, previous_qty, rate):
 
 
 def ra_bill_totals(this_bill_value, previous_value, retention_pct,
-                   other_deductions):
+                   other_deductions, tds_pct=0, cess_pct=0):
     """Roll RA-bill item amounts up to the payable figures.
 
         cumulative_value = previous_value + this_bill_value
         retention_amt    = this_bill_value * retention_pct / 100
-        net_payable      = this_bill_value - retention_amt - other_deductions
+        tds_amt          = this_bill_value * tds_pct / 100
+        cess_amt         = this_bill_value * cess_pct / 100
+        net_payable      = this_bill_value
+                           - retention_amt - tds_amt - cess_amt
+                           - other_deductions
+
+    The three percentage recoveries make up the statutory recovery block of a
+    CPWA Form 26 running account bill: taxes (income-tax TDS and labour cess),
+    security deposit (the retention line), and other. All three are charged on
+    the value of work done **in this bill**, not the cumulative value, because
+    earlier bills already recovered against their own value.
+
+    ``tds_pct`` and ``cess_pct`` default to zero so bills raised before those
+    columns existed roll up exactly as they did before.
     """
     this_bill_value = round(float(this_bill_value or 0), 2)
     previous_value = round(float(previous_value or 0), 2)
     retention = round(this_bill_value * float(retention_pct or 0) / 100.0, 2)
-    net = round(this_bill_value - retention - float(other_deductions or 0), 2)
+    tds = round(this_bill_value * float(tds_pct or 0) / 100.0, 2)
+    cess = round(this_bill_value * float(cess_pct or 0) / 100.0, 2)
+    other = round(float(other_deductions or 0), 2)
+    net = round(this_bill_value - retention - tds - cess - other, 2)
     return {
         'this_bill_value': this_bill_value,
         'previous_value': previous_value,
         'cumulative_value': round(previous_value + this_bill_value, 2),
         'retention_amt': retention,
+        'tds_amt': tds,
+        'cess_amt': cess,
+        'other_deductions': other,
+        'total_recoveries': round(retention + tds + cess + other, 2),
         'net_payable': net,
     }
 

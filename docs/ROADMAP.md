@@ -464,9 +464,27 @@ returned, and payment waits another cycle.
   otherwise invisible: it flows through the RA bill as a real quantity and is
   billed twice. The count surfaces in the tab while entering, not only on the
   printout, because the point is to catch it before certification.
-- ⏳ **RA bill Memorandum of Payments in Form 26 shape** — replace the single
-  "other recoveries" lump with the statutory recovery block: (i) Taxes/TDS
-  (ii) Security Deposit (iii) Other.
+- ✅ **RA bill Memorandum of Payments in Form 26 shape** — the single "other
+  recoveries" lump is now the statutory recovery block: **(i) Taxes** (income
+  tax TDS, labour cess) **(ii) Security deposit (iii) Other**, each itemised
+  with its rate, subtotalled, and reconciling to the net payable by cheque.
+  The per-bill security deposit now defaults to CPWD's **2.5%** rather than a
+  generic 5%, editable because state PWDs differ.
+
+  All three percentages are charged on the value of work done *in this bill*,
+  never the cumulative value — earlier bills already recovered against their
+  own. This matters at the part-rate path: re-pricing an item drops the bill
+  value, so the tax lines are re-rolled with it. Leaving them stale would
+  unbalance the ledger posting and print a memorandum whose recoveries do not
+  sum to the deduction.
+
+  On the accounting side the recoveries deliberately do **not** all go one
+  way. Retention and TDS are **assets** (1400 Retention Receivable, new 1500
+  TDS Receivable) because both come back — retention on release, TDS as credit
+  against our own tax. Only cess and other recoveries are expensed. Posting
+  TDS as a cost would understate both profit and what the client still owes.
+  Note 1500 TDS *Receivable* is the mirror of the existing 2200 TDS *Payable*:
+  same word, opposite side of the balance sheet.
 - ⏳ **Muster Roll Form 21** — Part I nominal roll with the payee
   signature/thumb-impression column, Part II reconciling work done against
   wages paid, and the Register of Unpaid Wages (Form 21A). There is currently
