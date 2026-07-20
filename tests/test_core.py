@@ -36,6 +36,7 @@ import closeout
 import company
 import estimate
 import finance
+import hse
 import money
 import numbering
 import numwords
@@ -1131,6 +1132,71 @@ class TestCloseout(unittest.TestCase):
         self.assertEqual(s['overdue'], 1)
         self.assertEqual(s['readiness'], 50.0)
         self.assertFalse(s['may_hand_over'])
+
+
+class TestHSE(unittest.TestCase):
+    """A permit is only meaningful while it is open and in date."""
+
+    def _permit(self, status=hse.OPEN, frm='2026-07-01', to='2026-07-31'):
+        return {'status': status, 'valid_from': frm, 'valid_to': to}
+
+    def test_permit_valid_inside_its_dates(self):
+        ok, _ = hse.permit_valid(self._permit(), as_on='2026-07-20')
+        self.assertTrue(ok)
+
+    def test_expired_permit_is_no_permit(self):
+        ok, reason = hse.permit_valid(self._permit(to='2026-07-10'),
+                                      as_on='2026-07-20')
+        self.assertFalse(ok)
+        self.assertIn('expired', reason.lower())
+
+    def test_permit_not_yet_started(self):
+        ok, reason = hse.permit_valid(self._permit(frm='2026-08-01'),
+                                      as_on='2026-07-20')
+        self.assertFalse(ok)
+        self.assertIn('does not start', reason)
+
+    def test_closed_permit_is_not_valid(self):
+        ok, reason = hse.permit_valid(self._permit(status=hse.CLOSED),
+                                      as_on='2026-07-20')
+        self.assertFalse(ok)
+        self.assertIn('closed', reason.lower())
+
+    def test_expiring_soon_is_flagged_before_work_stops(self):
+        permits = [self._permit(to='2026-07-21'),   # tomorrow
+                   self._permit(to='2026-08-30')]   # far off
+        soon = hse.expiring_permits(permits, within_days=2, as_on='2026-07-20')
+        self.assertEqual(len(soon), 1)
+        self.assertEqual(soon[0][1], 1)
+
+    def test_ltifr_needs_enough_hours_to_mean_anything(self):
+        """One injury in a fortnight would otherwise look catastrophic."""
+        incidents = [{'severity': hse.LOST_TIME}]
+        self.assertIsNone(hse.ltifr(incidents, 500))
+        self.assertIsNotNone(hse.ltifr(incidents, 200000))
+
+    def test_ltifr_is_per_200000_hours(self):
+        incidents = [{'severity': hse.LOST_TIME}, {'severity': hse.REPORTABLE},
+                     {'severity': hse.NEAR_MISS}]
+        # 2 lost-time events in exactly 200,000 hours = 2.0
+        self.assertEqual(hse.ltifr(incidents, 200000), 2.0)
+
+    def test_near_miss_ratio_and_lost_days(self):
+        incidents = [{'severity': hse.NEAR_MISS}, {'severity': hse.NEAR_MISS},
+                     {'severity': hse.LOST_TIME, 'lost_days': 5},
+                     {'severity': hse.FIRST_AID}]
+        s = hse.summarise(incidents, [], 0)
+        self.assertEqual(s['total'], 4)
+        self.assertEqual(s['lost_time'], 1)
+        self.assertEqual(s['lost_days'], 5)
+        self.assertEqual(s['near_miss_ratio'], 50.0)
+        self.assertIsNone(s['ltifr'])          # no hours given
+
+    def test_summary_counts_expired_permits_separately(self):
+        permits = [self._permit(), self._permit(to='2026-07-01')]
+        s = hse.summarise([], permits, 0, as_on='2026-07-20')
+        self.assertEqual(s['open_permits'], 1)
+        self.assertEqual(s['expired_permits'], 1)
 
 
 class TestCompanyRegistry(unittest.TestCase):

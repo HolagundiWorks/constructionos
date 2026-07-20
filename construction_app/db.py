@@ -602,6 +602,67 @@ CREATE TABLE IF NOT EXISTS sub_bills (
     remarks TEXT
 );
 
+-- ------------------------------- health & safety (Phase 8, Wave 4)
+-- Deliberately small. Safety at this scale is mostly informal, and a heavy
+-- module would simply go unfilled. These cover the jobs that actually kill
+-- people in this trade, plus the cheapest safety measure there is: writing
+-- down the near miss, which is the same event as an injury with the outcome
+-- changed by luck.
+CREATE TABLE IF NOT EXISTS safety_inductions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    person TEXT,
+    labor_id INTEGER REFERENCES labor(id),
+    induction_date TEXT,
+    conducted_by TEXT,
+    valid_to TEXT,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS toolbox_talks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER REFERENCES sites(id),
+    talk_date TEXT,
+    topic TEXT,
+    conducted_by TEXT,
+    attendance INTEGER DEFAULT 0,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS work_permits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    permit_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    permit_type TEXT,               -- height / excavation / hot work / confined space
+    location TEXT,
+    description TEXT,
+    issued_to TEXT,
+    issued_by TEXT,
+    valid_from TEXT,
+    valid_to TEXT,
+    precautions TEXT,
+    status TEXT DEFAULT 'Open',     -- Open / Closed / Cancelled
+    closed_date TEXT,
+    remarks TEXT
+);
+
+CREATE TABLE IF NOT EXISTS incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    incident_date TEXT,
+    incident_time TEXT,
+    person TEXT,
+    severity TEXT DEFAULT 'Near miss',  -- Near miss / First aid / Lost time / Reportable
+    description TEXT,
+    immediate_cause TEXT,
+    root_cause TEXT,
+    action_taken TEXT,
+    lost_days REAL DEFAULT 0,
+    reported_by TEXT,
+    remarks TEXT
+);
+
 -- ------------------------- closeout / snag list (Phase 8, Wave 4)
 -- The end of a job is where money quietly goes missing: the last payment and
 -- the whole retention balance wait on a punch list nobody is tracking.
@@ -876,6 +937,8 @@ CREATE INDEX IF NOT EXISTS idx_timeline_project ON timeline_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_wo_items_wo ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_sub_bills_wo ON sub_bills(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_snags_site ON snags(site_id, status);
+CREATE INDEX IF NOT EXISTS idx_permits_site ON work_permits(site_id, status);
+CREATE INDEX IF NOT EXISTS idx_incidents_site ON incidents(site_id, severity);
 CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_commit_week ON commitments(site_id, week_start);
 CREATE INDEX IF NOT EXISTS idx_inspitems_insp ON inspection_items(inspection_id);

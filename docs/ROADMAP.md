@@ -384,7 +384,18 @@ the leverage is in making the SOP step impossible to skip.
 ### Wave 4 — completeness (P2, lower urgency at this scale)
 
 - ⏳ RFI + drawing-revision register (mainly PMC/departmental work).
-- ⏳ HSE module (induction, toolbox, permit, incident) — often informal here.
+- ✅ **HSE register** — Operations > Safety (`hse.py`, `tab_hse.py`). Permits
+  to work, incidents (including near misses), toolbox talks and inductions,
+  plus a Position summary. Deliberately small: safety paperwork that takes
+  long gets abandoned, and an abandoned register is worse than none because it
+  looks like a record. A permit is marked **valid or expired** — an expired
+  permit is not a lesser permit, it is no permit — with a 2-day expiry warning
+  so it can be renewed before work stops. **LTIFR** is reported per 200,000
+  hours but returns *n/a* below 10,000 hours worked, because one injury in a
+  fortnight produces a rate that looks catastrophic and means nothing. The
+  **near-miss ratio** is shown for a non-obvious reason: a site reporting no
+  near misses is almost never a safe site, it is one where nobody writes them
+  down.
 - ✅ **Closeout: snag list + handover readiness** — Operations > Closeout
   (`closeout.py`, `tab_closeout.py`). The punch list per site, then a
   readiness view: what proportion is verified, what is overdue, which trades
