@@ -545,9 +545,34 @@ returned, and payment waits another cycle.
   Rate, guarantee and threshold are all editable defaults rather than
   constants, because state PWDs differ sharply — Arunachal deducts 10% a bill
   against CPWD's 2.5%.
-- ⏳ **Rate analysis on the DAR skeleton** — material + labour + sundries →
-  +1% water → +15% CPOH, with water and scaffolding as per-item toggles rather
-  than hard-coded, since they apply only to wet/access items.
+- ✅ **Rate analysis on the DAR skeleton** (`rateanalysis.py`, new Rate
+  Analysis tab beside the Rate Book). Builds a per-unit rate from its inputs
+  the way the CPWD Analysis of Rates does — material + labour + machinery +
+  sundries → +1% water → +15% CPOH (7.5 profit + 7.5 overhead) → divided by
+  the analysis quantity — so an item never priced before can be costed from
+  first principles and defended when the department questions the figure.
+
+  **Water and scaffolding are per-item toggles, and water defaults to off.**
+  The DAR applies water charges to items that consume water and scaffolding to
+  items needing access; charging 1% water on a steel-supply item is simply
+  wrong, and defaulting it on would make every dry rate 1% high in a way
+  nobody would ever notice.
+
+  **The analysis quantity is explicit and the division happens once.** The DAR
+  analyses a convenient block — 10 cum of concrete, 100 sqm of plaster —
+  because labour constants are quoted that way. Analysing per unit and
+  rounding at each step compounds error, so the division is the last operation.
+  A missing quantity yields *no rate* rather than zero: an incomplete analysis
+  is a normal in-progress state, and zero would read as a real, free rate.
+
+  **The module ships no rate data at all** — deliberately, and there is a test
+  asserting it. The DAR's published rates are 2014-dated (Delhi materials
+  Mar–Apr 2014, labour at the 01.04.2014 minimum wage). Bundling them would
+  hand contractors a decade-old schedule wearing the authority of a government
+  document. Rates come from the firm's own material and labour masters, so the
+  analysis reflects what they actually pay. The derived rate can be pushed
+  into the Rate Book — updating the existing entry rather than duplicating it
+  — because otherwise the number dies on the screen that produced it.
 
 **Standing caveat for this phase:** CPWD is the dominant template, not a
 universal standard, and the GCC 2019 supersedes some Works Manual terms

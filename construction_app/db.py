@@ -946,6 +946,35 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- Rate analysis on the CPWD DAR skeleton: inputs build up to a per-unit rate.
+-- No rate data is stored here beyond what the user enters — the DAR's own
+-- published rates are 2014-dated, so the rates come from the firm's own
+-- material and labour masters.
+CREATE TABLE IF NOT EXISTS rate_analysis (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    description TEXT,
+    unit TEXT,                      -- the unit the derived rate is per
+    analysis_qty REAL DEFAULT 1,    -- block analysed (10 cum, 100 sqm)
+    apply_water INTEGER DEFAULT 0,  -- water charges: wet items only
+    water_pct REAL DEFAULT 1,
+    cpoh_pct REAL DEFAULT 15,       -- 7.5% profit + 7.5% overhead
+    scaffolding REAL DEFAULT 0,     -- lump sum, access items only
+    rate_per_unit REAL DEFAULT 0,   -- derived
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS rate_analysis_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    analysis_id INTEGER REFERENCES rate_analysis(id) ON DELETE CASCADE,
+    kind TEXT DEFAULT 'Material',   -- Material/Labour/Machinery/Sundries
+    description TEXT,
+    unit TEXT,
+    qty REAL DEFAULT 0,
+    rate REAL DEFAULT 0,
+    amount REAL DEFAULT 0           -- qty * rate (derived)
+);
+
 """
 
 # Indexes live OUTSIDE ``SCHEMA`` on purpose, and are applied only after
@@ -1010,6 +1039,8 @@ CREATE INDEX IF NOT EXISTS idx_payalloc_payment ON payment_allocations(payment_i
 CREATE INDEX IF NOT EXISTS idx_payalloc_doc ON payment_allocations(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
 CREATE INDEX IF NOT EXISTS idx_variations_status ON variations(status);
+CREATE INDEX IF NOT EXISTS idx_raitems_analysis
+    ON rate_analysis_items(analysis_id);
 """
 
 

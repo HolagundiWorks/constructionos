@@ -47,6 +47,7 @@ import posting
 import procurement
 import projman
 import quality
+import rateanalysis
 import reports
 import retention
 import sourcing
@@ -1398,6 +1399,155 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestRateAnalysis(unittest.TestCase):
+    """The CPWD DAR build-up: inputs -> water -> CPOH -> per unit."""
+
+    def _pcc_lines(self):
+        # A DAR-style analysis written for 10 cum of PCC 1:4:8.
+        return [{'kind': 'Material', 'description': 'Cement', 'qty': 22,
+                 'rate': 380},
+                {'kind': 'Material', 'description': 'Sand', 'qty': 4.6,
+                 'rate': 1200},
+                {'kind': 'Material', 'description': 'Aggregate', 'qty': 9.2,
+                 'rate': 1400},
+                {'kind': 'Labour', 'description': 'Mason', 'qty': 2,
+                 'rate': 700},
+                {'kind': 'Labour', 'description': 'Coolie', 'qty': 12,
+                 'rate': 450}]
+
+    def test_amounts_group_by_kind(self):
+        by = rateanalysis.subtotal_by_kind(self._pcc_lines())
+        self.assertEqual(by['Material'], 8360 + 5520 + 12880)
+        self.assertEqual(by['Labour'], 1400 + 5400)
+        self.assertEqual(by['Machinery'], 0)
+
+    def test_unknown_kind_falls_into_sundries_rather_than_vanishing(self):
+        # Silently dropping a cost line would understate the rate.
+        by = rateanalysis.subtotal_by_kind(
+            [{'kind': 'Mystery', 'qty': 1, 'rate': 500}])
+        self.assertEqual(by['Sundries'], 500)
+
+    def test_stated_amount_beats_qty_times_rate(self):
+        by = rateanalysis.subtotal_by_kind(
+            [{'kind': 'Material', 'qty': 2, 'rate': 100, 'amount': 250}])
+        self.assertEqual(by['Material'], 250)
+
+    def test_full_build_up_in_dar_order(self):
+        res = rateanalysis.analyse(self._pcc_lines(), analysis_qty=10,
+                                   apply_water=True)
+        inputs = 8360 + 5520 + 12880 + 1400 + 5400
+        self.assertEqual(res['inputs'], inputs)
+        self.assertEqual(res['water'], round(inputs * 0.01, 2))
+        subtotal = round(inputs * 1.01, 2)
+        self.assertEqual(res['subtotal'], subtotal)
+        self.assertEqual(res['cpoh'], round(subtotal * 0.15, 2))
+        self.assertEqual(res['total'], round(subtotal * 1.15, 2))
+        self.assertEqual(res['rate_per_unit'], round(subtotal * 1.15 / 10, 2))
+
+    def test_water_is_off_by_default(self):
+        # Defaulting water on would silently inflate every dry item by 1%.
+        res = rateanalysis.analyse(self._pcc_lines(), analysis_qty=10)
+        self.assertEqual(res['water'], 0)
+        self.assertFalse(res['water_applied'])
+
+    def test_cpoh_splits_into_profit_and_overhead(self):
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 10000}],
+                                   analysis_qty=1)
+        self.assertEqual(res['cpoh'], 1500)
+        self.assertEqual(res['profit'], 750)
+        self.assertEqual(res['overhead'], 750)
+        self.assertEqual(res['profit'] + res['overhead'], res['cpoh'])
+
+    def test_non_default_cpoh_still_splits_in_proportion(self):
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 10000}],
+                                   analysis_qty=1, cpoh_pct=10)
+        self.assertEqual(res['cpoh'], 1000)
+        self.assertEqual(res['profit'] + res['overhead'], res['cpoh'])
+
+    def test_scaffolding_is_a_lump_sum_into_sundries(self):
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 10000}],
+                                   analysis_qty=1, scaffolding=500)
+        self.assertEqual(res['by_kind']['Sundries'], 500)
+        self.assertEqual(res['inputs'], 10500)
+
+    def test_division_happens_once_at_the_end(self):
+        # Analysing per-unit and rounding each step would drift; the DAR
+        # analyses a block and divides once.
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 10000}],
+                                   analysis_qty=3)
+        self.assertEqual(res['total'], 11500)
+        self.assertEqual(res['rate_per_unit'], round(11500 / 3, 2))
+
+    def test_zero_analysis_quantity_gives_no_rate_rather_than_zero(self):
+        # Zero would read as a real, free rate; None reads as incomplete.
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 10000}],
+                                   analysis_qty=0)
+        self.assertIsNone(res['rate_per_unit'])
+        self.assertFalse(rateanalysis.is_complete(res))
+
+    def test_empty_analysis_is_incomplete_not_an_error(self):
+        res = rateanalysis.analyse([], analysis_qty=10)
+        self.assertEqual(res['inputs'], 0)
+        self.assertFalse(rateanalysis.is_complete(res))
+
+    def test_completeness(self):
+        res = rateanalysis.analyse(self._pcc_lines(), analysis_qty=10)
+        self.assertTrue(rateanalysis.is_complete(res))
+
+    # --- sanity checks ---
+    def test_labour_share(self):
+        res = rateanalysis.analyse(self._pcc_lines(), analysis_qty=10)
+        self.assertAlmostEqual(rateanalysis.labour_share_pct(res),
+                               round(6800 / 33560 * 100, 2), places=1)
+
+    def test_warnings_catch_a_missing_cost_category(self):
+        no_labour = rateanalysis.analyse(
+            [{'kind': 'Material', 'amount': 1000}], analysis_qty=1)
+        self.assertTrue(any('No labour' in w
+                            for w in rateanalysis.warnings(no_labour)))
+
+        no_material = rateanalysis.analyse(
+            [{'kind': 'Labour', 'amount': 1000}], analysis_qty=1)
+        self.assertTrue(any('No material' in w
+                            for w in rateanalysis.warnings(no_material)))
+
+    def test_warning_for_missing_analysis_quantity(self):
+        res = rateanalysis.analyse([{'kind': 'Material', 'amount': 1000},
+                                    {'kind': 'Labour', 'amount': 500}],
+                                   analysis_qty=0)
+        self.assertTrue(any('analysis quantity' in w
+                            for w in rateanalysis.warnings(res)))
+
+    def test_empty_analysis_warns_once_and_stops(self):
+        res = rateanalysis.analyse([], analysis_qty=0)
+        warns = rateanalysis.warnings(res)
+        self.assertEqual(len(warns), 1)
+        self.assertIn('No input costs', warns[0])
+
+    def test_module_ships_no_rate_data(self):
+        # The DAR's published rates are 2014-dated; shipping them as
+        # authoritative would be worse than shipping none.
+        # Only module scope matters: a bundled schedule would be a top-level
+        # constant. Function-local structures (analyse's result dict) are
+        # arithmetic, not data.
+        with open(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                'construction_app', 'rateanalysis.py'), encoding='utf-8') as fh:
+            tree = ast.parse(fh.read())
+        big = []
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            value = node.value
+            if isinstance(value, (ast.Dict, ast.List, ast.Tuple)):
+                size = len(value.keys if isinstance(value, ast.Dict)
+                           else value.elts)
+                if size > 6:
+                    big.append(node.targets[0].id)
+        self.assertEqual(big, [], 'rateanalysis.py should hold arithmetic, '
+                                  'not a bundled rate schedule')
 
 
 class TestSecurityDeposit(unittest.TestCase):
