@@ -122,6 +122,105 @@ def summarise(lines, as_on=None):
     }
 
 
+# --------------------------------------------------------------- CPWD regime
+#
+# A CPWD contract secures performance twice over, and the two are separate
+# money with separate release rules — conflating them is how a contractor
+# loses track of what they are owed:
+#
+#   * a **performance guarantee** of 5% of the tendered value, furnished
+#     *before* work starts (Works Manual Para 21.1), and
+#   * a **security deposit** of 2.5% deducted from the gross of every running
+#     and final bill as the work proceeds (Para 21.2).
+#
+# Once the accumulated security deposit reaches Rs 5 lakh it may be released
+# against a bank guarantee — worth surfacing, because it converts dead cash
+# into working capital and nobody sends a reminder.
+#
+# All three are defaults, not constants. State PWDs differ sharply: Arunachal
+# deducts 10% per bill against CPWD's 2.5%.
+
+PERFORMANCE_GUARANTEE_PCT = 5.0
+SECURITY_DEPOSIT_PCT = 2.5
+BG_RELEASE_THRESHOLD = 500000.0
+
+
+def performance_guarantee(tendered_value, pct=PERFORMANCE_GUARANTEE_PCT):
+    """The guarantee furnished up front, on the tendered value."""
+    return money(money(tendered_value) * float(pct or 0) / 100.0)
+
+
+def deposit_accrual(bills, pct=SECURITY_DEPOSIT_PCT):
+    """Security deposit accumulating bill by bill.
+
+    Each row carries its own deduction and the running total, because the
+    question a contractor actually asks is "how much of mine is sitting with
+    them *now*", which no single bill answers.
+
+    A bill that already records a deducted amount is trusted over the
+    percentage: a part-rate or a departmental adjustment can make the actual
+    deduction differ from the nominal rate, and the register should show what
+    was really withheld, not what the formula says.
+    """
+    rows, running = [], 0.0
+    for b in bills or []:
+        gross = money(b.get('value'))
+        stated = b.get('deducted')
+        amount = money(stated) if stated is not None else money(
+            gross * float(pct or 0) / 100.0)
+        running = money(running + amount)
+        rows.append({
+            'bill_no': b.get('bill_no', ''),
+            'bill_date': b.get('bill_date', ''),
+            'value': gross,
+            'deducted': amount,
+            'cumulative': running,
+        })
+    return rows
+
+
+def bg_release(accumulated, threshold=BG_RELEASE_THRESHOLD):
+    """Whether the accrued deposit may be swapped for a bank guarantee."""
+    accumulated = money(accumulated)
+    return {
+        'accumulated': accumulated,
+        'threshold': money(threshold),
+        'eligible': accumulated >= money(threshold),
+        'shortfall': money(max(money(threshold) - accumulated, 0.0)),
+    }
+
+
+def deposit_position(tendered_value, bills, pg_furnished=0, released=0,
+                     sd_pct=SECURITY_DEPOSIT_PCT,
+                     pg_pct=PERFORMANCE_GUARANTEE_PCT,
+                     threshold=BG_RELEASE_THRESHOLD):
+    """The whole security position on one contract.
+
+    ``total_secured`` deliberately adds the performance guarantee to the
+    deposit still held: both are the contractor's money tied up against the
+    same work, and seeing them apart is what makes people forget the guarantee
+    exists long after the job closed.
+    """
+    rows = deposit_accrual(bills, sd_pct)
+    accrued = rows[-1]['cumulative'] if rows else 0.0
+    held = outstanding(accrued, released)
+    required_pg = performance_guarantee(tendered_value, pg_pct)
+    furnished = money(pg_furnished)
+    return {
+        'rows': rows,
+        'sd_pct': float(sd_pct or 0),
+        'sd_accrued': money(accrued),
+        'sd_released': money(released),
+        'sd_held': held,
+        'pg_required': required_pg,
+        'pg_furnished': furnished,
+        'pg_shortfall': money(max(required_pg - furnished, 0.0)),
+        'total_secured': money(held + furnished),
+        'bg': bg_release(held, threshold),
+        'bills': len(rows),
+    }
+
+
 def upcoming(lines, within_days=60, as_on=None):
     """Lines whose release falls inside the next ``within_days``.
 

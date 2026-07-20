@@ -1400,6 +1400,90 @@ class TestCarryForward(unittest.TestCase):
         self.assertNotIn('no_such_table', copied)
 
 
+class TestSecurityDeposit(unittest.TestCase):
+    """The CPWD two-part security regime: guarantee up front, deposit per bill."""
+
+    def _bills(self):
+        return [{'bill_no': 'RA-1', 'value': 400000},
+                {'bill_no': 'RA-2', 'value': 600000},
+                {'bill_no': 'RA-3', 'value': 1000000}]
+
+    def test_defaults_match_the_works_manual(self):
+        self.assertEqual(retention.PERFORMANCE_GUARANTEE_PCT, 5.0)
+        self.assertEqual(retention.SECURITY_DEPOSIT_PCT, 2.5)
+        self.assertEqual(retention.BG_RELEASE_THRESHOLD, 500000.0)
+
+    def test_performance_guarantee_is_on_the_tendered_value(self):
+        self.assertEqual(retention.performance_guarantee(10000000), 500000)
+        # state variation must be expressible
+        self.assertEqual(retention.performance_guarantee(10000000, 10), 1000000)
+
+    def test_deposit_accumulates_bill_by_bill(self):
+        rows = retention.deposit_accrual(self._bills())
+        self.assertEqual([r['deducted'] for r in rows], [10000, 15000, 25000])
+        self.assertEqual([r['cumulative'] for r in rows], [10000, 25000, 50000])
+
+    def test_a_recorded_deduction_beats_the_nominal_rate(self):
+        # A part rate or a departmental adjustment makes the actual deduction
+        # differ; the register must show what was really withheld.
+        rows = retention.deposit_accrual(
+            [{'bill_no': 'RA-1', 'value': 400000, 'deducted': 7500}])
+        self.assertEqual(rows[0]['deducted'], 7500)
+
+    def test_state_rate_of_ten_percent_is_expressible(self):
+        rows = retention.deposit_accrual([{'value': 100000}], pct=10)
+        self.assertEqual(rows[0]['deducted'], 10000)
+
+    def test_no_bills_gives_an_empty_accrual_not_an_error(self):
+        self.assertEqual(retention.deposit_accrual([]), [])
+        self.assertEqual(retention.deposit_accrual(None), [])
+
+    # --- bank guarantee threshold ---
+    def test_bank_guarantee_threshold(self):
+        under = retention.bg_release(450000)
+        self.assertFalse(under['eligible'])
+        self.assertEqual(under['shortfall'], 50000)
+
+        at = retention.bg_release(500000)
+        self.assertTrue(at['eligible'])           # inclusive at the mark
+        self.assertEqual(at['shortfall'], 0)
+
+    # --- the whole position ---
+    def test_position_separates_guarantee_from_deposit(self):
+        pos = retention.deposit_position(
+            10000000, self._bills(), pg_furnished=500000)
+        self.assertEqual(pos['sd_accrued'], 50000)
+        self.assertEqual(pos['sd_held'], 50000)
+        self.assertEqual(pos['pg_required'], 500000)
+        self.assertEqual(pos['pg_shortfall'], 0)
+        # both are the contractor's money tied up against the same work
+        self.assertEqual(pos['total_secured'], 550000)
+
+    def test_position_flags_a_short_performance_guarantee(self):
+        pos = retention.deposit_position(10000000, [], pg_furnished=200000)
+        self.assertEqual(pos['pg_shortfall'], 300000)
+
+    def test_released_deposit_reduces_what_is_held_but_not_what_accrued(self):
+        pos = retention.deposit_position(
+            10000000, self._bills(), pg_furnished=500000, released=20000)
+        self.assertEqual(pos['sd_accrued'], 50000)   # history is unchanged
+        self.assertEqual(pos['sd_held'], 30000)
+        self.assertEqual(pos['bg']['accumulated'], 30000)
+
+    def test_over_release_never_shows_negative_held(self):
+        pos = retention.deposit_position(1000000, [{'value': 100000}],
+                                         released=999999)
+        self.assertEqual(pos['sd_held'], 0)
+
+    def test_bank_guarantee_eligibility_uses_what_is_still_held(self):
+        # Releasing money should be able to drop you back below the threshold.
+        bills = [{'value': 30000000}]              # 2.5% = 750000
+        self.assertTrue(retention.deposit_position(0, bills)['bg']['eligible'])
+        released = retention.deposit_position(0, bills, released=400000)
+        self.assertFalse(released['bg']['eligible'])
+        self.assertEqual(released['bg']['shortfall'], 150000)
+
+
 class TestMusterRoll(unittest.TestCase):
     """CPWA Form 21: the nominal roll, the day grid, and unpaid wages."""
 

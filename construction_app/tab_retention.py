@@ -266,5 +266,178 @@ class RetentionRegister(ttk.Frame):
         report_open.save_and_open_html(html, 'retention_register.html')
 
 
+class SecurityDeposit(ttk.Frame):
+    """The CPWD security position on one contract.
+
+    Separate from the retention register above because it answers a different
+    question. The register asks *when does money come back*; this asks *how
+    much of mine is tied up right now, and can any of it be swapped for a bank
+    guarantee* — which is a working-capital question nobody sends a reminder
+    about.
+    """
+
+    COLUMNS = ('bill_no', 'bill_date', 'value', 'deducted', 'cumulative')
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._cmap = {}
+        self._rows = []
+        self.contract_var = tk.StringVar()
+        self.sd_pct_var = tk.StringVar(value='{:g}'.format(
+            retention.SECURITY_DEPOSIT_PCT))
+        self.pg_var = tk.StringVar(value='0')
+        self.released_var = tk.StringVar(value='0')
+        self.summary_var = tk.StringVar()
+        self.bg_var = tk.StringVar()
+        self.pg_note_var = tk.StringVar()
+        self._build_ui()
+        self.reload_contracts()
+
+    def _build_ui(self):
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Contract').pack(side='left')
+        self.contract_combo = ttk.Combobox(top, textvariable=self.contract_var,
+                                           width=22, state='readonly')
+        self.contract_combo.pack(side='left', padx=6)
+        self.contract_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        for label, var, w in (('Deposit %', self.sd_pct_var, 6),
+                              ('Guarantee furnished', self.pg_var, 12),
+                              ('Deposit released', self.released_var, 12)):
+            ttk.Label(top, text=label).pack(side='left', padx=(10, 2))
+            ttk.Entry(top, textvariable=var, width=w).pack(side='left')
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='left', padx=8)
+        ttk.Button(top, text='Print / Export', command=self.export).pack(side='left')
+
+        ttk.Label(self, textvariable=self.summary_var,
+                  font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=10)
+        ttk.Label(self, textvariable=self.bg_var,
+                  foreground='#226622').pack(anchor='w', padx=10)
+        ttk.Label(self, textvariable=self.pg_note_var,
+                  foreground='#8a5a00').pack(anchor='w', padx=10, pady=(0, 4))
+
+        headings = {'bill_no': 'Bill', 'bill_date': 'Date',
+                    'value': 'Bill Value', 'deducted': 'Deposit Deducted',
+                    'cumulative': 'Cumulative Held'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=headings[col])
+            self.tree.column(col, width=130, anchor='w')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+
+        ttk.Label(self, text=(
+            'CPWD takes a 5% performance guarantee before work starts and 2.5% '
+            'from every running bill. Both are your money. State PWDs differ — '
+            'set the rate to match your agreement.'),
+            foreground='#666', wraplength=900, justify='left') \
+            .pack(anchor='w', padx=10, pady=(0, 8))
+
+    def reload_contracts(self):
+        conn = self.db_getter()
+        try:
+            opts = [(r['id'], r['contract_no'] or 'Contract {}'.format(r['id']))
+                    for r in conn.execute(
+                        'SELECT id, contract_no FROM contracts ORDER BY id DESC')]
+        finally:
+            conn.close()
+        self._cmap = {'{} - {}'.format(i, n): i for i, n in opts}
+        self.contract_combo['values'] = list(self._cmap)
+        if self._cmap and not self.contract_var.get():
+            self.contract_var.set(next(iter(self._cmap)))
+        self.refresh()
+
+    def _contract_id(self):
+        raw = self.contract_var.get().strip()
+        return self._cmap.get(raw) if raw else None
+
+    def _num(self, var, default=0.0):
+        try:
+            return float(var.get().strip() or 0)
+        except ValueError:
+            return default
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._rows = []
+        cid = self._contract_id()
+        if cid is None:
+            self.summary_var.set('Select a contract.')
+            self.bg_var.set(''); self.pg_note_var.set('')
+            return
+        conn = self.db_getter()
+        try:
+            contract = conn.execute(
+                'SELECT contract_value FROM contracts WHERE id = ?',
+                (cid,)).fetchone()
+            # Prefer the amount actually withheld on each bill over the
+            # nominal rate: part rates and adjustments make them differ.
+            bills = [{'bill_no': r['bill_no'], 'bill_date': r['bill_date'],
+                      'value': r['this_bill_value'], 'deducted': r['retention_amt']}
+                     for r in conn.execute(
+                         "SELECT bill_no, bill_date, this_bill_value, retention_amt "
+                         "FROM ra_bills WHERE contract_id = ? "
+                         "AND status IN ('Approved', 'Paid') ORDER BY id", (cid,))]
+        finally:
+            conn.close()
+
+        pos = retention.deposit_position(
+            contract['contract_value'] if contract else 0, bills,
+            pg_furnished=self._num(self.pg_var),
+            released=self._num(self.released_var),
+            sd_pct=self._num(self.sd_pct_var, retention.SECURITY_DEPOSIT_PCT))
+
+        for r in pos['rows']:
+            row = (r['bill_no'] or '-', r['bill_date'] or '-',
+                   '{:,.2f}'.format(r['value']),
+                   '{:,.2f}'.format(r['deducted']),
+                   '{:,.2f}'.format(r['cumulative']))
+            self._rows.append(row)
+            self.tree.insert('', 'end', values=row)
+
+        self.summary_var.set(
+            'Deposit held {:,.2f} from {} bill(s)   |   guarantee furnished '
+            '{:,.2f}   |   total of your money secured {:,.2f}'.format(
+                pos['sd_held'], pos['bills'], pos['pg_furnished'],
+                pos['total_secured']))
+        bg = pos['bg']
+        if bg['eligible']:
+            self.bg_var.set(
+                'Deposit has reached {:,.2f} — it may be released against a bank '
+                'guarantee. That is cash you could be using.'.format(
+                    bg['accumulated']))
+        elif bg['accumulated'] > 0:
+            self.bg_var.set(
+                '{:,.2f} more before the deposit can be swapped for a bank '
+                'guarantee.'.format(bg['shortfall']))
+        else:
+            self.bg_var.set('')
+        if pos['pg_shortfall'] > 0:
+            self.pg_note_var.set(
+                'Performance guarantee short by {:,.2f} of the {:,.2f} required '
+                '(enter what you furnished above if it is already lodged).'
+                .format(pos['pg_shortfall'], pos['pg_required']))
+        else:
+            self.pg_note_var.set('')
+
+    def export(self):
+        if not self._rows:
+            messagebox.showinfo('Nothing to export', 'Select a contract first.')
+            return
+        html = bill_export.build_statement_html(
+            'Security deposit register',
+            ['Contract: {}'.format(self.contract_var.get()),
+             self.summary_var.get(),
+             self.bg_var.get() or '', self.pg_note_var.get() or ''],
+            ['Bill', 'Date', 'Bill Value', 'Deposit Deducted',
+             'Cumulative Held'],
+            self._rows, summary=self.summary_var.get())
+        report_open.save_and_open_html(html, 'security_deposit.html')
+
+
 def build_retention_tab(parent, db_getter):
-    return RetentionRegister(parent, db_getter)
+    """Retention register plus the security-deposit position, side by side."""
+    nb = ttk.Notebook(parent)
+    nb.add(RetentionRegister(nb, db_getter), text='Retention Register')
+    nb.add(SecurityDeposit(nb, db_getter), text='Security Deposit')
+    return nb

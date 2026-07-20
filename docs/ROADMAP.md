@@ -521,10 +521,30 @@ returned, and payment waits another cycle.
   attribution the data cannot support. A period with wages but no measurement
   is flagged rather than divided by zero: that is a measurement gap, not a
   100% labour ratio.
-- ⏳ **Security-deposit ledger** — 5% performance guarantee plus 2.5% deducted
-  from every running bill, accumulating across bills, with the ₹5 lakh
-  bank-guarantee release threshold flagged. Configurable, because state PWDs
-  vary (Arunachal deducts 10% per bill against CPWD's 2.5%).
+- ✅ **Security-deposit ledger** (extends `retention.py`; new Security Deposit
+  view beside the retention register). A CPWD contract secures performance
+  **twice**, and the two are separate money with separate release rules:
+  a 5% performance guarantee furnished before work starts (Para 21.1), and
+  2.5% deducted from the gross of every running and final bill (Para 21.2).
+  Keeping them apart on screen is the point — the guarantee is the one people
+  forget exists long after the job closed.
+
+  The accrual shows each bill's deduction *and* the running total, because the
+  question a contractor actually asks — "how much of mine is sitting with them
+  now" — is not answered by any single bill. Where a bill records what was
+  really withheld, that beats the nominal percentage: a part rate or a
+  departmental adjustment makes the two differ, and the register should show
+  what happened, not what the formula says.
+
+  Once the accrued deposit reaches **₹5 lakh** it may be swapped for a bank
+  guarantee, which the view flags — it converts dead cash into working capital
+  and nobody sends a reminder. Eligibility is tested against what is still
+  *held*, not what accrued, so a release correctly drops you back below the
+  threshold.
+
+  Rate, guarantee and threshold are all editable defaults rather than
+  constants, because state PWDs differ sharply — Arunachal deducts 10% a bill
+  against CPWD's 2.5%.
 - ⏳ **Rate analysis on the DAR skeleton** — material + labour + sundries →
   +1% water → +15% CPOH, with water and scaffolding as per-item toggles rather
   than hard-coded, since they apply only to wet/access items.
