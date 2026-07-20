@@ -48,8 +48,12 @@ def _g(row, key, default=None):
 
 
 def _d(value):
-    """Parse an ISO date; returns None rather than raising."""
-    return isodate.parse(value)
+    """Parse an ISO date; returns None rather than raising.
+
+    Strict: a muster roll is keyed by day, so a value carrying a time part is a
+    data error to refuse, not to truncate.
+    """
+    return isodate.parse(value, strict=True)
 
 
 def period_dates(start, end):

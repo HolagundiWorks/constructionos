@@ -132,7 +132,7 @@ construction_app/
 ├── resources/              # logo_square.png, logo_rectangle.png, app.ico (committed binary brand assets).
 ├── tab_login.py            # Startup login dialog (shown only when security is enabled).
 ├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
-├── isodate.py              # PURE tolerant ISO-date parse: parse(value) -> date or None (narrows datetime, tolerates whitespace/time part). Shared by every dated pure module. No tkinter/DB/deps.
+├── isodate.py              # PURE tolerant ISO-date parse: parse(value, strict=False) -> date or None (narrows datetime, strips whitespace; strict=True refuses a time part instead of truncating — muster uses it). Shared by every dated pure module. No tkinter/DB/deps.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── posting.py              # PURE double-entry posting rules: balanced journal lines per document type (uses CoA codes). No tkinter/DB.
 ├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices, payments, paid payroll, sub bills. DB-only, no tkinter.

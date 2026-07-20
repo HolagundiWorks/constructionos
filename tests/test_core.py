@@ -235,15 +235,22 @@ class TestIsoDate(unittest.TestCase):
         self.assertEqual(isodate.parse(datetime(2026, 1, 1, 10, 30)),
                          date(2026, 1, 1))
 
-    def test_surrounding_whitespace_and_a_time_part_are_both_tolerated(self):
-        # muster's copy accepted the first and rejected the second; the other
-        # copies did the reverse. Both are accepted now.
+    def test_whitespace_is_always_stripped(self):
+        # muster's copy stripped it; the others didn't. Now everyone does, in
+        # both modes.
         self.assertEqual(isodate.parse('  2026-01-01  '), date(2026, 1, 1))
-        self.assertEqual(isodate.parse('2026-01-01T10:30:00'), date(2026, 1, 1))
+        self.assertEqual(isodate.parse('  2026-01-01  ', strict=True),
+                         date(2026, 1, 1))
 
-    def test_every_module_parses_dates_identically(self):
+    def test_a_time_part_is_tolerated_by_default_but_refused_when_strict(self):
+        # The one genuine policy difference, now an explicit flag rather than
+        # per-module drift.
+        self.assertEqual(isodate.parse('2026-01-01T10:30:00'), date(2026, 1, 1))
+        self.assertIsNone(isodate.parse('2026-01-01T10:30:00', strict=True))
+
+    def test_the_nine_lenient_modules_parse_dates_identically(self):
         parsers = [ageing._parse, cashflow._parse, closeout._parse,
-                   compliance._parse, hse._parse, muster._d, plant._parse,
+                   compliance._parse, hse._parse, plant._parse,
                    programme._parse, quality._parse, retention._parse]
         for value in ('2026-01-01', '  2026-01-01  ', '2026-01-01T10:30:00',
                       datetime(2026, 1, 1, 10, 30), date(2026, 1, 1),
@@ -252,6 +259,16 @@ class TestIsoDate(unittest.TestCase):
             for fn in parsers:
                 self.assertEqual(fn(value), expected,
                                  '{} on {!r}'.format(fn.__module__, value))
+
+    def test_muster_stays_strict_about_a_time_part(self):
+        # muster is the deliberate exception: keyed by day, it refuses a value
+        # carrying a time rather than truncating it. Everything else matches.
+        self.assertIsNone(muster._d('2026-01-01T10:30:00'))
+        for value in ('2026-01-01', '  2026-01-01  ',
+                      datetime(2026, 1, 1, 10, 30), date(2026, 1, 1),
+                      None, '', 'garbage'):
+            self.assertEqual(muster._d(value), isodate.parse(value),
+                             'muster._d on {!r}'.format(value))
 
     def test_a_datetime_as_on_does_not_break_date_comparisons(self):
         # The concrete failure the drift caused, at two of the call sites.
