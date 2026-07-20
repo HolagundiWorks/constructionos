@@ -170,8 +170,18 @@ class KPIDashboard(ttk.Frame):
                     '{:,.2f}'.format(rsum['outstanding']), NONE,
                     'Earned money held by others until the DLP expires.'))
 
+        # --- schedule contradictions: a dependency loop silently disables the
+        # critical path, so it is worth surfacing on its own.
+        from tab_timeline import project_schedule, worst_delay
+        looped = sum(1 for r in conn.execute(
+            "SELECT id FROM projects WHERE status != 'Closed'")
+            if project_schedule(conn, r['id']).get('cycle'))
+        if looped:
+            out.append(('Programmes with a dependency loop', str(looped), ACT,
+                        'Tasks that wait on each other in a circle — the '
+                        'critical path cannot be computed until it is fixed.'))
+
         # --- programme delay
-        from tab_timeline import worst_delay
         wd = worst_delay(conn)
         if wd is None:
             out.append(('Programme delay', '—', NONE,

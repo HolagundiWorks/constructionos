@@ -262,8 +262,35 @@ The missing project layer, now in its own **Projects** section.
 - ✅ Timeline tasks link to a project (`timeline_tasks.project_id`).
 - ✅ **Project Overview** dashboard: budget vs cost-to-date vs billed, margin,
   budget-used %, milestone progress, open tasks (`tab_projects.py`, `projman.py`).
-- ⏳ Hard project↔transaction links (costs are site-scoped today); per-project
-  Gantt filter; critical-path / dependency scheduling.
+- ✅ **Critical-path / dependency scheduling** (`cpm.py`, new Critical Path
+  view in Timeline, feeding a KPI). The task list already let a task name a
+  dependency, but the field was inert free text — it drew nothing and computed
+  nothing. Now it runs the critical path method: order the tasks so each
+  follows its predecessors, sweep forward for the earliest each can start and
+  finish, sweep back for the latest without moving the end date, and the slack
+  between is the float. **Zero float is the critical path** — the tasks where a
+  day lost is a day lost on the whole job, and precisely the day that runs into
+  liquidated damages. This is the natural partner of the baseline work: a slip
+  on a task with float costs nothing, the same slip on a critical task is what
+  the LD exposure is made of.
+
+  The view distinguishes **total float** (how far a task can slip before the
+  project end moves) from **free float** (how far before the *next* task is
+  disturbed) — a real difference the end-to-end run shows: a water-tank task
+  with 6 days of total float but 0 free float, because using its slack would
+  push the task after it.
+
+  Two honesty constraints. A **dependency loop** ("A waits for B, B waits for
+  A") has no valid schedule, so the module refuses to invent one — it names the
+  tasks caught in the loop and computes no floats, and a KPI surfaces any
+  project in that state, because a cycle silently disables the whole critical
+  path. And a dependency naming a **task that does not exist** is reported, not
+  dropped: silently ignoring it would shorten the critical path and understate
+  the risk, so the view says which references matched nothing and warns the
+  path may be understated until they are fixed.
+- ⏳ Hard project↔transaction links (costs are site-scoped today) — a larger,
+  ledger-wide refactor, deferred pending an explicit decision; per-project
+  Gantt filter.
 
 ## AI Assistant (added on request)
 

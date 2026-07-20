@@ -18,6 +18,7 @@ from tkinter import ttk, messagebox
 from ui_guard import can_write
 
 import bill_export
+import cpm
 import programme
 import report_open
 from crud_frame import CrudFrame, Field
@@ -468,9 +469,177 @@ def worst_delay(conn):
     return worst
 
 
+class CriticalPathView(ttk.Frame):
+    """Which tasks cannot slip without delaying the whole job.
+
+    Reads each task's dependency field (free text — task names or ids,
+    separated by commas), runs the critical path method, and shows the float
+    on every task. Zero float is the critical path: guard those, the rest have
+    slack. Cycles and dependencies that name a missing task are surfaced, not
+    swallowed, because a schedule that hides its own contradictions is worse
+    than one that admits them.
+    """
+
+    COLUMNS = ('task_name', 'duration', 'start', 'finish', 'total_float',
+               'free_float', 'critical')
+
+    def __init__(self, parent, db_getter):
+        super().__init__(parent)
+        self.db_getter = db_getter
+        self._pmap = {}
+        self._rows = []
+        self.project_var = tk.StringVar()
+        self.headline_var = tk.StringVar()
+        self.warn_var = tk.StringVar()
+        self._build_ui()
+        self.reload_projects()
+
+    def _build_ui(self):
+        top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=(8, 4))
+        ttk.Label(top, text='Project').pack(side='left')
+        self.project_combo = ttk.Combobox(top, textvariable=self.project_var,
+                                          width=26, state='readonly')
+        self.project_combo.pack(side='left', padx=6)
+        self.project_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        ttk.Button(top, text='Refresh', command=self.refresh).pack(side='left')
+        ttk.Button(top, text='Print / Export',
+                   command=self.export).pack(side='left', padx=6)
+
+        ttk.Label(self, textvariable=self.headline_var,
+                  font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=10)
+        ttk.Label(self, textvariable=self.warn_var, foreground='#b00020',
+                  wraplength=980, justify='left').pack(anchor='w', padx=10)
+
+        headings = {'task_name': 'Task', 'duration': 'Days', 'start': 'Earliest Start',
+                    'finish': 'Earliest Finish', 'total_float': 'Total Float',
+                    'free_float': 'Free Float', 'critical': 'On Critical Path'}
+        self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings')
+        for col in self.COLUMNS:
+            self.tree.heading(col, text=headings[col])
+            self.tree.column(col, width=220 if col == 'task_name' else 110,
+                             anchor='w')
+        self.tree.tag_configure('critical', background='#ffe3e3')
+        self.tree.pack(fill='both', expand=True, padx=8, pady=4)
+
+        ttk.Label(self, text=(
+            'Total float is how many days a task can slip before the project '
+            'end moves; free float is how far it can slip before disturbing '
+            'the next task. A task on the critical path has zero of both — a '
+            'day lost there is a day lost on the whole job, and the day that '
+            'runs into liquidated damages. Set a task\'s Dependency to the '
+            'name(s) of the task(s) it waits for, separated by commas.'),
+            foreground='#666', wraplength=980, justify='left') \
+            .pack(anchor='w', padx=10, pady=(0, 8))
+
+    def reload_projects(self):
+        conn = self.db_getter()
+        try:
+            opts = [(r['id'], r['name']) for r in conn.execute(
+                'SELECT id, name FROM projects ORDER BY id DESC')]
+        finally:
+            conn.close()
+        self._pmap = {'{} - {}'.format(i, n): i for i, n in opts}
+        self.project_combo['values'] = list(self._pmap)
+        if self._pmap and not self.project_var.get():
+            self.project_var.set(next(iter(self._pmap)))
+        self.refresh()
+
+    def _project_id(self):
+        return self._pmap.get(self.project_var.get().strip())
+
+    def refresh(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._rows = []
+        pid = self._project_id()
+        if pid is None:
+            self.headline_var.set('No project selected.')
+            self.warn_var.set('')
+            return
+        conn = self.db_getter()
+        try:
+            tasks = [dict(r) for r in conn.execute(
+                'SELECT * FROM timeline_tasks WHERE project_id = ? '
+                'ORDER BY start_date, id', (pid,))]
+            proj = conn.execute('SELECT start_date FROM projects WHERE id = ?',
+                                (pid,)).fetchone()
+        finally:
+            conn.close()
+
+        result = cpm.schedule_from(tasks, _col(proj, 'start_date'))
+        s = cpm.summarise(result)
+
+        if not tasks:
+            self.headline_var.set('No tasks on this project.')
+            self.warn_var.set('')
+            return
+        if result['cycle']:
+            names = ', '.join(t['task_name'] for t in tasks
+                              if t['id'] in result['cycle'])
+            self.headline_var.set('Cannot compute a schedule — the '
+                                  'dependencies contradict each other.')
+            self.warn_var.set('These tasks depend on each other in a loop: {}. '
+                              'Fix the dependency chain and refresh.'.format(names))
+            return
+
+        # order tasks by early start for reading
+        ordered = sorted(result['tasks'].values(),
+                         key=lambda v: (v['early_start'], v['name']))
+        for v in ordered:
+            self._rows.append(v)
+            self.tree.insert('', 'end', tags=('critical',) if v['critical'] else (),
+                             values=(
+                v['name'], '{:g}'.format(v['duration']),
+                v.get('start_date', '{:g}'.format(v['early_start'])),
+                v.get('finish_date', '{:g}'.format(v['early_finish'])),
+                '{:g}'.format(v['total_float']), '{:g}'.format(v['free_float']),
+                'YES' if v['critical'] else ''))
+
+        self.headline_var.set(
+            'Project duration {:g} days.   {} of {} task(s) on the critical '
+            'path.'.format(s['project_duration'], s['critical'], s['total']))
+        if s['unresolved']:
+            miss = '; '.join('"{}" (on {})'.format(
+                tok, next((t['task_name'] for t in tasks if t['id'] == tid), tid))
+                for tid, tok in result['unresolved'][:5])
+            self.warn_var.set('{} dependency reference(s) matched no task and '
+                              'were ignored: {}. The critical path may be '
+                              'understated until these are fixed.'.format(
+                                  s['unresolved'], miss))
+        else:
+            self.warn_var.set('')
+
+    def export(self):
+        if not self._rows:
+            messagebox.showinfo('Nothing to export', 'No schedule to report.')
+            return
+        rows = [(v['name'], '{:g}'.format(v['duration']),
+                 v.get('start_date', '{:g}'.format(v['early_start'])),
+                 v.get('finish_date', '{:g}'.format(v['early_finish'])),
+                 '{:g}'.format(v['total_float']), '{:g}'.format(v['free_float']),
+                 'YES' if v['critical'] else '') for v in self._rows]
+        html = bill_export.build_statement_html(
+            'Critical path — {}'.format(self.project_var.get()),
+            [self.headline_var.get(), self.warn_var.get() or ''],
+            ['Task', 'Days', 'Earliest Start', 'Earliest Finish',
+             'Total Float', 'Free Float', 'Critical'],
+            rows, summary=self.headline_var.get())
+        report_open.save_and_open_html(html, 'critical_path.html')
+
+
+def project_schedule(conn, project_id):
+    """CPM result for one project — used by the KPI dashboard."""
+    tasks = [dict(r) for r in conn.execute(
+        'SELECT * FROM timeline_tasks WHERE project_id = ?', (project_id,))]
+    proj = conn.execute('SELECT start_date FROM projects WHERE id = ?',
+                        (project_id,)).fetchone()
+    return cpm.schedule_from(tasks, _col(proj, 'start_date'))
+
+
 def build_timeline_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(_build_tasks(nb, db_getter), text='Tasks')
     nb.add(BaselineView(nb, db_getter), text='Baseline vs Actual')
+    nb.add(CriticalPathView(nb, db_getter), text='Critical Path')
     nb.add(GanttView(nb, db_getter), text='Gantt Chart View')
     return nb

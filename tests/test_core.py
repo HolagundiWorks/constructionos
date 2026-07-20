@@ -35,6 +35,7 @@ import cashflow
 import civil
 import closeout
 import compliance
+import cpm
 import einvoice
 import company
 import estimate
@@ -1404,6 +1405,125 @@ class TestCarryForward(unittest.TestCase):
                                        tables=['clients', 'no_such_table'])
         self.assertEqual(copied.get('clients'), 1)
         self.assertNotIn('no_such_table', copied)
+
+
+class TestCriticalPath(unittest.TestCase):
+    """CPM over a known network. The float values are the whole point."""
+
+    def _net(self, by='name'):
+        # A(3) -> B(4), C(2); B -> D(5); C -> E(1); D,E -> F(2).
+        # Critical path A-B-D-F, duration 14; C and E carry 6 days of float.
+        def dep(*names):
+            if by == 'id':
+                ids = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}
+                return ', '.join(str(ids[n]) for n in names)
+            return ', '.join(names)
+        return [
+            {'id': 1, 'task_name': 'A', 'duration_days': 3, 'dependency': ''},
+            {'id': 2, 'task_name': 'B', 'duration_days': 4, 'dependency': dep('A')},
+            {'id': 3, 'task_name': 'C', 'duration_days': 2, 'dependency': dep('A')},
+            {'id': 4, 'task_name': 'D', 'duration_days': 5, 'dependency': dep('B')},
+            {'id': 5, 'task_name': 'E', 'duration_days': 1, 'dependency': dep('C')},
+            {'id': 6, 'task_name': 'F', 'duration_days': 2,
+             'dependency': dep('D', 'E')},
+        ]
+
+    def _run(self, by='name'):
+        resolved, unresolved = cpm.resolve_predecessors(self._net(by))
+        self.assertEqual(unresolved, [])
+        return cpm.analyse(resolved)
+
+    def test_project_duration(self):
+        self.assertEqual(self._run()['project_duration'], 14)
+
+    def test_critical_path_is_a_b_d_f(self):
+        self.assertEqual(self._run()['critical_path'], ['A', 'B', 'D', 'F'])
+
+    def test_early_and_late_times(self):
+        t = self._run()['tasks']
+        self.assertEqual((t[1]['early_start'], t[1]['early_finish']), (0, 3))
+        self.assertEqual((t[4]['early_start'], t[4]['early_finish']), (7, 12))
+        self.assertEqual((t[6]['early_start'], t[6]['early_finish']), (12, 14))
+        # C runs early but its late start is pushed out by its float
+        self.assertEqual((t[3]['early_start'], t[3]['late_start']), (3, 9))
+
+    def test_float_is_zero_on_the_critical_path_and_six_off_it(self):
+        t = self._run()['tasks']
+        for cid in (1, 2, 4, 6):
+            self.assertEqual(t[cid]['total_float'], 0)
+            self.assertTrue(t[cid]['critical'])
+        self.assertEqual(t[3]['total_float'], 6)     # C
+        self.assertEqual(t[5]['total_float'], 6)     # E
+        self.assertFalse(t[3]['critical'])
+
+    def test_free_float_distinguishes_from_total_float(self):
+        # E can slip 6 days without disturbing anything (free float 6); C can
+        # slip 6 in total but 0 freely, because that would delay E.
+        t = self._run()['tasks']
+        self.assertEqual(t[5]['free_float'], 6)      # E
+        self.assertEqual(t[3]['free_float'], 0)      # C
+        self.assertEqual(t[3]['total_float'], 6)
+
+    def test_resolution_by_id_matches_resolution_by_name(self):
+        self.assertEqual(self._run('id')['critical_path'],
+                         self._run('name')['critical_path'])
+
+    # --- the honesty constraints ---
+    def test_a_cycle_yields_no_schedule(self):
+        tasks = [{'id': 1, 'task_name': 'A', 'duration_days': 2,
+                  'dependency': 'B'},
+                 {'id': 2, 'task_name': 'B', 'duration_days': 2,
+                  'dependency': 'A'}]
+        resolved, _ = cpm.resolve_predecessors(tasks)
+        result = cpm.analyse(resolved)
+        self.assertEqual(set(result['cycle']), {1, 2})
+        self.assertIsNone(result['project_duration'])
+        self.assertEqual(result['critical_path'], [])
+        self.assertFalse(cpm.summarise(result)['ok'])
+
+    def test_unknown_dependency_is_reported_not_dropped(self):
+        tasks = [{'id': 1, 'task_name': 'A', 'duration_days': 2,
+                  'dependency': 'Ghost Task'}]
+        resolved, unresolved = cpm.resolve_predecessors(tasks)
+        self.assertEqual(unresolved, [(1, 'Ghost Task')])
+        self.assertEqual(resolved[0]['predecessors'], [])
+
+    def test_self_dependency_is_unresolved_not_a_loop(self):
+        tasks = [{'id': 1, 'task_name': 'A', 'duration_days': 2,
+                  'dependency': 'A'}]
+        resolved, unresolved = cpm.resolve_predecessors(tasks)
+        self.assertEqual(unresolved, [(1, 'A')])
+        self.assertEqual(cpm.analyse(resolved)['project_duration'], 2)
+
+    def test_dependencies_split_on_commas_not_spaces(self):
+        # Task names contain spaces; splitting on space would fragment them.
+        tasks = [{'id': 1, 'task_name': 'Site clearance', 'duration_days': 2,
+                  'dependency': ''},
+                 {'id': 2, 'task_name': 'Foundation work', 'duration_days': 5,
+                  'dependency': 'Site clearance'}]
+        resolved, unresolved = cpm.resolve_predecessors(tasks)
+        self.assertEqual(unresolved, [])
+        self.assertEqual(resolved[1]['predecessors'], [1])
+
+    # --- durations ---
+    def test_duration_falls_back_to_the_date_span(self):
+        self.assertEqual(cpm.task_duration(
+            {'start_date': '2026-04-01', 'end_date': '2026-04-10'}), 10)
+        self.assertEqual(cpm.task_duration({'duration_days': 4}), 4)
+        self.assertEqual(cpm.task_duration({}), 0)      # a milestone
+
+    def test_schedule_maps_early_times_to_dates(self):
+        result = cpm.schedule_from(self._net(), project_start='2026-04-01')
+        t = result['tasks']
+        self.assertEqual(t[1]['start_date'], '2026-04-01')     # A, ES 0
+        self.assertEqual(t[1]['finish_date'], '2026-04-03')    # 3 days incl.
+        self.assertEqual(t[4]['start_date'], '2026-04-08')     # D, ES 7
+
+    def test_empty_programme(self):
+        result = cpm.analyse([])
+        self.assertEqual(result['project_duration'], 0)
+        self.assertEqual(result['critical_path'], [])
+        self.assertTrue(cpm.summarise(result)['ok'])
 
 
 class TestEInvoice(unittest.TestCase):
