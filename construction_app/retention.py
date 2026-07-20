@@ -22,6 +22,7 @@ a bill raised early in a job is released on the same day as the last one.
 from datetime import date, timedelta
 
 import finance
+import isodate
 
 CLIENT = 'Client'          # they hold our money — a receivable
 SUB = 'Subcontractor'      # we hold theirs — a payable
@@ -32,14 +33,7 @@ def money(value):
 
 
 def _parse(d):
-    if isinstance(d, date):
-        return d
-    if not d:
-        return None
-    try:
-        return date.fromisoformat(str(d)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(d)
 
 
 def release_due_date(completion_date, dlp_months=12):

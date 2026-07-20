@@ -24,6 +24,8 @@ it is the first week the running balance goes negative.
 
 from datetime import date, timedelta
 
+import isodate
+
 BUCKET_WEEK = 'week'
 BUCKET_MONTH = 'month'
 
@@ -36,14 +38,7 @@ def money(value):
 
 
 def _parse(d):
-    if isinstance(d, date):
-        return d
-    if not d:
-        return None
-    try:
-        return date.fromisoformat(str(d)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(d)
 
 
 def expected_date(doc_date, lag_days, today=None):

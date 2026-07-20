@@ -31,6 +31,8 @@ Two honesty constraints:
 from datetime import date
 from statistics import median
 
+import isodate
+
 # A machine needs this many usable logs before its own median means anything.
 MIN_SAMPLE = 5
 
@@ -61,14 +63,7 @@ def _g(row, key, default=None):
 
 
 def _parse(value):
-    if isinstance(value, date):
-        return value
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(value)
 
 
 def machine_key(row):

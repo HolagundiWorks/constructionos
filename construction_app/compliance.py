@@ -27,6 +27,8 @@ days late and letting their accountant price it.
 
 from datetime import date, timedelta
 
+import isodate
+
 MONTHLY = 'Monthly'
 QUARTERLY = 'Quarterly'
 ANNUAL = 'Annual'
@@ -106,14 +108,7 @@ UPCOMING = 'Upcoming'
 
 def _parse(value):
     """Tolerant ISO-date parse; ``None`` on anything unusable."""
-    if isinstance(value, date):
-        return value
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(value)
 
 
 def _clamped(year, month, day):

@@ -24,6 +24,7 @@ looks catastrophic and means nothing.
 from datetime import date
 
 import finance
+import isodate
 
 # Permit types that matter on an Indian civil site.
 PERMIT_TYPES = ['Work at height', 'Excavation', 'Hot work', 'Confined space',
@@ -51,14 +52,7 @@ def money(value):
 
 
 def _parse(d):
-    if isinstance(d, date):
-        return d
-    if not d:
-        return None
-    try:
-        return date.fromisoformat(str(d)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(d)
 
 
 def _get(row, key, default=''):

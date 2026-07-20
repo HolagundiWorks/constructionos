@@ -21,7 +21,7 @@ import re
 import sys
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
@@ -38,6 +38,7 @@ import company
 import estimate
 import finance
 import hse
+import isodate
 import mb
 import money
 import muster
@@ -209,6 +210,58 @@ class TestStatutory(unittest.TestCase):
         self.assertGreater(statutory.labour_cess(1000000), 0)
         e = statutory.esi(10000)
         self.assertTrue(isinstance(e, dict) or e >= 0)
+
+
+class TestIsoDate(unittest.TestCase):
+    """The shared tolerant date parser (``isodate.parse``).
+
+    Ten pure modules used to carry their own copy of this and had drifted
+    apart; these tests pin the behaviour they now all share.
+    """
+
+    def test_parses_a_plain_iso_date(self):
+        self.assertEqual(isodate.parse('2026-01-01'), date(2026, 1, 1))
+
+    def test_blank_and_garbage_give_none_rather_than_raising(self):
+        for bad in (None, '', 0, 'garbage', '2026-13-01', b'2026-01-01'):
+            self.assertIsNone(isodate.parse(bad), repr(bad))
+
+    def test_a_date_passes_through_unchanged(self):
+        self.assertEqual(isodate.parse(date(2026, 1, 1)), date(2026, 1, 1))
+
+    def test_a_datetime_is_narrowed_to_its_date(self):
+        # The old per-module copies returned the datetime untouched, and the
+        # caller's next comparison against a date raised TypeError.
+        self.assertEqual(isodate.parse(datetime(2026, 1, 1, 10, 30)),
+                         date(2026, 1, 1))
+
+    def test_surrounding_whitespace_and_a_time_part_are_both_tolerated(self):
+        # muster's copy accepted the first and rejected the second; the other
+        # copies did the reverse. Both are accepted now.
+        self.assertEqual(isodate.parse('  2026-01-01  '), date(2026, 1, 1))
+        self.assertEqual(isodate.parse('2026-01-01T10:30:00'), date(2026, 1, 1))
+
+    def test_every_module_parses_dates_identically(self):
+        parsers = [ageing._parse, cashflow._parse, closeout._parse,
+                   compliance._parse, hse._parse, muster._d, plant._parse,
+                   programme._parse, quality._parse, retention._parse]
+        for value in ('2026-01-01', '  2026-01-01  ', '2026-01-01T10:30:00',
+                      datetime(2026, 1, 1, 10, 30), date(2026, 1, 1),
+                      None, '', 'garbage'):
+            expected = isodate.parse(value)
+            for fn in parsers:
+                self.assertEqual(fn(value), expected,
+                                 '{} on {!r}'.format(fn.__module__, value))
+
+    def test_a_datetime_as_on_does_not_break_date_comparisons(self):
+        # The concrete failure the drift caused, at two of the call sites.
+        permit = {'status': 'Open', 'valid_from': '2026-01-01',
+                  'valid_to': '2026-06-01'}
+        valid, _ = hse.permit_valid(permit, as_on=datetime(2026, 3, 1, 9, 0))
+        self.assertTrue(valid)
+        self.assertTrue(closeout.is_overdue({'status': 'Open',
+                                             'target_date': '2026-01-01'},
+                                            as_on=datetime(2026, 3, 1, 9, 0)))
 
 
 class TestAgeing(unittest.TestCase):

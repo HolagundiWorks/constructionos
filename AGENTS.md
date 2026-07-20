@@ -132,6 +132,7 @@ construction_app/
 ├── resources/              # logo_square.png, logo_rectangle.png, app.ico (committed binary brand assets).
 ├── tab_login.py            # Startup login dialog (shown only when security is enabled).
 ├── tab_security.py         # Users & Security + Audit Log tabs (live under Tools).
+├── isodate.py              # PURE tolerant ISO-date parse: parse(value) -> date or None (narrows datetime, tolerates whitespace/time part). Shared by every dated pure module. No tkinter/DB/deps.
 ├── finance.py              # PURE tax/accounting maths: GST split, TDS, invoice roll-up, PO reconciliation, double-entry checks. No tkinter/DB.
 ├── posting.py              # PURE double-entry posting rules: balanced journal lines per document type (uses CoA codes). No tkinter/DB.
 ├── journal_post.py         # Auto-posting engine: idempotent post_all(conn) → journal entries from tax/vendor invoices, payments, paid payroll, sub bills. DB-only, no tkinter.
@@ -454,7 +455,10 @@ CrudFrame guard and the app-wide handler in `errors.py`.
 - **Dates are plain `TEXT` `YYYY-MM-DD`**, validated ad hoc with
   `datetime.strptime` in `try/except`, no date-picker widget. Other code
   (payroll month/year `strftime` queries, hire/duration calculators, the Gantt)
-  assumes this format.
+  assumes this format. In the **pure modules**, parse dates through
+  `isodate.parse(value)` (→ `date` or `None`, never raises) rather than
+  hand-rolling another tolerant parser — ten modules each grew their own copy
+  and the copies drifted, one of them into a `TypeError` on datetime input.
 - **Money/qty are `REAL` (float)**, not `Decimal`. `finance.money(x)` coerces
   and rounds to 2 decimals at boundaries; use it for new tax/accounting maths.
   Never compare floats for equality — use the `eps` in `finance.is_balanced`.

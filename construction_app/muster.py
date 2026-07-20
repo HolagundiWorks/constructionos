@@ -32,6 +32,7 @@ pretending to a per-worker attribution the data cannot support.
 
 from datetime import date, timedelta
 
+import isodate
 import wages
 
 
@@ -48,12 +49,7 @@ def _g(row, key, default=None):
 
 def _d(value):
     """Parse an ISO date; returns None rather than raising."""
-    if isinstance(value, date):
-        return value
-    try:
-        return date.fromisoformat(str(value).strip())
-    except (TypeError, ValueError):
-        return None
+    return isodate.parse(value)
 
 
 def period_dates(start, end):
