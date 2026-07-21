@@ -73,6 +73,7 @@ import variation
 import wages
 import earnedvalue
 import risk
+import risk_store
 
 
 class TestFinance(unittest.TestCase):
@@ -431,6 +432,105 @@ class TestRisk(unittest.TestCase):
         self.assertEqual(s['needs_action'], 2)    # critical + high
         self.assertEqual(len(s['top']), 2)
         self.assertGreater(s['total_expected_exposure'], 0)
+
+
+class TestRiskStore(unittest.TestCase):
+    """The risk register persistence, against a real temporary SQLite database
+    (the same harness the posting engine uses). Proves the derive-on-save rule
+    and that a project delete cascades to its risks."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('Ward-7 Road')")
+        self.conn.commit()
+        self.project_id = 1
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_add_derives_score_band_and_exposure_on_save(self):
+        rid = risk_store.add(
+            self.conn, project_id=self.project_id, category='cost',
+            title='Steel price spike', likelihood=4, impact=5,
+            impact_value=200000)
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['score'], 20)              # 4 x 5
+        self.assertEqual(row['band'], risk.CRITICAL)
+        self.assertEqual(row['expected_exposure'], 140000.0)  # 0.7 x 200000
+        self.assertEqual(row['source'], 'manual')       # defaulted
+        self.assertTrue(row['created_date'])            # stamped today
+
+    def test_update_re_derives_from_the_merged_row(self):
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=2, impact=2)
+        self.assertEqual(risk_store.get(self.conn, rid)['band'], risk.LOW)
+        risk_store.update(self.conn, rid, impact=5)     # only impact changes
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['score'], 10)              # 2 x 5, re-derived
+        self.assertEqual(row['band'], risk.HIGH)
+
+    def test_set_status_stamps_who_decided(self):
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=3, impact=3)
+        risk_store.set_status(self.conn, rid, 'Accepted', decided_by='PM')
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['status'], 'Accepted')
+        self.assertEqual(row['decided_by'], 'PM')
+        self.assertTrue(row['decided_date'])
+
+    def test_list_is_worst_first_and_filters(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       title='small', likelihood=1, impact=2)
+        risk_store.add(self.conn, project_id=self.project_id,
+                       title='big', likelihood=5, impact=5)
+        rows = risk_store.list_risks(self.conn, project_id=self.project_id)
+        self.assertEqual(rows[0]['title'], 'big')       # highest score first
+        opens = risk_store.list_risks(self.conn, status='Open')
+        self.assertEqual(len(opens), 2)
+
+    def test_summary_rolls_up_from_stored_rows(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=5, impact=5, impact_value=100000)  # critical
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=4, impact=3, impact_value=50000)   # high (12)
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=1, impact=2)                        # low
+        s = risk_store.summary(self.conn, project_id=self.project_id)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['needs_action'], 2)          # critical + high
+        self.assertGreater(s['total_expected_exposure'], 0)
+
+    def test_summary_ignores_a_hand_edited_score(self):
+        # Even if someone tampers with the stored derived score, the roll-up
+        # re-assesses from the raw levels — so it stays honest.
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=5, impact=5)
+        self.conn.execute("UPDATE risks SET score = 1, band = 'Low' "
+                          "WHERE id = ?", (rid,))
+        self.conn.commit()
+        s = risk_store.summary(self.conn, project_id=self.project_id)
+        self.assertEqual(s['by_band'][risk.CRITICAL], 1)  # re-derived, not 'Low'
+
+    def test_deleting_a_project_cascades_to_its_risks(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=3, impact=3)
+        self.conn.execute("DELETE FROM projects WHERE id = ?",
+                          (self.project_id,))
+        self.conn.commit()
+        self.assertEqual(len(risk_store.list_risks(self.conn)), 0)
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):

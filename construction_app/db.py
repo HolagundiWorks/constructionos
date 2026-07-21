@@ -950,6 +950,41 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- ------------------------------------ risk register (E0 — enterprise PM)
+-- One row per identified project risk, scored on a 5x5 likelihood x impact
+-- matrix (the maths lives in risk.py). The derived columns (score, band,
+-- expected_exposure) are recomputed from likelihood / impact / impact_value on
+-- every save by risk_store, so a stored score can never drift from the scoring
+-- module — the same "derive on save" discipline the variations amount uses.
+-- residual_* capture the post-mitigation position; source flags whether a row
+-- was raised by a person or drafted by AI (E3); decided_by/date record who owns
+-- the accept/dismiss, the audit trail the roadmap calls for. reference is the
+-- basis — the rule or the letter the risk rests on — so no flag is ever bare.
+CREATE TABLE IF NOT EXISTS risks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- schedule/cost/commercial/quality/safety/statutory/external
+    title TEXT,
+    description TEXT,
+    likelihood INTEGER DEFAULT 1,     -- 1..5
+    impact INTEGER DEFAULT 1,         -- 1..5
+    score REAL DEFAULT 0,             -- derived: likelihood x impact
+    band TEXT DEFAULT 'Low',          -- derived: Low / Medium / High / Critical
+    impact_value REAL DEFAULT 0,      -- rupees (or days) at stake if it happens
+    expected_exposure REAL DEFAULT 0, -- derived: probability(likelihood) x impact_value
+    owner TEXT,
+    mitigation TEXT,
+    residual_likelihood INTEGER,      -- post-mitigation, nullable
+    residual_impact INTEGER,
+    status TEXT DEFAULT 'Open',       -- Open / Mitigating / Closed / Accepted
+    reference TEXT,                   -- the basis / paper trail (a rule, a letter)
+    source TEXT DEFAULT 'manual',     -- manual / ai
+    decided_by TEXT,
+    decided_date TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
 -- Bid / no-bid assessments. Records the judgement scores, the advisory
 -- verdict, what was actually decided, and how it turned out — the last two
 -- are what let the scoring be checked against reality later instead of being

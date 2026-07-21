@@ -89,7 +89,7 @@ gap, its impact, and the required work.
 |---|---|---|---|---|---|
 | Portfolio roll-up across projects/firms | 🟡 | Per-project drill-down exists; no cross-project read model | No single view of a portfolio of sites; every KPI is per-file | Federated read model over firm/year files (offline-safe) | P0 · L · Platform |
 | Earned Value Management (SPI/CPI/EAC) | 🟡 | Pure maths now built (`earnedvalue.py` + tests); not yet surfaced in a tab | Forecast-at-completion computable; cost KPIs still point-in-time in the UI | Surface `earnedvalue` in Insight/KPI; feed portfolio roll-up | P0 · M · Core |
-| Formal risk register + scoring | 🟡 | Scoring now built (`risk.py` + tests); register schema/UI still implicit in `advisory.py` | Scores/exposure computable; risks still not stored, owned, or audited | Risk register schema + tab over the built `risk.py` scoring | P0 · M · Core |
+| Formal risk register + scoring | 🟡 | Scoring (`risk.py`) + persistence (`risks` table, `risk_store.py`) now built + tested; only the tab is pending | Risks can be stored, scored, owned, and audited; not yet on screen | A tkinter tab over `risk_store` | P0 · S · Core |
 | Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; roll-up store; conflict handling | P1 · L · Platform |
 | Mobile field capture | 🟡 | Browser/LAN read + some entry; no mobile-optimised capture | Field data still typed later at a desk — the root cause of stale data | Mobile capture app feeding the capture pipeline (§3.2) | P1 · L · Platform |
 | AI-origin tagging in audit | 🟡 | Audit log exists; doesn't distinguish AI-drafted records | Can't audit "what did the AI touch and who confirmed it" | Tag AI-origin + confirming user on records | P1 · S · Platform |
@@ -143,7 +143,7 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Risk register + likelihood×impact scoring | 🟡 | Scoring built (`risk.py`); register storage/UI pending | Scores/exposure computable; risks not yet owned/tracked | Register schema + tab over built `risk.py` (shared with §3.1) | P0 · M · Core |
+| Risk register + likelihood×impact scoring | 🟡 | Scoring (`risk.py`) + persistence (`risks`, `risk_store.py`) built + tested; tab pending | Risks storable/scored/owned/audited; not yet on screen | A tab over `risk_store` (shared with §3.1) | P0 · S · Core |
 | Rule-based risk detection taxonomy | 🟡 | Advisory rules exist, unnamed as risks | No consistent risk vocabulary | Promote advisory rules into a named risk taxonomy | P1 · M · Core |
 | Risk narrative (top-N by exposure) | ❌ | No narrative | Hard to see the portfolio's top risks | Ranked plain-language risk summary | P1 · S · AI |
 | Predictive / early-weak-signal risk | ❌ | Threshold rules only | Drift caught late, after a threshold trips | Correlate soft signals; trend projection (range+basis) | P2 · L · AI |
@@ -200,21 +200,28 @@ discipline already in [`ROADMAP.md`](ROADMAP.md).
   `tests/test_core.py` (`TestEarnedValue`). Inputs map to `programme` (baseline
   → PV), `analytics.contract_progress` (measured value → EV), `projectcost`
   (total cost → AC). _Remaining: surface it in Insight/KPI (E2)._
-- **E0.2 Risk scoring ✅ (built) / register schema ⏳** — `risk.py`: 5×5
-  likelihood×impact scoring, bands (Low/Medium/High/Critical), probability-weighted
-  expected exposure, residual-after-mitigation, ranking and a register summary.
-  Pure, 8 unit tests (`TestRisk`). _Remaining: the `risks` table (project,
-  category, likelihood, impact, owner, mitigation, status, decided_by/at) and a
-  tab over this scoring — deferred because it needs schema + GUI._
-- **E0.3 AI-origin audit tagging ⏳** — extend the audit log to record AI-drafted
-  origin + confirming user (prepares E1+). Not yet started.
+- **E0.2 Risk scoring ✅ + register persistence ✅ (built) / tab ⏳** —
+  `risk.py`: 5×5 likelihood×impact scoring, bands (Low/Medium/High/Critical),
+  probability-weighted expected exposure, residual-after-mitigation, ranking and
+  a register summary (pure, 8 unit tests, `TestRisk`). `risks` table added to
+  `db.py` (additive, cascades on project delete) and `risk_store.py` — a
+  conn-taking, tkinter-free persistence layer that derives score/band/exposure
+  on every save through `risk.py` (so stored values can't drift) and re-assesses
+  from raw levels in `summary` (so a hand-edited row still rolls up honestly).
+  7 DB-backed unit tests against a temporary SQLite database (`TestRiskStore`).
+  _Remaining: a tkinter tab over the store — deferred because it needs a display
+  to verify._
+- **E0.3 AI-origin audit tagging ⏳** — the `risks` table already carries a
+  `source` (`manual`/`ai`) and `decided_by`/`decided_date`; extending the app-wide
+  audit log to tag AI-drafted origin on other records is not yet started.
 
 **Depends on:** existing analytics/cost/programme (present).
 **Acceptance:** EVM figures reconcile against a worked example in tests ✅; risk
-scoring/exposure/ranking unit-tested ✅; no new pip dependency ✅; full suite
-passes (the one environment error is the pre-existing missing-`tkinter` GUI theme
-test, unrelated to these pure modules). _Register persistence + audit tagging
-remain open._
+scoring/exposure/ranking unit-tested ✅; the register persists, derives on save,
+and cascades on project delete, all against a real temp database ✅; no new pip
+dependency ✅; full suite passes (the one environment error is the pre-existing
+missing-`tkinter` GUI theme test, unrelated to this work). _The risk tab and
+wider audit tagging remain open._
 
 ### Phase E1 — Capture _(P1 · cut manual entry)_
 
