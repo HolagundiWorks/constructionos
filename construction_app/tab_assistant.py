@@ -9,11 +9,15 @@ The assistant is strictly **read-only** (see ``assistant.safe_execute``).
 """
 
 import threading
+import webbrowser
 import tkinter as tk
 from tkinter import ttk
 
 import assistant
 import ollama_client
+import theme
+
+OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download'
 
 
 class AssistantTab(ttk.Frame):
@@ -28,7 +32,11 @@ class AssistantTab(ttk.Frame):
         ttk.Label(head, text='Ask about your data',
                   font=('TkDefaultFont', 13, 'bold')).pack(side='left')
         self.status_var = tk.StringVar()
-        ttk.Label(head, textvariable=self.status_var, foreground='#666').pack(side='right')
+        ttk.Label(head, textvariable=self.status_var,
+                  foreground=theme.palette()['muted']).pack(side='right')
+        # Shown only when Ollama isn't reachable — one click to the download page.
+        self.get_btn = ttk.Button(head, text='Get Ollama…',
+                                  command=self._get_ollama)
 
         # Quick, LLM-free answers.
         quick = ttk.LabelFrame(self, text='Quick answers (no AI needed)')
@@ -52,7 +60,8 @@ class AssistantTab(ttk.Frame):
 
         ttk.Label(self, text='e.g. "how much does Sharma owe me?", "cash received '
                              'this month", "which vendors do I owe?"',
-                  foreground='#888', font=('TkDefaultFont', 8)).pack(anchor='w', padx=12)
+                  foreground=theme.palette()['helper'],
+                  font=('TkDefaultFont', 8)).pack(anchor='w', padx=12)
 
         # Answer + result table.
         self.answer_var = tk.StringVar()
@@ -68,7 +77,8 @@ class AssistantTab(ttk.Frame):
                   font=('Courier', 9)).pack(anchor='w', padx=12, pady=(0, 4))
 
         self.sql_var = tk.StringVar()
-        ttk.Label(self, textvariable=self.sql_var, foreground='#888',
+        ttk.Label(self, textvariable=self.sql_var,
+                  foreground=theme.palette()['helper'],
                   wraplength=780, justify='left',
                   font=('TkDefaultFont', 8)).pack(anchor='w', padx=12, pady=(0, 8))
 
@@ -87,9 +97,24 @@ class AssistantTab(ttk.Frame):
         model, host = self._config()
         if ollama_client.available(host):
             self.status_var.set('AI: connected ({} @ {})'.format(model, host))
+            self.get_btn.pack_forget()
         else:
             self.status_var.set('AI: offline — quick answers still work. '
-                                'Start Ollama & set the model in Tools.')
+                                'Install Ollama, or start it & set the model in '
+                                'Tools.')
+            self.get_btn.pack(side='right', padx=(0, 8))
+
+    def _get_ollama(self):
+        """Open the Ollama download page — the assistant's only prerequisite."""
+        try:
+            webbrowser.open(OLLAMA_DOWNLOAD_URL)
+        except Exception:                              # noqa: BLE001
+            pass
+        self.answer_var.set(
+            'Opening the Ollama download page ({}). After installing, run  '
+            'ollama pull {}  in a terminal — the assistant connects on its own '
+            'once Ollama is running.'.format(
+                OLLAMA_DOWNLOAD_URL, ollama_client.DEFAULT_MODEL))
 
     # ------------------------------------------------------------ quick answers
     def load_quick(self):

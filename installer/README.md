@@ -77,9 +77,18 @@ git-ignored.
   properties, the spec. Keep them in step.
 - **Icon** is `construction_app/resources/app.ico`, used for the exe, the
   installer and the shortcuts.
-- **The optional AI assistant** needs a separate local Ollama install; the app
-  runs fully without it. Ollama is not bundled — see the `ollama_manager`
-  helper app in the repo, which is packaged separately if wanted.
+- **The optional AI assistant** needs a local Ollama install; the app runs
+  fully without it. The Construction OS installer offers an **unchecked
+  "Set up Ollama for the AI assistant (optional)"** task on the final page:
+  - if you drop the official `OllamaSetup.exe` into `installer\vendor\`
+    before building, it is bundled and run for a fully-offline setup;
+  - otherwise the task opens <https://ollama.com/download> so the user fetches
+    the current official build.
+
+  We never silently redistribute Ollama (it is a separate product with its own
+  licence). In-app, the Assistant tab also shows a **Get Ollama…** button
+  whenever Ollama is not reachable, and the `ollama_manager` companion app
+  (packaged separately) manages the server and model.
 - **Antivirus / SmartScreen**: an unsigned PyInstaller exe may trip Windows
   SmartScreen ("unknown publisher") on first run. Code-signing the exe and the
   installer with an authenticode certificate removes this; it is out of scope
