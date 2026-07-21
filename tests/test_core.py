@@ -3633,5 +3633,40 @@ class TestAdvisory(unittest.TestCase):
         self.assertEqual(soon['severity'], advisory.WATCH)
 
 
+class TestTabModuleImports(unittest.TestCase):
+    """Guard against a module using a distinctive analytics module it forgot to
+    import — a bug that stays hidden until data reaches that code path (as the
+    KPI tab's ``projectcost.portfolio`` call did until a project existed).
+
+    Uses the AST so only real ``module.attr`` code counts — the same word in a
+    docstring or string literal is ignored."""
+
+    # Distinctive enough to never plausibly be a local variable.
+    RISKY = frozenset(('projectcost', 'cashflow', 'programme', 'cpm'))
+
+    def test_distinctive_modules_are_imported_where_used(self):
+        app = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, 'construction_app')
+        for path in glob.glob(os.path.join(app, '*.py')):
+            stem = os.path.splitext(os.path.basename(path))[0]
+            with open(path, encoding='utf-8') as fh:
+                tree = ast.parse(fh.read())
+            used, imported = set(), set()
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Attribute)
+                        and isinstance(node.value, ast.Name)
+                        and node.value.id in self.RISKY):
+                    used.add(node.value.id)         # a real `module.attr` call
+                elif isinstance(node, ast.Import):  # covers nested imports too
+                    for a in node.names:
+                        imported.add((a.asname or a.name).split('.')[0])
+            for mod in used:
+                if mod == stem:
+                    continue
+                self.assertIn(
+                    mod, imported,
+                    '{}.py uses {}. but never imports it'.format(stem, mod))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

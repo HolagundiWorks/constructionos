@@ -21,6 +21,7 @@ import allocation
 import bill_export
 import planning
 import procurement
+import projectcost
 import quality
 import report_open
 import retention
