@@ -6,6 +6,29 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Browser / LAN access
+
+- **Use the app in a browser, no client install.** A built-in web server
+  (`http.server`, still pure standard library — no web framework, no pip) serves
+  Construction OS over the office LAN at `http://<host>:<port>`. It shares the
+  **same SQLite file** and business logic as the desktop; `db.get_conn`'s
+  per-request WAL connections make concurrent browser readers safe.
+- **Login required, roles reused.** The web layer always authenticates against
+  the desktop `auth` accounts (PBKDF2, lockout, audit log); the first visit
+  bootstraps the admin. Viewers are read-only. The `users` table (hashes) and
+  app config are never browsable; CSRF-guarded login, `HttpOnly`/`SameSite=Lax`
+  cookies.
+- **This turn:** the foundation + all **read views** (dashboard KPIs/advisories/
+  bottlenecks/decisions, and every register with search, pagination and a record
+  view). Write flows are staged next (Masters → Billing → Money) toward full
+  read/write parity.
+- Files: `webserver.py` (server + start/stop lifecycle), `webapp.py`
+  (`handle(request)→response`, socket-free/testable), `webrender.py` (HCW-styled,
+  theme-aware, responsive HTML), `netinfo.py` (LAN URLs), `web_main.py` (headless
+  `--host/--port`). Launcher in **Tools › Web / LAN access**. See `docs/LAN.md`.
+
+---
+
 ## 2026-07-21 — Takeoff + inbuilt offline AI
 
 - **Bluebeam-style quantity takeoff.** Measure straight off a scaled drawing:

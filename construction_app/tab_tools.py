@@ -220,6 +220,10 @@ class ToolsTab(ttk.Frame):
         ttk.Button(rbtn, text='Load CPWD Reference Data',
                    command=self.load_reference_data).pack(side='left')
 
+        # --- Web / LAN access (open in a browser, no client install) ---
+        self._web = None
+        self._build_web_panel()
+
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
                   wraplength=560, justify='left') \
@@ -803,6 +807,77 @@ class ToolsTab(ttk.Frame):
             'Restore complete',
             'Data restored. Please close and reopen the app so every screen '
             'reloads from the restored data.')
+
+
+    # ---------------------------------------------------------- Web / LAN
+    def _build_web_panel(self):
+        web = ttk.LabelFrame(
+            self, text='Web / LAN access (open in a browser, no install)')
+        web.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(
+            web, text='Run a local web server so anyone on your office network '
+                      'can open Construction OS in a browser at '
+                      'http://<this-PC>:<port> — no app to install. Login is '
+                      'required (the first visit creates the admin). It serves '
+                      'THIS company file. Keep it on a trusted LAN: the login '
+                      'travels unencrypted over plain HTTP.',
+            wraplength=560, justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+        row = ttk.Frame(web); row.pack(fill='x', padx=8, pady=4)
+        ttk.Label(row, text='Port').pack(side='left')
+        self.web_port_var = tk.StringVar(value='8080')
+        ttk.Entry(row, textvariable=self.web_port_var, width=8).pack(
+            side='left', padx=(4, 10))
+        self.web_start_btn = ttk.Button(row, text='Start server',
+                                        command=self.start_web)
+        self.web_start_btn.pack(side='left', padx=2)
+        self.web_stop_btn = ttk.Button(row, text='Stop', command=self.stop_web,
+                                       state='disabled')
+        self.web_stop_btn.pack(side='left', padx=2)
+        self.web_status_var = tk.StringVar(value='Stopped.')
+        ttk.Label(web, textvariable=self.web_status_var, foreground='#2e7d32') \
+            .pack(anchor='w', padx=8, pady=(2, 0))
+        self.web_urls_var = tk.StringVar()
+        ttk.Label(web, textvariable=self.web_urls_var, wraplength=560,
+                  justify='left', foreground='#666').pack(
+            anchor='w', padx=8, pady=(0, 8))
+
+    def start_web(self):
+        if self._web is not None and self._web.running:
+            return
+        try:
+            port = int((self.web_port_var.get() or '8080').strip())
+            if not (1 <= port <= 65535):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror('Web server', 'Port must be 1–65535.')
+            return
+        import webserver
+        import netinfo
+        self._web = webserver.WebServer(host='0.0.0.0', port=port)
+        try:
+            self._web.start()
+        except OSError as exc:
+            self._web = None
+            messagebox.showerror(
+                'Web server',
+                'Could not start on port {}: {}\n\nThe port may be in use — '
+                'try another (e.g. 8090).'.format(port, exc))
+            return
+        self.web_status_var.set('● Running on port {}'.format(self._web.port))
+        self.web_urls_var.set(
+            'Open on other devices on this network:\n  '
+            + '\n  '.join(netinfo.urls(self._web.port)))
+        self.web_start_btn.state(['disabled'])
+        self.web_stop_btn.state(['!disabled'])
+
+    def stop_web(self):
+        if self._web is not None:
+            self._web.stop()
+            self._web = None
+        self.web_status_var.set('Stopped.')
+        self.web_urls_var.set('')
+        self.web_start_btn.state(['!disabled'])
+        self.web_stop_btn.state(['disabled'])
 
 
 def build_tools_tab(parent, db_getter):

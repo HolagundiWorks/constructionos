@@ -64,6 +64,14 @@ built **entirely on the Python standard library**: `tkinter` for the UI,
   the assistant runs **fully offline, out of the box** — no download on first
   use. Managed in-app under **Assistant › AI Engine**, where you can also fetch
   larger models if the machine can take them.
+- **Browser / LAN access** — run a built-in web server so anyone on the office
+  network opens Construction OS in a **browser at `http://<host>:<port>`, no
+  client to install**. Login is required (reuses the app's accounts + PBKDF2
+  hashing; the first visit creates the admin), and it serves the same SQLite
+  file as the desktop. Still pure standard library (`http.server`, no web
+  framework). Read views ship now; data entry is being added register by
+  register. Start it from **Tools › Web / LAN access**, or headless with
+  `python web_main.py`.
 
 ## Requirements
 
@@ -97,6 +105,24 @@ cd installer
 An installed build stores the user's data in `%LOCALAPPDATA%\Construction OS`,
 so it runs from a read-only Program Files folder and an uninstall never deletes
 their books. See [`installer/README.md`](installer/README.md).
+
+## Browser / LAN access
+
+Let colleagues use the app from a browser — no install on their machines. On the
+PC that holds the data, either open **Tools › Web / LAN access › Start server**,
+or run it headless (handy on an always-on office machine):
+
+```bash
+cd construction_app
+python web_main.py                 # 0.0.0.0:8080, all network interfaces
+python web_main.py --port 9000
+```
+
+It prints the URLs to share (e.g. `http://192.168.1.50:8080/`). The first visit
+creates the administrator; after that everyone signs in with their own account
+(Admin / Operator / Viewer — Viewers are read-only). See [`docs/LAN.md`](docs/LAN.md)
+for the security notes — chiefly: this is **plain HTTP for a trusted LAN**; put
+it behind an HTTPS reverse proxy for anything wider.
 
 ## The sections
 
