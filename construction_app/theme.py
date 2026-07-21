@@ -136,25 +136,40 @@ def apply(root, m=None):
         pass
 
     root.configure(bg=pal['canvas'])
-    # Classic (non-ttk) widget defaults — Canvas, Menu, Toplevel, tk.Label.
+    # Classic (non-ttk) widget defaults — Canvas, Menu, Toplevel, tk.Label,
+    # and text selection. All flat and borderless, matching the modern look.
     root.option_add('*background', pal['canvas'])
     root.option_add('*foreground', pal['ink'])
+    root.option_add('*selectBackground', pal['accent'])
+    root.option_add('*selectForeground', pal['on_accent'])
     root.option_add('*Canvas.background', pal['surface'])
+    root.option_add('*Canvas.highlightThickness', 0)
     root.option_add('*Menu.background', pal['surface'])
     root.option_add('*Menu.foreground', pal['ink'])
-    root.option_add('*Menu.activeBackground', pal['accent_soft'])
-    root.option_add('*Menu.activeForeground', pal['ink'])
+    root.option_add('*Menu.activeBackground', pal['accent'])
+    root.option_add('*Menu.activeForeground', pal['on_accent'])
+    root.option_add('*Menu.relief', 'flat')
+    root.option_add('*Menu.borderWidth', 0)
+    root.option_add('*Menu.activeBorderWidth', 0)
     # Combobox dropdown list (a classic Listbox under the hood).
     root.option_add('*TCombobox*Listbox.background', pal['surface'])
     root.option_add('*TCombobox*Listbox.foreground', pal['ink'])
     root.option_add('*TCombobox*Listbox.selectBackground', pal['accent'])
     root.option_add('*TCombobox*Listbox.selectForeground', pal['on_accent'])
+    root.option_add('*TCombobox*Listbox.borderWidth', 0)
+    root.option_add('*TCombobox*Listbox.relief', 'flat')
+
+    # In clam the 3-D bevel comes from light/dark edge colours differing from
+    # the border. Setting light == dark == border (or the fill) removes every
+    # bevel — the single biggest step from "Windows 98" to a flat modern look.
+    flat = dict(bordercolor=pal['hairline'], lightcolor=pal['hairline'],
+                darkcolor=pal['hairline'])
 
     # --- base
     style.configure('.', background=pal['canvas'], foreground=pal['ink'],
-                    fieldbackground=pal['entry'], bordercolor=pal['hairline'],
-                    lightcolor=pal['hairline'], darkcolor=pal['hairline'],
-                    troughcolor=pal['surface2'], font=FONT, relief='flat')
+                    fieldbackground=pal['entry'], troughcolor=pal['surface2'],
+                    borderwidth=0, relief='flat', focuscolor=pal['canvas'],
+                    font=FONT, **flat)
     style.map('.', foreground=[('disabled', pal['muted'])])
 
     # --- frames / surfaces (flat ground + soft cards)
@@ -177,90 +192,134 @@ def apply(root, m=None):
     style.configure('Brand.TLabel', background=pal['rail'],
                     foreground=pal['accent'], font=FONT_H1)
 
-    # --- LabelFrame (used as "cards"/form panels — a soft object)
-    style.configure('TLabelframe', background=pal['surface'],
-                    bordercolor=pal['hairline'], relief='solid', borderwidth=1)
+    # --- LabelFrame (form panels) — a single clean hairline, no groove
+    style.configure('TLabelframe', background=pal['surface'], relief='solid',
+                    borderwidth=1, **flat)
     style.configure('TLabelframe.Label', background=pal['surface'],
-                    foreground=pal['muted'], font=FONT_SMALL)
+                    foreground=pal['helper'], font=FONT_SMALL)
 
-    # --- buttons: flat neutral by default; orange fill is the CTA only
-    style.configure('TButton', background=pal['surface'], foreground=pal['ink'],
-                    bordercolor=pal['hairline'], relief='flat', borderwidth=1,
-                    padding=(11, 5), focuscolor=pal['accent'], anchor='center')
+    # --- buttons: flat, subtle fill, hairline, roomy padding (Win11 feel);
+    # orange fill is the CTA only. No dotted focus box (focusthickness 0).
+    style.configure('TButton', background=pal['surface2'], foreground=pal['ink'],
+                    relief='flat', borderwidth=1, padding=(14, 7),
+                    anchor='center', focusthickness=0, focuscolor=pal['surface2'],
+                    **flat)
     style.map('TButton',
               background=[('pressed', pal['hover']), ('active', pal['hover'])],
-              bordercolor=[('active', pal['accent'])],
+              bordercolor=[('focus', pal['accent']), ('active', pal['hairline'])],
               foreground=[('disabled', pal['muted'])])
     style.configure('Accent.TButton', background=pal['accent'],
-                    foreground=pal['on_accent'], bordercolor=pal['accent'])
+                    foreground=pal['on_accent'], bordercolor=pal['accent'],
+                    lightcolor=pal['accent'], darkcolor=pal['accent'],
+                    focuscolor=pal['accent'])
     style.map('Accent.TButton',
               background=[('pressed', pal['accent_dark']),
                           ('active', pal['accent_dark'])],
+              bordercolor=[('active', pal['accent_dark'])],
               foreground=[('disabled', pal['on_accent'])])
 
-    # --- entries
+    # --- entries: flat field, single hairline, accent underline on focus
     style.configure('TEntry', fieldbackground=pal['entry'],
                     foreground=pal['ink'], insertcolor=pal['ink'],
-                    bordercolor=pal['hairline'], borderwidth=1, padding=3)
-    style.map('TEntry', bordercolor=[('focus', pal['accent'])],
+                    borderwidth=1, relief='flat', padding=6, **flat)
+    style.map('TEntry',
+              bordercolor=[('focus', pal['accent'])],
+              lightcolor=[('focus', pal['accent'])],
+              darkcolor=[('focus', pal['accent'])],
               fieldbackground=[('disabled', pal['canvas'])])
 
-    # --- combobox
+    # --- combobox / spinbox: same flat treatment
     style.configure('TCombobox', fieldbackground=pal['entry'],
-                    background=pal['surface'], foreground=pal['ink'],
-                    bordercolor=pal['hairline'], arrowcolor=pal['muted'],
-                    padding=3)
+                    background=pal['surface2'], foreground=pal['ink'],
+                    arrowcolor=pal['muted'], borderwidth=1, relief='flat',
+                    padding=6, **flat)
     style.map('TCombobox',
               fieldbackground=[('readonly', pal['entry']),
                                ('disabled', pal['canvas'])],
-              bordercolor=[('focus', pal['accent'])],
+              bordercolor=[('focus', pal['accent']), ('active', pal['accent'])],
+              lightcolor=[('focus', pal['accent'])],
+              darkcolor=[('focus', pal['accent'])],
+              arrowcolor=[('active', pal['ink'])],
               foreground=[('disabled', pal['muted'])])
+    style.configure('TSpinbox', fieldbackground=pal['entry'],
+                    foreground=pal['ink'], arrowcolor=pal['muted'],
+                    borderwidth=1, relief='flat', padding=5, **flat)
 
-    # --- treeview (flat white table, fog heading, orange selection)
+    # --- treeview: flat table, no border box, airy rows, flat heading
     style.configure('Treeview', background=pal['surface'],
                     fieldbackground=pal['surface'], foreground=pal['ink'],
-                    bordercolor=pal['hairline'], borderwidth=0, rowheight=25)
+                    borderwidth=0, relief='flat', rowheight=28, **flat)
     style.map('Treeview', background=[('selected', pal['accent_soft'])],
               foreground=[('selected', pal['ink'])])
     style.configure('Treeview.Heading', background=pal['heading'],
-                    foreground=pal['muted'], relief='flat', borderwidth=0,
-                    font=FONT_SMALL, padding=(6, 4))
-    style.map('Treeview.Heading', background=[('active', pal['hover'])])
+                    foreground=pal['helper'], relief='flat', borderwidth=0,
+                    font=FONT_SMALL, padding=(8, 7), **flat)
+    style.map('Treeview.Heading',
+              background=[('active', pal['hover'])],
+              relief=[('active', 'flat'), ('pressed', 'flat')])
+    # drop the sunken border box around the tree
+    style.layout('Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
 
     # --- notebook: transparent tabs, active tab lifts to the card colour with
-    # ink text (the kit's "top alert line" collapsed to a fill + weight change,
-    # which is as close as ttk gets to a top-only accent rule)
+    # bold ink (the kit's "alert line" as a fill + weight change). Borderless.
     style.configure('TNotebook', background=pal['canvas'], borderwidth=0,
-                    tabmargins=(2, 4, 2, 0))
+                    tabmargins=(2, 6, 2, 0),
+                    bordercolor=pal['canvas'], lightcolor=pal['canvas'],
+                    darkcolor=pal['canvas'])
     style.configure('TNotebook.Tab', background=pal['canvas'],
                     foreground=pal['muted'], padding=(16, TAB_PAD_Y),
-                    borderwidth=0, font=FONT)
+                    borderwidth=0, font=FONT,
+                    bordercolor=pal['canvas'], lightcolor=pal['canvas'],
+                    darkcolor=pal['canvas'])
     style.map('TNotebook.Tab',
               background=[('selected', pal['surface']),
                           ('active', pal['hover'])],
               foreground=[('selected', pal['ink'])],
-              font=[('selected', FONT_BOLD)])
+              font=[('selected', FONT_BOLD)],
+              lightcolor=[('selected', pal['surface'])],
+              darkcolor=[('selected', pal['surface'])])
 
-    # --- checkbutton / radiobutton
+    # --- checkbutton / radiobutton (flat indicator, accent when on)
     for cls in ('TCheckbutton', 'TRadiobutton'):
         style.configure(cls, background=pal['canvas'], foreground=pal['ink'],
-                        focuscolor=pal['accent'])
+                        indicatorbackground=pal['surface'],
+                        indicatorcolor=pal['surface'], focusthickness=0,
+                        focuscolor=pal['canvas'], padding=3, **flat)
         style.map(cls, background=[('active', pal['canvas'])],
+                  indicatorbackground=[('selected', pal['accent']),
+                                       ('active', pal['surface'])],
+                  indicatorcolor=[('selected', pal['accent'])],
                   foreground=[('disabled', pal['muted'])])
     style.configure('Rail.TCheckbutton', background=pal['rail'],
                     foreground=pal['muted'])
     style.map('Rail.TCheckbutton', background=[('active', pal['rail'])])
 
-    # --- scrollbars (slim, quiet)
+    # --- scrollbars: slim, flat, ARROWLESS (the arrow buttons are the other
+    # big Win98 tell — a layout override drops them for a modern thin bar)
+    style.layout('Vertical.TScrollbar', [(
+        'Vertical.Scrollbar.trough',
+        {'sticky': 'ns', 'children': [(
+            'Vertical.Scrollbar.thumb',
+            {'expand': '1', 'sticky': 'nswe'})]})])
+    style.layout('Horizontal.TScrollbar', [(
+        'Horizontal.Scrollbar.trough',
+        {'sticky': 'we', 'children': [(
+            'Horizontal.Scrollbar.thumb',
+            {'expand': '1', 'sticky': 'nswe'})]})])
     for cls in ('Vertical.TScrollbar', 'Horizontal.TScrollbar'):
-        style.configure(cls, background=pal['surface2'],
-                        troughcolor=pal['canvas'], bordercolor=pal['canvas'],
-                        arrowcolor=pal['muted'])
-        style.map(cls, background=[('active', pal['hover'])])
+        style.configure(cls, background=pal['hairline'],
+                        troughcolor=pal['canvas'], arrowcolor=pal['canvas'],
+                        borderwidth=0, relief='flat', width=11,
+                        bordercolor=pal['canvas'], lightcolor=pal['canvas'],
+                        darkcolor=pal['canvas'])
+        style.map(cls, background=[('active', pal['muted']),
+                                   ('pressed', pal['muted'])])
 
     # --- progressbar
     style.configure('TProgressbar', background=pal['accent'],
-                    troughcolor=pal['surface2'], bordercolor=pal['hairline'])
+                    troughcolor=pal['surface2'], borderwidth=0,
+                    bordercolor=pal['surface2'], lightcolor=pal['accent'],
+                    darkcolor=pal['accent'])
 
     # --- rail nav rows: [accent rule][pictogram][label]; the active row wears
     # the accent rule + lifts to the secondary surface with bold ink.
