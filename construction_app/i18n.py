@@ -22,6 +22,7 @@ STRINGS = {
     'Tools': {'hi': 'औज़ार', 'hi_en': 'Tools'},
     # Sections
     'Masters': {'hi': 'मास्टर', 'hi_en': 'Masters'},
+    'Project Management': {'hi': 'परियोजना प्रबंधन', 'hi_en': 'Project Mgmt'},
     'Projects': {'hi': 'परियोजनाएँ', 'hi_en': 'Projects'},
     'Operations': {'hi': 'कार्य', 'hi_en': 'Kaam'},
     'Billing': {'hi': 'बिलिंग', 'hi_en': 'Billing'},

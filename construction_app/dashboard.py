@@ -384,7 +384,7 @@ def _bottlenecks(s):
     ppc = s.get('ppc_last')
     add(ppc is not None and ppc < 80, 'Weekly plan reliability (PPC)',
         '{:.0f}%'.format(ppc) if ppc is not None else '—', 'watch',
-        'Operations › Look-ahead', 'promised tasks finished')
+        'Project Management › Look-ahead', 'promised tasks finished')
     add(s.get('approvals_count', 0) > 0, 'Documents awaiting sign-off',
         str(s['approvals_count']), 'watch', 'Money › Approvals',
         'in the approvals queue')

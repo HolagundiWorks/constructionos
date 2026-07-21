@@ -236,9 +236,9 @@ def main():
         'home': '\U0001F3E0',        # house
         'assistant': '\U0001F4AC',   # speech balloon
         'tools': '⚙',           # gear
-        'Masters': '\U0001F5C2',     # card index dividers
-        'Projects': '\U0001F3D7',    # building construction
-        'Operations': '\U0001F6E0',  # hammer and wrench
+        'Masters': '\U0001F5C2',            # card index dividers
+        'Project Management': '\U0001F3D7',  # building construction
+        'Operations': '\U0001F6E0',         # hammer and wrench
         'Billing': '\U0001F9FE',     # receipt
         'Purchases': '\U0001F6D2',   # shopping trolley
         'Money': '\U0001F4B0',       # money bag

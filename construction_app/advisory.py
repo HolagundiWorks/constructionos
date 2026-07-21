@@ -192,7 +192,7 @@ def r_programme_delay(s):
             project, days, _money(ld), claim_txt),
         'Log the delay causes now — the claimable days are only defensible '
         'if they are recorded as they happen.',
-        HIGH, 'against a frozen baseline', 'Operations › Timeline')
+        HIGH, 'against a frozen baseline', 'Project Management › Timeline')
 
 
 def r_projects_loss(s):
@@ -208,14 +208,15 @@ def r_projects_loss(s):
             'Review the cost heads on the worst job and check for unbilled '
             'work or a rate that no longer covers cost.',
             MEDIUM, 'cost is site-scoped; shared-site cost may distort it',
-            'Projects')
+            'Project Management › Projects')
     over = _n(s, 'projects_over_budget')
     if over > 0:
         return _card(
             WATCH, 'A project has passed its budget',
             '{} project(s) have spent past the budget set for them.'.format(over),
             'Confirm the budget still reflects the agreed scope.',
-            MEDIUM, 'against the budget on record', 'Projects')
+            MEDIUM, 'against the budget on record',
+            'Project Management › Projects')
     return None
 
 
@@ -274,7 +275,7 @@ def r_plan_reliability(s):
             ppc, reason_txt),
         'Fix the recurring constraint before making next week’s promises.',
         conf, '{} week(s) of look-ahead history'.format(weeks),
-        'Operations › Look-ahead')
+        'Project Management › Look-ahead')
 
 
 def r_quality_ncr(s):

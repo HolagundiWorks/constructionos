@@ -14,10 +14,14 @@ Toggles apply on the next app start (the Notebook is built once).
 SECTIONS_CATALOG = [
     ('Masters', ['Sites', 'Clients', 'Vendors', 'Materials', 'Labour',
                  'Equipment']),
-    ('Projects', ['Projects']),
+    # Project Management is the planning + programme workspace, kept apart from
+    # daily site execution (Operations): "how is the project doing?" — the
+    # portfolio, the programme (Gantt/CPM/baseline/LD) and the weekly plan —
+    # rather than "what happened on site today".
+    ('Project Management', ['Projects', 'Timeline', 'Look-ahead']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
                     'Equipment Hire', 'Plant', 'Consumption', 'Site Reports',
-                    'Quality', 'Look-ahead', 'Safety', 'Closeout', 'Timeline']),
+                    'Quality', 'Safety', 'Closeout']),
     ('Billing', ['Rate Book', 'Rate Analysis', 'Bid / No Bid', 'Quotations',
                  'Estimates', 'Contracts',
                  'BOQ / RA Bills', 'Variations', 'Running Bills',
