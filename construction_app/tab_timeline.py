@@ -21,6 +21,7 @@ import bill_export
 import cpm
 import programme
 import report_open
+import theme
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options, project_options
 
@@ -108,7 +109,8 @@ class GanttView(ttk.Frame):
         ttk.Button(controls, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
 
-        self.canvas = tk.Canvas(self, bg='white', height=400)
+        self.canvas = tk.Canvas(self, bg=theme.palette()['surface'],
+                                highlightthickness=0, height=400)
         self.canvas.pack(fill='both', expand=True, padx=8, pady=6)
         self.refresh()
 

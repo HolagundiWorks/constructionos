@@ -21,6 +21,8 @@ import auth
 import session
 import i18n
 import errors
+import theme
+from shell import RailStage
 from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
@@ -158,6 +160,13 @@ def main():
     _apply_app_icon(root)
     errors.install(root)   # no stack trace ever reaches the user
 
+    # HCW theme, before any UI is built so classic-widget defaults take effect.
+    conn = get()
+    try:
+        theme.apply(root, theme.load_mode(conn))
+    finally:
+        conn.close()
+
     if require_login:
         root.withdraw()                      # hide until authenticated
         dialog = LoginDialog(root, get)
@@ -171,9 +180,6 @@ def main():
     # First-run wizard on a fresh book (empty masters, not previously done).
     maybe_run_setup(root, get)
 
-    nb = ttk.Notebook(root)
-    nb.pack(fill='both', expand=True)
-
     conn = get()
     try:
         enabled = modules.enabled_map(conn)
@@ -181,15 +187,43 @@ def main():
     finally:
         conn.close()
 
-    nb.add(build_home_tab(nb, get), text=i18n.t('Home'))          # always on
-    nb.add(build_assistant_tab(nb, get), text=i18n.t('Assistant'))  # always on
+    def toggle_theme():
+        new = 'dark' if theme.mode() == 'light' else 'light'
+        c = get()
+        try:
+            theme.save_mode(c, new)
+        finally:
+            c.close()
+        theme.apply(root, new)
+
+    # One rail entry per always-on screen and per enabled section; each section
+    # keeps its sub-notebook, built lazily the first time the row is opened.
+    entries = [
+        {'key': 'home', 'label': i18n.t('Home'),
+         'build': lambda p: build_home_tab(p, get)},
+        {'key': 'assistant', 'label': i18n.t('Assistant'),
+         'build': lambda p: build_assistant_tab(p, get)},
+    ]
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels
                  if enabled.get(label, True)]
         if not items:
             continue   # whole section switched off
-        nb.add(_section(nb, get, items), text=i18n.t(title))
-    nb.add(build_tools_tab(nb, get), text=i18n.t('Tools'))  # always on (holds the toggles)
+        entries.append({'key': 'sec:' + title, 'label': i18n.t(title),
+                        'build': (lambda p, it=items: _section(p, get, it))})
+    entries.append({'key': 'tools', 'label': i18n.t('Tools'),
+                    'build': lambda p: build_tools_tab(p, get)})
+
+    subtitle = ''
+    try:
+        if session.username():
+            subtitle = '{} · {}'.format(session.username(), session.role())
+    except Exception:
+        subtitle = ''
+
+    shell = RailStage(root, entries, subtitle=subtitle,
+                      on_toggle_theme=toggle_theme)
+    shell.pack(fill='both', expand=True)
 
     root.mainloop()
 
