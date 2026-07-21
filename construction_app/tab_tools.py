@@ -31,6 +31,7 @@ import firm as firm_module
 import company
 import i18n
 import numbering
+import sampledata
 from ui_guard import can_write
 from widgets import Switch
 
@@ -385,6 +386,8 @@ class ToolsTab(ttk.Frame):
         ttk.Button(btns, text='New Financial Year…', command=self.new_year).pack(side='left', padx=2)
         ttk.Button(btns, text='Add Existing…', command=self.add_existing_company).pack(side='left', padx=2)
         ttk.Button(btns, text='Remove From List', command=self.forget_company).pack(side='left', padx=2)
+        ttk.Button(btns, text='Load Sample Data…',
+                   command=self.load_sample_data).pack(side='left', padx=2)
 
     def refresh_companies(self):
         for item in self.company_tree.get_children():
@@ -526,6 +529,46 @@ class ToolsTab(ttk.Frame):
         company.save(data)
         self.refresh_companies()
         self.status_var.set('Added {} to the list.'.format(path))
+
+    def load_sample_data(self):
+        """Create a separate 'Sample Data' company file, fill it with a
+        realistic demo book, and switch to it. The user's own files are never
+        touched — the sample lives in its own file they can remove or delete."""
+        if not can_write():
+            return
+        if not messagebox.askyesno(
+                'Load sample data',
+                'This creates a separate "Sample Data" company file and fills it '
+                'with a realistic demo project — aged bills, retention, an '
+                'over-invoiced PO, overdue filings and more — so you can see '
+                'every screen working.\n\nYour own data files are not touched. '
+                'Continue?'):
+            return
+        path = self._create_company('Sample Data')
+        if not path:
+            return
+        # _create_company has already pointed db.DB_PATH at the new empty file.
+        conn = db.get_conn()
+        try:
+            seeded = sampledata.seed(conn)
+        except Exception as exc:                          # noqa: BLE001
+            conn.close()
+            messagebox.showerror(
+                'Could not load sample data',
+                'The sample book could not be filled:\n\n{}'.format(exc))
+            return
+        finally:
+            try:
+                conn.close()
+            except Exception:                             # noqa: BLE001
+                pass
+        self.refresh_companies()
+        if seeded:
+            self._switch_to(path, created=True)
+        else:
+            messagebox.showinfo(
+                'Nothing to do',
+                'That file already had data, so it was left as it is.')
 
     def forget_company(self):
         path = self._selected_company_path()
