@@ -318,3 +318,16 @@ class CrudFrame(ttk.Frame):
             self.vars[field.key].set(self._default_for(field))
         if self.tree.selection():
             self.tree.selection_remove(self.tree.selection())
+
+    # ----------------------------------------------- floating dock protocol
+    # The shell's action dock calls these on whichever tab is active. New
+    # starts a fresh entry; Save is add-or-update depending on selection;
+    # Refresh reloads the list — the everyday verbs for a simple register.
+    def dock_new(self):
+        self.clear()
+
+    def dock_save(self):
+        self.update() if self.selected_id is not None else self.add()
+
+    def dock_refresh(self):
+        self.refresh()

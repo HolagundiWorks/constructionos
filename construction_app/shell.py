@@ -29,7 +29,7 @@ from tkinter import ttk
 import assets
 import branding
 import theme
-from widgets import Switch
+from widgets import Switch, FloatingDock
 
 RAIL_WIDTH = 208
 
@@ -97,6 +97,12 @@ class RailStage(ttk.Frame):
         # --- Stage (the work)
         self._stage = ttk.Frame(self, style='Stage.TFrame')
         self._stage.pack(side='left', fill='both', expand=True)
+
+        # --- floating action dock over the stage (New · Refresh · Save)
+        self._dock = FloatingDock(self._stage, self._resolve_action)
+        # Any notebook tab change anywhere re-evaluates what the dock can do.
+        self.bind_all('<<NotebookTabChanged>>',
+                      lambda _e: self._dock.update_state(), add='+')
 
         if entries:
             self.select(entries[0]['key'])
@@ -168,6 +174,43 @@ class RailStage(ttk.Frame):
             self._built[key] = widget
         widget.pack(fill='both', expand=True)
         self._current = key
+        # Re-evaluate the dock once the new tab has mapped (its notebook, if
+        # any, has settled on a selected page).
+        self.after(0, self._dock.update_state)
+
+    # ----------------------------------------------------------- action dock
+    def _resolve_action(self, action):
+        """The callable the dock's ``action`` should run on the active tab, or
+        None. 'refresh' also accepts a plain ``refresh()`` (most tabs have one);
+        'new'/'save' use the explicit ``dock_*`` protocol so a tab opts in."""
+        leaf = self._active_leaf()
+        if leaf is None:
+            return None
+        if action == 'refresh':
+            for name in ('dock_refresh', 'refresh'):
+                fn = getattr(leaf, name, None)
+                if callable(fn):
+                    return fn
+            return None
+        fn = getattr(leaf, 'dock_' + action, None)
+        return fn if callable(fn) else None
+
+    def _active_leaf(self):
+        """The on-screen tab widget, descending through nested notebooks to the
+        currently selected page."""
+        return self._descend(self._built.get(self._current))
+
+    def _descend(self, widget):
+        if widget is None:
+            return None
+        if isinstance(widget, ttk.Notebook):
+            try:
+                sel = widget.select()
+                if sel:
+                    return self._descend(widget.nametowidget(sel))
+            except Exception:                     # noqa: BLE001
+                pass
+        return widget
 
     # --------------------------------------------------------------- theme
     def _theme_label(self):

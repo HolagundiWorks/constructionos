@@ -94,6 +94,36 @@ class TestTabsBuildOnSampleData(unittest.TestCase):
             self.root.update_idletasks()
             holder.destroy()
 
+    def test_floating_dock_resolves_actions_contextually(self):
+        from tkinter import ttk
+        from shell import RailStage
+        from tab_masters import build_sites_tab      # a CrudFrame
+        from tab_home import build_home_tab          # bespoke, has refresh()
+        get = self.db.get_conn
+        entries = [
+            {'key': 'm', 'label': 'M', 'icon': 'M',
+             'build': lambda p: build_sites_tab(p, get)},
+            {'key': 'h', 'label': 'H', 'icon': 'H',
+             'build': lambda p: build_home_tab(p, get)},
+            {'key': 'p', 'label': 'P', 'icon': 'P',
+             'build': lambda p: ttk.Frame(p)},
+        ]
+        sh = RailStage(self.root, entries)
+        sh.pack(fill='both', expand=True)
+        self.root.update_idletasks()
+
+        sh.select('m'); self.root.update_idletasks()          # CrudFrame
+        for action in ('new', 'save', 'refresh'):
+            self.assertTrue(callable(sh._resolve_action(action)), action)
+
+        sh.select('h'); self.root.update_idletasks()          # Home
+        self.assertFalse(callable(sh._resolve_action('save')))
+        self.assertTrue(callable(sh._resolve_action('refresh')))  # has refresh()
+
+        sh.select('p'); self.root.update_idletasks()          # plain frame
+        self.assertFalse(callable(sh._resolve_action('refresh')))
+        sh.destroy()
+
     def test_project_overview_gathers_for_a_real_project(self):
         from tab_projects import ProjectOverview
         ov = ProjectOverview(self.root, self.db.get_conn)

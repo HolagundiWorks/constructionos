@@ -139,3 +139,51 @@ class ScrollFrame(ttk.Frame):
 
     def restyle(self):
         self._canvas.configure(bg=theme.palette()['canvas'])
+
+
+class FloatingDock(ttk.Frame):
+    """A small floating action cluster — New · Refresh · Save — that hovers at
+    the bottom-right of the stage, over the work.
+
+    ``resolve(action)`` returns the callable to run for ``'new'``/``'save'``/
+    ``'refresh'`` on whichever tab is active, or ``None`` when that tab doesn't
+    offer it. Each button disables for an action the active tab can't do, and
+    the whole dock hides when it can do none — a contextual action bar, not dead
+    chrome. Follows the HCW kit: a raised surface (elevation stands in for the
+    shadow/blur tkinter can't draw), and one accent — **Save** — as the primary,
+    with New and Refresh quiet.
+    """
+
+    SPECS = (('new', '✚  New', 'TButton'),
+             ('refresh', '⟳  Refresh', 'TButton'),
+             ('save', '✔  Save', 'Accent.TButton'))
+
+    def __init__(self, parent, resolve):
+        super().__init__(parent, style='Dock.TFrame', padding=6)
+        self._resolve = resolve
+        self._btns = {}
+        for action, label, style in self.SPECS:
+            b = ttk.Button(self, text=label, style=style, takefocus=0,
+                           command=lambda a=action: self._run(a))
+            b.pack(side='left', padx=3)
+            self._btns[action] = b
+
+    def _run(self, action):
+        fn = self._resolve(action)
+        if callable(fn):
+            fn()
+            # a New or Save changes what the buttons would do next.
+            self.after(0, self.update_state)
+
+    def update_state(self):
+        """Enable/disable each button for the active tab; hide if none apply."""
+        any_on = False
+        for action, b in self._btns.items():
+            on = callable(self._resolve(action))
+            any_on = any_on or on
+            b.state(['!disabled'] if on else ['disabled'])
+        if any_on:
+            self.place(relx=1.0, rely=1.0, anchor='se', x=-18, y=-18)
+            self.lift()
+        else:
+            self.place_forget()

@@ -407,4 +407,12 @@ def apply(root, m=None):
     style.configure('CardLink.TLabel', background=pal['surface'],
                     foreground=pal['info'], font=FONT_MICRO)
 
+    # --- floating action dock: a raised surface card that sits above the work.
+    # The kit uses elevation to say "this floats over the workspace"; tkinter
+    # has no shadow/blur, so (as the kit prescribes for dark) a raised surface
+    # + hairline stands in. One accent — Save — is the primary; New/Refresh are
+    # quiet neutral buttons.
+    style.configure('Dock.TFrame', background=pal['surface'], relief='solid',
+                    borderwidth=1, **flat)
+
     return pal
