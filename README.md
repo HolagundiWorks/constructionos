@@ -69,9 +69,10 @@ built **entirely on the Python standard library**: `tkinter` for the UI,
   client to install**. Login is required (reuses the app's accounts + PBKDF2
   hashing; the first visit creates the admin), and it serves the same SQLite
   file as the desktop. Still pure standard library (`http.server`, no web
-  framework). Read views ship now; data entry is being added register by
-  register. Start it from **Tools › Web / LAN access**, or headless with
-  `python web_main.py`.
+  framework). All read views ship, plus **Masters data entry** (sites, clients,
+  vendors, materials, labour, equipment — add / edit / delete in the browser,
+  Viewers read-only); billing and money entry are being added next. Start it
+  from **Tools › Web / LAN access**, or headless with `python web_main.py`.
 
 ## Requirements
 

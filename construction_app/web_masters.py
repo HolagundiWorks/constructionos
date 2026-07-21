@@ -1,0 +1,136 @@
+"""Writable master-data specs for the browser app — **tkinter-free**, so the
+headless web server can build forms without importing the desktop tabs (which
+pull in Tk).
+
+These mirror the desktop CRUD (``tab_masters.py`` / ``tab_vendor.py``)
+field-for-field, so the browser and the desktop offer the same fields, labels,
+combos and defaults. To stop the two drifting silently, ``tests/test_web.py``
+checks that every field here is a real column of its table.
+
+A field is a plain dict:
+
+    key       column name
+    label     form label
+    kind      'text' | 'number' | 'combo' | 'fk' | 'textarea'
+    options   for 'combo': the allowed values
+    fk_sql    for 'fk': a query returning (id, label) rows for the dropdown
+    default   starting value for a new record
+    required  reject a blank on submit
+"""
+
+
+def _f(key, label, kind='text', options=None, fk_sql=None, default='',
+       required=False):
+    return {'key': key, 'label': label, 'kind': kind, 'options': options or [],
+            'fk_sql': fk_sql, 'default': default, 'required': required}
+
+
+_SITES = 'SELECT id, name FROM sites ORDER BY name'
+
+# table -> {label, fields}. Order and wording follow the desktop tabs.
+MASTERS = {
+    'sites': {'label': 'Site', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('location', 'Location'),
+        _f('site_type', 'Type', 'combo', options=['Site', 'Warehouse'],
+           default='Site'),
+        _f('status', 'Status', 'combo', options=['Active', 'Closed'],
+           default='Active'),
+    ]},
+    'clients': {'label': 'Client', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('contact_person', 'Contact'),
+        _f('phone', 'Phone'),
+        _f('email', 'Email'),
+        _f('address', 'Address', 'textarea'),
+    ]},
+    'vendors': {'label': 'Vendor', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('contact_person', 'Contact'),
+        _f('phone', 'Phone'),
+        _f('email', 'Email'),
+        _f('gst_no', 'GST No'),
+        _f('address', 'Address', 'textarea'),
+    ]},
+    'materials': {'label': 'Material', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('unit', 'Unit'),
+        _f('category', 'Category'),
+        _f('hsn_code', 'HSN Code'),
+        _f('rate', 'Std Rate', 'number', default='0'),
+    ]},
+    'labor': {'label': 'Labour', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('father_name', "Father's Name"),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('skill', 'Skill'),
+        _f('daily_wage', 'Daily Wage', 'number', default='0'),
+        _f('phone', 'Phone'),
+        _f('status', 'Status', 'combo', options=['Active', 'Inactive'],
+           default='Active'),
+        _f('pf_no', 'PF No (optional)'),
+        _f('esi_no', 'ESI No (optional)'),
+    ]},
+    'equipment': {'label': 'Equipment', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('category', 'Category'),
+        _f('current_site_id', 'Current Site', 'fk', fk_sql=_SITES),
+        _f('status', 'Status', 'combo',
+           options=['Available', 'In Use', 'Maintenance'], default='Available'),
+        _f('make_model', 'Make / Model'),
+        _f('service_interval_hours', 'Service every (hours)', 'number',
+           default='0'),
+        _f('service_interval_days', 'Service every (days)', 'number',
+           default='0'),
+        _f('last_service_date', 'Last Serviced On'),
+    ]},
+}
+
+
+def is_master(table):
+    return table in MASTERS
+
+
+def fields(table):
+    return MASTERS[table]['fields']
+
+
+def label(table):
+    return MASTERS[table]['label']
+
+
+def fk_options(conn, sql):
+    """[(id, label), ...] for an fk dropdown."""
+    return [(r[0], r[1]) for r in conn.execute(sql)]
+
+
+def coerce(field, raw):
+    """Validate + convert one submitted value.
+
+    Returns ``(ok, value, error)`` — mirroring the desktop CrudFrame's
+    ``_collect_values`` (number -> float, fk -> id or None, combo -> a value
+    from the list), so the browser and the desktop accept exactly the same
+    input."""
+    raw = (raw or '').strip()
+    kind = field['kind']
+    if field.get('required') and raw == '':
+        return False, None, '{} is required.'.format(field['label'])
+    if kind == 'number':
+        if raw == '':
+            return True, 0.0, None
+        try:
+            return True, float(raw), None
+        except ValueError:
+            return False, None, '{} must be a number.'.format(field['label'])
+    if kind == 'fk':
+        if raw == '':
+            return True, None, None
+        try:
+            return True, int(raw), None
+        except ValueError:
+            return False, None, 'Invalid selection for {}.'.format(field['label'])
+    if kind == 'combo':
+        if raw != '' and raw not in field['options']:
+            return False, None, 'Invalid value for {}.'.format(field['label'])
+        return True, raw, None
+    return True, raw, None

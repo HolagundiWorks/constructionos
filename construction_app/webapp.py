@@ -23,11 +23,13 @@ top route by route.
 """
 
 import secrets
+import sqlite3
 import threading
 import urllib.parse
 
 import db
 import auth
+import web_masters
 import webrender as R
 
 PAGE_SIZE = 50
@@ -111,8 +113,16 @@ _LOCK = threading.Lock()
 def _new_session(username, role):
     token = secrets.token_urlsafe(24)
     with _LOCK:
-        _SESSIONS[token] = {'username': username, 'role': role}
+        _SESSIONS[token] = {'username': username, 'role': role,
+                            'csrf': secrets.token_urlsafe(18)}
     return token
+
+
+def _csrf_ok(request, sess):
+    """Synchroniser-token check for authenticated POSTs: the form must carry the
+    token minted with this session."""
+    token = sess.get('csrf')
+    return bool(token) and request.form.get('csrf') == token
 
 
 def _session(token):
@@ -203,7 +213,7 @@ def handle(request):
     if path == '/t' or path == '/t/':
         return _redirect('/')
     if path.startswith('/t/'):
-        return _register(request, sess, path[3:])
+        return _table_route(request, sess, path[3:])
     return _page('Not found', '<p class="muted">No such page.</p>', sess, conn=None)
 
 
@@ -256,12 +266,24 @@ def _logout(request):
     return resp
 
 
-def _page(title, body, sess, conn):
+def _shell(title, body, sess, conn, active='', status=200):
+    """Wrap page content in the signed-in chrome (rail, user, read-only banner)."""
     warn = '' if can_write(sess['role']) else \
         'You are signed in as a Viewer — read-only access.'
-    return Response(R.page(title, body, user='{} ({})'.format(
+    resp = Response(R.page(title, body, user='{} ({})'.format(
         sess['username'], sess['role']), nav=_nav(conn) if conn else [],
-        active='dashboard', warning=warn))
+        active=active, warning=warn))
+    resp.status = status
+    return resp
+
+
+def _page(title, body, sess, conn, active='', status=200):
+    return _shell(title, body, sess, conn, active=active, status=status)
+
+
+def _forbidden(sess, conn, msg='You do not have permission to do that.'):
+    return _shell('Not allowed', '<p class="muted">{}</p>'.format(R.esc(msg)),
+                  sess, conn, status=403)
 
 
 def _dashboard(request, sess):
@@ -273,11 +295,7 @@ def _dashboard(request, sess):
         nav = _nav(conn)
         cards = advisory.build(s)
         body = _dashboard_body(s, cards, advisory)
-        warn = '' if can_write(sess['role']) else \
-            'You are signed in as a Viewer — read-only access.'
-        return Response(R.page('Dashboard', body, user='{} ({})'.format(
-            sess['username'], sess['role']), nav=nav, active='dashboard',
-            warning=warn))
+        return _shell('Dashboard', body, sess, conn, active='dashboard')
     finally:
         conn.close()
 
@@ -330,18 +348,28 @@ def _dashboard_body(s, cards, advisory):
     return ''.join(parts)
 
 
-def _register(request, sess, key):
-    """List (or drill into) a whitelisted register."""
-    parts = key.split('/', 1)
-    table = parts[0]
+def _table_route(request, sess, rest):
+    """Route everything under /t/ — list, record view, and (for the writable
+    Masters) new / edit / delete."""
+    segs = [s for s in rest.split('/') if s]
+    if not segs:
+        return _redirect('/')
+    table = segs[0]
     conn = db.get_conn()
     try:
         if table not in _viewable_tables(conn):
             return _page('Not found',
-                         '<p class="muted">No such register.</p>', sess, conn)
+                         '<p class="muted">No such register.</p>', sess, conn,
+                         status=404)
         cols = _columns(conn, table)
-        if len(parts) == 2 and parts[1]:
-            return _record(conn, sess, table, cols, parts[1])
+        if len(segs) == 2 and segs[1] == 'new':
+            return _master_create(request, sess, conn, table, cols)
+        if len(segs) == 3 and segs[2] == 'edit':
+            return _master_edit(request, sess, conn, table, cols, segs[1])
+        if len(segs) == 3 and segs[2] == 'delete':
+            return _master_delete(request, sess, conn, table, cols, segs[1])
+        if len(segs) == 2:
+            return _record(conn, sess, table, cols, segs[1])
         return _register_list(request, conn, sess, table, cols)
     finally:
         conn.close()
@@ -382,12 +410,17 @@ def _register_list(request, conn, sess, table, cols):
         ids = [r[pk] for r in rows]
         link = lambda i: '/t/{}/{}'.format(table, ids[i])
 
+    add_btn = ''
+    if web_masters.is_master(table) and can_write(sess['role']):
+        add_btn = '<a class="btn" href="/t/{tbl}/new">+ New {lbl}</a>'.format(
+            tbl=R.esc(table), lbl=R.esc(web_masters.label(table)))
     search = (
         '<div class="toolbar"><form method="get" action="/t/{tbl}">'
         '<input type="search" name="q" placeholder="Search {lbl}…" value="{q}">'
         '<button class="btn ghost" type="submit">Search</button></form>'
-        '<span class="muted">{total} record(s)</span></div>'
-    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q), total=total)
+        '<span class="muted">{total} record(s)</span>{add}</div>'
+    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q), total=total,
+             add=add_btn)
 
     body = ['<h1>{}</h1>'.format(R.esc(_label(table))), search,
             R.table([_label(c) for c in show], data, link=link)]
@@ -404,31 +437,159 @@ def _register_list(request, conn, sess, table, cols):
         nav.append('</div>')
         body.append(''.join(nav))
 
-    warn = '' if can_write(sess['role']) else \
-        'You are signed in as a Viewer — read-only access.'
-    return Response(R.page(_label(table), ''.join(body), user='{} ({})'.format(
-        sess['username'], sess['role']), nav=_nav(conn), active=table,
-        warning=warn))
+    return _shell(_label(table), ''.join(body), sess, conn, active=table)
 
 
 def _record(conn, sess, table, cols, rid):
     pk = _pk(cols)
     if not pk:
         return _page('Not found', '<p class="muted">No record view.</p>',
-                     sess, conn)
+                     sess, conn, status=404)
     row = conn.execute('SELECT * FROM "{}" WHERE "{}" = ?'.format(table, pk),
                        (rid,)).fetchone()
     if not row:
         return _page('Not found', '<p class="muted">Record not found.</p>',
-                     sess, conn)
+                     sess, conn, status=404)
     items = ''.join('<dt>{}</dt><dd>{}</dd>'.format(R.esc(_label(c[0])),
                                                     R.esc(row[c[0]]))
                     for c in cols)
+    actions = ''
+    if web_masters.is_master(table) and can_write(sess['role']):
+        actions = ('<div class="rowbtns">'
+                   '<a class="btn" href="/t/{tbl}/{rid}/edit">Edit</a>{delete}'
+                   '</div>').format(
+            tbl=R.esc(table), rid=R.esc(rid),
+            delete=R.post_button(
+                '/t/{}/{}/delete'.format(table, rid), sess['csrf'], 'Delete',
+                confirm='Delete this {}?'.format(web_masters.label(table))))
     body = ('<h1>{lbl} #{rid}</h1><p><a class="btn ghost" href="/t/{tbl}">'
-            '‹ Back to {lbl}</a></p><dl class="dl">{items}</dl>').format(
-        lbl=R.esc(_label(table)), rid=R.esc(rid), tbl=R.esc(table), items=items)
-    warn = '' if can_write(sess['role']) else \
-        'You are signed in as a Viewer — read-only access.'
-    return Response(R.page(_label(table), body, user='{} ({})'.format(
-        sess['username'], sess['role']), nav=_nav(conn), active=table,
-        warning=warn))
+            '‹ Back to {lbl}</a></p>{actions}<dl class="dl">{items}</dl>').format(
+        lbl=R.esc(_label(table)), rid=R.esc(rid), tbl=R.esc(table),
+        actions=actions, items=items)
+    return _shell(_label(table), body, sess, conn, active=table)
+
+
+# ------------------------------------------------------------ master writes
+def _coerce_all(specs, form):
+    """Validate + convert a submitted form against a master's field specs."""
+    values, errs = {}, []
+    for f in specs:
+        ok, val, err = web_masters.coerce(f, form.get(f['key'], ''))
+        if ok:
+            values[f['key']] = val
+        else:
+            errs.append(err)
+    return values, errs
+
+
+def _master_form(conn, sess, table, row, errs=None, submitted=None):
+    specs = web_masters.fields(table)
+    lbl = web_masters.label(table)
+    editing = row is not None
+    pk = _pk(_columns(conn, table)) or 'id'
+    rid = row[pk] if editing else None
+    rows_html = [R.errors(errs)] if errs else []
+    for f in specs:
+        if submitted is not None:
+            val = submitted.get(f['key'], '')
+        elif editing:
+            val = row[f['key']]
+        else:
+            val = f['default']
+        options = None
+        if f['kind'] == 'fk':
+            options = web_masters.fk_options(conn, f['fk_sql'])
+        elif f['kind'] == 'combo':
+            options = [(o, o) for o in f['options']]
+        rows_html.append(R.field_row(
+            f['label'], R.control(f['kind'], f['key'], val, options)))
+    action = ('/t/{}/{}/edit'.format(table, rid) if editing
+              else '/t/{}/new'.format(table))
+    title = '{} {}'.format('Edit' if editing else 'New', lbl)
+    body = '<h1>{}</h1>{}'.format(R.esc(title), R.form(
+        action, ''.join(rows_html), sess['csrf'], submit='Save',
+        cancel_href='/t/' + table))
+    return _shell(title, body, sess, conn, active=table)
+
+
+def _master_guard(request, sess, conn, table):
+    """Shared precondition for the write routes; returns a Response to bail with,
+    or None to proceed."""
+    if not web_masters.is_master(table):
+        return _page('Not found', '<p class="muted">This register is '
+                     'view-only for now.</p>', sess, conn, status=404)
+    if not can_write(sess['role']):
+        return _forbidden(sess, conn,
+                          'Your account is read-only (Viewer).')
+    if request.method == 'POST' and not _csrf_ok(request, sess):
+        return _forbidden(sess, conn,
+                          'Your session expired — reload the page and retry.')
+    return None
+
+
+def _master_create(request, sess, conn, table, cols):
+    bail = _master_guard(request, sess, conn, table)
+    if bail:
+        return bail
+    specs = web_masters.fields(table)
+    if request.method != 'POST':
+        return _master_form(conn, sess, table, None)
+    values, errs = _coerce_all(specs, request.form)
+    if errs:
+        return _master_form(conn, sess, table, None, errs, request.form)
+    keys = list(values.keys())
+    cur = conn.execute(
+        'INSERT INTO "{}" ({}) VALUES ({})'.format(
+            table, ', '.join('"{}"'.format(k) for k in keys),
+            ', '.join('?' * len(keys))), [values[k] for k in keys])
+    auth.audit(conn, sess['username'], 'web_create', table, cur.lastrowid)
+    conn.commit()
+    return _redirect('/t/{}/{}'.format(table, cur.lastrowid))
+
+
+def _master_edit(request, sess, conn, table, cols, rid):
+    bail = _master_guard(request, sess, conn, table)
+    if bail:
+        return bail
+    specs = web_masters.fields(table)
+    pk = _pk(cols) or 'id'
+    row = conn.execute('SELECT * FROM "{}" WHERE "{}" = ?'.format(table, pk),
+                       (rid,)).fetchone()
+    if not row:
+        return _page('Not found', '<p class="muted">Record not found.</p>',
+                     sess, conn, status=404)
+    if request.method != 'POST':
+        return _master_form(conn, sess, table, row)
+    values, errs = _coerce_all(specs, request.form)
+    if errs:
+        return _master_form(conn, sess, table, row, errs, request.form)
+    keys = list(values.keys())
+    conn.execute(
+        'UPDATE "{}" SET {} WHERE "{}" = ?'.format(
+            table, ', '.join('"{}" = ?'.format(k) for k in keys), pk),
+        [values[k] for k in keys] + [rid])
+    auth.audit(conn, sess['username'], 'web_update', table, rid)
+    conn.commit()
+    return _redirect('/t/{}/{}'.format(table, rid))
+
+
+def _master_delete(request, sess, conn, table, cols, rid):
+    bail = _master_guard(request, sess, conn, table)
+    if bail:
+        return bail
+    if request.method != 'POST':
+        return _redirect('/t/{}/{}'.format(table, rid))
+    pk = _pk(cols) or 'id'
+    try:
+        conn.execute('DELETE FROM "{}" WHERE "{}" = ?'.format(table, pk), (rid,))
+        auth.audit(conn, sess['username'], 'web_delete', table, rid)
+        conn.commit()
+    except sqlite3.IntegrityError:
+        return _page(
+            'Cannot delete',
+            '<p>This record is still used elsewhere (it has linked entries), so '
+            'it cannot be deleted. Remove or reassign those first, or mark it '
+            'inactive instead.</p><p><a class="btn ghost" href="/t/{tbl}/{rid}">'
+            '‹ Back</a></p>'.format(tbl=R.esc(table), rid=R.esc(rid)),
+            sess, conn, active=table, status=409)
+    return _redirect('/t/{}'.format(table))

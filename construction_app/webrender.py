@@ -106,6 +106,19 @@ input[type=text],input[type=password],input[type=search]{
 .dl dt{color:var(--muted);font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
 .dl dd{margin:0;padding:6px 0;border-bottom:1px solid var(--line);
   word-break:break-word}
+/* Forms */
+.frow{margin:12px 0;max-width:540px}
+.frow label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);
+  border-radius:9px;background:var(--surface);color:var(--ink);font-size:14px;
+  font-family:inherit}
+textarea{resize:vertical}
+.formbtns{display:flex;gap:10px;margin-top:20px;max-width:540px}
+.err-list{background:#FDECEA;border:1px solid #F5B5AC;color:#9B2E1C;
+  border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+@media (prefers-color-scheme:dark){.err-list{background:#2A1512;border-color:#5A241C;color:#F0A79A}}
+.rowbtns{display:flex;gap:10px;margin:12px 0}
+form.inline{display:inline}
 /* Login */
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .loginbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;
@@ -182,6 +195,67 @@ def table(columns, rows, *, link=None):
 def _trim(value, limit=120):
     s = '' if value is None else str(value)
     return s if len(s) <= limit else s[:limit - 1] + '…'
+
+
+# ------------------------------------------------------------------- forms
+def control(kind, name, value, options=None):
+    """One form input for a field ``kind``. ``options`` = [(value, label), ...]
+    for combo/fk."""
+    v = esc('' if value is None else value)
+    n = esc(name)
+    if kind == 'number':
+        return ('<input type="text" inputmode="decimal" name="{}" value="{}">'
+                .format(n, v))
+    if kind == 'textarea':
+        return '<textarea name="{}" rows="3">{}</textarea>'.format(n, v)
+    if kind in ('combo', 'fk'):
+        cur = '' if value is None else str(value)
+        opts = ['<option value="">—</option>'] if kind == 'fk' else []
+        for val, label in (options or []):
+            sel = ' selected' if str(val) == cur else ''
+            opts.append('<option value="{}"{}>{}</option>'.format(
+                esc(val), sel, esc(label)))
+        return '<select name="{}">{}</select>'.format(n, ''.join(opts))
+    return '<input type="text" name="{}" value="{}">'.format(n, v)
+
+
+def field_row(label_text, control_html):
+    return '<div class="frow"><label>{}</label>{}</div>'.format(
+        esc(label_text), control_html)
+
+
+def errors(messages):
+    if not messages:
+        return ''
+    items = ''.join('<li>{}</li>'.format(esc(m)) for m in messages)
+    return '<div class="err-list"><ul style="margin:0;padding-left:18px">{}' \
+           '</ul></div>'.format(items)
+
+
+def form(action, rows_html, csrf, *, submit='Save', cancel_href=''):
+    cancel = ('<a class="btn ghost" href="{}">Cancel</a>'.format(esc(cancel_href))
+              if cancel_href else '')
+    return (
+        '<form method="post" action="{action}">'
+        '<input type="hidden" name="csrf" value="{csrf}">{rows}'
+        '<div class="formbtns"><button class="btn" type="submit">{submit}</button>'
+        '{cancel}</div></form>'
+    ).format(action=esc(action), csrf=esc(csrf), rows=rows_html,
+             submit=esc(submit), cancel=cancel)
+
+
+def post_button(action, csrf, label, *, confirm='', ghost=True):
+    """A one-button POST form (for delete) — POST, not a link, so it can't be
+    triggered by a bare GET."""
+    onsubmit = (' onsubmit="return confirm(\'{}\')"'.format(esc(confirm))
+                if confirm else '')
+    cls = 'btn ghost' if ghost else 'btn'
+    return (
+        '<form method="post" action="{action}" class="inline"{onsubmit}>'
+        '<input type="hidden" name="csrf" value="{csrf}">'
+        '<button class="{cls}" type="submit">{label}</button></form>'
+    ).format(action=esc(action), onsubmit=onsubmit, csrf=esc(csrf), cls=cls,
+             label=esc(label))
 
 
 def login_page(*, error='', first_run=False, csrf='', host_note=''):

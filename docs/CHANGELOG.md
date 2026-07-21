@@ -6,6 +6,25 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Browser / LAN access: Masters data entry (Stage 2)
+
+- **Add / edit / delete the Masters in the browser** — sites, clients, vendors,
+  materials, labour, equipment. First write surface on the way to full parity
+  (Billing → Money next).
+- `web_masters.py`: a **tkinter-free** spec mirroring the desktop CRUD field-for-
+  field (so the headless server needs no Tk import), plus value coercion matching
+  `CrudFrame._collect_values` (number→float, fk→id, combo whitelist). A
+  `tests/test_web.py` guard checks every field is a real column and every fk
+  query runs — the web spec can't silently drift from the schema.
+- `webapp.py` write routes: `/t/<m>/new`, `/t/<m>/<id>/edit`, `/t/<m>/<id>/delete`,
+  gated on `can_write(role)` (Viewer → 403) with a **per-session CSRF token** on
+  every form; delete catches `IntegrityError` (won't orphan linked rows) and web
+  edits hit the same audit log (`web_create`/`web_update`/`web_delete`).
+- `webrender.py`: form controls (text/number/combo/fk/textarea), error list, and
+  a POST-only delete button.
+
+---
+
 ## 2026-07-21 — Browser / LAN access
 
 - **Use the app in a browser, no client install.** A built-in web server

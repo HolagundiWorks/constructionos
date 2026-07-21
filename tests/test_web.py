@@ -152,6 +152,119 @@ class TestWebRouter(unittest.TestCase):
         self.assertTrue(webapp.can_write('Operator'))
         self.assertTrue(webapp.can_write('Admin'))
 
+    # ---- Stage 2: Masters data entry -----------------------------------
+    def _scsrf(self, sid):
+        import webapp
+        return webapp._session(sid)['csrf']
+
+    def test_master_create_view_edit_delete(self):
+        import webapp
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        ck = {'cosid': sid}
+        # blank new form
+        form = webapp.handle(self._req('/t/sites/new', cookies=ck))
+        self.assertEqual(form.status, 200)
+        self.assertIn(b'New Site', form.body)
+        # create
+        r = webapp.handle(self._req(
+            '/t/sites/new', 'POST',
+            form={'csrf': csrf, 'name': 'Test Site', 'location': 'Hospet',
+                  'site_type': 'Site', 'status': 'Active'}, cookies=ck))
+        self.assertEqual(r.status, 303)
+        loc = r.headers['Location']
+        rid = loc.rsplit('/', 1)[1]
+        # it persisted and shows
+        view = webapp.handle(self._req(loc, cookies=ck))
+        self.assertIn(b'Test Site', view.body)
+        # edit
+        r = webapp.handle(self._req(
+            '/t/sites/{}/edit'.format(rid), 'POST',
+            form={'csrf': csrf, 'name': 'Renamed', 'location': 'Bellary',
+                  'site_type': 'Site', 'status': 'Closed'}, cookies=ck))
+        self.assertEqual(r.status, 303)
+        view = webapp.handle(self._req(loc, cookies=ck))
+        self.assertIn(b'Renamed', view.body)
+        self.assertIn(b'Bellary', view.body)
+        # delete (no rows reference this site -> succeeds)
+        r = webapp.handle(self._req(
+            '/t/sites/{}/delete'.format(rid), 'POST',
+            form={'csrf': csrf}, cookies=ck))
+        self.assertEqual(r.status, 303)
+        self.assertEqual(r.headers['Location'], '/t/sites')
+        view = webapp.handle(self._req(loc, cookies=ck))
+        self.assertEqual(view.status, 404)
+
+    def test_master_required_field_rejected(self):
+        import webapp
+        sid = self._login_admin()
+        r = webapp.handle(self._req(
+            '/t/sites/new', 'POST',
+            form={'csrf': self._scsrf(sid), 'name': ''}, cookies={'cosid': sid}))
+        self.assertEqual(r.status, 200)              # re-render, not a redirect
+        self.assertIn(b'is required', r.body)
+
+    def test_master_write_needs_csrf(self):
+        import webapp
+        sid = self._login_admin()
+        r = webapp.handle(self._req(
+            '/t/sites/new', 'POST',
+            form={'csrf': 'wrong', 'name': 'X'}, cookies={'cosid': sid}))
+        self.assertEqual(r.status, 403)
+
+    def test_viewer_cannot_reach_write_routes(self):
+        import webapp
+        tok = webapp._new_session('bob', 'Viewer')
+        csrf = self._scsrf(tok)
+        r = webapp.handle(self._req(
+            '/t/sites/new', 'POST',
+            form={'csrf': csrf, 'name': 'Nope'}, cookies={'cosid': tok}))
+        self.assertEqual(r.status, 403)
+
+    def test_non_master_has_no_write_route(self):
+        import webapp
+        sid = self._login_admin()
+        r = webapp.handle(self._req('/t/payments/new', cookies={'cosid': sid}))
+        self.assertEqual(r.status, 404)
+
+
+class TestWebMastersSpec(unittest.TestCase):
+    """Guard against the web master specs drifting from the real schema."""
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd); os.remove(self.path)
+        self.orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self.orig
+        for ext in ('', '-wal', '-shm'):
+            try:
+                os.remove(self.path + ext)
+            except OSError:
+                pass
+
+    def test_every_field_is_a_real_column(self):
+        import web_masters
+        conn = self.db.get_conn()
+        try:
+            for table, spec in web_masters.MASTERS.items():
+                cols = {r['name'] for r in
+                        conn.execute('PRAGMA table_info("{}")'.format(table))}
+                self.assertTrue(cols, 'table {} does not exist'.format(table))
+                for f in spec['fields']:
+                    self.assertIn(f['key'], cols,
+                                  '{}.{} is not a column'.format(table, f['key']))
+                # fk dropdown queries must actually run
+                for f in spec['fields']:
+                    if f['kind'] == 'fk':
+                        conn.execute(f['fk_sql']).fetchall()
+        finally:
+            conn.close()
+
 
 class TestWebServerIntegration(unittest.TestCase):
     def test_server_answers_login_over_http(self):

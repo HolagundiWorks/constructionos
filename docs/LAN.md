@@ -5,9 +5,27 @@ in a **browser** — no client to install. It's a small web server built on the
 Python standard library (`http.server`), sharing the **same SQLite file** and
 the same business logic as the desktop app. No web framework, no pip.
 
-> Status: **read views first.** The dashboard and every register are viewable in
-> the browser today. Data entry is being added register by register (Masters →
-> Billing → Money); the desktop app remains the full read/write client meanwhile.
+> Status: **read views + Masters data entry.** The dashboard and every register
+> are viewable in the browser, and the **Masters** (sites, clients, vendors,
+> materials, labour, equipment) can be added/edited/deleted there too. Billing
+> then Money entry are next; the desktop app remains the full read/write client
+> meanwhile.
+
+## What you can edit (so far)
+
+The **Masters** registers have a **+ New**, **Edit** and **Delete** in the
+browser — the same fields as the desktop, built from one shared spec
+(`web_masters.py`, checked against the live schema by a test so the two can't
+drift):
+
+* **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**.
+
+Writes are gated: a **Viewer** sees the data but no edit buttons and is refused
+(403) if it POSTs anyway; only **Operator**/**Admin** may change data. Every form
+carries a per-session CSRF token, and deletes that would orphan linked records
+are refused with a plain message rather than a database error. Web edits are
+written to the same **audit log** as the desktop (`web_create` / `web_update` /
+`web_delete`). Everything else stays view-only for now.
 
 ## Starting it
 
