@@ -3985,6 +3985,63 @@ class TestOllamaCatalog(unittest.TestCase):
         self.assertEqual(api.human_size(0), '0 B')
         self.assertTrue(api.human_size(5 * 1024 ** 3).endswith('GB'))
 
+    def test_suggested_is_the_inbuilt_default(self):
+        # The catalogue's default and the assistant's default must be the same
+        # model, and it must be a real entry in the list.
+        import ollama_catalog as cat
+        import ollama_client as client
+        self.assertEqual(cat.SUGGESTED, client.DEFAULT_MODEL)
+        self.assertIn(cat.SUGGESTED, [tag for tag, _s, _n in cat.MODELS])
+
+
+class TestModelProvision(unittest.TestCase):
+    """Offline registration of the inbuilt model — the pure, Ollama-free parts:
+    locating the bundle, building the import command, deciding 'already there'."""
+
+    def test_registered_matches_tag_or_bare_base(self):
+        import model_provision as mp
+        self.assertTrue(mp.is_registered(['qwen2.5-coder:1.5b']))
+        self.assertTrue(mp.is_registered(['qwen2.5-coder']))          # bare base
+        self.assertTrue(mp.is_registered(['llama3.2:1b',
+                                          'qwen2.5-coder:1.5b']))
+        self.assertFalse(mp.is_registered(['llama3.2:1b']))
+        self.assertFalse(mp.is_registered([]))
+        self.assertFalse(mp.is_registered(None))
+
+    def test_create_command_shape(self):
+        import model_provision as mp
+        cmd = mp.create_command(ollama='C:/x/ollama.exe')
+        self.assertEqual(cmd[:3], ['C:/x/ollama.exe', 'create', mp.MODEL_NAME])
+        self.assertIn('-f', cmd)
+
+    def test_bundled_detects_modelfile_plus_gguf(self):
+        import model_provision as mp
+        import shutil
+        d = tempfile.mkdtemp()
+        orig = mp.ai_dir
+        try:
+            mp.ai_dir = lambda: d            # point the locator at a temp dir
+            self.assertFalse(mp.bundled())   # nothing there yet
+            open(os.path.join(d, mp.MODELFILE_NAME), 'w').close()
+            self.assertFalse(mp.bundled())   # Modelfile alone is not enough
+            open(os.path.join(d, mp.GGUF_NAME), 'w').close()
+            self.assertTrue(mp.bundled())    # both present -> this build has it
+            self.assertTrue(mp.modelfile_path().startswith(d))
+            self.assertTrue(mp.gguf_path().endswith(mp.GGUF_NAME))
+        finally:
+            mp.ai_dir = orig                 # undo the monkeypatch
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_modelfile_is_committed_and_points_at_the_gguf(self):
+        # The Modelfile ships in the repo (installer\ai); the GGUF does not.
+        import model_provision as mp
+        here = os.path.dirname(os.path.abspath(__file__))
+        mf = os.path.join(here, os.pardir, 'installer', 'ai', 'Modelfile')
+        self.assertTrue(os.path.exists(mf))
+        text = open(mf, encoding='utf-8').read()
+        self.assertIn(mp.GGUF_NAME, text)
+        self.assertIn('FROM', text)
+
 
 class TestScheduler(unittest.TestCase):
     """The working-calendar scheduling engine: calendar, typed deps, critical

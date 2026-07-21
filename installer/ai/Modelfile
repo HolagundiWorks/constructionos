@@ -1,0 +1,21 @@
+# Modelfile for the inbuilt Construction OS assistant model.
+#
+# It registers the bundled GGUF into Ollama with NO download:
+#
+#     ollama create qwen2.5-coder:1.5b -f Modelfile
+#
+# (The app does this for you on first run — see model_provision.py.)
+#
+# The chat template, stop tokens and default parameters are read from the
+# GGUF's own metadata, so this file stays minimal: point at the weights and
+# let Ollama do the rest. The GGUF must sit next to this file, named exactly:
+#
+#     qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
+#
+# Fetch it with installer\fetch_payload.ps1 (it is NOT committed to git — a
+# ~1 GB binary does not belong in the repository).
+
+FROM ./qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
+
+# A roomy context so the assistant's schema + few-shot prompt fits comfortably.
+PARAMETER num_ctx 8192

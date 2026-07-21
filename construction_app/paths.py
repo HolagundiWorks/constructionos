@@ -77,3 +77,19 @@ def data_path(name):
 def resource_path(*parts):
     """A read-only bundled file, e.g. ``resource_path('resources', 'app.ico')``."""
     return os.path.join(resource_base(), *parts)
+
+
+def app_install_dir():
+    """The directory the app is installed/running in.
+
+    Distinct from ``resource_base()``: under PyInstaller that is the unpacked
+    bundle (``sys._MEIPASS``), but a **large, optional** payload — the inbuilt
+    AI model's multi-hundred-MB GGUF — is deliberately laid down *next to the
+    executable* by the installer rather than packed into the frozen bundle (so
+    PyInstaller never has to hash/compress a gigabyte). This points there: the
+    folder holding ``ConstructionOS.exe`` when frozen, or the code directory
+    from source.
+    """
+    if is_frozen():
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return _source_dir()

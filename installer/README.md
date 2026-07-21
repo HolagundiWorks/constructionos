@@ -54,16 +54,35 @@ cd installer
 # -> installer\output\ConstructionOS-portable.zip
 ```
 
+**Inbuilt offline AI (optional, ~1.7 GB installer):** fetch the AI payload once,
+then build as usual. `build.ps1` prints `Inbuilt AI : YES` when it finds the
+payload and bundles it; without it you simply get a lean installer where the
+assistant pulls a model on first use.
+
+```powershell
+cd installer
+.\fetch_payload.ps1   # downloads OllamaSetup.exe + qwen2.5-coder-1.5b …q4_k_m.gguf
+.\build.ps1           # -> ~1.7 GB Setup.exe carrying the offline AI engine
+```
+
+The installer then installs Ollama silently (when the *AI assistant* task stays
+ticked) and lays the model beside the app; the app finishes a one-time offline
+`ollama create` on first launch (**Assistant › AI Engine › Set up inbuilt
+model**), after which the assistant works with no internet at all.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `ConstructionOS.spec` | PyInstaller spec — freezes the app into `dist\`. Lists every flat module explicitly (some tabs are imported lazily) and bundles `resources/`. |
 | `ConstructionOS.iss` | Inno Setup script — wraps the frozen folder into a `Setup.exe` with shortcuts, an uninstaller and the AGPL licence page. Per-user install, no admin. |
-| `build.ps1` | Freezes and packages the app, with a `-Portable` zip fallback. Deletes the intermediate `build\` dir afterwards. |
+| `build.ps1` | Freezes and packages the app, with a `-Portable` zip fallback. Deletes the intermediate `build\` dir afterwards. Reports whether the inbuilt-AI payload was bundled. |
+| `fetch_payload.ps1` | Downloads the optional inbuilt-AI payload — Ollama's installer into `vendor\` and the model GGUF into `ai\`. Run once before `build.ps1` for an offline-AI installer. |
+| `ai\Modelfile` | Ollama Modelfile that registers the bundled GGUF offline (`ollama create qwen2.5-coder:1.5b -f Modelfile`). Tracked in git; the GGUF it points at is fetched, not committed. |
 
 `build/`, `dist/`, `venv/` and `output/` are build artifacts and are
-git-ignored.
+git-ignored — as are the fetched `ai\*.gguf` and `vendor\` payload (large
+binaries never belong in the repo).
 
 ## Notes
 
@@ -73,17 +92,21 @@ git-ignored.
 - **Icon** is `construction_app/resources/app.ico`, used for the exe, the
   installer and the shortcuts.
 - **The optional AI assistant** needs a local Ollama install; the app runs
-  fully without it. The installer offers an **unchecked "Set up Ollama for the
-  AI assistant (optional)"** task on the final page:
-  - if you drop the official `OllamaSetup.exe` into `installer\vendor\` before
-    building, it is bundled and run for a fully-offline setup;
-  - otherwise the task opens <https://ollama.com/download> so the user fetches
-    the current official build.
+  fully without it. The installer has a **"Set up the offline AI assistant
+  (Ollama + inbuilt model)"** task, ticked by default:
+  - if you ran `fetch_payload.ps1` first, `vendor\OllamaSetup.exe` is installed
+    **silently during setup** and the model GGUF is laid down beside the app,
+    for a fully-offline assistant (the one-time `ollama create` finishes on
+    first launch);
+  - if you did **not** bundle the payload, the task instead opens
+    <https://ollama.com/download> so the user fetches the current build, then
+    pulls a model from inside the app.
 
-  We never silently redistribute Ollama (it is a separate product with its own
-  licence). In-app, **Assistant › AI Engine** installs Ollama, starts the
-  server, and pulls/selects models — and the Ask tab shows a **Get Ollama…**
-  button whenever the server is not reachable.
+  Ollama (MIT) and Qwen2.5-Coder (Apache-2.0) are both permissively licensed, so
+  shipping their official artefacts is fine. In-app, **Assistant › AI Engine**
+  installs Ollama, starts the server, sets up the inbuilt model, and
+  pulls/selects models — and the Ask tab shows a **Get Ollama…** button whenever
+  the server is not reachable.
 - **Antivirus / SmartScreen**: an unsigned PyInstaller exe may trip Windows
   SmartScreen ("unknown publisher") on first run. Code-signing the exe and the
   installer with an authenticode certificate removes this; it is out of scope

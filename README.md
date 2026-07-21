@@ -59,7 +59,11 @@ built **entirely on the Python standard library**: `tkinter` for the UI,
 - **Optional AI assistant** — ask questions about your own data in plain English
   via a **local Ollama** model, using retrieval-augmented, **read-only**
   text-to-SQL (engine-enforced `query_only`); deterministic quick answers work
-  without it.
+  without it. The Windows installer can bundle an **inbuilt model**
+  (`qwen2.5-coder:1.5b`, ~1 GB, Apache-2.0, tuned for the assistant's NL→SQL) so
+  the assistant runs **fully offline, out of the box** — no download on first
+  use. Managed in-app under **Assistant › AI Engine**, where you can also fetch
+  larger models if the machine can take them.
 
 ## Requirements
 

@@ -22,6 +22,7 @@ import assistant
 import ollama_api as api
 import ollama_service as service
 import ollama_catalog as catalog
+import model_provision as provision
 import theme
 from ui_guard import can_write
 
@@ -37,6 +38,7 @@ class OllamaManagerTab(ttk.Frame):
         self._build_ui()
         self.refresh_status()
         self.refresh_models()
+        self.refresh_inbuilt()
 
     # ---------------------------------------------------------------- config
     def _host(self):
@@ -84,6 +86,26 @@ class OllamaManagerTab(ttk.Frame):
         ttk.Button(row, text='Download page',
                    command=lambda: webbrowser.open(service.DOWNLOAD_PAGE)) \
             .pack(side='left', padx=4)
+
+        # --- inbuilt model (only when this build actually carries the GGUF)
+        self.inbuilt_btn = None
+        if provision.bundled():
+            inb = ttk.LabelFrame(self, text='Inbuilt model (offline)')
+            inb.pack(fill='x', padx=10, pady=6)
+            ttk.Label(
+                inb, wraplength=620, justify='left', foreground=pal['muted'],
+                text='This build ships the assistant model ({}) — no download '
+                     'needed. Set it up once, offline, and the Assistant '
+                     'works with no internet.'.format(provision.MODEL_NAME)) \
+                .pack(anchor='w', padx=8, pady=(6, 2))
+            irow = ttk.Frame(inb); irow.pack(fill='x', padx=8, pady=(0, 6))
+            self.inbuilt_btn = ttk.Button(
+                irow, text='Set up inbuilt model', style='Accent.TButton',
+                command=self.setup_inbuilt)
+            self.inbuilt_btn.pack(side='left')
+            self.inbuilt_status = tk.StringVar(value='Checking…')
+            ttk.Label(irow, textvariable=self.inbuilt_status,
+                      foreground=pal['muted']).pack(side='left', padx=10)
 
         # --- installed models
         inst = ttk.LabelFrame(self, text='Installed models')
@@ -147,6 +169,69 @@ class OllamaManagerTab(ttk.Frame):
     def refresh_all(self):
         self.refresh_status()
         self.refresh_models()
+        self.refresh_inbuilt()
+
+    def refresh_inbuilt(self):
+        """Report whether the bundled model still needs a one-time setup."""
+        if self.inbuilt_btn is None:
+            return
+
+        def work():
+            registered = provision.registered_now(self._host())
+            self._post(lambda: self._set_inbuilt(registered))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_inbuilt(self, registered):
+        if self.inbuilt_btn is None:
+            return
+        if registered:
+            self.inbuilt_status.set('● Ready — the Assistant is using it.')
+            self.inbuilt_btn.state(['disabled'])
+        else:
+            self.inbuilt_status.set('Not set up yet — one-time, ~1 min.')
+            self.inbuilt_btn.state(['!disabled'])
+
+    def setup_inbuilt(self):
+        if not can_write():
+            return
+        if self.inbuilt_btn is None:
+            return
+        self.inbuilt_btn.state(['disabled'])
+        self.inbuilt_status.set('Setting up…')
+
+        def work():
+            ok, msg = provision.provision(
+                log=lambda line: self._post(
+                    lambda: self.inbuilt_status.set(line[:80])),
+                host=self._host())
+            self._post(lambda: self._after_inbuilt(ok, msg))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after_inbuilt(self, ok, msg):
+        if self.inbuilt_btn is None:
+            return
+        self.inbuilt_status.set(msg[:80])
+        if ok:
+            # Point the Assistant at the freshly-registered inbuilt model.
+            self._set_assistant_model(provision.MODEL_NAME)
+            self.inbuilt_btn.state(['disabled'])
+            self.refresh_models()
+        else:
+            self.inbuilt_btn.state(['!disabled'])
+            messagebox.showinfo('Inbuilt model', msg)
+
+    def _set_assistant_model(self, name):
+        if not can_write():
+            return
+        conn = self.db_getter()
+        try:
+            conn.execute(
+                "INSERT INTO app_settings (key, value) VALUES "
+                "('assistant_model', ?) ON CONFLICT(key) DO UPDATE SET "
+                "value = excluded.value", (name,))
+            conn.commit()
+        finally:
+            conn.close()
 
     def refresh_status(self):
         self.status_var.set('Checking…')
@@ -242,15 +327,7 @@ class OllamaManagerTab(ttk.Frame):
         if not name:
             messagebox.showinfo('Pick a model', 'Select a model first.')
             return
-        conn = self.db_getter()
-        try:
-            conn.execute(
-                "INSERT INTO app_settings (key, value) VALUES "
-                "('assistant_model', ?) ON CONFLICT(key) DO UPDATE SET "
-                "value = excluded.value", (name,))
-            conn.commit()
-        finally:
-            conn.close()
+        self._set_assistant_model(name)
         self.refresh_models()
         messagebox.showinfo('Assistant model set',
                             'The Assistant will now use "{}".'.format(name))

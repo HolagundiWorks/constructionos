@@ -13,7 +13,12 @@ import urllib.request
 import urllib.error
 
 DEFAULT_HOST = 'http://localhost:11434'
-DEFAULT_MODEL = 'qwen2.5'      # Qwen 2.5 (7B) — strong at the assistant's NL→SQL
+# The app's inbuilt default: Qwen2.5-Coder 1.5B — tuned for code/SQL (the
+# assistant's NL→SQL job), ~1 GB, runs on CPU in ~2 GB RAM, Apache-2.0 so it
+# can be bundled offline. The installer registers this exact tag from a bundled
+# GGUF (see model_provision.py), and a plain `ollama pull` produces the same
+# name, so both the inbuilt and pull-it-yourself paths converge here.
+DEFAULT_MODEL = 'qwen2.5-coder:1.5b'
 
 
 def installed():

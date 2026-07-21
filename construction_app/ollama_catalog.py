@@ -12,6 +12,8 @@ model onto a laptop that cannot run it.
 # (tag, approx download, one-line note)
 MODELS = [
     ('qwen2.5:0.5b', '~0.4 GB', 'Tiny. Runs on almost anything; basic answers.'),
+    ('qwen2.5-coder:1.5b', '~1.0 GB',
+     "Inbuilt default. Tuned for code/SQL; Apache-2.0. Runs on ~2 GB RAM."),
     ('llama3.2:1b', '~1.3 GB', 'Very small, quick. Light Q&A and summarising.'),
     ('gemma2:2b', '~1.6 GB', 'Small Google model; tidy short answers.'),
     ('llama3.2:3b', '~2.0 GB', 'Good balance for an ordinary office PC.'),
@@ -25,11 +27,12 @@ MODELS = [
     ('nomic-embed-text', '~0.3 GB', 'Embeddings only — not a chat model.'),
 ]
 
-# Chosen when nothing is installed yet: small enough to finish downloading and
-# actually run on a modest machine, rather than the biggest thing available.
-# qwen2.5 is the assistant's default family (good at its NL->SQL); the 3B tag
-# runs on an ordinary office PC.
-SUGGESTED = 'qwen2.5:3b'
+# Chosen when nothing is installed yet: the app's inbuilt default. Small enough
+# to finish downloading and actually run on a modest tier-2/3 machine, tuned for
+# the assistant's NL->SQL, and Apache-2.0 so the installer can ship it offline.
+# (Prefer the coder 1.5B over the base 3B here: the 3B variant ships under the
+# more restrictive Qwen Research licence, awkward to redistribute.)
+SUGGESTED = 'qwen2.5-coder:1.5b'
 
 
 def choices():

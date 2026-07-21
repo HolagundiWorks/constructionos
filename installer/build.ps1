@@ -58,6 +58,18 @@ if (-not $iscc) {
 $out = Join-Path $here 'output'
 New-Item -ItemType Directory -Force $out | Out-Null
 
+# Inbuilt-AI payload check (optional). If fetch_payload.ps1 was run, the
+# installer bundles the offline AI engine; if not, it builds lean and the
+# Assistant pulls a model on first use. Either way the build proceeds.
+$gguf   = Get-ChildItem -Path (Join-Path $here 'ai') -Filter '*.gguf' -ErrorAction SilentlyContinue | Select-Object -First 1
+$ollamaExe = Join-Path $here 'vendor\OllamaSetup.exe'
+if ($gguf -and (Test-Path $ollamaExe)) {
+    $ggufMb = [math]::Round($gguf.Length / 1MB, 1)
+    Write-Host "Inbuilt AI : YES  (ai\$($gguf.Name) $ggufMb MB + vendor\OllamaSetup.exe)"
+} else {
+    Write-Host "Inbuilt AI : no   (run .\fetch_payload.ps1 first to bundle the offline model)"
+}
+
 foreach ($a in $apps) {
     Write-Host "`n=== $($a.Name) ==="
     # Freeze.
@@ -99,5 +111,8 @@ if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir }
 Write-Host "`nDone."
 Write-Host "  App folder : installer\dist\<App>\<App>.exe   (run this to test)"
 Write-Host "  Packages   : installer\output\   (installer .exe and/or portable .zip)"
+Get-ChildItem $out -File | ForEach-Object {
+    Write-Host ("             {0}  ({1} MB)" -f $_.Name, [math]::Round($_.Length / 1MB, 1))
+}
 Write-Host "  Tip: unzip a portable build to a NORMAL local folder (Desktop, C:\Apps)"
 Write-Host "       - not inside OneDrive - so Windows keeps all files on disk."

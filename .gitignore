@@ -24,3 +24,9 @@ installer/dist/
 installer/output/
 installer/venv/
 demo.db
+
+# Bundled AI payload — large binaries fetched at build time, never committed.
+# The Modelfile IS tracked; the GGUF weights and the Ollama installer are not.
+installer/ai/*.gguf
+installer/vendor/
+*.gguf

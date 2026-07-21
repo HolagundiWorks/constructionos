@@ -4,6 +4,15 @@
 ;
 ; Build:  ISCC.exe ConstructionOS.iss   (Inno Setup 6, free — jrsoftware.org)
 ;         or run build.ps1, which calls this for you.
+;
+; INBUILT AI (optional payload): if the builder ran fetch_payload.ps1 first,
+; this also carries the offline AI engine — Ollama's official installer
+; (vendor\OllamaSetup.exe) and the assistant model weights (ai\*.gguf). With
+; those present the installer sets Ollama up silently and lays the model beside
+; the app, so the Assistant answers with no internet, out of the box. Without
+; them the app still installs and runs fine; the Assistant just pulls a model
+; on first use instead. Both Ollama and the Qwen2.5-Coder model are permissively
+; licensed (MIT / Apache-2.0), so shipping their official artefacts is fine.
 
 #define AppName "Construction OS"
 #define AppVersion "1.0.0"
@@ -46,17 +55,21 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
-; Ollama powers the OPTIONAL AI assistant. Off by default — the app is fully
-; usable without it. If the builder placed vendor\OllamaSetup.exe next to this
-; script it is installed locally; otherwise the official download page is
-; opened so the user gets the current build. (Ollama is a separate product with
-; its own licence; we never silently redistribute it.)
-Name: "ollama"; Description: "Set up Ollama for the AI assistant (optional)"; GroupDescription: "AI assistant (optional):"; Flags: unchecked
+; The offline AI assistant. Ticked by default when the AI payload is bundled —
+; Ollama installs silently and the model is laid beside the app (a one-time
+; ~1 min setup finishes on first launch). Untick to skip AI entirely. When no
+; payload was bundled, ticking it just opens Ollama's download page.
+Name: "ollama"; Description: "Set up the offline AI assistant (Ollama + inbuilt model)"; GroupDescription: "AI assistant:"
 
 [Files]
 ; The entire PyInstaller one-folder build.
 Source: "dist\ConstructionOS\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
-; Optional, bundled only if the builder dropped it here (skipped otherwise).
+; The inbuilt model, laid down NEXT TO the exe (not packed by PyInstaller — a
+; ~1 GB GGUF should not go through the freezer). The Modelfile is always here;
+; the GGUF only when fetch_payload.ps1 was run. Both skip cleanly if absent.
+Source: "ai\Modelfile"; DestDir: "{app}\ai"; Flags: skipifsourcedoesntexist ignoreversion; Tasks: ollama
+Source: "ai\*.gguf"; DestDir: "{app}\ai"; Flags: skipifsourcedoesntexist ignoreversion; Tasks: ollama
+; Ollama's official installer, bundled only if the builder dropped it here.
 Source: "vendor\OllamaSetup.exe"; DestDir: "{tmp}"; Flags: skipifsourcedoesntexist deleteafterinstall; Tasks: ollama
 
 [Icons]
@@ -65,10 +78,8 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#ExeName}"; Tasks: desktopicon
 
 [Run]
-; Ollama, only if the user ticked the task. Run the bundled installer when it
-; was shipped; otherwise open the official download page. Both are post-install
-; so the user sees them as optional check-boxes on the final page.
-Filename: "{tmp}\OllamaSetup.exe"; Description: "Install Ollama now"; Tasks: ollama; Check: OllamaBundled; Flags: postinstall skipifsilent
+; When the AI payload was NOT bundled but the user still wants AI, point them at
+; the official download (they can then pull a model from inside the app).
 Filename: "https://ollama.com/download"; Description: "Open the Ollama download page"; Tasks: ollama; Check: OllamaNotBundled; Flags: postinstall shellexec skipifsilent nowait
 Filename: "{app}\{#ExeName}"; Description: "Launch {#AppName} now"; Flags: nowait postinstall skipifsilent
 
@@ -86,4 +97,24 @@ end;
 function OllamaNotBundled: Boolean;
 begin
   Result := not OllamaBundled;
+end;
+
+// When the AI payload is bundled and the user kept the task ticked, install
+// Ollama silently as part of setup. Failures are non-fatal: the app can still
+// install Ollama later from Assistant > AI Engine, and the model is imported on
+// first run once Ollama is present. The model import itself is done in-app (it
+// needs the Ollama server running and the right PATH), not here.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('ollama')
+     and OllamaBundled then
+  begin
+    WizardForm.StatusLabel.Caption := 'Setting up the offline AI engine (Ollama)...';
+    Exec(ExpandConstant('{tmp}\OllamaSetup.exe'),
+         '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '',
+         SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // ResultCode intentionally ignored — see note above.
+  end;
 end;

@@ -6,6 +6,26 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Takeoff + inbuilt offline AI
+
+- **Bluebeam-style quantity takeoff.** Measure straight off a scaled drawing:
+  calibrate the scale once, then run a polyline for length, a polygon for area
+  (× depth for volume), or click-count. Live quantities, totals by unit,
+  save/load, and **Send to Estimate**. Pure engine `takeoff.py` (shoelace area,
+  polyline length, scale-from-calibration); `pdf_render.py` renders a PDF page to
+  PNG via an external poppler/Ghostscript when present (tkinter shows PNG, not
+  PDF); `tab_takeoff.py` is the Canvas markup UI under **Billing**;
+  `takeoffs`/`takeoff_items` tables.
+- **Inbuilt offline AI model.** The assistant's default is now
+  **`qwen2.5-coder:1.5b`** — tuned for its NL→SQL, ~1 GB, Apache-2.0. The
+  installer can bundle it (run `installer\fetch_payload.ps1` first): Ollama
+  installs silently and the model GGUF is laid beside the app, registered offline
+  by a one-time in-app `ollama create` (`model_provision.py`, wired into
+  **Assistant › AI Engine**). Result: the assistant runs with no internet, out of
+  the box. Lean builds without the payload still pull a model on first use.
+
+---
+
 ## 2026-07-21 — v1.0.0: intelligent dashboard, HCW UI, production hardening
 
 The 1.0 release. Everything below stays pure standard library (tkinter +
