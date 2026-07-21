@@ -1,8 +1,12 @@
-# Construction OS — Windows installer
+# Windows installers
 
-This folder builds a standalone Windows installer for Construction OS. The
-target machine needs **no Python, no internet, and no admin rights** — the app
-is bundled with its own Python runtime and installs per-user.
+This folder builds standalone Windows installers for **two** apps — the main
+**Construction OS**, and its optional companion the **Ollama Manager** (which
+installs/runs Ollama and picks the model the AI assistant uses). Each is a
+separate installer, because a contractor who does not want the assistant never
+needs the manager. The target machine needs **no Python, no internet, and no
+admin rights** — each app is bundled with its own Python runtime and installs
+per-user.
 
 ## What the end user gets
 
@@ -31,29 +35,37 @@ PyInstaller is *not* a prerequisite: `build.ps1` installs it into a throwaway
 `venv/` here. It is a build tool only; the shipped app stays pure standard
 library.
 
-**Full installer:**
+**Full installers (both apps):**
 
 ```powershell
 cd installer
 .\build.ps1
 # -> installer\output\ConstructionOS-Setup-1.0.0.exe
+#    installer\output\OllamaManager-Setup-1.0.0.exe
 ```
 
-**Portable zip** (no Inno Setup needed — unzip anywhere and run the .exe):
+**Portable zips** (no Inno Setup needed — unzip anywhere and run the .exe):
 
 ```powershell
 cd installer
 .\build.ps1 -Portable
 # -> installer\output\ConstructionOS-portable.zip
+#    installer\output\OllamaManager-portable.zip
+```
+
+**Just one app:**
+
+```powershell
+.\build.ps1 -App "Construction OS"      # or "Ollama Manager"
 ```
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `ConstructionOS.spec` | PyInstaller spec — freezes the app into `dist\ConstructionOS\`. Collects every flat module (some tabs are imported lazily) and bundles `resources/`. |
-| `ConstructionOS.iss` | Inno Setup script — wraps the frozen folder into `Setup.exe` with shortcuts and an uninstaller. Per-user install, no admin. |
-| `build.ps1` | Orchestrates both, with a `-Portable` zip fallback. |
+| `ConstructionOS.spec` / `OllamaManager.spec` | PyInstaller specs — freeze each app into `dist\`. Each collects its flat modules (some Construction OS tabs are imported lazily); Construction OS also bundles `resources/`. |
+| `ConstructionOS.iss` / `OllamaManager.iss` | Inno Setup scripts — wrap each frozen folder into a `Setup.exe` with shortcuts and an uninstaller. Per-user install, no admin. |
+| `build.ps1` | Freezes and packages both apps, with a `-Portable` zip fallback and an `-App` switch to build just one. |
 
 `build/`, `dist/`, `venv/` and `output/` are build artifacts and are
 git-ignored.

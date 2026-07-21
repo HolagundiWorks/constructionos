@@ -1,18 +1,31 @@
 <#
-    build.ps1 — build the Construction OS Windows installer.
+    build.ps1 — build the Windows installers for Construction OS and its
+    companion, the Ollama Manager.
 
     Usage:
-        .\build.ps1              Full build: PyInstaller freeze + Inno Setup -> Setup.exe
-        .\build.ps1 -Portable    PyInstaller only -> a portable .zip (no Inno Setup needed)
+        .\build.ps1                 Both apps: freeze + Inno Setup -> two Setup.exe
+        .\build.ps1 -Portable       Both apps: freeze -> two portable .zip (no Inno)
+        .\build.ps1 -App "Construction OS"   Just one app (name as below)
 
-    PyInstaller is installed into a throwaway venv here. It is a BUILD tool only;
-    the shipped app remains pure standard library with no pip dependency.
+    PyInstaller is installed into a throwaway venv here — a BUILD tool only; the
+    shipped apps stay pure standard library with no pip dependency. The target
+    machine needs no Python and no internet.
 #>
-param([switch]$Portable)
+param(
+    [switch]$Portable,
+    [ValidateSet('Construction OS', 'Ollama Manager')]
+    [string]$App
+)
 
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
+
+$apps = @(
+    @{ Name = 'Construction OS'; Spec = 'ConstructionOS.spec'; Iss = 'ConstructionOS.iss'; Dir = 'ConstructionOS'; Exe = 'ConstructionOS.exe' },
+    @{ Name = 'Ollama Manager';  Spec = 'OllamaManager.spec';  Iss = 'OllamaManager.iss';  Dir = 'OllamaManager';  Exe = 'OllamaManager.exe' }
+)
+if ($App) { $apps = $apps | Where-Object { $_.Name -eq $App } }
 
 # 1. A real Python — the Microsoft Store stub on PATH cannot build.
 $py = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
@@ -34,32 +47,7 @@ Write-Host "Installing PyInstaller (build tool only)..."
 & $vpy -m pip install --quiet --upgrade pip pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller (network?)." }
 
-# 3. Freeze the app.
-Write-Host "Freezing the app..."
-& $vpy -m PyInstaller --noconfirm --clean `
-    --distpath (Join-Path $here 'dist') `
-    --workpath (Join-Path $here 'build') `
-    (Join-Path $here 'ConstructionOS.spec')
-if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
-$appDir = Join-Path $here 'dist\ConstructionOS'
-if (-not (Test-Path (Join-Path $appDir 'ConstructionOS.exe'))) {
-    throw "Expected ConstructionOS.exe was not produced."
-}
-Write-Host "Frozen build: $appDir"
-
-# 4a. Portable path: just zip the folder.
-if ($Portable) {
-    $out = Join-Path $here 'output'
-    New-Item -ItemType Directory -Force $out | Out-Null
-    $zip = Join-Path $out 'ConstructionOS-portable.zip'
-    if (Test-Path $zip) { Remove-Item $zip }
-    Compress-Archive -Path (Join-Path $appDir '*') -DestinationPath $zip
-    Write-Host "Portable build ready: $zip"
-    Write-Host "Distribute the zip; the user unzips anywhere and runs ConstructionOS.exe."
-    return
-}
-
-# 4b. Installer path: compile the Inno Setup script.
+# 3. Locate Inno Setup once (only needed for the non-portable path).
 $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
 if (-not $iscc) {
     foreach ($c in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
@@ -67,13 +55,38 @@ if (-not $iscc) {
         if (Test-Path $c) { $iscc = $c; break }
     }
 }
-if (-not $iscc) {
-    Write-Warning "Inno Setup (ISCC.exe) not found."
-    Write-Warning "Install it (free) from https://jrsoftware.org/isdl.php, then re-run,"
-    Write-Warning "or run '.\build.ps1 -Portable' for a zip that needs no installer."
-    return
+
+$out = Join-Path $here 'output'
+New-Item -ItemType Directory -Force $out | Out-Null
+
+foreach ($a in $apps) {
+    Write-Host "`n=== $($a.Name) ==="
+    # Freeze.
+    & $vpy -m PyInstaller --noconfirm --clean `
+        --distpath (Join-Path $here 'dist') `
+        --workpath (Join-Path $here 'build') `
+        (Join-Path $here $a.Spec)
+    if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed for $($a.Name)." }
+    $appDir = Join-Path $here "dist\$($a.Dir)"
+    if (-not (Test-Path (Join-Path $appDir $a.Exe))) {
+        throw "Expected $($a.Exe) was not produced."
+    }
+
+    if ($Portable) {
+        $zip = Join-Path $out ("{0}-portable.zip" -f ($a.Dir))
+        if (Test-Path $zip) { Remove-Item $zip }
+        Compress-Archive -Path (Join-Path $appDir '*') -DestinationPath $zip
+        Write-Host "Portable build: $zip"
+        continue
+    }
+
+    if (-not $iscc) {
+        Write-Warning "Inno Setup (ISCC.exe) not found - skipping the $($a.Name) installer."
+        Write-Warning "Install it (free) from https://jrsoftware.org/isdl.php, or use -Portable."
+        continue
+    }
+    & $iscc (Join-Path $here $a.Iss)
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed for $($a.Name)." }
 }
-Write-Host "Compiling installer with $iscc ..."
-& $iscc (Join-Path $here 'ConstructionOS.iss')
-if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed." }
-Write-Host "Installer ready in installer\output\ (ConstructionOS-Setup-*.exe)."
+
+Write-Host "`nDone. Output is in installer\output"

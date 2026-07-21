@@ -13,9 +13,31 @@ there instead of making the user retype it.
 import json
 import os
 import sqlite3
+import sys
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           'settings.json')
+# Settings location. From source it sits beside the code, so the manager stays
+# self-contained; an installed (frozen) build cannot write to its own folder in
+# Program Files, so settings move to a per-user folder under %LOCALAPPDATA%.
+APP_DIR_NAME = 'Ollama Manager'
+
+
+def _here():
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _data_dir():
+    if not getattr(sys, 'frozen', False):
+        return _here()
+    base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+    target = os.path.join(base, APP_DIR_NAME)
+    try:
+        os.makedirs(target, exist_ok=True)
+        return target
+    except OSError:
+        return _here()
+
+
+CONFIG_PATH = os.path.join(_data_dir(), 'settings.json')
 
 DEFAULTS = {
     'host': '127.0.0.1',
@@ -23,10 +45,26 @@ DEFAULTS = {
     'model': '',
 }
 
-# Construction OS keeps its data file next to its own code, one level up.
-_SIBLING_DB = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    'construction_app', 'construction.db')
+
+def _construction_os_default_db():
+    """Where Construction OS keeps its database.
+
+    Installed, it lives in ``%LOCALAPPDATA%\\Construction OS`` (its own
+    ``paths.py`` puts it there); from source it sits next to that app's code,
+    one level up from here. Return the first that actually exists, so this
+    works whether the sibling app was installed or is being run from source —
+    the old hard-coded source path would never find an installed build.
+    """
+    candidates = []
+    base = os.environ.get('LOCALAPPDATA')
+    if base:
+        candidates.append(os.path.join(base, 'Construction OS', 'construction.db'))
+    candidates.append(os.path.join(os.path.dirname(_here()),
+                                   'construction_app', 'construction.db'))
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return candidates[0]
 
 
 def load(path=None):
@@ -60,7 +98,7 @@ def save(data, path=None):
 
 def construction_os_db(path=None):
     """Path to the sibling app's data file if it exists, else None."""
-    candidate = path or _SIBLING_DB
+    candidate = path or _construction_os_default_db()
     return candidate if os.path.exists(candidate) else None
 
 
