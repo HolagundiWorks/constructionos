@@ -13,7 +13,7 @@ import urllib.request
 import urllib.error
 
 DEFAULT_HOST = 'http://localhost:11434'
-DEFAULT_MODEL = 'llama3.1'
+DEFAULT_MODEL = 'qwen2.5'      # Qwen 2.5 (7B) — strong at the assistant's NL→SQL
 
 
 def installed():

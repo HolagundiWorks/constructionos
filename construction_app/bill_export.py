@@ -23,9 +23,11 @@ import mb
 import muster
 import numwords
 
-# Brand logo tag embedded in each document letterhead ('' if the file is
-# missing). Computed once at import.
-_LOGO_TAG = assets.logo_html(46)
+# Brand logo tag embedded in each document letterhead ('' if none is available).
+# Resolved per document (not cached) so the firm's own uploaded logo — set after
+# the app started — takes effect immediately, falling back to the bundled logo.
+def _logo_tag():
+    return assets.brand_logo_html(46)
 
 
 def _money(value):
@@ -106,7 +108,7 @@ def build_bill_html(bill, contract=None, client=None, site=None, items=None,
     generated = date.today().isoformat()
 
     return _TEMPLATE.format(
-        logo=_LOGO_TAG,
+        logo=_logo_tag(),
         company=_text(company_name),
         bill_no=_text(g(bill, 'bill_no') or '-'),
         bill_date=_text(g(bill, 'bill_date') or '-'),
@@ -164,7 +166,7 @@ def build_ra_bill_html(bill, contract=None, client=None, site=None, items=None,
         '<tr><td colspan="8" class="muted">No billed items.</td></tr>')
 
     return _RA_TEMPLATE.format(
-        logo=_LOGO_TAG,
+        logo=_logo_tag(),
         company=_text(company_name),
         bill_no=_text(g(bill, 'bill_no') or '-'),
         bill_date=_text(g(bill, 'bill_date') or '-'),
@@ -417,7 +419,7 @@ def build_tax_invoice_html(invoice, client=None, items=None, seller=None,
                  if einv_rows else '')
 
     return _TAX_TEMPLATE.format(
-        logo=_LOGO_TAG,
+        logo=_logo_tag(),
         company=_text(company_name),
         einv=einv_html,
         seller_gstin=_text(g(seller, 'gstin') or '—'),
@@ -554,7 +556,7 @@ def letterhead_html(firm):
     detail = ''.join('<div>{}</div>'.format(x) for x in lines)
     return ('<div class="letterhead"><div class="lh-brand">{logo}</div>'
             '<div class="lh-text"><div class="lh-name">{name}</div>{detail}'
-            '</div></div>').format(logo=_LOGO_TAG, name=name, detail=detail)
+            '</div></div>').format(logo=_logo_tag(), name=name, detail=detail)
 
 
 def bank_block_html(firm):
@@ -617,7 +619,7 @@ def build_statement_html(title, meta_lines, headers, rows, summary='',
         # Unchanged behaviour for internal reports: bare logo + name line.
         header_html = ('<div class="brand">{}</div>'
                        '<div class="company">{}</div>').format(
-            _LOGO_TAG, _text(company_name))
+            _logo_tag(), _text(company_name))
         bank_html = ''
         company = _text(company_name)
 
@@ -712,7 +714,7 @@ def build_estimate_html(est, items=None, seller=None, company_name='Construction
         for l, v in breakup)
 
     return _ESTIMATE_TEMPLATE.format(
-        logo=_LOGO_TAG,
+        logo=_logo_tag(),
         company=_text(seller.get('name') or company_name),
         seller_gstin=_text(seller.get('gstin') or ''),
         seller_addr=_text(seller.get('address') or ''),

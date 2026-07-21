@@ -25,22 +25,92 @@ LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
 APP_ICON = os.path.join(RES_DIR, 'app.ico')
 
 
+def _mime_for(raw):
+    """Sniff the image type from its magic bytes so a firm can upload a PNG,
+    JPEG or GIF and the data: URI still declares the right type."""
+    if raw[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'image/png'
+    if raw[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if raw[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    return 'image/png'          # default; browsers content-sniff anyway
+
+
 def data_uri(path):
-    """Return a ``data:image/png;base64,...`` URI for a PNG, or '' if missing."""
+    """Return a ``data:<mime>;base64,...`` URI for an image, or '' if missing."""
     try:
         with open(path, 'rb') as fh:
             raw = fh.read()
     except OSError:
         return ''
-    return 'data:image/png;base64,' + base64.b64encode(raw).decode('ascii')
+    return 'data:{};base64,{}'.format(
+        _mime_for(raw), base64.b64encode(raw).decode('ascii'))
 
 
 def logo_rect_uri():
     return data_uri(LOGO_RECT)
 
 
+# ---------------------------------------------------------------- firm logo
+# The contractor's own logo for the printed letterhead, kept in the data folder
+# (so it survives an app upgrade and is per-company-file-independent). When set,
+# it replaces the bundled app logo on every printed document; the on-screen rail
+# keeps the app's own brand.
+_FIRM_LOGO = 'firm_logo.png'          # fixed slot; contents may be PNG/JPEG/GIF
+
+
+def firm_logo_path():
+    """The firm's uploaded logo, or None if none has been set."""
+    p = paths.data_path(_FIRM_LOGO)
+    return p if os.path.exists(p) else None
+
+
+def _is_supported_image(raw):
+    return (raw[:8] == b'\x89PNG\r\n\x1a\n'          # PNG
+            or raw[:3] == b'\xff\xd8\xff'            # JPEG
+            or raw[:6] in (b'GIF87a', b'GIF89a'))    # GIF
+
+
+def set_firm_logo(src_path):
+    """Store ``src_path`` as the firm logo. Returns ``(ok, message)``."""
+    try:
+        with open(src_path, 'rb') as fh:
+            raw = fh.read()
+    except OSError as exc:
+        return False, 'Could not read that file: {}'.format(exc)
+    if not _is_supported_image(raw):
+        return False, 'Please choose a PNG, JPG or GIF image.'
+    try:
+        with open(paths.data_path(_FIRM_LOGO), 'wb') as fh:
+            fh.write(raw)
+    except OSError as exc:
+        return False, 'Could not save the logo: {}'.format(exc)
+    return True, 'Firm logo saved.'
+
+
+def clear_firm_logo():
+    """Remove the firm logo (documents fall back to the bundled app logo)."""
+    p = paths.data_path(_FIRM_LOGO)
+    try:
+        if os.path.exists(p):
+            os.remove(p)
+    except OSError:
+        pass
+
+
+def brand_logo_html(height=46):
+    """The letterhead ``<img>``: the firm's uploaded logo if set, else the
+    bundled app logo, or '' if neither is available."""
+    fp = firm_logo_path()
+    uri = data_uri(fp) if fp else logo_rect_uri()
+    if not uri:
+        return ''
+    return '<img src="{}" alt="logo" style="height:{}px;" />'.format(uri, height)
+
+
 def logo_html(height=46):
-    """An ``<img>`` tag for the rectangular logo, or '' if the file is missing."""
+    """An ``<img>`` tag for the (bundled) rectangular logo, or '' if missing."""
     uri = logo_rect_uri()
     if not uri:
         return ''

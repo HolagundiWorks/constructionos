@@ -22,6 +22,7 @@ from datetime import date, datetime
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
 
+import assets
 import db
 import modules
 import assistant
@@ -107,6 +108,16 @@ class ToolsTab(ttk.Frame):
                   justify='left').grid(row=2, column=0, columnspan=2, padx=6, sticky='w')
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
             .grid(row=3, column=0, padx=6, pady=6, sticky='w')
+        logo_row = ttk.Frame(firm)
+        logo_row.grid(row=3, column=1, padx=6, pady=6, sticky='w')
+        ttk.Button(logo_row, text='Upload Firm Logo…',
+                   command=self.upload_firm_logo).pack(side='left')
+        ttk.Button(logo_row, text='Remove',
+                   command=self.remove_firm_logo).pack(side='left', padx=(6, 0))
+        self.logo_status = tk.StringVar()
+        ttk.Label(firm, textvariable=self.logo_status, foreground='#666',
+                  wraplength=540, justify='left') \
+            .grid(row=4, column=0, columnspan=2, padx=6, pady=(0, 4), sticky='w')
 
         # --- Invoice number series ---
         series = ttk.LabelFrame(self, text='Invoice Number Series')
@@ -136,7 +147,8 @@ class ToolsTab(ttk.Frame):
         ai.pack(fill='x', padx=12, pady=(6, 6))
         ttk.Label(ai, text='Ask questions about your data in plain language. '
                           'Needs Ollama running locally (ollama.com) with a model '
-                          'pulled, e.g.  ollama pull llama3.1', wraplength=560,
+                          'pulled, e.g.  ollama pull ' + ollama_client.DEFAULT_MODEL,
+                  wraplength=560,
                   justify='left').pack(anchor='w', padx=8, pady=(6, 2))
         self.ai = {'assistant_model': tk.StringVar(), 'assistant_host': tk.StringVar()}
         row = ttk.Frame(ai); row.pack(fill='x', padx=8, pady=4)
@@ -218,6 +230,7 @@ class ToolsTab(ttk.Frame):
 
     def refresh(self):
         self.path_var.set(db.DB_PATH)
+        self._refresh_logo_status()
         self.refresh_companies()
         if os.path.exists(db.DB_PATH):
             kb = os.path.getsize(db.DB_PATH) / 1024.0
@@ -300,8 +313,8 @@ class ToolsTab(ttk.Frame):
             messagebox.showwarning(
                 'Not connected',
                 'No Ollama server at {}.\n\nInstall from ollama.com, run '
-                '"ollama serve", and pull a model, e.g. "ollama pull '
-                'llama3.1".'.format(host))
+                '"ollama serve", and pull a model, e.g. "ollama pull {}".'.format(
+                    host, ollama_client.DEFAULT_MODEL))
             return
         models = ollama_client.list_models(host)
         messagebox.showinfo(
@@ -344,6 +357,45 @@ class ToolsTab(ttk.Frame):
             conn.close()
         self.status_var.set('Firm details saved — they appear as the letterhead '
                             'on quotations, contracts, invoices and reports.')
+
+    # ---------------------------------------------------------- firm logo
+    def _refresh_logo_status(self):
+        if assets.firm_logo_path():
+            self.logo_status.set('Firm logo: set — shown on every printed '
+                                 'document. Use Remove to go back to the default.')
+        else:
+            self.logo_status.set('Firm logo: not set — documents use the default '
+                                 'logo. Upload a PNG, JPG or GIF.')
+
+    def upload_firm_logo(self):
+        if not can_write():
+            return
+        path = filedialog.askopenfilename(
+            title='Choose your firm logo',
+            filetypes=[('Image files', '*.png *.jpg *.jpeg *.gif'),
+                       ('All files', '*.*')])
+        if not path:
+            return
+        ok, msg = assets.set_firm_logo(path)
+        if not ok:
+            messagebox.showerror('Logo not saved', msg)
+            return
+        self._refresh_logo_status()
+        self.status_var.set('Firm logo saved — it now appears as the letterhead '
+                            'on printed documents.')
+
+    def remove_firm_logo(self):
+        if not can_write():
+            return
+        if not assets.firm_logo_path():
+            return
+        if not messagebox.askyesno(
+                'Remove logo', 'Remove your firm logo? Printed documents will '
+                'use the default logo.'):
+            return
+        assets.clear_firm_logo()
+        self._refresh_logo_status()
+        self.status_var.set('Firm logo removed.')
 
     def save_language(self):
         if not can_write():

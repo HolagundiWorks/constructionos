@@ -3907,6 +3907,61 @@ class TestAuthLogin(unittest.TestCase):
             conn.close()
 
 
+class TestFirmLogo(unittest.TestCase):
+    """The firm's uploaded logo overrides the bundled logo on printed docs."""
+
+    def setUp(self):
+        import assets
+        self.assets = assets
+        self._tmp = tempfile.mkdtemp()
+        # point the data dir at a throwaway folder so we never touch the source
+        self._orig_data_dir = assets.paths.data_dir
+        assets.paths.data_dir = lambda: self._tmp
+
+    def tearDown(self):
+        self.assets.paths.data_dir = self._orig_data_dir
+        import shutil
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def _png_bytes(self):
+        # a valid 1x1 PNG (signature + minimal chunks) is enough for the check
+        import assets
+        with open(assets.LOGO_SQUARE, 'rb') as fh:
+            return fh.read()
+
+    def test_set_get_clear_and_signature_check(self):
+        import os as _os
+        src = _os.path.join(self._tmp, 'src.png')
+        with open(src, 'wb') as fh:
+            fh.write(self._png_bytes())
+        self.assertIsNone(self.assets.firm_logo_path())
+        ok, _msg = self.assets.set_firm_logo(src)
+        self.assertTrue(ok)
+        self.assertIsNotNone(self.assets.firm_logo_path())
+        self.assertIn('data:image/png;base64,', self.assets.brand_logo_html())
+        self.assets.clear_firm_logo()
+        self.assertIsNone(self.assets.firm_logo_path())
+
+    def test_rejects_non_image(self):
+        import os as _os
+        bad = _os.path.join(self._tmp, 'notimage.png')
+        with open(bad, 'wb') as fh:
+            fh.write(b'this is not an image')
+        ok, msg = self.assets.set_firm_logo(bad)
+        self.assertFalse(ok)
+        self.assertIn('PNG', msg)
+
+    def test_brand_logo_falls_back_to_bundled_when_unset(self):
+        # no firm logo -> the bundled app logo is used (non-empty <img>)
+        self.assertIn('<img', self.assets.brand_logo_html())
+
+    def test_mime_sniffing(self):
+        self.assertEqual(self.assets._mime_for(b'\xff\xd8\xff\xe0'), 'image/jpeg')
+        self.assertEqual(self.assets._mime_for(b'GIF89a...'), 'image/gif')
+        self.assertEqual(
+            self.assets._mime_for(b'\x89PNG\r\n\x1a\n'), 'image/png')
+
+
 class TestLogoTint(unittest.TestCase):
     """The stdlib PNG recolour that makes the dark logo readable on the dark
     rail — lift dark pixels to near-white, keep the alpha."""
