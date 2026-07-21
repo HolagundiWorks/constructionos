@@ -356,5 +356,33 @@ def apply(root, m=None):
                     foreground=pal['success'], font=FONT_KPI)
     style.configure('StatWarn.TLabel', background=pal['surface'],
                     foreground=pal['error'], font=FONT_KPI)
+    style.configure('StatMeta.TLabel', background=pal['surface'],
+                    foreground=pal['helper'], font=FONT_MICRO)
+
+    # --- dashboard section headers (on the fog ground)
+    style.configure('Section.TLabel', background=pal['canvas'],
+                    foreground=pal['ink'], font=(_FAMILY, 12, 'bold'))
+    style.configure('SectionHint.TLabel', background=pal['canvas'],
+                    foreground=pal['muted'], font=FONT_SMALL)
+
+    # --- advisory cards: a coloured severity rule + text on a surface card.
+    # The four severities reuse the semantic palette (act=red, watch=amber,
+    # good=green, info=slate) — the single orange accent stays reserved for
+    # navigation/CTA, never for status.
+    for name, col in (('Act', pal['error']), ('Watch', pal['warning']),
+                      ('Good', pal['success']), ('Info', pal['info'])):
+        style.configure('Rule%s.TFrame' % name, background=col)
+        style.configure('Sev%s.TLabel' % name, background=pal['surface'],
+                        foreground=col, font=FONT_BOLD)
+        style.configure('Sev%sMicro.TLabel' % name, background=pal['surface'],
+                        foreground=col, font=FONT_MICRO)
+    style.configure('CardTitle.TLabel', background=pal['surface'],
+                    foreground=pal['ink'], font=FONT_BOLD)
+    style.configure('CardBody.TLabel', background=pal['surface'],
+                    foreground=pal['muted'], font=FONT_SMALL)
+    style.configure('CardMeta.TLabel', background=pal['surface'],
+                    foreground=pal['helper'], font=FONT_MICRO)
+    style.configure('CardLink.TLabel', background=pal['surface'],
+                    foreground=pal['info'], font=FONT_MICRO)
 
     return pal

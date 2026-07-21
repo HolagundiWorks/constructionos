@@ -2,9 +2,14 @@
 
 ``Switch`` — a pill toggle drawn on a Canvas, since ttk has no native switch.
 Used for the theme toggle in the rail and the module on/off toggles in Tools.
+
+``ScrollFrame`` — a vertically scrollable container (a Canvas + inner Frame),
+since ttk has no scrolling frame. Put content in ``.body``. Used by the Home
+dashboard, whose stacked cards outgrow the window.
 """
 
 import tkinter as tk
+from tkinter import ttk
 
 import theme
 
@@ -85,3 +90,52 @@ class Switch(tk.Canvas):
         self._bg = theme.palette()[self._surface]
         self.configure(bg=self._bg)
         self._render()
+
+
+class ScrollFrame(ttk.Frame):
+    """A vertically scrollable container. Add content to ``.body``.
+
+    A ttk.Frame cannot scroll, so this wraps a Canvas (which can) around an
+    inner frame and keeps the two in step: the inner frame's height drives the
+    scroll region, and the canvas width drives the inner frame's width so the
+    content fills the pane rather than sitting at its natural width. The wheel
+    is bound only while the pointer is over the pane, so it doesn't fight other
+    scrollable widgets on screen.
+    """
+
+    def __init__(self, parent, style='Stage.TFrame'):
+        super().__init__(parent, style=style)
+        self._style = style
+        self._canvas = tk.Canvas(self, highlightthickness=0, bd=0,
+                                 bg=theme.palette()['canvas'])
+        vsb = ttk.Scrollbar(self, orient='vertical',
+                            command=self._canvas.yview)
+        self._canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side='right', fill='y')
+        self._canvas.pack(side='left', fill='both', expand=True)
+
+        self.body = ttk.Frame(self._canvas, style=style)
+        self._win = self._canvas.create_window((0, 0), window=self.body,
+                                               anchor='nw')
+        self.body.bind('<Configure>', self._on_body)
+        self._canvas.bind('<Configure>', self._on_canvas)
+        self._canvas.bind('<Enter>', lambda _e: self._canvas.bind_all(
+            '<MouseWheel>', self._on_wheel))
+        self._canvas.bind('<Leave>', lambda _e: self._canvas.unbind_all(
+            '<MouseWheel>'))
+
+    def _on_body(self, _e):
+        self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+
+    def _on_canvas(self, e):
+        self._canvas.itemconfigure(self._win, width=e.width)
+
+    def _on_wheel(self, e):
+        # Windows/mac deliver +-120 per notch; only scroll if there's overflow.
+        first, last = self._canvas.yview()
+        if first <= 0.0 and last >= 1.0:
+            return
+        self._canvas.yview_scroll(int(-e.delta / 120), 'units')
+
+    def restyle(self):
+        self._canvas.configure(bg=theme.palette()['canvas'])

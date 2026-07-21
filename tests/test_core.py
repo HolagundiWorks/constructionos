@@ -26,6 +26,7 @@ from datetime import date, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
 
+import advisory
 import ageing
 import allocation
 import approval
@@ -3555,6 +3556,81 @@ class TestSchema(unittest.TestCase):
                 os.remove(path)
             except OSError:
                 pass
+
+
+class TestAdvisory(unittest.TestCase):
+    """The dashboard's rule engine: severity, confidence and ranking."""
+
+    def test_empty_snapshot_reassures_rather_than_blanks(self):
+        cards = advisory.build({})
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]['severity'], advisory.GOOD)
+        self.assertIn('Nothing needs an action', cards[0]['title'])
+
+    def test_overdue_receivables_is_act_high_with_a_basis(self):
+        c = advisory.r_overdue_receivables(
+            {'receivable_90plus': 250000, 'receivable_aged_count': 3})
+        self.assertEqual(c['severity'], advisory.ACT)
+        self.assertEqual(c['confidence'], advisory.HIGH)
+        self.assertIn('3 invoice', c['basis'])
+        self.assertTrue(c['where'])
+
+    def test_receivables_mid_band_is_only_a_watch(self):
+        c = advisory.r_overdue_receivables(
+            {'receivable_90plus': 0, 'receivable_60_90': 40000})
+        self.assertEqual(c['severity'], advisory.WATCH)
+
+    def test_cash_negative_beats_thin_cash(self):
+        c = advisory.r_cash_position({'cash': -5000, 'payable': 100000})
+        self.assertEqual(c['severity'], advisory.ACT)
+        self.assertIn('negative', c['title'].lower())
+
+    def test_thin_cash_is_medium_confidence(self):
+        # cash positive but below payables -> a soft, medium-confidence call
+        c = advisory.r_cash_position({'cash': 30000, 'payable': 100000})
+        self.assertEqual(c['confidence'], advisory.MEDIUM)
+        self.assertIn(c['severity'], (advisory.ACT, advisory.WATCH))
+
+    def test_plan_reliability_confidence_scales_with_weeks(self):
+        thin = advisory.r_plan_reliability({'ppc_last': 50, 'ppc_weeks': 2})
+        deep = advisory.r_plan_reliability({'ppc_last': 50, 'ppc_weeks': 8})
+        self.assertEqual(thin['confidence'], advisory.LOW)
+        self.assertEqual(deep['confidence'], advisory.MEDIUM)
+
+    def test_good_ppc_says_nothing(self):
+        self.assertIsNone(
+            advisory.r_plan_reliability({'ppc_last': 92, 'ppc_weeks': 6}))
+
+    def test_ranking_puts_act_before_watch_before_good(self):
+        snap = {
+            'receivable_90plus': 100000, 'receivable_aged_count': 2,  # ACT
+            'approvals_count': 4, 'approvals_amount': 500000,          # WATCH
+        }
+        cards = advisory.build(snap)
+        sev = [c['severity'] for c in cards]
+        self.assertEqual(sev[0], advisory.ACT)
+        self.assertLess(sev.index(advisory.ACT), sev.index(advisory.WATCH))
+
+    def test_build_never_raises_on_a_bad_field(self):
+        # a rule hitting a bad type must be skipped, not blow up the board
+        cards = advisory.build({'cash': None, 'receivable_90plus': 'oops'})
+        self.assertTrue(cards)   # still returns the reassuring card
+
+    def test_counts_tallies_by_severity(self):
+        cards = [{'severity': advisory.ACT, 'confidence': advisory.HIGH},
+                 {'severity': advisory.ACT, 'confidence': advisory.HIGH},
+                 {'severity': advisory.WATCH, 'confidence': advisory.MEDIUM}]
+        tally = advisory.counts(cards)
+        self.assertEqual(tally[advisory.ACT], 2)
+        self.assertEqual(tally[advisory.WATCH], 1)
+
+    def test_compliance_overdue_outranks_due_soon(self):
+        overdue = advisory.r_compliance(
+            {'compliance_overdue': 2, 'compliance_max_days_late': 9})
+        soon = advisory.r_compliance(
+            {'compliance_overdue': 0, 'compliance_due_soon': 3})
+        self.assertEqual(overdue['severity'], advisory.ACT)
+        self.assertEqual(soon['severity'], advisory.WATCH)
 
 
 if __name__ == '__main__':
