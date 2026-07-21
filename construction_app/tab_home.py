@@ -13,8 +13,6 @@ import tkinter as tk
 from tkinter import ttk
 
 import money as m
-import assets
-import branding
 
 
 class HomeTab(ttk.Frame):
@@ -22,14 +20,10 @@ class HomeTab(ttk.Frame):
         super().__init__(parent)
         self.db_getter = db_getter
 
+        # Logo and the developer credit now live in the rail (identity belongs
+        # there, per the HCW spatial model); Home leads straight with the work.
         header = ttk.Frame(self); header.pack(fill='x', padx=12, pady=(12, 4))
-        # Brand logo (falls back to a text title if the image can't load).
-        try:
-            self._logo = tk.PhotoImage(file=assets.LOGO_RECT)
-            ttk.Label(header, image=self._logo).pack(side='left')
-        except Exception:
-            ttk.Label(header, text='Construction OS',
-                      font=('TkDefaultFont', 16, 'bold')).pack(side='left')
+        ttk.Label(header, text='Overview', style='H1.TLabel').pack(side='left')
         ttk.Button(header, text='Refresh', command=self.refresh).pack(side='right')
 
         self.subtitle = tk.StringVar()
@@ -63,10 +57,7 @@ class HomeTab(ttk.Frame):
 
         ttk.Label(self, text='Tip: use Money > Cash Book for the day book, and '
                              'Money > Party Balances to see who owes whom.',
-                  font=('TkDefaultFont', 9), foreground='#777') \
-            .pack(anchor='w', padx=12, pady=(0, 4))
-        ttk.Label(self, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
-                  font=('TkDefaultFont', 8), foreground='#999') \
+                  style='Muted.TLabel') \
             .pack(anchor='w', padx=12, pady=(0, 10))
         self.refresh()
 

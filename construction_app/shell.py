@@ -26,6 +26,8 @@ front.
 import tkinter as tk
 from tkinter import ttk
 
+import assets
+import branding
 import theme
 
 RAIL_WIDTH = 208
@@ -51,8 +53,20 @@ class RailStage(ttk.Frame):
         self._rail = rail
 
         brand_box = ttk.Frame(rail, style='Rail.TFrame')
-        brand_box.pack(fill='x', pady=(14, 6), padx=14)
-        ttk.Label(brand_box, text=brand, style='Brand.TLabel').pack(anchor='w')
+        brand_box.pack(fill='x', pady=(16, 8), padx=14)
+        # The Construction OS logo — identity lives at the top of the rail (HCW).
+        # Falls back to the wordmark if the image can't load.
+        self._logo_img = None
+        try:
+            img = tk.PhotoImage(file=assets.LOGO_RECT)
+            if img.width() > RAIL_WIDTH - 28:      # 300px logo into a ~180px rail
+                img = img.subsample(2, 2)
+            self._logo_img = img
+            ttk.Label(brand_box, image=img, style='Rail.TLabel').pack(anchor='w')
+        except Exception:
+            ttk.Label(brand_box, text=brand, style='Brand.TLabel').pack(anchor='w')
+        ttk.Label(brand_box, text=branding.TAGLINE,
+                  style='RailMuted.TLabel').pack(anchor='w', pady=(4, 0))
         if subtitle:
             ttk.Label(brand_box, text=subtitle,
                       style='RailMuted.TLabel').pack(anchor='w')
@@ -63,12 +77,17 @@ class RailStage(ttk.Frame):
         for e in entries:
             self._add_row(nav, e)
 
-        # --- bottom: theme toggle (the kit puts settings at the rail foot)
+        # --- foot: theme toggle + the developer credit (the kit puts settings
+        # and identity at the rail foot; the footer credit moves here off the
+        # Home screen so it sits with the brand, not in the working area).
         foot = ttk.Frame(rail, style='Rail.TFrame')
-        foot.pack(fill='x', side='bottom', pady=(6, 12), padx=10)
+        foot.pack(fill='x', side='bottom', pady=(6, 10), padx=10)
         self._toggle_btn = ttk.Button(foot, text=self._toggle_text(),
                                       command=self._toggle, style='TButton')
         self._toggle_btn.pack(fill='x')
+        ttk.Label(foot, text=branding.CREDIT, style='RailMuted.TLabel',
+                  wraplength=RAIL_WIDTH - 28, justify='left').pack(
+            anchor='w', pady=(8, 0))
 
         # hairline between rail and stage
         sep = tk.Frame(self, width=1, bg=theme.palette()['hairline'])
