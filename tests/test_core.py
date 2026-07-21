@@ -74,6 +74,10 @@ import wages
 import earnedvalue
 import risk
 import risk_store
+import forecast
+import risk_detect
+import narrative
+import review_pack
 
 
 class TestFinance(unittest.TestCase):
@@ -531,6 +535,138 @@ class TestRiskStore(unittest.TestCase):
                           (self.project_id,))
         self.conn.commit()
         self.assertEqual(len(risk_store.list_risks(self.conn)), 0)
+
+
+class TestForecast(unittest.TestCase):
+    """Trend projection — honest bands and sample-driven confidence."""
+
+    def test_falling_series_projects_downward(self):
+        # A noisy downward series: still trends down, and the scatter gives a
+        # real (non-zero) band — unlike a perfect line, which collapses it.
+        p = forecast.project([70, 64, 62, 55, 49], periods_ahead=1)
+        self.assertLess(p['value'], 49)           # trend continues down
+        self.assertLess(p['slope'], 0)
+        self.assertLess(p['low'], p['high'])      # a real band from the scatter
+
+    def test_perfect_line_has_a_tight_band(self):
+        p = forecast.project([10, 20, 30, 40], 1)
+        self.assertAlmostEqual(p['value'], 50, places=6)
+        self.assertAlmostEqual(p['low'], p['high'], places=6)  # RMSE ~ 0
+
+    def test_confidence_grows_with_history(self):
+        self.assertEqual(forecast.confidence_for(3), forecast.LOW)
+        self.assertEqual(forecast.confidence_for(6), forecast.MEDIUM)
+        self.assertEqual(forecast.confidence_for(10), forecast.HIGH)
+
+    def test_too_few_points_is_none_not_a_guess(self):
+        self.assertIsNone(forecast.project([42], 1))
+        self.assertIsNone(forecast.linear_trend([]))
+
+    def test_direction_words(self):
+        self.assertEqual(forecast.direction([1, 2, 3]), 'rising')
+        self.assertEqual(forecast.direction([3, 2, 1]), 'falling')
+        self.assertEqual(forecast.direction([5, 5, 5]), 'flat')
+
+    def test_schedule_forecast_stretches_when_behind(self):
+        f = forecast.schedule_forecast(baseline_duration=100, spi=0.8)
+        self.assertEqual(f['forecast_duration'], 125.0)
+        self.assertEqual(f['slip'], 25.0)
+        self.assertIsNone(forecast.schedule_forecast(100, None))
+
+
+class TestRiskDetect(unittest.TestCase):
+    """Snapshot → scored, ranked, register-ready risks."""
+
+    def test_detects_a_loss_making_project_as_a_critical_cost_risk(self):
+        rs = risk_detect.detect({'projects_at_loss': 1,
+                                 'projects_worst_margin': -800000})
+        self.assertTrue(rs)
+        top = rs[0]
+        self.assertEqual(top['category'], risk_detect.COST)
+        self.assertEqual(top['source'], 'ai')
+        self.assertEqual(top['band'], risk.CRITICAL)   # likelihood 5, big value
+        self.assertIn('basis', top)                    # never a bare flag
+
+    def test_quiet_snapshot_flags_nothing(self):
+        self.assertEqual(risk_detect.detect({'cash': 50000}), [])
+
+    def test_worst_is_ranked_first(self):
+        rs = risk_detect.detect({
+            'rfis_open': 2, 'rfis_oldest_days': 10,          # small external
+            'projects_at_loss': 1, 'projects_worst_margin': -900000,  # critical
+        })
+        self.assertEqual(rs[0]['category'], risk_detect.COST)
+
+    def test_programme_delay_uses_ld_for_impact(self):
+        rs = risk_detect.detect({'programme_delay_days': 30,
+                                 'programme_ld': 600000})
+        sched = [r for r in rs if r['category'] == risk_detect.SCHEDULE]
+        self.assertTrue(sched)
+        self.assertEqual(sched[0]['value'], 600000)
+
+    def test_summary_matches_the_register_shape(self):
+        s = risk_detect.summary({'projects_at_loss': 1,
+                                 'projects_worst_margin': -600000,
+                                 'compliance_overdue': 2})
+        self.assertGreaterEqual(s['count'], 2)
+        self.assertIn('by_band', s)
+        self.assertGreaterEqual(s['needs_action'], 1)
+
+
+class TestNarrative(unittest.TestCase):
+    """Deterministic narration — every sentence over a real number."""
+
+    def test_kpi_briefing_leads_with_cash(self):
+        lines = narrative.kpi_briefing({'cash': 125000, 'receivable': 300000})
+        self.assertTrue(any('1,25,000' in ln or '125,000' in ln
+                            for ln in lines))
+
+    def test_negative_cash_is_called_out(self):
+        lines = narrative.kpi_briefing({'cash': -5000})
+        self.assertTrue(any('negative' in ln.lower() for ln in lines))
+
+    def test_risk_briefing_is_empty_message_when_clean(self):
+        txt = narrative.risk_briefing({'cash': 10000})
+        self.assertIn('No risks', txt)
+
+    def test_risk_briefing_lists_the_top_risks(self):
+        txt = narrative.risk_briefing({'projects_at_loss': 1,
+                                       'projects_worst_margin': -700000})
+        self.assertIn('exposure', txt.lower())
+        self.assertIn('•', txt)
+
+
+class TestReviewPack(unittest.TestCase):
+    """The assembled review pack and portfolio roll-up."""
+
+    def test_build_assembles_every_section(self):
+        snap = {'cash': 200000, 'receivable_90plus': 150000,
+                'projects_at_loss': 1, 'projects_worst_margin': -400000}
+        pack = review_pack.build(snap, generated='2026-07-21')
+        self.assertEqual(pack['generated'], '2026-07-21')
+        for key in ('kpis', 'advisories', 'risks', 'narrative'):
+            self.assertIn(key, pack)
+        self.assertIn('cards', pack['advisories'])
+        self.assertGreaterEqual(pack['risks']['count'], 1)
+
+    def test_build_includes_optional_evm_and_forecast(self):
+        evm = earnedvalue.earned_value(bac=100, pv=60, ac=55, ev=50)
+        pack = review_pack.build({'cash': 1000}, evm=evm,
+                                 ppc_series=[80, 75, 70, 65])
+        self.assertIn('evm', pack)
+        self.assertIn('ppc_forecast', pack)
+        self.assertIsNotNone(pack['ppc_forecast'])
+
+    def test_portfolio_pools_risk_and_points_at_the_worst(self):
+        a = {'name': 'A', 'snapshot': {'projects_at_loss': 1,
+                                       'projects_worst_margin': -900000},
+             'evm': earnedvalue.earned_value(bac=100, pv=90, ac=100, ev=90)}
+        b = {'name': 'B', 'snapshot': {'cash': 50000},
+             'evm': earnedvalue.earned_value(bac=10, pv=10, ac=5, ev=10)}
+        roll = review_pack.portfolio([a, b])
+        self.assertEqual(roll['projects'], 2)
+        self.assertGreaterEqual(roll['risk_summary']['count'], 1)
+        self.assertEqual(roll['evm']['worst_cpi'], 'A')
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):

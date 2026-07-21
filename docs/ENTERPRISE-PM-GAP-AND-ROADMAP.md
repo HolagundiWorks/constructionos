@@ -190,6 +190,28 @@ deliverables, dependencies, and acceptance criteria. Each phase is
 **independently shippable and independently useful** — matching the phase
 discipline already in [`ROADMAP.md`](ROADMAP.md).
 
+**Implementation status at a glance** (what has been built as verifiable,
+headless-tested modules vs. what remains). The **deterministic backbone of E0–E5
+is built** — every piece that could be written and unit-tested without a display,
+a model, or a pip dependency:
+
+| Phase | Built (module) | Remaining |
+|---|---|---|
+| **E0** | `earnedvalue.py`, `risk.py`, `risk_store.py` + `risks` table | risk tab (GUI); wider audit tagging |
+| **E1** | — | OCR/voice/vision capture — needs models/pip + the AI-runtime decision |
+| **E2** | `narrative.py` (KPI briefing); portfolio roll-up in `review_pack.py` | federated read model (data plumbing) + tabs |
+| **E3** | `risk_detect.py` (11 rules), `narrative.risk_briefing` | mitigation-draft text; risk tab |
+| **E4** | `review_pack.py` (pack + portfolio assembly) | event-driven follow-on hooks (GUI) |
+| **E5** | `forecast.py` (trend band + schedule forecast) | weak-signal correlation; feed into register |
+| **E6** | — | mobile capture app (separate front-end) |
+
+The residual is concentrated in exactly three places that this headless,
+no-pip environment cannot verify: **tkinter tabs** (need a display), **AI capture
++ LLM narration polish** (need models/pip and the §6.1 runtime decision), and the
+**mobile app** (E6, a separate front-end). Everything else — all the maths and
+data logic — is done and tested (552-test suite). The full-run's single error is
+the pre-existing missing-`tkinter` GUI theme test, unrelated to this work.
+
 ### Phase E0 — Foundation _(P0 · deterministic core first)_
 
 **Goal:** lay the deterministic groundwork that every later phase reads from.
@@ -259,6 +281,11 @@ path works or degrades cleanly.
 **Acceptance:** a portfolio of ≥2 projects rolls up correctly and matches the sum
 of per-project figures; every narrated sentence links to a deterministic number;
 a site with no network still shows its own KPIs.
+**Built this pass:** E2.2 roll-up (`earnedvalue.portfolio`, value-weighted; pooled
+via `review_pack.portfolio`) ✅; E2.3 narration (`narrative.kpi_briefing`, each
+sentence a template over a computed number) ✅; E2.4 portfolio advisory (pooled
+`advisory` counts in `review_pack.portfolio`) ✅. _Remaining:_ E2.1 the federated
+read model (file-level data plumbing + a tab) — needs DB federation and a display.
 
 ### Phase E3 — Risk _(P1 · early warning)_
 
@@ -278,6 +305,12 @@ a site with no network still shows its own KPIs.
 **Acceptance:** each detected risk lands in the register with a stated basis and
 severity/confidence; a user can answer "why am I seeing this?" from the rule +
 numbers; AI never auto-closes or auto-accepts a risk.
+**Built this pass:** E3.1 detection taxonomy (`risk_detect.py` — 11 snapshot rules
+across schedule/cost/commercial/quality/statutory/external, each scored via
+`risk.assess`, `source='ai'`, ranked, with a basis) ✅; E3.2 risk narrative
+(`narrative.risk_briefing`, top-N by exposure) ✅. Detected risks are register-ready
+(`risk_store.add(..., source='ai')`). _Remaining:_ E3.3 mitigation-draft text and
+surfacing in the risk tab (display-dependent).
 
 ### Phase E4 — Automation _(P1 · remove rote assembly)_
 
@@ -293,6 +326,10 @@ numbers; AI never auto-closes or auto-accepts a risk.
 **Acceptance:** the weekly pack generates from live data with no manual assembly;
 every money/date-moving action remains a draft requiring approval; automations
 are logged with AI-origin (E0.3).
+**Built this pass:** E4.2 review-pack generation (`review_pack.build` assembles
+KPIs + advisories + risks + narrative + optional EVM/forecast into one draft dict;
+`review_pack.portfolio` does the same across projects) ✅. _Remaining:_ E4.1
+event-driven follow-on — needs GUI event hooks and a display to verify.
 
 ### Phase E5 — Prediction _(P2 · forward view)_
 
@@ -308,6 +345,10 @@ are logged with AI-origin (E0.3).
 **Acceptance:** every forecast shows a range and its basis, never a false-precise
 point; a forecast feeds the register as a suggestion a human accepts/dismisses;
 confidence is labelled honestly (thin history → Low).
+**Built this pass:** E5.1 trend forecasts (`forecast.py` — least-squares trend with
+a low/value/high band and sample-driven confidence; `schedule_forecast` for
+duration/slip; cost EAC already in `earnedvalue`) ✅. _Remaining:_ E5.2 weak-signal
+correlation, and feeding forecasts into the register as suggestions.
 
 ### Phase E6 — Field mobile _(P2 · capture at the source)_
 
