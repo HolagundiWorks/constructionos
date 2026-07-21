@@ -35,6 +35,13 @@ FONT_H1 = (_FAMILY, 15, 'bold')
 FONT_KPI = (_FAMILY, 16, 'bold')
 FONT_MICRO = (_FAMILY, 8)
 
+# Tab / nav row heights. The primary navigation is the rail nav rows; the
+# secondary navigation is the section notebook tab strip inside the stage. The
+# secondary strip is set to ~2x the primary row height — the vertical padding
+# is tuned (below) so the rendered strip measures double the rail row.
+NAV_PAD_Y = 8            # primary — rail nav row
+TAB_PAD_Y = 23          # secondary — stage notebook tab (≈ 2x the nav row)
+
 # Solid-hex approximations of the kit's alpha tokens (tkinter has no alpha):
 # hairline = Coal@10% over the ground; accent_soft = Orange@14-20% over the card.
 PALETTES = {
@@ -226,8 +233,8 @@ def apply(root, m=None):
     style.configure('TNotebook', background=pal['canvas'], borderwidth=0,
                     tabmargins=(2, 4, 2, 0))
     style.configure('TNotebook.Tab', background=pal['canvas'],
-                    foreground=pal['muted'], padding=(14, 7), borderwidth=0,
-                    font=FONT)
+                    foreground=pal['muted'], padding=(16, TAB_PAD_Y),
+                    borderwidth=0, font=FONT)
     style.map('TNotebook.Tab',
               background=[('selected', pal['surface']),
                           ('active', pal['hover'])],
@@ -257,9 +264,10 @@ def apply(root, m=None):
 
     # --- rail nav rows (built as Labels; active row wears the accent)
     style.configure('Nav.TLabel', background=pal['rail'],
-                    foreground=pal['muted'], padding=(16, 8), font=FONT)
+                    foreground=pal['muted'], padding=(16, NAV_PAD_Y), font=FONT)
     style.configure('NavActive.TLabel', background=pal['surface2'],
-                    foreground=pal['ink'], padding=(16, 8), font=FONT_BOLD)
+                    foreground=pal['ink'], padding=(16, NAV_PAD_Y),
+                    font=FONT_BOLD)
     style.configure('NavAccent.TFrame', background=pal['accent'])
     style.configure('NavRule.TFrame', background=pal['rail'])
 
