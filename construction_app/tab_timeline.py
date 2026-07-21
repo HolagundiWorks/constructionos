@@ -11,7 +11,7 @@ task-entry status list and ``status_colors`` must be kept in sync.
 no effect on the chart.
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -19,8 +19,10 @@ from ui_guard import can_write
 
 import bill_export
 import cpm
+import isodate
 import programme
 import report_open
+import scheduler
 import theme
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options, project_options
@@ -54,17 +56,53 @@ def _compute_duration(conn, row_id, values):
         pass
 
 
+def task_options(conn):
+    """Every timeline task, for the WBS-parent picker."""
+    return [(r['id'], r['task_name']) for r in conn.execute(
+        'SELECT id, task_name FROM timeline_tasks ORDER BY task_name')]
+
+
+def _split_holidays(text):
+    """A holiday string ('2026-01-26, 2026-08-15') to a list of ISO dates."""
+    return [tok.strip() for tok in scheduler._split(text or '') if tok.strip()]
+
+
+def _wbs_depth(info, tmap):
+    """Outline depth of each task from its parent_id chain (0 = top level)."""
+    depth = {}
+
+    def d(i, guard):
+        if i in depth:
+            return depth[i]
+        pid = (tmap.get(i) or {}).get('parent_id')
+        if pid in info and pid != i and pid not in guard:
+            depth[i] = d(pid, guard | {i}) + 1
+        else:
+            depth[i] = 0
+        return depth[i]
+
+    for i in info:
+        d(i, set())
+    return depth
+
+
 def _build_tasks(parent, db_getter):
     fields = [
         Field('project_id', 'Project', kind='fk', options_func=project_options),
         Field('site_id', 'Site', kind='fk', options_func=site_options),
         Field('task_name', 'Task'),
+        Field('parent_id', 'Parent (WBS)', kind='fk', options_func=task_options),
         Field('start_date', 'Start (YYYY-MM-DD)'),
         Field('end_date', 'End (YYYY-MM-DD)'),
-        Field('duration_days', 'Duration (auto)', kind='number', default='0'),
+        Field('duration_days', 'Duration (working days)', kind='number',
+              default='0'),
+        # MS-Project-style typed predecessors: "3FS+2, 5SS" — resolved by id or
+        # task name, scheduled on the project's working calendar. A milestone is
+        # a task of duration 0.
+        Field('dependency', 'Predecessors (e.g. 3FS+2)'),
+        Field('pct_complete', '% Complete', kind='number', default='0'),
         Field('status', 'Status', kind='combo',
               options=TASK_STATUSES, default='Not Started'),
-        Field('dependency', 'Dependency'),
         # Actuals are recorded separately from the plan so that editing the
         # plan never quietly rewrites history.
         Field('actual_start', 'Actually Started'),
@@ -81,122 +119,289 @@ def _build_tasks(parent, db_getter):
 
 
 class GanttView(ttk.Frame):
-    ROW_H = 28
-    LEFT_PAD = 160
-    TOP_PAD = 40
+    """A working-calendar Gantt driven by ``scheduler``: bars auto-placed from
+    typed dependencies, the critical path in red, % complete shaded, milestones
+    as diamonds, the baseline underneath, dependency arrows, weekend/holiday
+    shading and a today line. "Auto-schedule" writes the computed dates back to
+    the tasks."""
+
+    ROW_H = 26
+    LEFT_PAD = 220
+    TOP_PAD = 48
     RIGHT_PAD = 40
 
     def __init__(self, parent, db_getter):
         super().__init__(parent)
         self.db_getter = db_getter
-        self._site_map = {}
         self._project_map = {}
 
         controls = ttk.Frame(self)
         controls.pack(fill='x', padx=8, pady=6)
         ttk.Label(controls, text='Project').pack(side='left')
-        self.project_var = tk.StringVar(value='All')
+        self.project_var = tk.StringVar()
         self.project_combo = ttk.Combobox(controls, textvariable=self.project_var,
-                                          width=22, state='readonly')
+                                          width=26, state='readonly')
         self.project_combo.pack(side='left', padx=4)
         self.project_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
-        ttk.Label(controls, text='Site').pack(side='left', padx=(10, 0))
-        self.site_var = tk.StringVar(value='All')
-        self.site_combo = ttk.Combobox(controls, textvariable=self.site_var,
-                                       width=22, state='readonly')
-        self.site_combo.pack(side='left', padx=4)
-        self.site_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
         ttk.Button(controls, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
+        ttk.Button(controls, text='Auto-schedule', style='Accent.TButton',
+                   command=self.auto_schedule).pack(side='left', padx=(2, 6))
+        self.headline = ttk.Label(controls, text='', style='Muted.TLabel')
+        self.headline.pack(side='left', padx=8)
 
-        self.canvas = tk.Canvas(self, bg=theme.palette()['surface'],
-                                highlightthickness=0, height=400)
-        self.canvas.pack(fill='both', expand=True, padx=8, pady=6)
+        wrap = ttk.Frame(self); wrap.pack(fill='both', expand=True, padx=8, pady=6)
+        self.canvas = tk.Canvas(wrap, bg=theme.palette()['surface'],
+                                highlightthickness=0)
+        vsb = ttk.Scrollbar(wrap, orient='vertical', command=self.canvas.yview)
+        hsb = ttk.Scrollbar(wrap, orient='horizontal', command=self.canvas.xview)
+        self.canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.pack(side='right', fill='y')
+        hsb.pack(side='bottom', fill='x')
+        self.canvas.pack(side='left', fill='both', expand=True)
         self.refresh()
 
-    def refresh(self):
+    def _pid(self):
+        raw = self.project_var.get()
+        return self._project_map.get(raw)
+
+    def _load(self, pid):
         conn = self.db_getter()
         try:
-            options = [(s['id'], s['name'])
-                       for s in conn.execute('SELECT id, name FROM sites ORDER BY name')]
-            self._site_map = {'{} - {}'.format(sid, name): sid
-                              for sid, name in options}
-            self.site_combo['values'] = ['All'] + list(self._site_map.keys())
             popts = [(r['id'], r['name']) for r in conn.execute(
                 'SELECT id, name FROM projects ORDER BY name')]
-            self._project_map = {'{} - {}'.format(pid, name): pid
-                                 for pid, name in popts}
-            self.project_combo['values'] = ['All'] + list(self._project_map.keys())
-
-            # Project and site filters compose (AND); either can be 'All'.
-            clauses = []
-            params = []
-            psel = self.project_var.get()
-            if psel != 'All' and psel in self._project_map:
-                clauses.append('project_id = ?')
-                params.append(self._project_map[psel])
-            ssel = self.site_var.get()
-            if ssel != 'All' and ssel in self._site_map:
-                clauses.append('site_id = ?')
-                params.append(self._site_map[ssel])
-            where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
-            sql = ('SELECT task_name, start_date, end_date, status '
-                   'FROM timeline_tasks {} '
-                   'ORDER BY start_date, id'.format(where))
-            rows = conn.execute(sql, params).fetchall()
+            self._project_map = {'{} - {}'.format(i, n): i for i, n in popts}
+            self.project_combo['values'] = list(self._project_map.keys())
+            if pid is None and popts:
+                pid = popts[0][0]
+                self.project_var.set('{} - {}'.format(popts[0][0], popts[0][1]))
+            project = tasks = None
+            if pid is not None:
+                project = conn.execute('SELECT * FROM projects WHERE id = ?',
+                                       (pid,)).fetchone()
+                tasks = [dict(r) for r in conn.execute(
+                    'SELECT * FROM timeline_tasks WHERE project_id = ? '
+                    'ORDER BY start_date, id', (pid,))]
         finally:
             conn.close()
+        return project, tasks
 
-        self._draw(rows)
-
-    def _draw(self, rows):
+    def refresh(self):
+        project, tasks = self._load(self._pid())
         self.canvas.delete('all')
-
-        tasks = []
-        for r in rows:
-            try:
-                d0 = datetime.strptime(r['start_date'], '%Y-%m-%d')
-                d1 = datetime.strptime(r['end_date'], '%Y-%m-%d')
-            except (TypeError, ValueError):
-                continue  # skip tasks with unparseable dates
-            if d1 < d0:
-                d1 = d0
-            tasks.append((r['task_name'], d0, d1, r['status']))
-
-        if not tasks:
-            self.canvas.create_text(20, 20, anchor='w',
-                                    text='No dated tasks to display.')
+        if not project:
+            self.headline.configure(text='')
+            self.canvas.create_text(16, 20, anchor='w', text='No project yet.',
+                                    fill=theme.palette()['muted'])
             return
+        if not tasks:
+            self.headline.configure(text='')
+            self.canvas.create_text(16, 20, anchor='w',
+                                    text='No tasks on this project yet — add '
+                                         'them on the Tasks sub-tab.',
+                                    fill=theme.palette()['muted'])
+            return
+        start = project['start_date'] or _col(project, 'start_date')
+        result = scheduler.schedule(
+            tasks, project_start=start,
+            work_week=_col(project, 'work_week', scheduler.DEFAULT_WORK_WEEK),
+            holidays=_split_holidays(_col(project, 'holidays')))
+        if result['cycle']:
+            self.headline.configure(text='Dependency loop — cannot schedule.')
+            names = {t['id']: t.get('task_name') for t in tasks}
+            self.canvas.create_text(
+                16, 20, anchor='w', fill=theme.palette()['error'],
+                text='These tasks depend on each other in a circle: {}'.format(
+                    ', '.join(str(names.get(i, i)) for i in result['cycle'])))
+            return
+        self._draw(result, tasks, project)
 
-        min_date = min(t[1] for t in tasks)
-        max_date = max(t[2] for t in tasks)
-        span_days = max((max_date - min_date).days, 1)
+    # -------------------------------------------------------------- drawing
+    def _draw(self, result, tasks, project):
+        pal = theme.palette()
+        info = result['tasks']
+        tmap = {t['id']: t for t in tasks}
+        resolved, _un = scheduler.resolve(tasks)
+        preds_map = {t['id']: t.get('preds', []) for t in resolved}
+        depth = _wbs_depth(info, tmap)
+        cal = scheduler.Calendar(
+            _col(project, 'work_week', scheduler.DEFAULT_WORK_WEEK),
+            _split_holidays(_col(project, 'holidays')))
 
-        width = max(self.canvas.winfo_width(), 700)
-        chart_w = width - self.LEFT_PAD - self.RIGHT_PAD
-        px_per_day = chart_w / span_days
+        rows = sorted(info.values(), key=lambda t: (t['es'], t['id']))
+        dates = [d for t in info.values()
+                 for d in (t['start_date'], t['finish_date']) if d]
+        for t in tasks:               # include baselines in the span
+            for k in ('baseline_start', 'baseline_end'):
+                if t.get(k):
+                    dates.append(t[k])
+        dmin = min(isodate.parse(d) for d in dates)
+        dmax = max(isodate.parse(d) for d in dates)
+        span = max((dmax - dmin).days, 1)
 
-        # Axis: start and end date labels.
-        self.canvas.create_text(self.LEFT_PAD, 16, anchor='w',
-                                text=min_date.strftime('%Y-%m-%d'),
-                                font=('TkDefaultFont', 8))
-        self.canvas.create_text(self.LEFT_PAD + chart_w, 16, anchor='e',
-                                text=max_date.strftime('%Y-%m-%d'),
-                                font=('TkDefaultFont', 8))
+        avail = max(self.canvas.winfo_width() - self.LEFT_PAD - self.RIGHT_PAD,
+                    520)
+        ppd = min(16.0, max(3.0, avail / span))
+        chart_w = self.LEFT_PAD + span * ppd + self.RIGHT_PAD
 
-        for idx, (name, d0, d1, status) in enumerate(tasks):
+        def x_of(d):
+            return self.LEFT_PAD + (isodate.parse(d) - dmin).days * ppd
+
+        n = len(rows)
+        height = self.TOP_PAD + n * self.ROW_H + 24
+
+        # weekend / holiday shading + month gridlines
+        d = dmin
+        while d <= dmax:
+            if not cal.is_working(d):
+                x = self.LEFT_PAD + (d - dmin).days * ppd
+                self.canvas.create_rectangle(
+                    x, self.TOP_PAD - 6, x + ppd, height - 12,
+                    fill=pal['canvas'], outline='')
+            if d.day == 1 or d == dmin:
+                x = self.LEFT_PAD + (d - dmin).days * ppd
+                self.canvas.create_line(x, self.TOP_PAD - 6, x, height - 12,
+                                        fill=pal['hairline'])
+                self.canvas.create_text(x + 2, 14, anchor='w',
+                                        text=d.strftime('%b %Y'),
+                                        fill=pal['muted'],
+                                        font=('TkDefaultFont', 8))
+            d += timedelta(days=1)
+
+        # today line
+        today = date.today()
+        if dmin <= today <= dmax:
+            x = self.LEFT_PAD + (today - dmin).days * ppd
+            self.canvas.create_line(x, self.TOP_PAD - 8, x, height - 12,
+                                    fill=pal['error'], dash=(3, 3))
+            self.canvas.create_text(x, self.TOP_PAD - 14, text='today',
+                                    fill=pal['error'], font=('TkDefaultFont', 7))
+
+        row_y = {}
+        for idx, t in enumerate(rows):
+            row_y[t['id']] = self.TOP_PAD + idx * self.ROW_H
+
+        # dependency arrows (behind bars)
+        for succ in rows:
+            for pid, typ, _lag in preds_map.get(succ['id'], []):
+                if pid not in info:
+                    continue
+                self._arrow(info[pid], succ, typ, x_of, row_y, pal)
+
+        # bars
+        for idx, t in enumerate(rows):
             y = self.TOP_PAD + idx * self.ROW_H
-            self.canvas.create_text(8, y + self.ROW_H / 2, anchor='w',
-                                    text=(name or '')[:22],
-                                    font=('TkDefaultFont', 9))
-            x0 = self.LEFT_PAD + (d0 - min_date).days * px_per_day
-            x1 = self.LEFT_PAD + ((d1 - min_date).days + 1) * px_per_day
-            color = status_colors.get(status, DEFAULT_COLOR)
-            self.canvas.create_rectangle(x0, y + 4, x1, y + self.ROW_H - 4,
-                                         fill=color, outline='#555555')
+            name = (t['name'] or '')
+            indent = 6 + depth.get(t['id'], 0) * 14
+            summ = t.get('is_summary')
+            self.canvas.create_text(
+                indent, y + self.ROW_H / 2, anchor='w', text=name[:26],
+                fill=pal['ink'],
+                font=('TkDefaultFont', 9, 'bold' if summ else 'normal'))
 
-        total_h = self.TOP_PAD + len(tasks) * self.ROW_H + 20
-        self.canvas.configure(scrollregion=(0, 0, width, total_h))
+            if not t['start_date'] or not t['finish_date']:
+                continue
+            x0 = x_of(t['start_date'])
+            x1 = max(x_of(t['finish_date']) + ppd, x0 + 3)
+            top, bot = y + 5, y + self.ROW_H - 7
+            # baseline (thin, underneath) if present
+            bt = tmap.get(t['id'], {})
+            if bt.get('baseline_start') and bt.get('baseline_end'):
+                bx0 = x_of(bt['baseline_start'])
+                bx1 = x_of(bt['baseline_end']) + ppd
+                self.canvas.create_rectangle(bx0, bot, bx1, bot + 4,
+                                             fill=pal['muted'], outline='')
+            if t['milestone']:
+                cx, cy = x0, (top + bot) / 2
+                r = 6
+                self.canvas.create_polygon(cx, cy - r, cx + r, cy, cx, cy + r,
+                                           cx - r, cy, fill=pal['ink'],
+                                           outline='')
+                continue
+            base = pal['error'] if t['critical'] else pal['info']
+            if summ:
+                # summary bracket rather than a solid bar
+                self.canvas.create_rectangle(x0, top + 3, x1, top + 6,
+                                             fill=pal['ink'], outline='')
+                self.canvas.create_polygon(x0, top + 3, x0, top + 11,
+                                           x0 + 6, top + 3, fill=pal['ink'])
+                self.canvas.create_polygon(x1, top + 3, x1, top + 11,
+                                           x1 - 6, top + 3, fill=pal['ink'])
+            else:
+                self.canvas.create_rectangle(x0, top, x1, bot, fill=base,
+                                             outline=pal['hairline'])
+                pct = t['pct'] or 0
+                if pct > 0:
+                    px = x0 + (x1 - x0) * min(pct, 100) / 100.0
+                    self.canvas.create_rectangle(
+                        x0, top + (bot - top) * 0.30, px,
+                        bot - (bot - top) * 0.30, fill=pal['ink'], outline='')
+
+        # headline
+        s = scheduler.summarise(result)
+        self.headline.configure(
+            text='Finish {}   ·   {} critical   ·   {:.0f}% complete'.format(
+                s['project_finish'] or '—', s['critical'], s['pct_complete']))
+        self.canvas.configure(scrollregion=(0, 0, chart_w, height))
+
+    def _arrow(self, pred, succ, typ, x_of, row_y, pal):
+        if not pred['finish_date'] or not succ['start_date']:
+            return
+        # FS/FF start from predecessor finish; SS/SF from its start.
+        px = x_of(pred['finish_date']) + (0 if typ in ('SS', 'SF') else 6)
+        if typ in ('SS', 'SF'):
+            px = x_of(pred['start_date'])
+        py = row_y[pred['id']] + self.ROW_H / 2
+        # FS/SS land on successor start; FF/SF on its finish.
+        sx = x_of(succ['start_date']) if typ in ('FS', 'SS') \
+            else x_of(succ['finish_date'])
+        sy = row_y[succ['id']] + self.ROW_H / 2
+        mid = max(px + 6, sx - 8)
+        self.canvas.create_line(px, py, mid, py, mid, sy, sx, sy,
+                                fill=pal['helper'], width=1,
+                                arrow='last', arrowshape=(6, 7, 2))
+
+    def auto_schedule(self):
+        if not can_write():
+            return
+        pid = self._pid()
+        project, tasks = self._load(pid)
+        if not project or not tasks:
+            return
+        start = project['start_date']
+        if not start:
+            messagebox.showinfo(
+                'Set a project start date',
+                'Give this project a Start Date (Project Management › Projects) '
+                'so the schedule has an anchor to compute from.')
+            return
+        result = scheduler.schedule(
+            tasks, project_start=start,
+            work_week=_col(project, 'work_week', scheduler.DEFAULT_WORK_WEEK),
+            holidays=_split_holidays(_col(project, 'holidays')))
+        if result['cycle']:
+            messagebox.showerror('Cannot schedule',
+                                 'Fix the dependency loop first.')
+            return
+        if not messagebox.askyesno(
+                'Auto-schedule',
+                'Compute start/finish dates for every task from its '
+                'predecessors and the working calendar, and write them onto the '
+                'tasks? Existing dates will be overwritten (baselines and '
+                'actuals are not touched).'):
+            return
+        conn = self.db_getter()
+        try:
+            for tid, ti in result['tasks'].items():
+                if ti['start_date'] and ti['finish_date']:
+                    conn.execute(
+                        'UPDATE timeline_tasks SET start_date = ?, end_date = ? '
+                        'WHERE id = ?',
+                        (ti['start_date'], ti['finish_date'], tid))
+            conn.commit()
+        finally:
+            conn.close()
+        self.refresh()
 
 
 class BaselineView(ttk.Frame):

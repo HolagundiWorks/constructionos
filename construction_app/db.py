@@ -1240,6 +1240,13 @@ _ADD_COLUMNS = [
     ('material_ledger', 'project_id', 'INTEGER'),
     ('equipment_hire', 'project_id', 'INTEGER'),
     ('purchase_orders', 'project_id', 'INTEGER'),
+    # Scheduling (scheduler.py): a task's progress and its WBS parent, and the
+    # project's working calendar (work-week bitmask Mon..Sun + holiday list) so
+    # the Gantt auto-schedules on real working days.
+    ('timeline_tasks', 'pct_complete', 'REAL DEFAULT 0'),
+    ('timeline_tasks', 'parent_id', 'INTEGER'),
+    ('projects', 'work_week', "TEXT DEFAULT '1111110'"),
+    ('projects', 'holidays', 'TEXT'),
 ]
 
 

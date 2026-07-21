@@ -248,15 +248,24 @@ def seed(conn):
        "('gstr3b',strftime('%Y-%m','now','-2 month'),date('now','-28 day'),NULL),"
        "('tds_26q',strftime('%Y-%m','now'),date('now','+5 day'),NULL)")
 
-    # ---- programme slip on NH-48 (baseline vs actual) for LD exposure
-    ex("INSERT INTO timeline_tasks(site_id,project_id,task_name,status,"
-       "baseline_start,baseline_end,actual_start,actual_end,delay_cause) VALUES"
-       "(2,2,'Earthwork','Completed',date('now','-190 day'),"
-       "date('now','-150 day'),date('now','-190 day'),date('now','-150 day'),"
-       "NULL),"
-       "(2,2,'GSB + WMM','In Progress',date('now','-140 day'),"
-       "date('now','-40 day'),date('now','-140 day'),date('now','-10 day'),"
-       "'Contractor delay')")
+    # ---- NH-48 programme: a real dependency network for the scheduler + Gantt.
+    # Ids autoincrement from 1 (this is the only insert into timeline_tasks), so
+    # predecessors and parent_id can reference them by number. Working-day
+    # durations, typed predecessors (SS on the culvert runs it in parallel), a
+    # milestone, and a baselined slip on Earthwork so the delay advisory fires.
+    ex("INSERT INTO timeline_tasks(site_id,project_id,task_name,duration_days,"
+       "dependency,pct_complete,status,baseline_start,baseline_end,"
+       "actual_start,actual_end,delay_cause) VALUES"
+       "(2,2,'Site mobilisation',5,'',100,'Completed',NULL,NULL,NULL,NULL,NULL),"
+       "(2,2,'Earthwork',20,'1',100,'Completed',date('now','-195 day'),"
+       "date('now','-176 day'),date('now','-195 day'),date('now','-170 day'),"
+       "'Contractor delay'),"
+       "(2,2,'GSB layer',15,'2',80,'In Progress',NULL,NULL,NULL,NULL,NULL),"
+       "(2,2,'WMM layer',12,'3',40,'In Progress',NULL,NULL,NULL,NULL,NULL),"
+       "(2,2,'Culvert RCC',18,'2SS+3',30,'In Progress',NULL,NULL,NULL,NULL,NULL),"
+       "(2,2,'DBM + BC (blacktop)',20,'4,5',0,'Not Started',NULL,NULL,NULL,"
+       "NULL,NULL),"
+       "(2,2,'Road handover',0,'6',0,'Not Started',NULL,NULL,NULL,NULL,NULL)")
 
     # ---- some site cost so project margins have inputs
     ex("INSERT INTO material_ledger(txn_date,site_id,material_id,txn_type,qty,"

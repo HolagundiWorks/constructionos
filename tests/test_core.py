@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 import advisory
 import refdata
+import scheduler
 import ageing
 import allocation
 import approval
@@ -3905,6 +3906,97 @@ class TestAuthLogin(unittest.TestCase):
                                  'password')
         finally:
             conn.close()
+
+
+class TestScheduler(unittest.TestCase):
+    """The working-calendar scheduling engine: calendar, typed deps, critical
+    path, WBS, cycles."""
+
+    START = '2026-01-05'      # a Monday; default work week is Mon-Sat
+
+    def _sched(self, tasks, **kw):
+        kw.setdefault('project_start', self.START)
+        return scheduler.schedule(tasks, **kw)
+
+    def test_fs_chain_skips_sundays_and_finds_critical_path(self):
+        r = self._sched([
+            {'id': 1, 'task_name': 'A', 'duration_days': 5, 'dependency': ''},
+            {'id': 2, 'task_name': 'B', 'duration_days': 3, 'dependency': '1'},
+            {'id': 3, 'task_name': 'C', 'duration_days': 1, 'dependency': '1'},
+            {'id': 4, 'task_name': 'D', 'duration_days': 2, 'dependency': '2,3'},
+        ])
+        t = r['tasks']
+        self.assertEqual(t[1]['start_date'], '2026-01-05')
+        self.assertEqual(t[1]['finish_date'], '2026-01-09')
+        # B starts the working day after A — Sat 10 (Sun 11 is off)
+        self.assertEqual(t[2]['start_date'], '2026-01-10')
+        self.assertEqual(t[2]['finish_date'], '2026-01-13')  # Sat,Mon,Tue
+        self.assertEqual(sorted(r['critical_ids']), [1, 2, 4])
+        self.assertFalse(t[3]['critical'])
+        self.assertAlmostEqual(t[3]['total_float'], 2.0)
+
+    def test_start_to_start_with_lag(self):
+        r = self._sched([
+            {'id': 1, 'task_name': 'A', 'duration_days': 5, 'dependency': ''},
+            {'id': 2, 'task_name': 'B', 'duration_days': 2,
+             'dependency': '1SS+1'},
+        ])
+        self.assertEqual(r['tasks'][2]['start_date'], '2026-01-06')
+
+    def test_predecessor_parsing(self):
+        self.assertEqual(
+            scheduler.parse_predecessors('3FS+2, 5SS-1; 7'),
+            [('3', 'FS', 2), ('5', 'SS', -1), ('7', 'FS', 0)])
+
+    def test_milestone_is_zero_length(self):
+        r = self._sched([
+            {'id': 1, 'task_name': 'A', 'duration_days': 4, 'dependency': ''},
+            {'id': 2, 'task_name': 'M', 'duration_days': 0, 'dependency': '1'},
+        ])
+        m = r['tasks'][2]
+        self.assertTrue(m['milestone'])
+        self.assertEqual(m['start_date'], m['finish_date'])
+
+    def test_holiday_is_skipped(self):
+        r = self._sched(
+            [{'id': 1, 'task_name': 'A', 'duration_days': 3, 'dependency': ''}],
+            holidays=['2026-01-07'])
+        # Mon 5, Tue 6, [Wed 7 holiday], Thu 8 -> finish Thu 8
+        self.assertEqual(r['tasks'][1]['finish_date'], '2026-01-08')
+
+    def test_wbs_parent_spans_children_and_weights_progress(self):
+        r = self._sched([
+            {'id': 10, 'task_name': 'Phase', 'duration_days': 0,
+             'dependency': ''},
+            {'id': 11, 'task_name': 'x', 'duration_days': 4, 'dependency': '',
+             'parent_id': 10, 'pct_complete': 100},
+            {'id': 12, 'task_name': 'y', 'duration_days': 6, 'dependency': '11',
+             'parent_id': 10, 'pct_complete': 50},
+        ])
+        p = r['tasks'][10]
+        self.assertTrue(p.get('is_summary'))
+        self.assertEqual(p['start_date'], r['tasks'][11]['start_date'])
+        self.assertEqual(p['finish_date'], r['tasks'][12]['finish_date'])
+        self.assertAlmostEqual(p['pct'], 70.0)      # (4*100 + 6*50) / 10
+
+    def test_cycle_is_reported_not_scheduled(self):
+        r = self._sched([
+            {'id': 1, 'task_name': 'A', 'duration_days': 2, 'dependency': '2'},
+            {'id': 2, 'task_name': 'B', 'duration_days': 2, 'dependency': '1'},
+        ])
+        self.assertEqual(sorted(r['cycle']), [1, 2])
+        self.assertEqual(r['tasks'], {})
+
+    def test_name_reference_and_unresolved(self):
+        r = self._sched([
+            {'id': 1, 'task_name': 'Excavation', 'duration_days': 3,
+             'dependency': ''},
+            {'id': 2, 'task_name': 'PCC', 'duration_days': 2,
+             'dependency': 'Excavation, Ghost'},
+        ])
+        # Excavation (dur 3) runs Mon-Wed 5-7; PCC starts the next working day
+        self.assertEqual(r['tasks'][2]['start_date'], '2026-01-08')
+        self.assertIn((2, 'Ghost'), r['unresolved'])
 
 
 class TestFirmLogo(unittest.TestCase):
