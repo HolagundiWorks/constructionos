@@ -40,7 +40,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _dispatch(self, method):
         parsed = urllib.parse.urlsplit(self.path)
         query = _flatten(urllib.parse.parse_qs(parsed.query))
-        form = {}
+        form, form_multi = {}, {}
         if method == 'POST':
             try:
                 length = int(self.headers.get('Content-Length') or 0)
@@ -52,7 +52,10 @@ class _Handler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length).decode('utf-8', 'replace') if length else ''
             ctype = (self.headers.get('Content-Type') or '')
             if 'application/x-www-form-urlencoded' in ctype:
-                form = _flatten(urllib.parse.parse_qs(raw))
+                # keep_blank_values so repeated line-item columns stay aligned
+                # by row index (an empty cell must not shorten its column).
+                form_multi = urllib.parse.parse_qs(raw, keep_blank_values=True)
+                form = _flatten(form_multi)
 
         cookies = {}
         raw_cookie = self.headers.get('Cookie')
@@ -66,7 +69,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         req = webapp.Request(
             method=method, path=parsed.path, query=query, form=form,
-            cookies=cookies, headers=dict(self.headers),
+            form_multi=form_multi, cookies=cookies, headers=dict(self.headers),
             client=self.client_address[0] if self.client_address else '')
         try:
             resp = webapp.handle(req)

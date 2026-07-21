@@ -19,6 +19,11 @@ browser — the same fields as the desktop, built from one shared spec
 drift):
 
 * **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**.
+* **Estimates** — header + line items (add/remove rows in the browser). The
+  roll-up (subtotal → contingency → GST → grand total) is the same pure
+  `estimate.estimate_totals` the desktop uses, and estimates never post to the
+  ledger, so this is safe. Bills / RA bills (which *do* post to the double-entry
+  ledger) stay desktop-only until that engine is wired in.
 
 Writes are gated: a **Viewer** sees the data but no edit buttons and is refused
 (403) if it POSTs anyway; only **Operator**/**Admin** may change data. Every form

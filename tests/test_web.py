@@ -83,9 +83,10 @@ class TestWebRouter(unittest.TestCase):
             except OSError:
                 pass
 
-    def _req(self, path, method='GET', form=None, cookies=None):
+    def _req(self, path, method='GET', form=None, cookies=None, multi=None):
         import webapp
-        return webapp.Request(method, path, form=form or {}, cookies=cookies or {})
+        return webapp.Request(method, path, form=form or {},
+                              form_multi=multi or {}, cookies=cookies or {})
 
     def _login_admin(self):
         """Run the first-run bootstrap through the router; return the cosid."""
@@ -226,6 +227,86 @@ class TestWebRouter(unittest.TestCase):
         sid = self._login_admin()
         r = webapp.handle(self._req('/t/payments/new', cookies={'cosid': sid}))
         self.assertEqual(r.status, 404)
+
+    # ---- Stage 3a: Estimates (header + line items, computed total) ------
+    def _make_site(self):
+        conn = self.db.get_conn()
+        try:
+            conn.execute("INSERT INTO sites (name, status) VALUES ('S1','Active')")
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_estimate_create_computes_total_and_edit_recomputes(self):
+        import webapp
+        self._make_site()
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        ck = {'cosid': sid}
+        # form renders with the dynamic line-item helper
+        f = webapp.handle(self._req('/t/estimates/new', cookies=ck))
+        self.assertIn(b'New Estimate', f.body)
+        self.assertIn(b'addLine()', f.body)
+        # 10*100 + 5*200 = 2000; +10% cont = 2200; +18% gst = 2596.0
+        hdr = {'csrf': csrf, 'est_number': 'EST-1', 'title': 'Wall',
+               'site_id': '1', 'estimate_date': '2026-07-21', 'status': 'Draft',
+               'contingency_pct': '10', 'gst_pct': '18', 'notes': ''}
+        multi = {'li_code': ['A', 'B'], 'li_desc': ['Exc', 'PCC'],
+                 'li_unit': ['cum', 'cum'], 'li_qty': ['10', '5'],
+                 'li_rate': ['100', '200']}
+        r = webapp.handle(self._req('/t/estimates/new', 'POST', form=hdr,
+                                    multi=multi, cookies=ck))
+        self.assertEqual(r.status, 303)
+        eid = r.headers['Location'].rsplit('/', 1)[1]
+        conn = self.db.get_conn()
+        try:
+            total = conn.execute('SELECT total_estimate FROM estimates WHERE '
+                                 'id=?', (eid,)).fetchone()[0]
+            nlines = conn.execute('SELECT COUNT(*) FROM estimate_items WHERE '
+                                  'estimate_id=?', (eid,)).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertAlmostEqual(total, 2596.0, places=2)
+        self.assertEqual(nlines, 2)
+        # record view shows the lines + grand total
+        view = webapp.handle(self._req('/t/estimates/{}'.format(eid), cookies=ck))
+        self.assertIn(b'Grand total', view.body)
+        self.assertIn(b'Exc', view.body)
+        # edit: qty 10 -> 20; 20*100 + 5*200 = 3000; +10% = 3300; +18% = 3894.0
+        multi2 = dict(multi); multi2['li_qty'] = ['20', '5']
+        r = webapp.handle(self._req('/t/estimates/{}/edit'.format(eid), 'POST',
+                                    form=hdr, multi=multi2, cookies=ck))
+        self.assertEqual(r.status, 303)
+        conn = self.db.get_conn()
+        try:
+            total2 = conn.execute('SELECT total_estimate FROM estimates WHERE '
+                                  'id=?', (eid,)).fetchone()[0]
+            nlines2 = conn.execute('SELECT COUNT(*) FROM estimate_items WHERE '
+                                   'estimate_id=?', (eid,)).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertAlmostEqual(total2, 3894.0, places=2)
+        self.assertEqual(nlines2, 2)     # replaced, not duplicated
+
+    def test_estimate_requires_title_and_a_line(self):
+        import webapp
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        r = webapp.handle(self._req(
+            '/t/estimates/new', 'POST', form={'csrf': csrf, 'title': ''},
+            multi={'li_desc': ['x'], 'li_qty': ['1'], 'li_rate': ['1']},
+            cookies={'cosid': sid}))
+        self.assertEqual(r.status, 200)
+        self.assertIn(b'Title is required', r.body)
+
+    def test_estimate_write_gated_for_viewer(self):
+        import webapp
+        tok = webapp._new_session('v', 'Viewer')
+        r = webapp.handle(self._req(
+            '/t/estimates/new', 'POST',
+            form={'csrf': self._scsrf(tok), 'title': 'x'},
+            cookies={'cosid': tok}))
+        self.assertEqual(r.status, 403)
 
 
 class TestWebMastersSpec(unittest.TestCase):

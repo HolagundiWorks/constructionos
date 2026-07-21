@@ -6,6 +6,23 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Browser / LAN access: Estimates (Stage 3a)
+
+- **Prepare a priced estimate in the browser** — header + line items, with
+  add/remove line rows. The roll-up (subtotal → contingency → taxable → GST →
+  grand total) reuses the *same* pure `estimate.estimate_totals` as the desktop,
+  and the grand total is stored on save. Estimates never touch the ledger, so
+  this stays clear of the double-entry engine (reserved for bills / RA bills).
+- `webserver.py`/`webapp.py`: repeated form fields (`li_qty`, `li_rate`, …) are
+  now kept as aligned per-row lists (`form_multi`, `keep_blank_values`), so a
+  blank cell can't shift a column. Write routes generalised beyond the flat
+  Masters (`_is_writable`, `_guard_write`); create/edit gated on role + session
+  CSRF; edit replaces line items transactionally (no duplicates); web edits
+  audit-logged. A tiny inline script adds/removes rows (no framework).
+- The estimate record view shows the line items and the computed totals.
+
+---
+
 ## 2026-07-21 — One HCW-UI design system for desktop + web (strict rule)
 
 - **`tokens.py`** — a pure, tkinter-free single source of truth ported verbatim

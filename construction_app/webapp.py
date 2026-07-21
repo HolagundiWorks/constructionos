@@ -29,10 +29,26 @@ import urllib.parse
 
 import db
 import auth
+import estimate
 import web_masters
 import webrender as R
 
 PAGE_SIZE = 50
+
+# Writable registers beyond the flat-CRUD Masters. Estimates have child line
+# items and a computed total, but (unlike bills) never post to the ledger, so
+# they are safe to edit in the browser without the double-entry engine.
+_WRITABLE_EXTRA = {'estimates': 'Estimate'}
+
+
+def _is_writable(table):
+    return web_masters.is_master(table) or table in _WRITABLE_EXTRA
+
+
+def _writable_label(table):
+    if web_masters.is_master(table):
+        return web_masters.label(table)
+    return _WRITABLE_EXTRA.get(table, _label(table))
 
 # Tables never exposed over the network: the password hashes, app config, and
 # SQLite's own bookkeeping.
@@ -66,12 +82,14 @@ _GROUPS = [
 
 # --------------------------------------------------------------- HTTP objects
 class Request:
-    def __init__(self, method, path, query=None, form=None, cookies=None,
-                 headers=None, client=''):
+    def __init__(self, method, path, query=None, form=None, form_multi=None,
+                 cookies=None, headers=None, client=''):
         self.method = method
         self.path = path
         self.query = query or {}
         self.form = form or {}
+        # Repeated fields kept as lists (line-item rows: li_qty=[..], ...).
+        self.form_multi = form_multi or {}
         self.cookies = cookies or {}
         self.headers = headers or {}
         self.client = client
@@ -363,11 +381,15 @@ def _table_route(request, sess, rest):
                          status=404)
         cols = _columns(conn, table)
         if len(segs) == 2 and segs[1] == 'new':
+            if table == 'estimates':
+                return _estimate_editor(request, sess, conn, None)
             return _master_create(request, sess, conn, table, cols)
         if len(segs) == 3 and segs[2] == 'edit':
+            if table == 'estimates':
+                return _estimate_editor(request, sess, conn, segs[1])
             return _master_edit(request, sess, conn, table, cols, segs[1])
         if len(segs) == 3 and segs[2] == 'delete':
-            return _master_delete(request, sess, conn, table, cols, segs[1])
+            return _row_delete(request, sess, conn, table, cols, segs[1])
         if len(segs) == 2:
             return _record(conn, sess, table, cols, segs[1])
         return _register_list(request, conn, sess, table, cols)
@@ -411,9 +433,9 @@ def _register_list(request, conn, sess, table, cols):
         link = lambda i: '/t/{}/{}'.format(table, ids[i])
 
     add_btn = ''
-    if web_masters.is_master(table) and can_write(sess['role']):
+    if _is_writable(table) and can_write(sess['role']):
         add_btn = '<a class="btn" href="/t/{tbl}/new">+ New {lbl}</a>'.format(
-            tbl=R.esc(table), lbl=R.esc(web_masters.label(table)))
+            tbl=R.esc(table), lbl=R.esc(_writable_label(table)))
     search = (
         '<div class="toolbar"><form method="get" action="/t/{tbl}">'
         '<input type="search" name="q" placeholder="Search {lbl}…" value="{q}">'
@@ -454,18 +476,20 @@ def _record(conn, sess, table, cols, rid):
                                                     R.esc(row[c[0]]))
                     for c in cols)
     actions = ''
-    if web_masters.is_master(table) and can_write(sess['role']):
+    if _is_writable(table) and can_write(sess['role']):
         actions = ('<div class="rowbtns">'
                    '<a class="btn" href="/t/{tbl}/{rid}/edit">Edit</a>{delete}'
                    '</div>').format(
             tbl=R.esc(table), rid=R.esc(rid),
             delete=R.post_button(
                 '/t/{}/{}/delete'.format(table, rid), sess['csrf'], 'Delete',
-                confirm='Delete this {}?'.format(web_masters.label(table))))
+                confirm='Delete this {}?'.format(_writable_label(table))))
+    extra = _estimate_lines_html(conn, rid) if table == 'estimates' else ''
     body = ('<h1>{lbl} #{rid}</h1><p><a class="btn ghost" href="/t/{tbl}">'
-            '‹ Back to {lbl}</a></p>{actions}<dl class="dl">{items}</dl>').format(
+            '‹ Back to {lbl}</a></p>{actions}<dl class="dl">{items}</dl>'
+            '{extra}').format(
         lbl=R.esc(_label(table)), rid=R.esc(rid), tbl=R.esc(table),
-        actions=actions, items=items)
+        actions=actions, items=items, extra=extra)
     return _shell(_label(table), body, sess, conn, active=table)
 
 
@@ -512,19 +536,23 @@ def _master_form(conn, sess, table, row, errs=None, submitted=None):
     return _shell(title, body, sess, conn, active=table)
 
 
-def _master_guard(request, sess, conn, table):
-    """Shared precondition for the write routes; returns a Response to bail with,
-    or None to proceed."""
-    if not web_masters.is_master(table):
-        return _page('Not found', '<p class="muted">This register is '
-                     'view-only for now.</p>', sess, conn, status=404)
+def _guard_write(request, sess, conn):
+    """Role + CSRF gate for any authenticated write. Returns a Response to bail
+    with, or None to proceed."""
     if not can_write(sess['role']):
-        return _forbidden(sess, conn,
-                          'Your account is read-only (Viewer).')
+        return _forbidden(sess, conn, 'Your account is read-only (Viewer).')
     if request.method == 'POST' and not _csrf_ok(request, sess):
         return _forbidden(sess, conn,
                           'Your session expired — reload the page and retry.')
     return None
+
+
+def _master_guard(request, sess, conn, table):
+    """Precondition for the flat-master write routes."""
+    if not web_masters.is_master(table):
+        return _page('Not found', '<p class="muted">This register is '
+                     'view-only for now.</p>', sess, conn, status=404)
+    return _guard_write(request, sess, conn)
 
 
 def _master_create(request, sess, conn, table, cols):
@@ -573,8 +601,11 @@ def _master_edit(request, sess, conn, table, cols, rid):
     return _redirect('/t/{}/{}'.format(table, rid))
 
 
-def _master_delete(request, sess, conn, table, cols, rid):
-    bail = _master_guard(request, sess, conn, table)
+def _row_delete(request, sess, conn, table, cols, rid):
+    if not _is_writable(table):
+        return _page('Not found', '<p class="muted">This register is '
+                     'view-only for now.</p>', sess, conn, status=404)
+    bail = _guard_write(request, sess, conn)
     if bail:
         return bail
     if request.method != 'POST':
@@ -593,3 +624,237 @@ def _master_delete(request, sess, conn, table, cols, rid):
             '‹ Back</a></p>'.format(tbl=R.esc(table), rid=R.esc(rid)),
             sess, conn, active=table, status=409)
     return _redirect('/t/{}'.format(table))
+
+
+# --------------------------------------------------------- estimates (3a)
+# Estimates = header + line items + a computed total (estimate.estimate_totals),
+# with NO ledger posting — so they are safe to edit in the browser without the
+# double-entry engine (that is reserved for bills / RA bills / payments).
+def _int_or_none(value):
+    value = (value or '').strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _estimate_lines_html(conn, rid):
+    items = conn.execute(
+        'SELECT item_code, description, unit, qty, rate, amount FROM '
+        'estimate_items WHERE estimate_id = ? ORDER BY id', (rid,)).fetchall()
+    if not items:
+        return '<h2>Line items</h2><p class="muted">No line items.</p>'
+    rows = [[i['item_code'], i['description'], i['unit'], i['qty'], i['rate'],
+             R.money(i['amount'])] for i in items]
+    tbl = R.table(['Code', 'Description', 'Unit', 'Qty', 'Rate', 'Amount'], rows)
+    est = conn.execute('SELECT contingency_pct, gst_pct FROM estimates '
+                       'WHERE id = ?', (rid,)).fetchone()
+    t = estimate.estimate_totals(items, est['contingency_pct'] if est else 0,
+                                 est['gst_pct'] if est else 0)
+    summary = (
+        '<dl class="dl" style="margin-top:14px;max-width:420px">'
+        '<dt>Subtotal</dt><dd>{sub}</dd>'
+        '<dt>Contingency</dt><dd>{con}</dd>'
+        '<dt>Taxable</dt><dd>{tax}</dd>'
+        '<dt>GST</dt><dd>{gst}</dd>'
+        '<dt>Grand total</dt><dd><strong>{grand}</strong></dd></dl>').format(
+        sub=R.money(t['subtotal']), con=R.money(t['contingency']),
+        tax=R.money(t['taxable']), gst=R.money(t['gst']),
+        grand=R.money(t['grand_total']))
+    return '<h2>Line items</h2>' + tbl + summary
+
+
+def _parse_estimate(request):
+    """Read the estimate form into (header dict, line list, errors)."""
+    f = request.form
+    errs = []
+
+    def num(key, label):
+        raw = (f.get(key) or '').strip()
+        if raw == '':
+            return 0.0
+        try:
+            return float(raw)
+        except ValueError:
+            errs.append('{} must be a number.'.format(label))
+            return 0.0
+
+    hdr = {
+        'est_number': (f.get('est_number') or '').strip(),
+        'title': (f.get('title') or '').strip(),
+        'site_id': _int_or_none(f.get('site_id')),
+        'estimate_date': (f.get('estimate_date') or '').strip(),
+        'status': (f.get('status') or 'Draft').strip(),
+        'contingency_pct': num('contingency_pct', 'Contingency %'),
+        'gst_pct': num('gst_pct', 'GST %'),
+        'notes': (f.get('notes') or '').strip(),
+    }
+    if not hdr['title']:
+        errs.append('Title is required.')
+
+    m = request.form_multi
+    codes = m.get('li_code', [])
+    descs = m.get('li_desc', [])
+    units = m.get('li_unit', [])
+    qtys = m.get('li_qty', [])
+    rates = m.get('li_rate', [])
+    n = max(len(codes), len(descs), len(units), len(qtys), len(rates))
+
+    def at(seq, i):
+        return (seq[i] if i < len(seq) else '').strip()
+
+    lines = []
+    for i in range(n):
+        code, desc = at(codes, i), at(descs, i)
+        unit, qraw, rraw = at(units, i), at(qtys, i), at(rates, i)
+        if not any([code, desc, qraw, rraw]):
+            continue                       # a wholly blank row — ignore
+        try:
+            qty = float(qraw or 0)
+        except ValueError:
+            errs.append('Qty "{}" is not a number.'.format(qraw)); qty = 0.0
+        try:
+            rate = float(rraw or 0)
+        except ValueError:
+            errs.append('Rate "{}" is not a number.'.format(rraw)); rate = 0.0
+        lines.append({'item_code': code, 'description': desc, 'unit': unit,
+                      'qty': qty, 'rate': rate,
+                      'amount': estimate.item_amount(rate, qty)})
+    if not lines:
+        errs.append('Add at least one line item.')
+    return hdr, lines, errs
+
+
+def _estimate_editor(request, sess, conn, rid):
+    bail = _guard_write(request, sess, conn)
+    if bail:
+        return bail
+    editing = rid is not None
+    row = None
+    if editing:
+        row = conn.execute('SELECT * FROM estimates WHERE id = ?',
+                           (rid,)).fetchone()
+        if not row:
+            return _page('Not found', '<p class="muted">Estimate not found.</p>',
+                         sess, conn, status=404)
+
+    if request.method != 'POST':
+        lines = []
+        if editing:
+            lines = [dict(item_code=r['item_code'], description=r['description'],
+                          unit=r['unit'], qty=r['qty'], rate=r['rate'])
+                     for r in conn.execute(
+                         'SELECT item_code, description, unit, qty, rate FROM '
+                         'estimate_items WHERE estimate_id = ? ORDER BY id',
+                         (rid,))]
+        return _estimate_form(conn, sess, rid, row, lines, None, None)
+
+    hdr, lines, errs = _parse_estimate(request)
+    if errs:
+        return _estimate_form(conn, sess, rid, row, lines, errs, hdr)
+    total = estimate.estimate_totals(
+        lines, hdr['contingency_pct'], hdr['gst_pct'])['grand_total']
+    if editing:
+        conn.execute(
+            'UPDATE estimates SET est_number=?, title=?, site_id=?, '
+            'estimate_date=?, status=?, contingency_pct=?, gst_pct=?, notes=?, '
+            'total_estimate=? WHERE id=?',
+            (hdr['est_number'], hdr['title'], hdr['site_id'],
+             hdr['estimate_date'], hdr['status'], hdr['contingency_pct'],
+             hdr['gst_pct'], hdr['notes'], total, rid))
+        conn.execute('DELETE FROM estimate_items WHERE estimate_id = ?', (rid,))
+        eid = rid
+    else:
+        cur = conn.execute(
+            'INSERT INTO estimates (est_number, title, site_id, estimate_date, '
+            'status, contingency_pct, gst_pct, notes, total_estimate) VALUES '
+            '(?,?,?,?,?,?,?,?,?)',
+            (hdr['est_number'], hdr['title'], hdr['site_id'],
+             hdr['estimate_date'], hdr['status'], hdr['contingency_pct'],
+             hdr['gst_pct'], hdr['notes'], total))
+        eid = cur.lastrowid
+    for ln in lines:
+        conn.execute(
+            'INSERT INTO estimate_items (estimate_id, item_code, description, '
+            'unit, qty, rate, amount) VALUES (?,?,?,?,?,?,?)',
+            (eid, ln['item_code'], ln['description'], ln['unit'], ln['qty'],
+             ln['rate'], ln['amount']))
+    auth.audit(conn, sess['username'],
+               'web_update' if editing else 'web_create', 'estimates', eid)
+    conn.commit()
+    return _redirect('/t/estimates/{}'.format(eid))
+
+
+def _est_line_row(line):
+    def cell(name, val, width=''):
+        style = ' style="width:{}px"'.format(width) if width else ''
+        return ('<td><input type="text" name="{n}" value="{v}"{s}></td>'.format(
+            n=name, v=R.esc('' if val is None else val), s=style))
+    return ('<tr>' + cell('li_code', line.get('item_code', ''), 90)
+            + cell('li_desc', line.get('description', ''))
+            + cell('li_unit', line.get('unit', ''), 70)
+            + cell('li_qty', line.get('qty', ''), 80)
+            + cell('li_rate', line.get('rate', ''), 100)
+            + '<td><button type="button" class="btn ghost" '
+              'onclick="delLine(this)">✕</button></td></tr>')
+
+
+def _estimate_form(conn, sess, rid, row, lines, errs, submitted):
+    def hv(key, default=''):
+        if submitted is not None:
+            return submitted.get(key, default)
+        if row is not None:
+            return row[key]
+        return default
+
+    site_opts = web_masters.fk_options(conn, 'SELECT id, name FROM sites '
+                                             'ORDER BY name')
+    header = ''.join([
+        R.field_row('Estimate number', R.control('text', 'est_number',
+                                                 hv('est_number'))),
+        R.field_row('Title', R.control('text', 'title', hv('title'))),
+        R.field_row('Site', R.control('fk', 'site_id', hv('site_id'), site_opts)),
+        R.field_row('Date', R.control('text', 'estimate_date',
+                                      hv('estimate_date'))),
+        R.field_row('Status', R.control('combo', 'status', hv('status', 'Draft'),
+                                        [('Draft', 'Draft'), ('Final', 'Final')])),
+        R.field_row('Contingency %', R.control('number', 'contingency_pct',
+                                               hv('contingency_pct', '0'))),
+        R.field_row('GST %', R.control('number', 'gst_pct', hv('gst_pct', '18'))),
+        R.field_row('Notes', R.control('textarea', 'notes', hv('notes'))),
+    ])
+    shown = lines if lines else [{}]
+    rows_html = ''.join(_est_line_row(dict(item_code=l.get('item_code', ''),
+                                           description=l.get('description', ''),
+                                           unit=l.get('unit', ''),
+                                           qty=l.get('qty', ''),
+                                           rate=l.get('rate', '')))
+                        for l in shown)
+    blank = _est_line_row({})
+    editing = rid is not None
+    action = ('/t/estimates/{}/edit'.format(rid) if editing
+              else '/t/estimates/new')
+    title = '{} Estimate'.format('Edit' if editing else 'New')
+    body = (
+        '<h1>{title}</h1>{errs}'
+        '<form method="post" action="{action}">'
+        '<input type="hidden" name="csrf" value="{csrf}">'
+        '{header}'
+        '<h2>Line items</h2>'
+        '<div class="tablewrap"><table><thead><tr><th>Code</th>'
+        '<th>Description</th><th>Unit</th><th>Qty</th><th>Rate</th><th></th>'
+        '</tr></thead><tbody id="li-body">{rows}</tbody></table></div>'
+        '<p><button type="button" class="btn ghost" onclick="addLine()">'
+        '+ Add line</button></p>'
+        '<div class="formbtns"><button class="btn" type="submit">Save</button>'
+        '<a class="btn ghost" href="/t/estimates">Cancel</a></div></form>'
+        '<template id="li-tpl">{blank}</template>'
+        '<script>function addLine(){{document.getElementById("li-body")'
+        '.appendChild(document.getElementById("li-tpl").content.cloneNode(true));}}'
+        'function delLine(b){{var t=document.getElementById("li-body");'
+        'if(t.rows.length>1){{b.closest("tr").remove();}}}}</script>'
+    ).format(title=R.esc(title), errs=R.errors(errs), action=R.esc(action),
+             csrf=R.esc(sess['csrf']), header=header, rows=rows_html, blank=blank)
+    return _shell(title, body, sess, conn, active='estimates')
