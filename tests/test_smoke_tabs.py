@@ -70,6 +70,7 @@ class TestTabsBuildOnSampleData(unittest.TestCase):
         from main import BUILDERS
         from tab_home import build_home_tab
         from tab_assistant import build_assistant_tab
+        from tab_ollama import build_ollama_tab
         from tab_tools import build_tools_tab
 
         get = self.db.get_conn
@@ -78,7 +79,7 @@ class TestTabsBuildOnSampleData(unittest.TestCase):
         conn.close()
 
         always = {'Home': build_home_tab, 'Assistant': build_assistant_tab,
-                  'Tools': build_tools_tab}
+                  'AI Engine': build_ollama_tab, 'Tools': build_tools_tab}
         builders = dict(BUILDERS)
         builders.update(always)
 

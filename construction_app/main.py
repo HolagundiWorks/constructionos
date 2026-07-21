@@ -27,6 +27,7 @@ from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
 from tab_assistant import build_assistant_tab
+from tab_ollama import build_ollama_tab
 from tab_money import build_money_tab
 from tab_insight import build_insight_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
@@ -176,6 +177,15 @@ def _section(parent, get, items):
     return sub
 
 
+def _ai_section(parent, get):
+    """The Assistant screen: Ask-your-data, plus the folded-in Ollama manager
+    (server + models) — one place for everything AI."""
+    nb = ttk.Notebook(parent)
+    nb.add(build_assistant_tab(nb, get), text='\U0001F4AC  ' + i18n.t('Assistant'))
+    nb.add(build_ollama_tab(nb, get), text='⚙  AI Engine')
+    return nb
+
+
 def main():
     db.init_db()
 
@@ -252,7 +262,7 @@ def main():
          'build': lambda p: build_home_tab(p, get)},
         {'key': 'assistant', 'label': i18n.t('Assistant'),
          'icon': icons['assistant'],
-         'build': lambda p: build_assistant_tab(p, get)},
+         'build': lambda p: _ai_section(p, get)},
     ]
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels

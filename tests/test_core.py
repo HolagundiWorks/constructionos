@@ -3908,6 +3908,32 @@ class TestAuthLogin(unittest.TestCase):
             conn.close()
 
 
+class TestOllamaCatalog(unittest.TestCase):
+    """The model catalogue folded in from the Ollama Manager."""
+
+    def test_choices_and_tag_roundtrip(self):
+        import ollama_catalog as cat
+        self.assertTrue(cat.MODELS)
+        choices = cat.choices()
+        self.assertEqual(len(choices), len(cat.MODELS))
+        # a dropdown label round-trips back to its bare tag
+        for (tag, _sz, _note), choice in zip(cat.MODELS, choices):
+            self.assertEqual(cat.tag_from_choice(choice), tag)
+        # a hand-typed bare tag survives
+        self.assertEqual(cat.tag_from_choice('llama3.1:8b'), 'llama3.1:8b')
+        self.assertEqual(cat.tag_from_choice(''), '')
+        self.assertIn(':', cat.SUGGESTED)
+
+    def test_api_base_url_normalises(self):
+        import ollama_api as api
+        self.assertEqual(api.base_url('localhost'),
+                         'http://localhost:11434')
+        self.assertEqual(api.base_url('http://127.0.0.1:11434'),
+                         'http://127.0.0.1:11434')
+        self.assertEqual(api.human_size(0), '0 B')
+        self.assertTrue(api.human_size(5 * 1024 ** 3).endswith('GB'))
+
+
 class TestScheduler(unittest.TestCase):
     """The working-calendar scheduling engine: calendar, typed deps, critical
     path, WBS, cycles."""
