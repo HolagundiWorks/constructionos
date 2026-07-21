@@ -1023,6 +1023,32 @@ CREATE TABLE IF NOT EXISTS opportunities (
     remarks TEXT
 );
 
+-- ------------------------------------ lessons-learned register (Part 2 — CI)
+-- Continuous improvement: what went well or badly, and — the part that matters —
+-- the recommendation to feed into the next project (an updated rate, a tuned
+-- detection rule, a changed checklist). A lesson can be born from a risk that
+-- materialised, an opportunity realised, a site observation, or an AI pattern
+-- (source + source_id link back). 'Applied' status means the insight has
+-- actually been carried forward, not just written down. Maths in lessons.py.
+CREATE TABLE IF NOT EXISTS lessons_learned (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- schedule/cost/quality/safety/procurement/...
+    title TEXT,
+    description TEXT,
+    outcome TEXT DEFAULT 'neutral',   -- positive / negative / neutral
+    root_cause TEXT,
+    recommendation TEXT,              -- the feed-forward action for next time
+    source TEXT DEFAULT 'observation',-- risk / opportunity / observation / ai
+    source_id INTEGER,                -- optional link to the risk/opportunity row
+    impact_value REAL DEFAULT 0,      -- rupees or days, optional
+    tags TEXT,                        -- comma-separated (e.g. 'rate-library')
+    status TEXT DEFAULT 'Open',       -- Open / Reviewed / Applied
+    owner TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
 -- Bid / no-bid assessments. Records the judgement scores, the advisory
 -- verdict, what was actually decided, and how it turned out — the last two
 -- are what let the scoring be checked against reality later instead of being

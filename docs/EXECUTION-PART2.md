@@ -61,7 +61,7 @@ live in (below), scored the same way so they rank against each other.
 | Change Management Log | `variation.py` register | **Built** |
 | Procurement Status Report | `procurement.py`, `sourcing.py`, GRN match | **Built** |
 | Commissioning Plan / Handover Docs | `closeout.py` | **Extend** |
-| Lessons Learned Register | continuous-improvement loop (§6) | **Proposed** |
+| **Lessons Learned Register** | `lessons_learned` table + `lessons_store.py` (§6) | **Built (data); tab pending** |
 
 The two headline execution artefacts — the **Risk Register** and the
 **Opportunity Register** — are the new capability this pass delivers.
@@ -172,9 +172,13 @@ All pure/DB-only, tkinter-free, no pip, unit-tested headless:
 - **`productivity.py`** (new) — labour productivity + performance factor,
   equipment utilisation (capped at 100), material waste %.
 - **`review_pack.py`** (extended) — optional opportunity summary in the pack.
-- **Tests** — 17 new unit tests (risk urgency/response, opportunity + store,
-  risk-store urgency, productivity, TRIR, review-pack opportunities). Full suite
-  passes bar the pre-existing missing-`tkinter` GUI theme test.
+- **`lessons.py` + `lessons_learned` table + `lessons_store.py`** (new) — the
+  Lessons Learned register (§6): outcome/root-cause/recommendation with a
+  feed-forward queue, capture straight from a risk/opportunity, project-delete
+  cascade.
+- **Tests** — 25 new unit tests (risk urgency/response, opportunity + store,
+  risk-store urgency, productivity, TRIR, review-pack opportunities, lessons +
+  store). Full suite passes bar the pre-existing missing-`tkinter` GUI theme test.
 
 **Remaining (display-dependent, deliberately deferred):** the tkinter tabs for
 the risk and opportunity registers, and surfacing the KPIs on screen — these need
@@ -191,10 +195,19 @@ document opportunity realisations, and feed insight into future projects.
 - **Mitigation effectiveness** — already measurable (`mitigation_benefit`, §3.6).
 - **Opportunity realisation** — tracked by opportunity `status`
   (Pursuing → Realized) and `expected_value` vs actual.
-- **Lessons Learned Register (Proposed)** — a light register keyed to project +
-  category that, at closeout, feeds the rate library and the risk/opportunity
-  detection rules, so the next project starts wiser. This closes the loop the
-  framework describes and slots naturally beside `closeout.py`.
+- **Lessons Learned Register (Built)** — `lessons_learned` table +
+  `lessons.py` (taxonomy + roll-up) + `lessons_store.py` (persistence). A lesson
+  records the **outcome** (positive/negative/neutral), a **root cause** and — the
+  part that matters — a **recommendation** to feed forward, with a **status**
+  whose `Applied` state means the insight was actually carried into future
+  planning. Lessons can be captured **straight from a risk that materialised or
+  an opportunity realised** (`lessons_store.from_risk` / `from_opportunity`,
+  linking `source_id`), so the register fills itself from what the project
+  already recorded. `feed_forward()` returns the live queue — recommendations
+  not yet applied — that closes the loop into the next project's planning (an
+  updated rate, a tuned detection rule, a changed checklist). Pure roll-up and
+  DB persistence are unit-tested; only the tkinter tab remains, and — being
+  display-dependent — is deferred like the other register tabs.
 
 ---
 

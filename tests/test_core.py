@@ -81,6 +81,8 @@ import review_pack
 import opportunity
 import opportunity_store
 import productivity
+import lessons
+import lessons_store
 
 
 class TestFinance(unittest.TestCase):
@@ -705,6 +707,114 @@ class TestProductivity(unittest.TestCase):
         saving = productivity.material_waste(100, 95)
         self.assertEqual(saving['waste'], -5.0)           # negative = a saving
         self.assertIsNone(productivity.material_waste(0, 5)['waste_pct'])
+
+
+class TestLessons(unittest.TestCase):
+    """Lessons-learned taxonomy + roll-up (pure)."""
+
+    def test_outcome_and_source_normalise(self):
+        self.assertEqual(lessons.normalize_outcome('POSITIVE'), lessons.POSITIVE)
+        self.assertEqual(lessons.normalize_outcome('whatever'), lessons.NEUTRAL)
+        self.assertEqual(lessons.normalize_source('Risk'), lessons.RISK)
+        self.assertEqual(lessons.normalize_source('junk'), lessons.OBSERVATION)
+
+    def test_feed_forward_is_recommendation_not_yet_applied(self):
+        self.assertTrue(lessons.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons.OPEN}))
+        self.assertFalse(lessons.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons.APPLIED}))
+        self.assertFalse(lessons.is_feed_forward(
+            {'recommendation': '', 'status': lessons.OPEN}))
+
+    def test_summary_counts_outcomes_and_feed_forward(self):
+        rows = [
+            {'category': 'cost', 'outcome': 'negative',
+             'recommendation': 'update rate', 'status': lessons.OPEN},
+            {'category': 'cost', 'outcome': 'positive',
+             'recommendation': '', 'status': lessons.APPLIED},
+            {'category': 'safety', 'outcome': 'neutral',
+             'recommendation': 'toolbox talk', 'status': lessons.REVIEWED},
+        ]
+        s = lessons.summary(rows)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['by_category']['cost'], 2)
+        self.assertEqual(s['by_outcome'][lessons.NEGATIVE], 1)
+        self.assertEqual(s['applied'], 1)
+        self.assertEqual(s['feed_forward_count'], 2)   # the two with a rec, not applied
+
+
+class TestLessonsStore(unittest.TestCase):
+    """Lessons register persistence against a temporary SQLite database,
+    including capture straight from a risk/opportunity row."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('Bypass Road')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_add_normalises_and_defaults(self):
+        lid = lessons_store.add(
+            self.conn, project_id=1, category='procurement',
+            title='JIT sand delivery worked', outcome='POSITIVE',
+            source='Observation', recommendation='repeat on next job')
+        row = lessons_store.get(self.conn, lid)
+        self.assertEqual(row['outcome'], lessons.POSITIVE)   # lowercased
+        self.assertEqual(row['status'], lessons.OPEN)        # defaulted
+        self.assertTrue(row['created_date'])
+
+    def test_capture_from_a_risk_links_the_source(self):
+        rid = risk_store.add(self.conn, project_id=1, category='schedule',
+                             title='Monsoon delay', description='rain days',
+                             likelihood=4, impact=4)
+        risk_row = risk_store.get(self.conn, rid)
+        lid = lessons_store.from_risk(self.conn, risk_row,
+                                      recommendation='add monsoon float')
+        lesson = lessons_store.get(self.conn, lid)
+        self.assertEqual(lesson['source'], lessons.RISK)
+        self.assertEqual(lesson['source_id'], rid)
+        self.assertEqual(lesson['outcome'], lessons.NEGATIVE)
+        self.assertEqual(lesson['category'], 'schedule')
+
+    def test_capture_from_an_opportunity_is_positive(self):
+        oid = opportunity_store.add(self.conn, project_id=1, category='cost',
+                                    title='Bulk cement discount',
+                                    likelihood=4, impact=3, value=80000)
+        opp_row = opportunity_store.get(self.conn, oid)
+        lid = lessons_store.from_opportunity(self.conn, opp_row,
+                                             recommendation='negotiate early')
+        lesson = lessons_store.get(self.conn, lid)
+        self.assertEqual(lesson['source'], lessons.OPPORTUNITY)
+        self.assertEqual(lesson['outcome'], lessons.POSITIVE)
+
+    def test_feed_forward_and_applied(self):
+        lid = lessons_store.add(self.conn, project_id=1, title='X',
+                                recommendation='do Y next time')
+        self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 1)
+        lessons_store.set_status(self.conn, lid, lessons.APPLIED)
+        self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 0)
+        self.assertEqual(lessons_store.summary(self.conn, 1)['applied'], 1)
+
+    def test_deleting_a_project_cascades_to_its_lessons(self):
+        lessons_store.add(self.conn, project_id=1, title='keep', outcome='neutral')
+        self.conn.execute("DELETE FROM projects WHERE id = 1")
+        self.conn.commit()
+        self.assertEqual(len(lessons_store.list_lessons(self.conn)), 0)
 
 
 class TestForecast(unittest.TestCase):
