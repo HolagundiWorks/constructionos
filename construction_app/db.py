@@ -1027,6 +1027,34 @@ CREATE TABLE IF NOT EXISTS rate_analysis_items (
     amount REAL DEFAULT 0           -- qty * rate (derived)
 );
 
+-- On-drawing quantity takeoff (Bluebeam-style). A takeoff is one drawing page
+-- with a calibrated scale; each item is a measured length / area / count /
+-- volume, its points kept as JSON so the mark-up can be redrawn and edited.
+CREATE TABLE IF NOT EXISTS takeoffs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id),
+    site_id INTEGER REFERENCES sites(id),
+    name TEXT,
+    source TEXT,                    -- the image/PDF path measured
+    page INTEGER DEFAULT 1,
+    scale REAL DEFAULT 0,           -- real units per pixel (from calibration)
+    unit TEXT DEFAULT 'm',          -- linear unit: m / ft / mm
+    notes TEXT,
+    created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS takeoff_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    takeoff_id INTEGER REFERENCES takeoffs(id) ON DELETE CASCADE,
+    name TEXT,
+    category TEXT,
+    kind TEXT DEFAULT 'length',     -- length / area / count / volume
+    unit TEXT,
+    depth REAL DEFAULT 0,           -- for volume = area x depth
+    quantity REAL DEFAULT 0,
+    points TEXT                     -- JSON [[x, y], ...] in image pixels
+);
+
 """
 
 # Indexes live OUTSIDE ``SCHEMA`` on purpose, and are applied only after
@@ -1093,6 +1121,8 @@ CREATE INDEX IF NOT EXISTS idx_variations_contract ON variations(contract_id);
 CREATE INDEX IF NOT EXISTS idx_variations_status ON variations(status);
 CREATE INDEX IF NOT EXISTS idx_raitems_analysis
     ON rate_analysis_items(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_takeoff_items ON takeoff_items(takeoff_id);
+CREATE INDEX IF NOT EXISTS idx_takeoffs_project ON takeoffs(project_id);
 CREATE INDEX IF NOT EXISTS idx_compliance_due
     ON compliance_filings(due_date);
 CREATE INDEX IF NOT EXISTS idx_plantlogs_equipment

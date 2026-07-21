@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import advisory
 import refdata
 import scheduler
+import takeoff
 import ageing
 import allocation
 import approval
@@ -3906,6 +3907,57 @@ class TestAuthLogin(unittest.TestCase):
                                  'password')
         finally:
             conn.close()
+
+
+class TestTakeoff(unittest.TestCase):
+    """On-drawing quantity takeoff: geometry + scale conversion."""
+
+    SQUARE = [(0, 0), (100, 0), (100, 100), (0, 100)]
+
+    def test_distance_and_polyline(self):
+        self.assertAlmostEqual(takeoff.distance((0, 0), (3, 4)), 5.0)
+        # three points -> two segments of 100 px = 200 px
+        self.assertAlmostEqual(
+            takeoff.polyline_length([(0, 0), (100, 0), (100, 100)]), 200.0)
+
+    def test_shoelace_area_is_orientation_independent(self):
+        self.assertAlmostEqual(takeoff.polygon_area(self.SQUARE), 10000.0)
+        self.assertAlmostEqual(
+            takeoff.polygon_area(list(reversed(self.SQUARE))), 10000.0)
+        # a triangle: base 100, height 100 -> 5000
+        self.assertAlmostEqual(
+            takeoff.polygon_area([(0, 0), (100, 0), (0, 100)]), 5000.0)
+
+    def test_scale_calibration_and_length(self):
+        # a 100 px line spans 5 real metres -> 0.05 m/px
+        scale = takeoff.scale_from(100, 5)
+        self.assertAlmostEqual(scale, 0.05)
+        self.assertAlmostEqual(
+            takeoff.measure(takeoff.LENGTH, [(0, 0), (100, 0)], scale), 5.0)
+        self.assertEqual(takeoff.scale_from(0, 5), 0.0)     # degenerate
+
+    def test_area_scales_by_the_square(self):
+        scale = takeoff.scale_from(100, 5)                  # 0.05 m/px
+        # 10000 px^2 * 0.05^2 = 25 sqm
+        self.assertAlmostEqual(
+            takeoff.measure(takeoff.AREA, self.SQUARE, scale), 25.0)
+
+    def test_volume_is_area_times_depth(self):
+        scale = takeoff.scale_from(100, 5)
+        self.assertAlmostEqual(
+            takeoff.measure(takeoff.VOLUME, self.SQUARE, scale, depth=0.15),
+            3.75)
+
+    def test_count_and_units_and_totals(self):
+        self.assertEqual(
+            takeoff.measure(takeoff.COUNT, [(1, 1), (2, 2), (3, 3)]), 3.0)
+        self.assertEqual(takeoff.unit_for(takeoff.AREA, 'm'), 'sqm')
+        self.assertEqual(takeoff.unit_for(takeoff.VOLUME, 'ft'), 'cft')
+        self.assertEqual(takeoff.unit_for(takeoff.COUNT, 'mm'), 'nos')
+        totals = takeoff.totals_by_unit([
+            {'unit': 'sqm', 'quantity': 25}, {'unit': 'sqm', 'quantity': 15},
+            {'unit': 'nos', 'quantity': 3}])
+        self.assertEqual(totals, {'sqm': 40.0, 'nos': 3.0})
 
 
 class TestOllamaCatalog(unittest.TestCase):

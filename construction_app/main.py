@@ -42,6 +42,7 @@ from tab_documents import (build_quotations_tab, build_contracts_tab,
 from tab_estimate import build_estimate_tab
 from tab_bidding import build_bidding_tab
 from tab_rateanalysis import build_rate_analysis_tab
+from tab_takeoff import build_takeoff_tab
 from tab_projects import build_projects_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
@@ -95,6 +96,7 @@ BUILDERS = {
     'Timeline': build_timeline_tab,
     'Rate Book': build_rate_book_tab,
     'Rate Analysis': build_rate_analysis_tab,
+    'Takeoff': build_takeoff_tab,
     'Bid / No Bid': build_bidding_tab,
     'Quotations': build_quotations_tab,
     'Estimates': build_estimate_tab,
@@ -135,7 +137,8 @@ MODULE_ICONS = {
     'Look-ahead': '\U0001F4C5', 'Safety': '\U0001F9BA', 'Closeout': '\U0001F3C1',
     'Timeline': '\U0001F4C6',
     # Billing
-    'Rate Book': '\U0001F4D6', 'Rate Analysis': '\U0001F9EE', 'Bid / No Bid': '⚖',
+    'Rate Book': '\U0001F4D6', 'Rate Analysis': '\U0001F9EE',
+    'Takeoff': '\U0001F4CF', 'Bid / No Bid': '⚖',
     'Quotations': '\U0001F4C4', 'Estimates': '\U0001F4D0', 'Contracts': '\U0001F4DC',
     'BOQ / RA Bills': '\U0001F4D1', 'Variations': '\U0001F500',
     'Running Bills': '\U0001F9FE', 'Tax Invoice': '\U0001F4C3',

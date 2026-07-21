@@ -44,6 +44,7 @@ STRINGS = {
     'Site Reports': {'hi': 'साइट रिपोर्ट', 'hi_en': 'Site Report'},
     'Timeline': {'hi': 'समय-सारणी', 'hi_en': 'Timeline'},
     'Rate Book': {'hi': 'दर सूची', 'hi_en': 'Rate Book'},
+    'Takeoff': {'hi': 'मात्रा माप', 'hi_en': 'Takeoff'},
     'Quotations': {'hi': 'कोटेशन', 'hi_en': 'Quotation'},
     'Estimates': {'hi': 'अनुमान', 'hi_en': 'Estimate'},
     'Contracts': {'hi': 'ठेका', 'hi_en': 'Theka'},
