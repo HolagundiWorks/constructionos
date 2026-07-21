@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
 
 import advisory
+import refdata
 import ageing
 import allocation
 import approval
@@ -3631,6 +3632,102 @@ class TestAdvisory(unittest.TestCase):
             {'compliance_overdue': 0, 'compliance_due_soon': 3})
         self.assertEqual(overdue['severity'], advisory.ACT)
         self.assertEqual(soon['severity'], advisory.WATCH)
+
+
+class TestReferenceData(unittest.TestCase):
+    """The CPWD starter library: coherent data, correct mapping, idempotent."""
+
+    def test_every_norm_material_exists_in_the_material_master(self):
+        # a typo in a norm's material name would orphan it — catch it statically
+        names = {m[0] for m in refdata.MATERIALS}
+        for activity, _unit, material, _qty, _remark in refdata.NORMS:
+            self.assertIn(material, names,
+                          '{} references unknown material {!r}'.format(
+                              activity, material))
+
+    def test_coefficients_are_the_standard_nominal_mix_values(self):
+        norm = {(a, m): q for a, _u, m, q, _r in refdata.NORMS}
+        # M20 (1:1.5:3), dry-volume 1.54 -> 8.06 bags cement, 0.42/0.84 cum
+        self.assertAlmostEqual(
+            norm[('RCC M20 (1:1.5:3)', 'OPC 53 Grade Cement')], 8.06, places=2)
+        self.assertAlmostEqual(
+            norm[('RCC M20 (1:1.5:3)', 'River Sand')], 0.42, places=2)
+        # 1 cum of 230mm brickwork ~ 500 modular bricks
+        self.assertEqual(
+            norm[('Brick masonry 230mm (CM 1:6)', 'Red Clay Brick (modular)')],
+            500)
+
+    def test_load_is_idempotent_and_maps_norms_to_real_materials(self):
+        import db
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        try:
+            db.init_db()
+            conn = db.get_conn()
+            first = refdata.load(conn)
+            self.assertGreater(first['materials'], 0)
+            self.assertGreater(first['norms'], 0)
+            self.assertGreater(first['rate_book'], 0)
+            self.assertEqual(first['analyses'], len(refdata.ANALYSES))
+
+            # second load must add nothing
+            second = refdata.load(conn)
+            self.assertEqual(second,
+                             {'materials': 0, 'norms': 0, 'rate_book': 0,
+                              'analyses': 0})
+
+            # no norm points at a missing material
+            orphans = conn.execute(
+                'SELECT COUNT(*) FROM consumption_norms n '
+                'LEFT JOIN materials m ON m.id = n.material_id '
+                'WHERE m.id IS NULL').fetchone()[0]
+            self.assertEqual(orphans, 0)
+
+            # every seeded analysis derived a positive per-unit rate + has items
+            for r in conn.execute('SELECT id, rate_per_unit FROM rate_analysis'):
+                self.assertGreater(r['rate_per_unit'], 0)
+                items = conn.execute(
+                    'SELECT COUNT(*) FROM rate_analysis_items '
+                    'WHERE analysis_id = ?', (r['id'],)).fetchone()[0]
+                self.assertGreater(items, 0)
+            conn.close()
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
+
+    def test_load_layers_onto_existing_materials_without_duplicating(self):
+        import db
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        try:
+            db.init_db()
+            conn = db.get_conn()
+            # a book that already has one of the reference materials by name
+            conn.execute("INSERT INTO materials (name, unit, category, rate) "
+                         "VALUES ('OPC 53 Grade Cement', 'bag', 'Cement', 999)")
+            conn.commit()
+            refdata.load(conn)
+            n = conn.execute("SELECT COUNT(*) FROM materials "
+                             "WHERE name = 'OPC 53 Grade Cement'").fetchone()[0]
+            self.assertEqual(n, 1, 'existing material was duplicated')
+            conn.close()
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
 
 
 class TestTabModuleImports(unittest.TestCase):

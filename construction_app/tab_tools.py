@@ -31,6 +31,7 @@ import firm as firm_module
 import company
 import i18n
 import numbering
+import refdata
 import sampledata
 from ui_guard import can_write
 from widgets import Switch
@@ -188,6 +189,24 @@ class ToolsTab(ttk.Frame):
         ttk.Button(btns, text='Save Modules', command=self.save_modules).pack(side='left')
         ttk.Button(btns, text='Enable All',
                    command=lambda: self._set_all_modules(1)).pack(side='left', padx=6)
+
+        # --- Reference library (CPWD items, material rates, consumption norms) ---
+        ref = ttk.LabelFrame(
+            self, text='Reference library (CPWD items, material rates, '
+                       'consumption norms)')
+        ref.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(ref, text='Load a starter library into THIS company file: '
+                            'standard civil items (rate book), current material '
+                            'rates, and the material split — how much cement, '
+                            'sand, steel etc. each unit of concrete, masonry, '
+                            'plastering and other civil work consumes. Rates are '
+                            'indicative (mid-2026) — edit to your locality. '
+                            'Nothing already present is changed.',
+                  wraplength=560, justify='left').pack(anchor='w', padx=8,
+                                                       pady=(6, 2))
+        rbtn = ttk.Frame(ref); rbtn.pack(fill='x', padx=8, pady=(0, 8))
+        ttk.Button(rbtn, text='Load CPWD Reference Data',
+                   command=self.load_reference_data).pack(side='left')
 
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
@@ -529,6 +548,50 @@ class ToolsTab(ttk.Frame):
         company.save(data)
         self.refresh_companies()
         self.status_var.set('Added {} to the list.'.format(path))
+
+    def load_reference_data(self):
+        """Add the CPWD reference library (materials, consumption norms, rate
+        book, worked analyses) to the CURRENT company file. Idempotent — the
+        seeder skips anything already present, so it is safe to run again."""
+        if not can_write():
+            return
+        if not messagebox.askyesno(
+                'Load reference data',
+                'Add a starter reference library to THIS company file:\n\n'
+                '•  standard civil items (Rate Book)\n'
+                '•  current material rates (Materials)\n'
+                '•  consumption norms — the material split for concrete, '
+                'masonry, plastering and other civil work\n'
+                '•  a few worked rate analyses\n\n'
+                'Rates are indicative (mid-2026) — edit them to your area. '
+                'Anything already present is left unchanged. Continue?'):
+            return
+        conn = self.db_getter()
+        try:
+            n = refdata.load(conn)
+        except Exception as exc:                          # noqa: BLE001
+            messagebox.showerror(
+                'Could not load reference data',
+                'The reference library could not be loaded:\n\n{}'.format(exc))
+            return
+        finally:
+            conn.close()
+        self.status_var.set(
+            'Reference library: +{} materials, +{} norms, +{} rate-book items, '
+            '+{} analyses.'.format(n['materials'], n['norms'], n['rate_book'],
+                                   n['analyses']))
+        total = sum(n.values())
+        if total:
+            messagebox.showinfo(
+                'Reference data loaded',
+                'Added {} materials, {} consumption norms, {} rate-book items '
+                'and {} rate analyses.\n\nSee Masters › Materials and Rate Book, '
+                'Operations › Consumption, and Billing › Rate Analysis.'.format(
+                    n['materials'], n['norms'], n['rate_book'], n['analyses']))
+        else:
+            messagebox.showinfo(
+                'Already loaded',
+                'The reference library was already present — nothing to add.')
 
     def load_sample_data(self):
         """Create a separate 'Sample Data' company file, fill it with a
