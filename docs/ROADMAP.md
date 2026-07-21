@@ -671,6 +671,32 @@ corporate multi-level approval chains. These are Level-4 features that add cost
 and friction without helping a solo contractor bill, get paid, and stay in
 control.
 
+### Remaining open items (tracked, low urgency)
+
+The SOP gap analysis (`docs/REPORT-sop-gap-analysis.md`) is otherwise closed;
+these three are what is left, none of them a money leak:
+
+- ⏳ **Submittals register** — the one document-control artefact still absent.
+  RFIs (the question) and the drawing-revision register (which copy is current)
+  both exist in Sourcing; a **submittal** is the third, distinct thing — "here
+  is the material / make I intend to use, approve it" — logged with a
+  submitted-date, a required-by date, and an Approved / Approved-as-noted /
+  Rejected status. Mostly matters for PMC / departmental work with a formal
+  approval chain; a jobbing contractor rarely needs it, hence low priority. It
+  should **not** be folded into the RFI table — conflating the two is exactly
+  the scope-creep confusion the research warns about.
+- ⏳ **Lessons-learned → rate library feedback** — closeout captures snags and
+  handover readiness, but the loop that feeds *achieved* rates back into the
+  Rate Book (so the next estimate is priced on reality, not the last guess)
+  remains. Small, and the highest-value of the three for estimate accuracy.
+- ⏳ **Real-display GUI render check** — a validation task, not a code gap. The
+  headless test environment has no Tk, so two GUI **smoke** tests
+  (`test_smoke_tabs`: floating dock, both-theme build) can only be exercised on
+  a machine with a display (or Xvfb). Every failure traced to a stubbed widget
+  method (`PhotoImage.width`, `IntVar.trace_add`, `tk.Frame`), never to business
+  logic; the pure-logic suite (500+ cases) passes headlessly. Run `python
+  main.py` once on a real display to confirm the rail/stage redesign renders.
+
 ---
 
 ## Phase 9 — statutory forms: what the department actually asks for ✅
