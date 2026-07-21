@@ -32,6 +32,7 @@ pretending to a per-worker attribution the data cannot support.
 
 from datetime import date, timedelta
 
+import isodate
 import wages
 
 
@@ -47,13 +48,12 @@ def _g(row, key, default=None):
 
 
 def _d(value):
-    """Parse an ISO date; returns None rather than raising."""
-    if isinstance(value, date):
-        return value
-    try:
-        return date.fromisoformat(str(value).strip())
-    except (TypeError, ValueError):
-        return None
+    """Parse an ISO date; returns None rather than raising.
+
+    Strict: a muster roll is keyed by day, so a value carrying a time part is a
+    data error to refuse, not to truncate.
+    """
+    return isodate.parse(value, strict=True)
 
 
 def period_dates(start, end):

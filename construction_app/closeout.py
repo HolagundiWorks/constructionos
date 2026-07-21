@@ -21,6 +21,7 @@ readiness. Marking your own work complete has never convinced anybody.
 from datetime import date
 
 import finance
+import isodate
 
 OPEN = 'Open'
 FIXED = 'Fixed'
@@ -38,14 +39,7 @@ def money(value):
 
 
 def _parse(d):
-    if isinstance(d, date):
-        return d
-    if not d:
-        return None
-    try:
-        return date.fromisoformat(str(d)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(d)
 
 
 def _get(row, key, default=''):

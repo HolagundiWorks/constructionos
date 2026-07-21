@@ -32,6 +32,8 @@ Three honesty constraints, all load-bearing:
 
 from datetime import date
 
+import isodate
+
 # Who caused the delay. The split that matters is whether it supports an
 # extension of time, not who is to blame in conversation.
 OWN = 'Own'                     # contractor's own resources, method, labour
@@ -64,14 +66,7 @@ def _g(row, key, default=None):
 
 
 def _parse(value):
-    if isinstance(value, date):
-        return value
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(value)
 
 
 def _num(value, default=0.0):

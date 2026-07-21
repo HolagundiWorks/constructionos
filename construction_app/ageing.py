@@ -14,6 +14,8 @@ treated as *today* (age 0) rather than raising.
 
 from datetime import date
 
+import isodate
+
 BUCKETS = ('0-30', '30-60', '60-90', '90+')
 _EDGES = (30, 60, 90)
 
@@ -27,12 +29,7 @@ def money(value):
 
 def _parse(d):
     """ISO date string -> ``date``; blank/garbage -> None."""
-    if not d:
-        return None
-    try:
-        return date.fromisoformat(str(d)[:10])
-    except (ValueError, TypeError):
-        return None
+    return isodate.parse(d)
 
 
 def days_between(bill_date, as_on):

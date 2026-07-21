@@ -21,7 +21,7 @@ import re
 import sys
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
@@ -44,6 +44,7 @@ import company
 import estimate
 import finance
 import hse
+import isodate
 import mb
 import money
 import muster
@@ -216,6 +217,75 @@ class TestStatutory(unittest.TestCase):
         self.assertGreater(statutory.labour_cess(1000000), 0)
         e = statutory.esi(10000)
         self.assertTrue(isinstance(e, dict) or e >= 0)
+
+
+class TestIsoDate(unittest.TestCase):
+    """The shared tolerant date parser (``isodate.parse``).
+
+    Ten pure modules used to carry their own copy of this and had drifted
+    apart; these tests pin the behaviour they now all share.
+    """
+
+    def test_parses_a_plain_iso_date(self):
+        self.assertEqual(isodate.parse('2026-01-01'), date(2026, 1, 1))
+
+    def test_blank_and_garbage_give_none_rather_than_raising(self):
+        for bad in (None, '', 0, 'garbage', '2026-13-01', b'2026-01-01'):
+            self.assertIsNone(isodate.parse(bad), repr(bad))
+
+    def test_a_date_passes_through_unchanged(self):
+        self.assertEqual(isodate.parse(date(2026, 1, 1)), date(2026, 1, 1))
+
+    def test_a_datetime_is_narrowed_to_its_date(self):
+        # The old per-module copies returned the datetime untouched, and the
+        # caller's next comparison against a date raised TypeError.
+        self.assertEqual(isodate.parse(datetime(2026, 1, 1, 10, 30)),
+                         date(2026, 1, 1))
+
+    def test_whitespace_is_always_stripped(self):
+        # muster's copy stripped it; the others didn't. Now everyone does, in
+        # both modes.
+        self.assertEqual(isodate.parse('  2026-01-01  '), date(2026, 1, 1))
+        self.assertEqual(isodate.parse('  2026-01-01  ', strict=True),
+                         date(2026, 1, 1))
+
+    def test_a_time_part_is_tolerated_by_default_but_refused_when_strict(self):
+        # The one genuine policy difference, now an explicit flag rather than
+        # per-module drift.
+        self.assertEqual(isodate.parse('2026-01-01T10:30:00'), date(2026, 1, 1))
+        self.assertIsNone(isodate.parse('2026-01-01T10:30:00', strict=True))
+
+    def test_the_nine_lenient_modules_parse_dates_identically(self):
+        parsers = [ageing._parse, cashflow._parse, closeout._parse,
+                   compliance._parse, hse._parse, plant._parse,
+                   programme._parse, quality._parse, retention._parse]
+        for value in ('2026-01-01', '  2026-01-01  ', '2026-01-01T10:30:00',
+                      datetime(2026, 1, 1, 10, 30), date(2026, 1, 1),
+                      None, '', 'garbage'):
+            expected = isodate.parse(value)
+            for fn in parsers:
+                self.assertEqual(fn(value), expected,
+                                 '{} on {!r}'.format(fn.__module__, value))
+
+    def test_muster_stays_strict_about_a_time_part(self):
+        # muster is the deliberate exception: keyed by day, it refuses a value
+        # carrying a time rather than truncating it. Everything else matches.
+        self.assertIsNone(muster._d('2026-01-01T10:30:00'))
+        for value in ('2026-01-01', '  2026-01-01  ',
+                      datetime(2026, 1, 1, 10, 30), date(2026, 1, 1),
+                      None, '', 'garbage'):
+            self.assertEqual(muster._d(value), isodate.parse(value),
+                             'muster._d on {!r}'.format(value))
+
+    def test_a_datetime_as_on_does_not_break_date_comparisons(self):
+        # The concrete failure the drift caused, at two of the call sites.
+        permit = {'status': 'Open', 'valid_from': '2026-01-01',
+                  'valid_to': '2026-06-01'}
+        valid, _ = hse.permit_valid(permit, as_on=datetime(2026, 3, 1, 9, 0))
+        self.assertTrue(valid)
+        self.assertTrue(closeout.is_overdue({'status': 'Open',
+                                             'target_date': '2026-01-01'},
+                                            as_on=datetime(2026, 3, 1, 9, 0)))
 
 
 class TestAgeing(unittest.TestCase):
