@@ -2,71 +2,71 @@
 
 *Developed by Human Centric Works, Hospet.*
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Dependencies: none](https://img.shields.io/badge/pip%20dependencies-none-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-454%20passing-brightgreen.svg)
+
 A single-user desktop **ERP for Indian construction contractors** — a focused,
-zero-dependency alternative to heavyweight suites like Dolibarr, tailored to the
-construction trade. It covers site operations, procurement, commercial
-documents, and the beginnings of full accounting:
+zero-dependency alternative to heavyweight suites, tailored to the civil trade.
+It runs offline on one PC, keeps everything in a single SQLite file, and is
+built **entirely on the Python standard library**: `tkinter` for the UI,
+`sqlite3` for storage. No pip packages, no web server, no build step, no cloud.
 
-- **Projects** — a project umbrella (client + site + budget + milestones)
-  with a live overview: budget vs cost-to-date vs billed, margin, and progress.
-- **Operations** — sites/warehouses, vendors, clients, materials, labor,
-  equipment, stock ledger, attendance, payroll, advances, project timelines.
-- **Commercial** — quotations, estimates, contracts, running bills (with a
-  printable bill export).
-- **Estimates** — priced BOQ estimates with contingency and GST rolled up to a
-  grand total, and a printable estimate document (amount in words).
-- **Civil billing** — a BOQ per contract, a Measurement Book (Nos × L × B × D),
-  measurement-driven RA (Running Account) bills with a printable abstract, and a
-  PWD-style **deviation statement** (tendered vs executed, excess/saving).
-- **Rate Book** — a schedule of standard priced items with specifications, to
-  reuse when preparing estimates and BOQs.
-- **Tax invoices** — GST tax invoices for clients (HSN/SAC, CGST/SGST/IGST,
-  amount in words), printable, with a **configurable number series** (prefix +
-  financial-year reset, e.g. `INV/2026-27/001`).
-- **Procurement** — purchase orders, vendor invoices with GST/TDS, PO↔invoice
-  reconciliation, and print/export on every document.
-- **Subcontractors** — work orders and subcontractor running bills with
-  retention and works-contract TDS, printable.
-- **Site & quality** — material consumption reconciliation (theoretical vs
-  actual), daily progress reports, cube-test and material-test registers, and a
-  plant/machinery log.
-- **Money (cash-first)** — payments & receipts, party balances ("who owes
-  whom"), a cash/day book with running balance, and a plain-language home
-  dashboard (cash in hand, receivables, payables).
-- **Insight** — site-wise profitability, **receivables/payables ageing**
-  (0-30/30-60/60-90/90+), **contract/BOQ progress %**, and **material budget vs
-  actual**.
-- **GST & TDS** — output GST (tax invoices + RA/running bills) and input GST
-  registers, an **HSN-wise summary**, a net-position (3B-style) summary, and a
-  TDS register — month-filtered and printable (for return time).
-- **Finance (advanced)** — GST (CGST/SGST/IGST) and TDS computation, a seeded
-  chart of accounts, a double-entry journal with one-click auto-posting of
-  invoices, payments, payroll & subcontractor bills, a trial balance, and a
-  **Profit & Loss + Balance Sheet** on the ledger (for the CA).
-- **Easy to adopt** — a **first-run setup wizard**, dates that default to today
-  and fields that remember your last site, **Hindi/Hinglish** menu labels, and a
-  friendly dialog instead of any error trace.
-- **Security (optional)** — off by default (opens straight in). An office can
-  switch on sign-in with user accounts, roles (Admin/Operator/Viewer), PBKDF2
-  password hashing, account lockout, and an audit log.
-- **AI Assistant (optional)** — ask questions about your own data in plain
-  language ("how much does Sharma owe?", "cash received this month"). Uses a
-  **local Ollama** model via retrieval-augmented, read-only text-to-SQL; quick
-  deterministic answers work even without it. No cloud, no Python dependency.
+> Built for small civil contractors in tier-2 / tier-3 cities — offline, on one
+> PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md),
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
 
-> Built for small civil contractors in tier-2/tier-3 cities — offline, on one
-> PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md) and
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+## Highlights
 
-Built entirely on the Python standard library: **`tkinter`** for the GUI and
-**`sqlite3`** for storage. No pip dependencies, no web server, no build step —
-it runs anywhere Python runs.
+- **Intelligent home dashboard** — the whole business in one glance: a KPI band
+  (cash, receivables with a past-90-day note, payables, net position, billed /
+  collected this month, retention), a rule-based **advisory** engine that ranks
+  what to do and attaches an honest **confidence** (High for a hard fact, Low
+  for thin data), a **bottlenecks** scoreboard of where work and money sit
+  still, and a **decisions-pending** queue — all computed on-device, no model
+  required.
+- **Project management** — a project umbrella (client + site + budget + LD
+  terms), a per-project **drill-down** (budget vs cost, margin, programme slip
+  + LD exposure, retention, open snags / RFIs / NCRs), a **Gantt** with
+  critical-path / baseline-vs-actual, and a weekly **look-ahead** (PPC).
+- **Civil billing** — a BOQ per contract, a **Measurement Book** (Nos × L × B ×
+  D), measurement-driven **RA bills** with printable abstract, a PWD-style
+  **deviation statement**, CPWA-form outputs (Form 23 MB, Form 26 recoveries,
+  Muster Roll Form 21), and a configurable invoice number series.
+- **Rate analysis + reference library** — build a per-unit rate on the CPWD DAR
+  skeleton, and load a starter **CPWD reference library**: standard civil items
+  (rate book), current material rates, and **consumption norms** — the material
+  split for concrete, masonry, plastering and other civil work. Pick a priced
+  item straight into an estimate or BOQ.
+- **Procurement** — requisitions → PO → **goods receipt** (3-way match) →
+  vendor invoices with GST/TDS; subcontractor work orders and running bills.
+- **Money & accounts** — cash-first payments & receipts, reconciled
+  receivables/payables ageing, cash-flow forecast, retention register, GST/TDS
+  registers with HSN summary, and a double-entry ledger with one-click
+  auto-posting → trial balance, P&L and balance sheet.
+- **Compliance & plant** — a statutory filing calendar (GST, TDS, PF, ESI,
+  cess), plant preventive-maintenance + fuel analysis, HSE and quality (ITP
+  hold-points, NCRs, snag list / handover readiness).
+- **Made to adopt** — a first-run wizard, **Load Sample Data** (a realistic demo
+  book in its own file), **Hindi / Hinglish** labels, an HCW **rail + stage** UI
+  with a **light / dark** toggle, and a friendly dialog instead of any error
+  trace.
+- **Optional login** — off by default (opens straight in). Turn on sign-in with
+  user accounts and roles (Admin / Operator / Viewer), **versioned PBKDF2**
+  password hashing (600k iterations, upgraded transparently on login), account
+  lockout, and an audit log.
+- **Optional AI assistant** — ask questions about your own data in plain English
+  via a **local Ollama** model, using retrieval-augmented, **read-only**
+  text-to-SQL (engine-enforced `query_only`); deterministic quick answers work
+  without it.
 
 ## Requirements
 
 - Python 3.8+
-- Tk support (`tkinter`). On minimal Linux installs you may need
-  `sudo apt-get install python3-tk`.
+- Tk support (`tkinter`). On minimal Linux installs: `sudo apt-get install python3-tk`.
+
+No other dependencies.
 
 ## Run it
 
@@ -75,110 +75,101 @@ cd construction_app
 python main.py
 ```
 
-On first launch the app creates a SQLite database file, `construction.db`,
-next to the code. That file is your data — it is **not** tracked in git
-(see `.gitignore`); back it up if it matters.
+On first launch the app creates `construction.db` next to the code — that file
+is your data (not tracked in git; back it up). To explore with realistic data,
+open **Tools › Company Files › Load Sample Data**.
 
-## Install it (Windows, no Python needed)
+## Install it (Windows — no Python needed)
 
-To give a contractor a normal double-click install — no Python, no internet,
-no admin rights — build a Windows installer from `installer/`:
+Build a double-click Windows package from `installer/` (PyInstaller is fetched
+into a throwaway build-only venv, so the shipped app stays pure-stdlib):
 
 ```powershell
 cd installer
 .\build.ps1              # PyInstaller + Inno Setup  -> Setup.exe
-.\build.ps1 -Portable   # or a portable .zip, no Inno Setup needed
+.\build.ps1 -Portable   # or a portable .zip (no Inno Setup needed)
 ```
 
-An installed build keeps the user's data in `%LOCALAPPDATA%\Construction OS`
-instead of next to the code, so it runs from a read-only Program Files folder
-and an uninstall never deletes their books. See `installer/README.md`.
+An installed build stores the user's data in `%LOCALAPPDATA%\Construction OS`,
+so it runs from a read-only Program Files folder and an uninstall never deletes
+their books. See [`installer/README.md`](installer/README.md).
 
-## What's inside
+## The sections
 
-The UI is a single tabbed window. To keep the top tab bar uncluttered, tabs are
-grouped into eight top-level sections, each holding its related tabs:
+A left **rail** switches between sections; each opens a **stage** of related
+tabs. Sections can be toggled off per-firm in Tools.
 
-- **Home** — plain-language dashboard (cash in hand, receivables, payables).
+- **Home** — the intelligent dashboard (KPIs, advisories, bottlenecks, decisions).
+- **Assistant** — ask-your-data (optional local LLM).
 - **Masters** — Sites, Clients, Vendors, Materials, Labour, Equipment.
-- **Operations** — Warehouse (ledger + stock), Muster & Wages (muster roll,
-  weekly payout, thekedar ledger, statutory PF/ESI/cess calculator), Labour Ops
-  (attendance/advances/payroll), Equipment Hire, Consumption reconciliation,
-  Site Reports, Timeline/Gantt.
-- **Billing** — Rate Book, Quotations, Estimates, Contracts, BOQ / RA Bills
-  (incl. deviation statement), Running Bills, Tax Invoice.
-- **Purchases** — Purchase Orders, Vendor Invoices (with PO reconciliation),
-  Subcontractors (work orders + sub bills).
-- **Money** — Cash & Parties (payments, party balances, cash book), Insight
-  (profitability, progress %, material budget, receivables/payables + ageing).
-- **Accounts** — GST & TDS registers (with HSN summary), and Accounting (chart
-  of accounts, journal with auto-posting, trial balance, P&L, balance sheet).
-- **Tools** — Backup & Settings (backup/restore, firm details, invoice series,
-  language, Modules),
-  Users & Security (optional login, roles, lockout), and the Audit Log.
+- **Project Management** — Projects (+ per-project drill-down), Timeline/Gantt
+  (CPM, baseline vs actual, LD/EOT), Look-ahead (PPC).
+- **Operations** — Warehouse, Muster & Wages, Labour Ops, Equipment Hire, Plant
+  (PM + fuel), Consumption reconciliation, Site Reports, Quality, Safety,
+  Closeout.
+- **Billing** — Rate Book, Rate Analysis, Bid / No-Bid, Quotations, Estimates,
+  Contracts, BOQ / RA Bills, Variations, Running Bills, Tax Invoice.
+- **Purchases** — Sourcing, Purchase Orders, Goods Receipt, Vendor Invoices,
+  Subcontractors.
+- **Money** — Key Numbers (KPI board), Approvals, Cash & Parties, Cash Flow,
+  Retention, Insight.
+- **Accounts** — GST & TDS, Compliance calendar, Accounting (journal, trial
+  balance, P&L, balance sheet).
+- **Tools** — Backup & Settings, Company Files (multi-firm / multi-year, Load
+  Sample Data, Load CPWD Reference Data), Modules, Users & Security, Audit Log.
 
-## Project layout
+## Architecture
 
-```
-construction_app/
-├── main.py                 # Entry point; optional login, then grouped toggle-aware window
-├── modules.py              # Module catalog (sections→tabs) + on/off toggles
-├── branding.py             # App name + developer credit
-├── projman.py              # Pure project maths: progress, budget status (testable)
-├── tab_projects.py         # Projects, Milestones, Project Overview dashboard
-├── ollama_client.py        # Stdlib client for a local Ollama server (no pip)
-├── assistant.py            # RAG text-to-SQL over your data (read-only) + quick answers
-├── tab_assistant.py        # Ask-your-data assistant tab
-├── security.py             # Pure PBKDF2 password hashing (testable)
-├── auth.py                 # Users, authentication, lockout, audit log (DB)
-├── session.py              # Current-user/role holder
-├── db.py                   # SQLite schema + connection helpers + default chart of accounts
-├── finance.py              # Pure GST/TDS/reconciliation/double-entry maths (testable)
-├── posting.py              # Pure double-entry posting rules per document (testable)
-├── journal_post.py         # Auto-post engine: documents → balanced journal entries
-├── civil.py                # Pure civil maths: measurement qty, RA bills, consumption, cube strength (testable)
-├── estimate.py             # Pure estimate roll-up: subtotal→contingency→GST→grand total (testable)
-├── money.py                # Pure cash-first maths: signed cash, running balance, party outstanding (testable)
-├── numwords.py             # Pure Indian rupees-in-words (lakh/crore) (testable)
-├── wages.py                # Pure wage maths: day-fraction, gross/deduction/net (testable)
-├── bill_export.py          # Pure printable HTML: bill, RA abstract, GST tax invoice, statement (testable)
-├── tab_home.py             # Plain-language home dashboard
-├── tab_money.py            # Payments & receipts, party balances, cash book
-├── tab_insight.py          # Site profitability, receivables, payables
-├── crud_frame.py           # Generic "list + form" widget reused by most tabs
-├── tab_masters.py          # Sites, Clients, Materials, Labor, Equipment
-├── tab_vendor.py           # Vendors + spend/hire rollup
-├── tab_warehouse.py        # Material ledger + stock summary
-├── tab_labor.py            # Attendance, Advances, Payroll
-├── tab_muster.py           # Muster roll, weekly payout, thekedar ledger
-├── tab_documents.py        # Quotations, Purchase Orders, Contracts
-├── tab_estimate.py         # Estimates (contingency + GST + grand total + print)
-├── tab_billing.py          # Bills / Running Bills + bill export
-├── tab_tax_invoice.py      # GST tax invoices (HSN, CGST/SGST/IGST, print)
-├── tab_boq_ra.py           # BOQ, Measurement Book, RA bills
-├── tab_consumption.py      # Consumption norms, work done, reconciliation
-├── tab_site_reports.py     # DPR, cube/material tests, plant log
-├── tab_vendor_invoice.py   # Vendor invoices (GST/TDS) + reconciliation
-├── tab_gst.py              # GST output/input registers, summary, TDS register
-├── tab_accounting.py       # Chart of accounts, journal, trial balance
-├── tab_equipment_hire.py   # Equipment hire + cost auto-calc
-└── tab_timeline.py         # Timeline tasks + Gantt chart
-```
+Pure business maths lives in tkinter-free modules (`money`, `civil`, `finance`,
+`ageing`, `allocation`, `retention`, `programme`, `advisory`, `refdata` …) so it
+is unit-testable headless; the `tab_*` modules are the GUI over them. Schema is
+one string in `db.py` with additive column migrations. The single source of
+truth for the section→tab grouping is `modules.SECTIONS_CATALOG`.
 
-## Verifying changes without a display
+For a dense architecture-and-conventions guide (the reusable `CrudFrame` /
+`DocumentFrame` abstractions, the business rules, the schema, and the
+intentional scope cuts to flag rather than "fix"), see **[`AGENTS.md`](AGENTS.md)**.
 
-There's no automated test suite yet. Quick sanity checks:
+## Tests
+
+Standard-library `unittest` only — no pytest, matching the no-pip rule.
 
 ```bash
-cd construction_app
-python -m py_compile *.py                          # syntax check
-python -c "import db; db.init_db(); print('ok')"   # schema check
+python -m unittest discover -s tests
 ```
 
-## For AI coding agents
+Two layers (see [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)):
 
-See **[`AGENTS.md`](AGENTS.md)** — a dense architecture-and-conventions guide
-covering the reusable abstractions (`CrudFrame`, `DocumentFrame`,
-`BillingTab`), the business-logic rules (payroll, running bills, hire costs),
-the schema, and the intentional scope cuts you should flag rather than
-silently "fix."
+- **`tests/test_core.py`** — the pure business maths and the posting engine
+  (tax, civil quantities, wages, ageing, allocation, retention, programme/LD,
+  the advisory engine, the reference data, password security, double-entry).
+  Headless, ~2s.
+- **`tests/test_smoke_tabs.py`** — builds every tab against the sample book
+  under light **and** dark, catching data-dependent build errors. Needs a
+  display; auto-skips on a headless box.
+
+## Contributing
+
+Issues and pull requests are welcome. Please keep the two hard rules: **no pip
+dependencies** (standard library only) and **new business logic goes in a pure,
+tkinter-free module with a unit test**. Run `python -m unittest discover -s tests`
+before opening a PR; read `AGENTS.md` first.
+
+## Security
+
+Passwords use salted, versioned PBKDF2-HMAC-SHA256 (600k iterations) with a
+constant-time verify, account lockout, and an audit log. The database itself is
+**not** encrypted at rest — stdlib SQLite has no at-rest encryption, and a
+native crypto dependency is deliberately avoided; for sensitive deployments,
+put the data folder on an OS-encrypted volume. To report a vulnerability,
+open an issue marked *security* or contact the maintainer.
+
+## License
+
+Construction OS is free software under the **GNU Affero General Public License
+v3.0 or later** — see [`LICENSE`](LICENSE). In short: you may use, study, share
+and modify it, but if you distribute a modified version — **including offering
+it over a network** — you must make your source available under the same
+license.
+
+Copyright © 2026 Human Centric Works.

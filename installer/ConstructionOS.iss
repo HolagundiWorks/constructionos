@@ -8,13 +8,23 @@
 #define AppName "Construction OS"
 #define AppVersion "1.0.0"
 #define Publisher "Human Centric Works, Hospet"
+#define AppURL "https://github.com/HolagundiWorks/constructionos"
 #define ExeName "ConstructionOS.exe"
 
 [Setup]
 AppId={{6F2B9C4E-1D3A-4E77-9C2B-CONSTRUCTIONOS}
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 AppPublisher={#Publisher}
+AppPublisherURL={#AppURL}
+AppSupportURL={#AppURL}/issues
+AppUpdatesURL={#AppURL}/releases
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany={#Publisher}
+VersionInfoProductName={#AppName}
+; The AGPL-3.0 licence, shown and accepted during install.
+LicenseFile=..\LICENSE
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes

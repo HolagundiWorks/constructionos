@@ -1,6 +1,6 @@
 # Construction OS — Roadmap
 
-_Last updated: 2026-07-19_
+_Last updated: 2026-07-21_
 
 Audience: **small civil contractors in tier-2 / tier-3 Indian cities** (see
 `PRODUCT.md`). Every phase is judged by one question: _does this help a solo
@@ -50,12 +50,11 @@ The cash-first heart. This is what an owner-contractor opens the app for.
 - ✅ `money.py` pure helpers (signed cash, running/closing balance, party
   outstanding).
 
-_Follow-ups deferred to later phases:_ record a payment **against** a specific
-bill/invoice (link exists in schema, no UI yet); reconciled — not
-cash-vs-billed-approximate — receivables/payables. **This is now the highest-
-value open item in the app:** the Phase 6 ageing report ships without it, so it
-applies the lump receipts total oldest-first (a FIFO approximation). Until
-payments are bill-linked, ageing buckets are indicative rather than reconciled.
+_Follow-ups (now shipped in Phase 8, Wave 1):_ recording a payment **against** a
+specific bill/invoice, and reconciled receivables/payables ageing. Payment
+allocations (`payment_allocations`, `allocation.py`, `tab_allocate.py`) now
+reduce specific documents, with any un-allocated receipts spread oldest-first —
+so the ageing buckets are reconciled, not just a FIFO approximation. ✅
 
 _Repositioning note:_ the double-entry Accounting tab stays but moves behind the
 cash-first views; the contractor never needs the journal to run the business.
@@ -383,7 +382,7 @@ Security & robustness suited to a single-PC offline app (not corporate SSO/cloud
   with a justified exemption list for derived-value helpers.
 - ⏳ At-rest encryption — would need a native dependency (out of scope).
 
-## Phase 8 — SOP gap closure: turn records into gates 🚧
+## Phase 8 — SOP gap closure: turn records into gates ✅
 
 Driven by `docs/REPORT-sop-gap-analysis.md`, which compared the app against
 construction-management SOP practice (`docs/RESEARCH-construction-management-sops.md`).
@@ -500,7 +499,7 @@ the leverage is in making the SOP step impossible to skip.
   instead of showing a confident zero, because "0%" and "nothing recorded
   yet" mean very different things.
 
-### Wave 4 — completeness (P2, lower urgency at this scale)
+### Wave 4 — completeness (P2, lower urgency at this scale) ✅ complete
 
 - ✅ **RFI + drawing-revision register** — Purchases > Sourcing
   (`tab_sourcing.py`). RFIs record the question and the date it was asked: an
@@ -674,7 +673,7 @@ control.
 
 ---
 
-## Phase 9 — statutory forms: what the department actually asks for 🚧
+## Phase 9 — statutory forms: what the department actually asks for ✅
 
 Driven by `docs/RESEARCH-sop-primary-sources.md`, the primary-source research
 run (CPWD Works Manual, CPWA Code Book of Forms, CPWD Analysis of Rates). Where

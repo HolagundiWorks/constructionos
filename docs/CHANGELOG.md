@@ -6,6 +6,39 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — v1.0.0: intelligent dashboard, HCW UI, production hardening
+
+The 1.0 release. Everything below stays pure standard library (tkinter +
+sqlite3), no pip.
+
+- **UI — HCW rail + stage.** Replaced the top tab-bar with a left rail (identity,
+  pictogram nav, settings at the foot) and a work stage, on the HolagundiWorks
+  design kit. Added a **light / dark** toggle — including a dark-mode logo, the
+  black artwork lifted to near-white by a stdlib PNG tinter
+  (`tools/logo_tint.py`) — pill-switch module toggles, sub-tab pictograms, and a
+  theme-wide semantic colour system (`theme.wash`) so status rows read right in
+  both schemes.
+- **Intelligent home dashboard.** KPI band + a rule-based **advisory** engine
+  (`advisory.py`) that ranks actions with an honest **confidence**, a
+  **bottlenecks** scoreboard and a **decisions-pending** queue, all from
+  `dashboard.collect`. On-device and explainable; no model required.
+- **Project Management** as its own section (Projects + Timeline + Look-ahead),
+  with a per-project **drill-down** (cost/margin, programme slip + LD, retention,
+  open snags / RFIs / NCRs). Operations slimmed to daily execution.
+- **CPWD reference library** (`refdata.py`) — standard civil items, current
+  material rates and consumption norms (the material split for concrete,
+  masonry, plastering …); a **rate-book picker** wires those into Estimates and
+  BOQ. **Load Sample Data** (`sampledata.py`) seeds a realistic demo book.
+- **Security hardening.** Versioned PBKDF2 password hashes (600k iterations,
+  transparently upgraded on login; legacy hashes still verify), a
+  password ≠ username guard, and an audit confirming no SQL-injection surface
+  (all interpolation is hardcoded identifiers; the LLM's SQL is `query_only`).
+- **Licensing & docs.** Released under **AGPL-3.0** (`LICENSE`); rewrote the
+  README for GitHub; added `docs/TEST_PLAN.md`.
+- **Tests.** A real suite now: `tests/test_core.py` (pure maths + posting +
+  security) and `tests/test_smoke_tabs.py` (builds every tab on the sample book,
+  both themes). 454 tests.
+
 ## 2026-07-19 — Backlog completion (autopilot pass)
 
 Completed the remaining planned (⏳) items across every roadmap phase. All new
@@ -55,7 +88,7 @@ SQLite file, no pip).
 - **Contract / BOQ progress %** and **material budget vs actual** (value)
   (`analytics.py`).
 
-### Phase 7 — Advanced (mostly ✅)
+### Phase 7 — Advanced (✅)
 - **P&L + Balance Sheet** on the posted ledger (`reports.py`) in Accounting.
 - **Payroll & subcontractor auto-posting** — `posting.payroll_lines`,
   `posting.sub_bill_lines`, and new `journal_post` loops (idempotent).

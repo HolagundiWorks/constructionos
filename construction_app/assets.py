@@ -19,7 +19,7 @@ RES_DIR = paths.resource_path('resources')
 LOGO_SQUARE = os.path.join(RES_DIR, 'logo_square.png')
 LOGO_RECT = os.path.join(RES_DIR, 'logo_rectangle.png')
 # Dark-mode variants: the dark artwork lifted to near-white so it reads on the
-# dark rail (generated from the originals by logo_tint).
+# dark rail (generated from the originals by tools/logo_tint.py).
 LOGO_SQUARE_WHITE = os.path.join(RES_DIR, 'logo_square_white.png')
 LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
 APP_ICON = os.path.join(RES_DIR, 'app.ico')

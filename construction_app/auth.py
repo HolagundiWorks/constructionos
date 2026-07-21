@@ -67,6 +67,8 @@ def create_user(conn, username, password, role='Operator', actor=None):
     issues = security.password_issues(password)
     if issues:
         return False, 'Password must ' + ', and '.join(issues) + '.'
+    if (password or '').strip().lower() == username.lower():
+        return False, 'Password must not be the same as the username.'
     salt, pw_hash = security.hash_password(password)
     conn.execute(
         'INSERT INTO users (username, password_hash, salt, role, is_active, '
@@ -81,6 +83,8 @@ def change_password(conn, username, new_password, actor=None):
     issues = security.password_issues(new_password)
     if issues:
         return False, 'Password must ' + ', and '.join(issues) + '.'
+    if (new_password or '').strip().lower() == (username or '').lower():
+        return False, 'Password must not be the same as the username.'
     salt, pw_hash = security.hash_password(new_password)
     conn.execute(
         'UPDATE users SET password_hash = ?, salt = ?, failed_attempts = 0, '
@@ -138,6 +142,12 @@ def authenticate(conn, username, password):
     if security.verify_password(password, user['salt'], user['password_hash']):
         conn.execute('UPDATE users SET failed_attempts = 0 WHERE id = ?',
                      (user['id'],))
+        # Transparently upgrade an old/weaker hash to the current work factor
+        # now that we hold the plaintext — the login the user just did.
+        if security.needs_rehash(user['password_hash']):
+            salt, pw_hash = security.hash_password(password)
+            conn.execute('UPDATE users SET salt = ?, password_hash = ? '
+                         'WHERE id = ?', (salt, pw_hash, user['id']))
         audit(conn, username, 'login')
         conn.commit()
         return True, '', user

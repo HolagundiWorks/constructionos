@@ -4,13 +4,21 @@
 #define AppName "Ollama Manager"
 #define AppVersion "1.0.0"
 #define Publisher "Human Centric Works, Hospet"
+#define AppURL "https://github.com/HolagundiWorks/constructionos"
 #define ExeName "OllamaManager.exe"
 
 [Setup]
 AppId={{9C1F7A2D-4B60-4E19-8A3C-OLLAMAMANAGER}
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 AppPublisher={#Publisher}
+AppPublisherURL={#AppURL}
+AppSupportURL={#AppURL}/issues
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany={#Publisher}
+VersionInfoProductName={#AppName}
+LicenseFile=..\LICENSE
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes

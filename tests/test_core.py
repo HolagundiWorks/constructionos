@@ -25,6 +25,9 @@ from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'construction_app'))
+# Build-only tooling (e.g. the logo tinter) lives outside the shipped package.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                os.pardir, 'tools'))
 
 import advisory
 import refdata
@@ -3798,6 +3801,110 @@ class TestReferenceData(unittest.TestCase):
                     os.remove(path + ext)
                 except OSError:
                     pass
+
+
+class TestPasswordSecurity(unittest.TestCase):
+    """Versioned PBKDF2 hashing: round-trip, legacy upgrade, policy."""
+
+    def test_hash_verify_roundtrip_and_versioned_format(self):
+        import security
+        salt, enc = security.hash_password('Correct Horse 9')
+        self.assertTrue(enc.startswith('pbkdf2_sha256$600000$'))
+        self.assertTrue(security.verify_password('Correct Horse 9', salt, enc))
+        self.assertFalse(security.verify_password('wrong', salt, enc))
+        self.assertFalse(security.needs_rehash(enc))
+
+    def test_legacy_bare_hex_verifies_and_wants_rehash(self):
+        import hashlib
+        import security
+        salt = os.urandom(16)
+        legacy = hashlib.pbkdf2_hmac('sha256', b'oldpass', salt, 120000).hex()
+        self.assertTrue(security.verify_password('oldpass', salt.hex(), legacy))
+        self.assertFalse(security.verify_password('nope', salt.hex(), legacy))
+        self.assertTrue(security.needs_rehash(legacy))
+
+    def test_garbage_and_empty_are_safe(self):
+        import security
+        self.assertFalse(security.verify_password('x', 'zz', 'not$a$hash'))
+        self.assertFalse(security.verify_password('x', '', ''))
+        self.assertTrue(security.needs_rehash(''))
+
+    def test_password_policy(self):
+        import security
+        self.assertTrue(security.password_issues('12345'))       # too short
+        self.assertTrue(security.password_issues('99999999'))    # all digits
+        self.assertTrue(security.password_issues('admin'))       # common
+        self.assertEqual(security.password_issues('sitewala99'), [])
+
+
+class TestAuthLogin(unittest.TestCase):
+    """Login flow: create-guard, lockout, transparent hash upgrade."""
+
+    def _db(self):
+        import db
+        fd, self._path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self._path)
+        self._db_mod = db
+        self._orig = db.DB_PATH
+        db.DB_PATH = self._path
+        db.init_db()
+        return db.get_conn()
+
+    def tearDown(self):
+        mod = getattr(self, '_db_mod', None)
+        if mod is not None:
+            mod.DB_PATH = self._orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(self._path + ext)
+                except OSError:
+                    pass
+
+    def test_create_rejects_password_equal_to_username(self):
+        import auth
+        conn = self._db()
+        try:
+            ok, _msg = auth.create_user(conn, 'ramesh', 'ramesh', 'Admin')
+            self.assertFalse(ok)
+        finally:
+            conn.close()
+
+    def test_login_upgrades_a_legacy_hash_in_place(self):
+        import hashlib
+        import auth
+        conn = self._db()
+        try:
+            salt = os.urandom(16)
+            legacy = hashlib.pbkdf2_hmac('sha256', b'StrongPass1', salt,
+                                         120000).hex()
+            conn.execute(
+                "INSERT INTO users (username, password_hash, salt, role, "
+                "is_active, created_at) VALUES ('boss', ?, ?, 'Admin', 1, "
+                "'2026-01-01')", (legacy, salt.hex()))
+            conn.commit()
+            ok, _msg, _u = auth.authenticate(conn, 'boss', 'StrongPass1')
+            self.assertTrue(ok)
+            row = conn.execute("SELECT password_hash FROM users WHERE "
+                               "username = 'boss'").fetchone()
+            self.assertTrue(row['password_hash'].startswith(
+                'pbkdf2_sha256$600000$'))
+            self.assertTrue(auth.authenticate(conn, 'boss', 'StrongPass1')[0])
+        finally:
+            conn.close()
+
+    def test_lockout_after_max_failed(self):
+        import auth
+        conn = self._db()
+        try:
+            auth.create_user(conn, 'boss', 'StrongPass1', 'Admin')
+            for _ in range(auth.MAX_FAILED):
+                auth.authenticate(conn, 'boss', 'wrong')
+            ok, _msg, _u = auth.authenticate(conn, 'boss', 'StrongPass1')
+            self.assertFalse(ok, 'a locked account must reject even the right '
+                                 'password')
+        finally:
+            conn.close()
 
 
 class TestLogoTint(unittest.TestCase):
