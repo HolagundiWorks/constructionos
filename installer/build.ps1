@@ -1,20 +1,19 @@
 <#
-    build.ps1 — build the Windows installers for Construction OS and its
-    companion, the Ollama Manager.
+    build.ps1 — build the Windows installer for Construction OS.
 
     Usage:
-        .\build.ps1                 Both apps: freeze + Inno Setup -> two Setup.exe
-        .\build.ps1 -Portable       Both apps: freeze -> two portable .zip (no Inno)
-        .\build.ps1 -App "Construction OS"   Just one app (name as below)
+        .\build.ps1                 Freeze + Inno Setup -> ConstructionOS-Setup.exe
+        .\build.ps1 -Portable       Freeze -> a portable .zip (no Inno Setup needed)
+
+    (Ollama management is now part of the app itself — Assistant > AI Engine — so
+    there is no longer a separate Ollama Manager to build.)
 
     PyInstaller is installed into a throwaway venv here — a BUILD tool only; the
-    shipped apps stay pure standard library with no pip dependency. The target
+    shipped app stays pure standard library with no pip dependency. The target
     machine needs no Python and no internet.
 #>
 param(
-    [switch]$Portable,
-    [ValidateSet('Construction OS', 'Ollama Manager')]
-    [string]$App
+    [switch]$Portable
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,10 +21,8 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
 $apps = @(
-    @{ Name = 'Construction OS'; Spec = 'ConstructionOS.spec'; Iss = 'ConstructionOS.iss'; Dir = 'ConstructionOS'; Exe = 'ConstructionOS.exe' },
-    @{ Name = 'Ollama Manager';  Spec = 'OllamaManager.spec';  Iss = 'OllamaManager.iss';  Dir = 'OllamaManager';  Exe = 'OllamaManager.exe' }
+    @{ Name = 'Construction OS'; Spec = 'ConstructionOS.spec'; Iss = 'ConstructionOS.iss'; Dir = 'ConstructionOS'; Exe = 'ConstructionOS.exe' }
 )
-if ($App) { $apps = $apps | Where-Object { $_.Name -eq $App } }
 
 # 1. A real Python — the Microsoft Store stub on PATH cannot build.
 $py = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"

@@ -36,8 +36,7 @@ a = Analysis(
     hiddenimports=hidden,
     hookspath=[],
     runtime_hooks=[],
-    # The test suite and the separate ollama_manager app are not part of the
-    # shipped product.
+    # The test suite is not part of the shipped product.
     excludes=['pytest', 'tests'],
     noarchive=False,
 )
