@@ -7,6 +7,62 @@ research) and `docs/SOP-manual.md` (the ready-to-use SOPs)._
 
 ---
 
+## 0. RESOLUTION UPDATE — 2026-07-21 (verified against `main` @ `ef6bbe7`)
+
+**Status: substantially closed.** Since this report was written, a "Phase 8 —
+SOP gap closure" (plus a "Phase 9" CPWD/CPWA departmental-forms pass) built out
+essentially every gap listed below. The schema grew **45 → 79 tables**; the app
+now has **43 tabs / 102 modules**. Verified on 2026-07-21:
+
+- ✅ All app modules **compile** (`py_compile`), incl. the new `ollama_manager`.
+- ✅ `init_db` applies the **79-table schema clean** on a fresh DB.
+- ✅ **All 43 registered tabs build** headlessly (tk-stub) — **0 failures**.
+- ✅ **425/425 unit tests pass** (`tests/test_core.py`, up from 58).
+
+**Gap → now built (tab · table · commit):**
+
+| Original gap (priority) | Now built |
+|---|---|
+| Variation / change-order register **(P0)** | **Variations** tab · `variations` · `478dc26` |
+| Payment ↔ bill allocation → reconciled ageing **(P0)** | **Cash & Parties** allocation + Insight ageing · `payment_allocations`, `allocation.py` · `bf2ac70` |
+| Cash-flow forecast **(P0)** | **Cash Flow** tab · `commitments` · `dfc7022` |
+| Requisition → PO → GRN gate + 3-way match **(P0/P1)** | **Sourcing** + **Goods Receipt** tabs · `material_requisitions`, `goods_receipts`/`grn_items`, `quotes` · `2671dff`, `24dd625` |
+| Retention register + release/DLP **(P1)** | **Retention** tab · `retention_releases` · `ee39138` |
+| Cost-value reconciliation (CVR) **(P1)** | in **Look-ahead**/Insight · `4877d44` |
+| ITP hold-points + NCR loop **(P1)** | **Quality** tab · `itp_items`, `inspections`, `ncrs` · `e5383b4` |
+| Weekly look-ahead / PPC **(P1)** | **Look-ahead** tab · `4877d44` |
+| Approval gates (workflow) **(P1)** | **Approvals** tab · `approvals` · `2002984` |
+| KPI dashboard **(P1)** | **Key Numbers** tab · `89785a2` |
+| RFI + drawing-revision register **(P2)** | in **Sourcing** · `rfis`, `drawings` · `24dd625` |
+| HSE module **(P2)** | **Safety** tab · `incidents`, `work_permits`, `safety_inductions`, `toolbox_talks` · `ff01404` |
+| Project closeout / snag list **(P2)** | **Closeout** tab · `snags` · `0e461b6` |
+| Vendor 3-quote + rating **(P2)** | **Sourcing** tab · `quotes` · `24dd625` |
+| Plant PM schedule + fuel log **(P2)** | **Plant** tab · `plant_services` · `149f23b` |
+| Compliance calendar **(P2)** | **Compliance** tab · `compliance_filings` · `bfe0c89` |
+| Bid/no-bid scorecard + estimate approval **(P2)** | **Bid / No Bid** tab · `bid_assessments` · `8ce254a` |
+| Baseline-vs-actual programme + LD/EOT **(P2)** | Timeline + critical path · `37a0d23`, `5353d3d` |
+| e-invoice / e-way readiness **(research §5)** | Tax Invoice fields · `einvoice.py` · `9ebbb31` |
+
+**Also landed beyond the original scope:** CPWD/CPWA departmental formats
+(Form 23 measurement book, Form 26 recovery, Form 21 muster, security-deposit
+ledger, DAR rate analysis — the **Rate Analysis** tab), branded proposal/contract
+letterheads, a TF-IDF assistant with conversational follow-ups, a full UI
+redesign (rail/stage, light/dark, pictograms, stat-card dashboard), a Windows
+installer, and a standalone Ollama Manager.
+
+**Remaining / worth a look:** a **submittals** register as a distinct log (RFIs
+and drawing revisions exist; submittals do not); and the usual "does the
+redesigned GUI actually render on a real display" check that a headless
+environment can't perform. _(The earlier open item — RA/running bills posted with
+a proper retention account — is now **done**: a **Retention Receivable (1400)**
+account was added and `posting.ra_bill_lines` books the client-withheld retention
+to it, so the P&L shows revenue and the balance sheet carries retention as an
+asset.)_
+
+The sections below are the **original 2026-07-19 analysis**, retained for history.
+
+---
+
 ## 1. Purpose & method
 
 This report compares **what Construction OS implements today** against the SOP
