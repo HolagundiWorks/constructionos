@@ -88,8 +88,8 @@ gap, its impact, and the required work.
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
 | Portfolio roll-up across projects/firms | 🟡 | Per-project drill-down exists; no cross-project read model | No single view of a portfolio of sites; every KPI is per-file | Federated read model over firm/year files (offline-safe) | P0 · L · Platform |
-| Earned Value Management (SPI/CPI/EAC) | ❌ | Inputs exist (baseline value, measured value, actual cost) but no EVM maths | No forecast-at-completion; cost KPIs are point-in-time, not predictive | `earnedvalue.py` pure module + tests; surface in Insight/KPI | P0 · M · Core |
-| Formal risk register + scoring | 🟡 | Risk is implicit in `advisory.py`; no structured register | Risks aren't owned, tracked, or scored; no audit of decisions | Risk register schema + likelihood×impact scoring | P0 · M · Core |
+| Earned Value Management (SPI/CPI/EAC) | 🟡 | Pure maths now built (`earnedvalue.py` + tests); not yet surfaced in a tab | Forecast-at-completion computable; cost KPIs still point-in-time in the UI | Surface `earnedvalue` in Insight/KPI; feed portfolio roll-up | P0 · M · Core |
+| Formal risk register + scoring | 🟡 | Scoring now built (`risk.py` + tests); register schema/UI still implicit in `advisory.py` | Scores/exposure computable; risks still not stored, owned, or audited | Risk register schema + tab over the built `risk.py` scoring | P0 · M · Core |
 | Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; roll-up store; conflict handling | P1 · L · Platform |
 | Mobile field capture | 🟡 | Browser/LAN read + some entry; no mobile-optimised capture | Field data still typed later at a desk — the root cause of stale data | Mobile capture app feeding the capture pipeline (§3.2) | P1 · L · Platform |
 | AI-origin tagging in audit | 🟡 | Audit log exists; doesn't distinguish AI-drafted records | Can't audit "what did the AI touch and who confirmed it" | Tag AI-origin + confirming user on records | P1 · S · Platform |
@@ -129,7 +129,7 @@ assembly toil, never accountability.
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
 | Deterministic KPI set (schedule/cost/cash/quality) | ✅ | Broadly complete | — | Maintain | — |
-| EVM KPIs (SPI, CPI, EAC) | ❌ | See §3.1 | No predictive cost view | `earnedvalue.py` (shared with §3.1) | P0 · M · Core |
+| EVM KPIs (SPI, CPI, EAC) | 🟡 | Maths built (`earnedvalue.py`); not surfaced | Predictive cost view computable, not yet on screen | Surface `earnedvalue` (shared with §3.1) | P0 · M · Core |
 | Portfolio KPI roll-up | 🟡 | Per-project only | No portfolio health at a glance | Roll-up over federated read model | P0 · M · Core |
 | KPI narration (plain-language briefing) | ❌ | Numbers shown, not narrated | Users must interpret raw boards | Generate sentences over computed numbers, cite source | P1 · M · AI |
 | Portfolio anomaly watch | 🟡 | Advisory is single-firm | Meaningful moves missed across many sites | Extend advisory to portfolio; surface only material moves | P1 · M · AI |
@@ -143,7 +143,7 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Risk register + likelihood×impact scoring | 🟡 | Implicit in advisory only | Risks not owned/tracked | Register + scoring (shared with §3.1) | P0 · M · Core |
+| Risk register + likelihood×impact scoring | 🟡 | Scoring built (`risk.py`); register storage/UI pending | Scores/exposure computable; risks not yet owned/tracked | Register schema + tab over built `risk.py` (shared with §3.1) | P0 · M · Core |
 | Rule-based risk detection taxonomy | 🟡 | Advisory rules exist, unnamed as risks | No consistent risk vocabulary | Promote advisory rules into a named risk taxonomy | P1 · M · Core |
 | Risk narrative (top-N by exposure) | ❌ | No narrative | Hard to see the portfolio's top risks | Ranked plain-language risk summary | P1 · S · AI |
 | Predictive / early-weak-signal risk | ❌ | Threshold rules only | Drift caught late, after a threshold trips | Correlate soft signals; trend projection (range+basis) | P2 · L · AI |
@@ -194,19 +194,27 @@ discipline already in [`ROADMAP.md`](ROADMAP.md).
 
 **Goal:** lay the deterministic groundwork that every later phase reads from.
 
-- **E0.1 EVM module** — `earnedvalue.py`: PV, EV, AC → SPI, CPI, SV, CV, EAC,
-  ETC, VAC. Inputs from `programme` (baseline value), `analytics.contract_progress`
-  (earned/measured value), `projectcost` (actual cost). Pure, unit-tested.
-- **E0.2 Risk register** — schema (`risks` table: project, category, description,
-  likelihood, impact, score, owner, mitigation, status, decided_by/at) +
-  `risk.py` scoring (likelihood × impact matrix). Deterministic.
-- **E0.3 AI-origin audit tagging** — extend the audit log to record AI-drafted
-  origin + confirming user (prepares E1+).
+- **E0.1 EVM module ✅ (built)** — `earnedvalue.py`: PV, EV, AC → SPI, CPI, SV,
+  CV, EAC (three methods), ETC, VAC, TCPI, percent-complete/spent, and a
+  value-weighted `portfolio` roll-up. Pure, tkinter/DB-free, 8 unit tests in
+  `tests/test_core.py` (`TestEarnedValue`). Inputs map to `programme` (baseline
+  → PV), `analytics.contract_progress` (measured value → EV), `projectcost`
+  (total cost → AC). _Remaining: surface it in Insight/KPI (E2)._
+- **E0.2 Risk scoring ✅ (built) / register schema ⏳** — `risk.py`: 5×5
+  likelihood×impact scoring, bands (Low/Medium/High/Critical), probability-weighted
+  expected exposure, residual-after-mitigation, ranking and a register summary.
+  Pure, 8 unit tests (`TestRisk`). _Remaining: the `risks` table (project,
+  category, likelihood, impact, owner, mitigation, status, decided_by/at) and a
+  tab over this scoring — deferred because it needs schema + GUI._
+- **E0.3 AI-origin audit tagging ⏳** — extend the audit log to record AI-drafted
+  origin + confirming user (prepares E1+). Not yet started.
 
 **Depends on:** existing analytics/cost/programme (present).
-**Acceptance:** EVM figures reconcile against a worked example in tests; a risk
-can be created, scored, owned, and its decisions appear in the audit log; no new
-pip dependency; all existing tests pass.
+**Acceptance:** EVM figures reconcile against a worked example in tests ✅; risk
+scoring/exposure/ranking unit-tested ✅; no new pip dependency ✅; full suite
+passes (the one environment error is the pre-existing missing-`tkinter` GUI theme
+test, unrelated to these pure modules). _Register persistence + audit tagging
+remain open._
 
 ### Phase E1 — Capture _(P1 · cut manual entry)_
 

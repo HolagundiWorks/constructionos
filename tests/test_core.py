@@ -71,6 +71,8 @@ import statutory
 import subcontract
 import variation
 import wages
+import earnedvalue
+import risk
 
 
 class TestFinance(unittest.TestCase):
@@ -323,6 +325,112 @@ class TestAnalytics(unittest.TestCase):
 
     def test_progress_handles_zero_boq(self):
         self.assertIsNotNone(analytics.contract_progress(0, 100))
+
+
+class TestEarnedValue(unittest.TestCase):
+    """EVM indices and forecast. The zero-denominator guards earn the module —
+    a project with no cost booked yet must not divide by zero."""
+
+    def test_over_budget_and_behind_schedule_reads(self):
+        # BAC 100, planned 50 by now, earned only 40, cost already 50:
+        # behind schedule (EV<PV) and over budget (AC>EV).
+        e = earnedvalue.earned_value(bac=100, pv=50, ac=50, ev=40)
+        self.assertEqual(e['sv'], -10.0)          # EV - PV
+        self.assertEqual(e['cv'], -10.0)          # EV - AC
+        self.assertEqual(e['spi'], 0.8)           # 40/50
+        self.assertEqual(e['cpi'], 0.8)           # 40/50
+        self.assertFalse(e['on_budget'])
+        self.assertFalse(e['on_schedule'])
+
+    def test_eac_by_cpi_projects_the_overrun(self):
+        # CPI 0.8 → EAC = BAC/CPI = 125, so VAC = -25 (a forecast overspend).
+        e = earnedvalue.earned_value(bac=100, pv=50, ac=50, ev=40)
+        self.assertEqual(e['eac']['cpi'], 125.0)
+        self.assertEqual(e['eac']['default'], 125.0)
+        self.assertEqual(e['vac'], -25.0)
+        self.assertEqual(e['etc'], 75.0)          # EAC - AC
+
+    def test_indices_are_none_not_infinity_when_denominator_zero(self):
+        e = earnedvalue.earned_value(bac=100, pv=0, ac=0, ev=0)
+        self.assertIsNone(e['spi'])               # PV = 0
+        self.assertIsNone(e['cpi'])               # AC = 0
+        self.assertIsNone(e['on_budget'])
+        # EAC still degrades gracefully to the budget method (BAC - EV added).
+        self.assertEqual(e['eac']['default'], e['eac']['budget'])
+
+    def test_percent_complete_is_value_over_budget(self):
+        e = earnedvalue.earned_value(bac=200, pv=100, ac=90, ev=100)
+        self.assertEqual(e['percent_complete'], 50.0)   # 100/200
+        self.assertEqual(e['percent_spent'], 45.0)      # 90/200
+
+    def test_ev_and_pv_derivations(self):
+        self.assertEqual(earnedvalue.ev_from_progress(1000, 25), 250.0)
+        self.assertEqual(earnedvalue.pv_from_planned(1000, 40), 400.0)
+
+    def test_tcpi_flags_when_remaining_work_must_beat_budget(self):
+        # BAC 100, EV 40, AC 50 → TCPI = (100-40)/(100-50) = 1.2 > 1: hard.
+        self.assertEqual(earnedvalue.tcpi(100, 40, 50), 1.2)
+
+    def test_portfolio_cpi_is_value_weighted(self):
+        a = earnedvalue.earned_value(bac=100, pv=90, ac=100, ev=90)   # cpi 0.9
+        b = earnedvalue.earned_value(bac=10, pv=10, ac=5, ev=10)      # cpi 2.0
+        p = earnedvalue.portfolio([('A', a), ('B', b)])
+        # Value-weighted: (90+10)/(100+5) ≈ 0.952, not the naive mean 1.45.
+        self.assertEqual(p['cpi'], round(100 / 105, 3))
+        self.assertEqual(p['worst_cpi'], 'A')
+        self.assertIn('A', p['over_cost_names'])
+
+
+class TestRisk(unittest.TestCase):
+    """Likelihood x impact scoring, clamping, exposure and ranking."""
+
+    def test_score_is_the_product(self):
+        self.assertEqual(risk.score(4, 5), 20)
+
+    def test_out_of_range_levels_are_clamped_not_trusted(self):
+        # A mistyped 9 must not invent a score of 45.
+        self.assertEqual(risk.score(9, 9), 25)
+        self.assertEqual(risk.score(0, 3), 3)     # 0 floors to 1
+        self.assertEqual(risk.score('x', 4), 4)   # garbage floors to 1
+
+    def test_bands_cover_the_whole_range(self):
+        self.assertEqual(risk.band(3), risk.LOW)
+        self.assertEqual(risk.band(6), risk.MEDIUM)
+        self.assertEqual(risk.band(12), risk.HIGH)
+        self.assertEqual(risk.band(20), risk.CRITICAL)
+
+    def test_a_severe_top_row_risk_is_never_merely_low(self):
+        self.assertEqual(risk.assess(1, 5)['band'], risk.MEDIUM)  # 1x5 = 5
+        self.assertEqual(risk.assess(5, 5)['band'], risk.CRITICAL)
+
+    def test_expected_exposure_is_probability_weighted(self):
+        # likelihood 5 → p 0.9; 0.9 x 200000 = 180000.
+        self.assertEqual(risk.expected_exposure(5, 200000), 180000.0)
+
+    def test_mitigation_benefit_is_never_negative(self):
+        a = risk.assess(5, 5, residual_likelihood=2, residual_impact=3)
+        self.assertEqual(a['residual']['score'], 6)
+        self.assertEqual(a['mitigation_benefit'], 25 - 6)
+        # A control that 'raises' the score is a data error, floored to 0.
+        worse = risk.assess(2, 2, residual_likelihood=5, residual_impact=5)
+        self.assertEqual(worse['mitigation_benefit'], 0)
+
+    def test_rank_puts_the_worst_first(self):
+        rs = [risk.assess(1, 2), risk.assess(5, 5), risk.assess(3, 3)]
+        ranked = risk.rank(rs)
+        self.assertEqual(ranked[0]['score'], 25)
+        self.assertEqual(ranked[-1]['score'], 2)
+
+    def test_register_summary_counts_and_sizes(self):
+        rs = [risk.assess(5, 5, value=100000),   # critical
+              risk.assess(4, 3, value=50000),    # high (12)
+              risk.assess(1, 2)]                  # low
+        s = risk.register_summary(rs, top_n=2)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['by_band'][risk.CRITICAL], 1)
+        self.assertEqual(s['needs_action'], 2)    # critical + high
+        self.assertEqual(len(s['top']), 2)
+        self.assertGreater(s['total_expected_exposure'], 0)
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):

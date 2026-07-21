@@ -282,8 +282,8 @@ already lives:
 | | PPC — Plan Percent Complete (look-ahead reliability) | `planning.py` | Built |
 | | Critical-path float trend | `cpm.py` | Extend (trend) |
 | **Cost** | Budget vs actual, margin % | `projectcost.py` | Built |
-| | Cost Performance / earned value (SPI, CPI) | EVM | **Proposed** |
-| | Forecast cost at completion (EAC) | EVM + trend | **Proposed** |
+| | Cost Performance / earned value (SPI, CPI) | `earnedvalue.py` | **Built (maths)** — surfacing pending |
+| | Forecast cost at completion (EAC) | `earnedvalue.py` (+ trend) | **Built (maths)** — trend/surfacing pending |
 | | Material budget variance | `analytics.py` | Built |
 | **Cash** | Receivables, ageing, DSO | `ageing.py`, `tab_insight.py` | Built |
 | | Cash-flow forecast | `cashflow.py` | Built |
@@ -293,11 +293,12 @@ already lives:
 | **Safety** | Incident rate, open observations | `hse.py` | Built |
 | **Productivity** | Output per crew/day, plant utilisation | muster, `plant.py` | Extend |
 
-**The one genuine gap is Earned Value Management (EVM)** — SPI, CPI, and
+**Earned Value Management (EVM)** — SPI, CPI, and
 forecast-at-completion. The inputs already exist (baseline value, measured
 value via `analytics.contract_progress`, actual cost via `projectcost`), so EVM
-is a **pure-module addition** (`earnedvalue.py`, Proposed) with unit tests,
-consistent with the architecture — no AI required for the maths.
+was a **pure-module addition** — now **built** as `earnedvalue.py` with unit
+tests, consistent with the architecture; only its surfacing in a KPI/Insight tab
+remains. No AI required for the maths.
 
 ### 7.3 Where AI improves KPIs
 
