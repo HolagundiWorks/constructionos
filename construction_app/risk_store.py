@@ -21,10 +21,14 @@ import risk
 # Columns a caller may set; everything else on the row is derived or defaulted.
 _WRITABLE = (
     'project_id', 'category', 'title', 'description',
-    'likelihood', 'impact', 'impact_value', 'owner', 'mitigation',
+    'likelihood', 'impact', 'urgency', 'impact_value', 'response',
+    'owner', 'mitigation', 'action_plan', 'target_date',
     'residual_likelihood', 'residual_impact', 'status', 'reference',
     'source', 'decided_by', 'decided_date', 'created_date', 'remarks',
 )
+
+# Columns this store computes on every save — never accepted from a caller.
+_DERIVED = ('score', 'priority', 'band', 'expected_exposure')
 
 
 def _today():
@@ -32,18 +36,20 @@ def _today():
 
 
 def _derived(fields):
-    """The (score, band, expected_exposure) for a set of fields, via risk.assess.
-
-    Single-sources the scoring so the table and ``risk.py`` cannot disagree."""
+    """The derived columns (score, priority, band, expected_exposure) via
+    risk.assess. Single-sources the scoring so the table and ``risk.py`` cannot
+    disagree."""
     a = risk.assess(
         fields.get('likelihood', 1),
         fields.get('impact', 1),
         value=fields.get('impact_value', 0) or 0,
         residual_likelihood=fields.get('residual_likelihood'),
         residual_impact=fields.get('residual_impact'),
+        urgency=fields.get('urgency'),
     )
     return {
         'score': a['score'],
+        'priority': a['priority'],
         'band': a['band'],
         'expected_exposure': a['expected_exposure'],
     }
@@ -56,6 +62,8 @@ def add(conn, **fields):
     without curating it). ``created_date`` defaults to today; ``source`` to
     'manual'."""
     row = {k: fields[k] for k in _WRITABLE if k in fields}
+    if 'response' in row:
+        row['response'] = risk.valid_response(row['response'])
     row.setdefault('source', 'manual')
     row.setdefault('status', 'Open')
     row.setdefault('created_date', _today())
@@ -84,10 +92,11 @@ def update(conn, risk_id, **fields):
     for k in _WRITABLE:
         if k in fields:
             merged[k] = fields[k]
+    if 'response' in fields:
+        merged['response'] = risk.valid_response(merged.get('response'))
     merged.update(_derived(merged))
 
-    cols = [c for c in _WRITABLE if c in merged] + [
-        'score', 'band', 'expected_exposure']
+    cols = [c for c in _WRITABLE if c in merged] + list(_DERIVED)
     assignments = ', '.join('{} = ?'.format(c) for c in cols)
     conn.execute('UPDATE risks SET {} WHERE id = ?'.format(assignments),
                  [merged[c] for c in cols] + [risk_id])
@@ -133,7 +142,7 @@ def list_risks(conn, project_id=None, status=None):
     sql = 'SELECT * FROM risks'
     if where:
         sql += ' WHERE ' + ' AND '.join(where)
-    sql += ' ORDER BY score DESC, expected_exposure DESC, id'
+    sql += ' ORDER BY priority DESC, score DESC, expected_exposure DESC, id'
     return conn.execute(sql, params).fetchall()
 
 
@@ -146,7 +155,8 @@ def _assess_row(row):
         row['likelihood'], row['impact'],
         value=row['impact_value'] or 0,
         residual_likelihood=row['residual_likelihood'],
-        residual_impact=row['residual_impact'])
+        residual_impact=row['residual_impact'],
+        urgency=row['urgency'])
     a['id'] = row['id']
     a['title'] = row['title']
     a['category'] = row['category']

@@ -41,6 +41,19 @@ _PROBABILITY = {1: 0.1, 2: 0.3, 3: 0.5, 4: 0.7, 5: 0.9}
 LOW, MEDIUM, HIGH, CRITICAL = 'Low', 'Medium', 'High', 'Critical'
 _BAND_RANK = {LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3}
 
+# --- risk response strategies (PMI-standard). The band says how big; the
+# response says what to do about it. Kept as data so a store can validate.
+AVOID, REDUCE, TRANSFER, ACCEPT = 'Avoid', 'Reduce', 'Transfer', 'Accept'
+RESPONSES = (AVOID, REDUCE, TRANSFER, ACCEPT)
+
+
+def valid_response(response):
+    """Return the response if it is a recognised strategy, else None — a bad
+    value is dropped rather than stored, never raised (a register import with a
+    typo must not crash the roll-up)."""
+    r = (response or '').strip().title()
+    return r if r in RESPONSES else None
+
 
 def _level(value):
     """Clamp an ordinal to the valid 1..5, as an int. A blank/garbage level
@@ -99,16 +112,25 @@ def expected_exposure(likelihood, value):
 
 
 def assess(likelihood, impact, value=0,
-           residual_likelihood=None, residual_impact=None):
+           residual_likelihood=None, residual_impact=None,
+           urgency=None, response=None):
     """Score one risk, inherent and (optionally) residual-after-mitigation.
 
     Returns the raw score, band, labels, and — when a ``value`` is given — the
     expected exposure. If ``residual_*`` are supplied, the post-mitigation
     picture is included too, plus how many score points the mitigation buys, so
     a register can show that a control actually moved the needle.
+
+    ``urgency`` (1..5, optional) is the *when* to the score's *how big* — two
+    equally-scored risks are not equally pressing. It never changes the band
+    (that stays likelihood×impact, the classification the industry uses); it
+    drives ``priority`` = score×urgency, which sequences same-band items.
+    ``response`` records the chosen strategy (Avoid/Reduce/Transfer/Accept),
+    validated and dropped if unrecognised.
     """
     lk, im = _level(likelihood), _level(impact)
     raw = score(lk, im)
+    urg = _level(urgency) if urgency is not None else None
     out = {
         'likelihood': lk,
         'impact': im,
@@ -116,6 +138,9 @@ def assess(likelihood, impact, value=0,
         'impact_label': IMPACT_LABELS[im],
         'score': raw,
         'band': band(raw),
+        'urgency': urg,
+        'priority': raw if urg is None else raw * urg,
+        'response': valid_response(response),
         'value': round(float(value or 0), 2) if value else 0.0,
         'expected_exposure': expected_exposure(lk, value),
     }
@@ -145,9 +170,12 @@ def rank(risks):
     own id/title — untouched). A stable, explainable ordering so the register's
     top of list is genuinely the thing to act on first."""
     def key(r):
+        priority = r.get('priority')
+        if priority is None:
+            priority = r.get('score', 1)
         return (
             -_BAND_RANK.get(r.get('band', LOW), 0),
-            -_level_score(r.get('score', 1)),
+            -float(priority or 0),
             -float(r.get('expected_exposure') or 0),
         )
     return sorted(list(risks or []), key=key)

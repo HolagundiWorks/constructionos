@@ -44,14 +44,16 @@ def _kpi_block(s):
     }
 
 
-def build(snapshot, evm=None, ppc_series=None, generated=None):
+def build(snapshot, evm=None, ppc_series=None, opportunities=None,
+          generated=None):
     """Assemble one project's review pack from its metrics ``snapshot``.
 
-    ``evm`` (an ``earnedvalue.earned_value`` dict) and ``ppc_series`` (a list of
-    recent Plan-Percent-Complete readings, for a reliability forecast) are
-    optional — passed in rather than queried here so this stays DB-free and
-    testable. ``generated`` defaults to today (overridable for a reproducible
-    test).
+    ``evm`` (an ``earnedvalue.earned_value`` dict), ``ppc_series`` (recent
+    Plan-Percent-Complete readings for a reliability forecast) and
+    ``opportunities`` (a list of ``opportunity.assess`` dicts, or rows from
+    ``opportunity_store``) are optional — passed in rather than queried here so
+    this stays DB-free and testable. ``generated`` defaults to today
+    (overridable for a reproducible test).
     """
     s = snapshot or {}
     cards = advisory.build(s)
@@ -72,6 +74,9 @@ def build(snapshot, evm=None, ppc_series=None, generated=None):
         pack['evm'] = evm
     if ppc_series:
         pack['ppc_forecast'] = forecast_mod.project(ppc_series, 1)
+    if opportunities is not None:
+        import opportunity as opportunity_mod
+        pack['opportunities'] = opportunity_mod.register_summary(opportunities)
     return pack
 
 

@@ -42,6 +42,10 @@ SEVERITIES = [NEAR_MISS, FIRST_AID, LOST_TIME, REPORTABLE]
 
 # Injuries that cost time away from work — the numerator of LTIFR.
 LOST_TIME_KINDS = (LOST_TIME, REPORTABLE)
+# Recordable injuries — the numerator of TRIR. Excludes near-miss (no injury)
+# and first-aid-only (below the recordable threshold), matching the common
+# OSHA-style definition clients and tenders ask for.
+RECORDABLE_KINDS = (LOST_TIME, REPORTABLE)
 
 # Below this, a frequency rate is noise rather than information.
 _MIN_HOURS_FOR_RATE = 10000
@@ -113,6 +117,21 @@ def ltifr(incidents, hours_worked):
     return money(lost / hours * 200000.0)
 
 
+def trir(incidents, hours_worked):
+    """Total Recordable Incident Rate — recordable injuries per 200,000 hours
+    worked (100 full-time-equivalent worker-years, the standard basis).
+
+    None below ``_MIN_HOURS_FOR_RATE`` for the same reason as LTIFR: a rate over
+    a fortnight is arithmetic, not a safety record.
+    """
+    hours = float(hours_worked or 0)
+    if hours < _MIN_HOURS_FOR_RATE:
+        return None
+    recordable = sum(1 for i in incidents or []
+                     if str(_get(i, 'severity', '')).strip() in RECORDABLE_KINDS)
+    return money(recordable / hours * 200000.0)
+
+
 def summarise(incidents, permits=None, hours_worked=0, as_on=None):
     """The safety picture: incidents by severity, open permits, LTIFR.
 
@@ -144,6 +163,7 @@ def summarise(incidents, permits=None, hours_worked=0, as_on=None):
         'lost_days': lost_days,
         'near_miss_ratio': ratio,
         'ltifr': ltifr(rows, hours_worked),
+        'trir': trir(rows, hours_worked),
         'open_permits': len(open_permits),
         'expired_permits': len(invalid),
     }

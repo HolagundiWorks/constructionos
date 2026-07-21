@@ -966,18 +966,56 @@ CREATE TABLE IF NOT EXISTS risks (
     category TEXT,                    -- schedule/cost/commercial/quality/safety/statutory/external
     title TEXT,
     description TEXT,
-    likelihood INTEGER DEFAULT 1,     -- 1..5
+    likelihood INTEGER DEFAULT 1,     -- 1..5 (probability)
     impact INTEGER DEFAULT 1,         -- 1..5
+    urgency INTEGER,                  -- 1..5, nullable — the 'when', sequences same-band items
     score REAL DEFAULT 0,             -- derived: likelihood x impact
+    priority REAL DEFAULT 0,          -- derived: score x urgency (or score if no urgency)
     band TEXT DEFAULT 'Low',          -- derived: Low / Medium / High / Critical
     impact_value REAL DEFAULT 0,      -- rupees (or days) at stake if it happens
     expected_exposure REAL DEFAULT 0, -- derived: probability(likelihood) x impact_value
+    response TEXT,                    -- Avoid / Reduce / Transfer / Accept
     owner TEXT,
-    mitigation TEXT,
+    mitigation TEXT,                  -- the action plan / control
+    action_plan TEXT,                 -- explicit action steps (Part 2 execution)
+    target_date TEXT,                 -- target completion of the response
     residual_likelihood INTEGER,      -- post-mitigation, nullable
     residual_impact INTEGER,
     status TEXT DEFAULT 'Open',       -- Open / Mitigating / Closed / Accepted
     reference TEXT,                   -- the basis / paper trail (a rule, a letter)
+    source TEXT DEFAULT 'manual',     -- manual / ai
+    decided_by TEXT,
+    decided_date TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
+-- ------------------------------------ opportunity register (Part 2 — execution)
+-- The upside twin of risks: what could go right (a saving, a local-sourcing win,
+-- a resequencing that buys float). Scored the same way (probability x impact via
+-- opportunity.py, which reuses the risk matrix); value is an upside to capture
+-- and response is Exploit / Enhance / Share / Accept. Kept a separate table from
+-- risks so each stays simple, mirroring the variations/bid_assessments pattern.
+CREATE TABLE IF NOT EXISTS opportunities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- site/cost/schedule/procurement/quality/...
+    title TEXT,
+    description TEXT,
+    likelihood INTEGER DEFAULT 1,     -- 1..5
+    impact INTEGER DEFAULT 1,         -- 1..5
+    urgency INTEGER,                  -- 1..5, nullable
+    score REAL DEFAULT 0,             -- derived: likelihood x impact
+    priority REAL DEFAULT 0,          -- derived: score x urgency
+    band TEXT DEFAULT 'Low',          -- derived
+    value REAL DEFAULT 0,             -- the upside if captured (rupees or days)
+    expected_value REAL DEFAULT 0,    -- derived: probability(likelihood) x value
+    response TEXT,                    -- Exploit / Enhance / Share / Accept
+    owner TEXT,
+    action_plan TEXT,
+    target_date TEXT,
+    status TEXT DEFAULT 'Open',       -- Open / Pursuing / Realized / Declined
+    reference TEXT,
     source TEXT DEFAULT 'manual',     -- manual / ai
     decided_by TEXT,
     decided_date TEXT,
@@ -1312,6 +1350,15 @@ _ADD_COLUMNS = [
     ('timeline_tasks', 'parent_id', 'INTEGER'),
     ('projects', 'work_week', "TEXT DEFAULT '1111110'"),
     ('projects', 'holidays', 'TEXT'),
+    # Part 2 (execution) risk-register fields: urgency (the 'when'), the derived
+    # priority (score x urgency), the response strategy, and an explicit action
+    # plan + target date. Additive so a risks table from an earlier build gains
+    # them without losing rows.
+    ('risks', 'urgency', 'INTEGER'),
+    ('risks', 'priority', 'REAL DEFAULT 0'),
+    ('risks', 'response', 'TEXT'),
+    ('risks', 'action_plan', 'TEXT'),
+    ('risks', 'target_date', 'TEXT'),
 ]
 
 
