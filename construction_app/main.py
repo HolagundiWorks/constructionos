@@ -196,12 +196,28 @@ def main():
             c.close()
         theme.apply(root, new)
 
+    # A pictogram per rail row — the eye finds a section by shape before it
+    # reads the word. Keyed by the always-on screens and by section title.
+    icons = {
+        'home': '\U0001F3E0',        # house
+        'assistant': '\U0001F4AC',   # speech balloon
+        'tools': '⚙',           # gear
+        'Masters': '\U0001F5C2',     # card index dividers
+        'Projects': '\U0001F3D7',    # building construction
+        'Operations': '\U0001F6E0',  # hammer and wrench
+        'Billing': '\U0001F9FE',     # receipt
+        'Purchases': '\U0001F6D2',   # shopping trolley
+        'Money': '\U0001F4B0',       # money bag
+        'Accounts': '\U0001F4CA',    # bar chart
+    }
+
     # One rail entry per always-on screen and per enabled section; each section
     # keeps its sub-notebook, built lazily the first time the row is opened.
     entries = [
-        {'key': 'home', 'label': i18n.t('Home'),
+        {'key': 'home', 'label': i18n.t('Home'), 'icon': icons['home'],
          'build': lambda p: build_home_tab(p, get)},
         {'key': 'assistant', 'label': i18n.t('Assistant'),
+         'icon': icons['assistant'],
          'build': lambda p: build_assistant_tab(p, get)},
     ]
     for title, labels in modules.SECTIONS_CATALOG:
@@ -210,8 +226,10 @@ def main():
         if not items:
             continue   # whole section switched off
         entries.append({'key': 'sec:' + title, 'label': i18n.t(title),
+                        'icon': icons.get(title, '◆'),
                         'build': (lambda p, it=items: _section(p, get, it))})
     entries.append({'key': 'tools', 'label': i18n.t('Tools'),
+                    'icon': icons['tools'],
                     'build': lambda p: build_tools_tab(p, get)})
 
     subtitle = ''

@@ -36,11 +36,11 @@ FONT_KPI = (_FAMILY, 16, 'bold')
 FONT_MICRO = (_FAMILY, 8)
 
 # Tab / nav row heights. The primary navigation is the rail nav rows; the
-# secondary navigation is the section notebook tab strip inside the stage. The
-# secondary strip is set to ~2x the primary row height — the vertical padding
-# is tuned (below) so the rendered strip measures double the rail row.
+# secondary navigation is the section notebook tab strip inside the stage.
+# Kept at parity (1x) — the two levels read as equals, the accent alert-line
+# on the active tab carries the hierarchy rather than size.
 NAV_PAD_Y = 8            # primary — rail nav row
-TAB_PAD_Y = 23          # secondary — stage notebook tab (≈ 2x the nav row)
+TAB_PAD_Y = 7           # secondary — stage notebook tab (~1x the nav row)
 
 # Solid-hex approximations of the kit's alpha tokens (tkinter has no alpha):
 # hairline = Coal@10% over the ground; accent_soft = Orange@14-20% over the card.
@@ -262,13 +262,22 @@ def apply(root, m=None):
     style.configure('TProgressbar', background=pal['accent'],
                     troughcolor=pal['surface2'], bordercolor=pal['hairline'])
 
-    # --- rail nav rows (built as Labels; active row wears the accent)
+    # --- rail nav rows: [accent rule][pictogram][label]; the active row wears
+    # the accent rule + lifts to the secondary surface with bold ink.
     style.configure('Nav.TLabel', background=pal['rail'],
-                    foreground=pal['muted'], padding=(16, NAV_PAD_Y), font=FONT)
+                    foreground=pal['muted'], padding=(4, NAV_PAD_Y, 14, NAV_PAD_Y),
+                    font=FONT)
     style.configure('NavActive.TLabel', background=pal['surface2'],
-                    foreground=pal['ink'], padding=(16, NAV_PAD_Y),
+                    foreground=pal['ink'], padding=(4, NAV_PAD_Y, 14, NAV_PAD_Y),
                     font=FONT_BOLD)
+    style.configure('NavIcon.TLabel', background=pal['rail'],
+                    foreground=pal['muted'],
+                    padding=(13, NAV_PAD_Y, 4, NAV_PAD_Y))
+    style.configure('NavIconActive.TLabel', background=pal['surface2'],
+                    foreground=pal['ink'],
+                    padding=(13, NAV_PAD_Y, 4, NAV_PAD_Y))
     style.configure('NavAccent.TFrame', background=pal['accent'])
     style.configure('NavRule.TFrame', background=pal['rail'])
+    style.configure('NavRowActive.TFrame', background=pal['surface2'])
 
     return pal
