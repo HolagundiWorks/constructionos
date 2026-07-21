@@ -15,6 +15,7 @@ material ledger. The gap is wastage (or pilferage) to investigate.
 
 import tkinter as tk
 from tkinter import ttk
+import theme
 
 import civil
 from crud_frame import CrudFrame, Field, TODAY
@@ -72,8 +73,8 @@ class ReconciliationView(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=150 if col == 'material' else 120, anchor='w')
-        self.tree.tag_configure('over', background='#ffebee')
-        self.tree.tag_configure('ok', background='#e8f5e9')
+        self.tree.tag_configure('over', background=theme.wash('bad'))
+        self.tree.tag_configure('ok', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.reload()
 

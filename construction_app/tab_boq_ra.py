@@ -18,12 +18,14 @@ import os
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import theme
 
 from ui_guard import can_write
 
 import civil
 import mb
 import bill_export
+import ratebook_picker
 import report_open
 
 
@@ -115,10 +117,22 @@ class BOQFrame(ttk.Frame):
             ttk.Entry(cell, textvariable=self.v[key], width=22).pack(side='left')
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 8))
+        ttk.Button(btns, text='From Rate Book…',
+                   command=self.pick_from_rate_book).pack(side='left', padx=(3, 12))
         ttk.Button(btns, text='Add', command=self.add).pack(side='left', padx=3)
         ttk.Button(btns, text='Update', command=self.update).pack(side='left', padx=3)
         ttk.Button(btns, text='Delete', command=self.delete).pack(side='left', padx=3)
         ttk.Button(btns, text='Clear', command=self.clear).pack(side='left', padx=3)
+
+    def pick_from_rate_book(self):
+        """Fill the BOQ item fields from a chosen rate-book line (editable)."""
+        row = ratebook_picker.pick(self, self.db_getter)
+        if not row:
+            return
+        self.v['item_no'].set(row['code'])
+        self.v['description'].set(row['description'])
+        self.v['unit'].set(row['unit'])
+        self.v['rate'].set('{:g}'.format(float(row['rate'] or 0)))
 
     def refresh_contracts(self):
         conn = self.db_getter()
@@ -1087,8 +1101,8 @@ class DeviationStatement(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=160 if col == 'desc' else 85, anchor='w')
-        self.tree.tag_configure('excess', background='#ffebee')
-        self.tree.tag_configure('saving', background='#e8f5e9')
+        self.tree.tag_configure('excess', background=theme.wash('bad'))
+        self.tree.tag_configure('saving', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,

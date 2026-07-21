@@ -265,4 +265,9 @@ def seed(conn):
        "(date('now','-20 day'),2,2,'OUT',12000,62)")
 
     conn.commit()
+
+    # the CPWD reference library too, so the Rate Book / Rate Analysis /
+    # Consumption tabs and the "From Rate Book" picker all have data in the demo.
+    import refdata
+    refdata.load(conn)
     return True

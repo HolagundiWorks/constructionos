@@ -14,6 +14,7 @@ flags Over/Under-billed variances beyond a tolerance.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import theme
 
 from ui_guard import can_write
 
@@ -574,10 +575,10 @@ class ReconciliationView(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=110, anchor='w')
-        self.tree.tag_configure('matched', background='#e8f5e9')
-        self.tree.tag_configure('over', background='#ffebee')
-        self.tree.tag_configure('under', background='#fff8e1')
-        self.tree.tag_configure('nopo', background='#eceff1')
+        self.tree.tag_configure('matched', background=theme.wash('good'))
+        self.tree.tag_configure('over', background=theme.wash('bad'))
+        self.tree.tag_configure('under', background=theme.wash('warn'))
+        self.tree.tag_configure('nopo', background=theme.wash('muted'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.refresh()
 

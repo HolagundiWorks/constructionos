@@ -13,6 +13,7 @@ docs/ROADMAP.md Phase 6 for ageing, which needs that link).
 
 import tkinter as tk
 from tkinter import ttk
+import theme
 
 import ageing
 import allocation
@@ -49,8 +50,8 @@ class SiteProfitability(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=130 if col == 'site' else 100, anchor='w')
-        self.tree.tag_configure('loss', background='#ffebee')
-        self.tree.tag_configure('profit', background='#e8f5e9')
+        self.tree.tag_configure('loss', background=theme.wash('bad'))
+        self.tree.tag_configure('profit', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.refresh()
 
@@ -226,7 +227,7 @@ class Ageing(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=180 if col == 'party' else 95, anchor='w')
-        self.tree.tag_configure('overdue', background='#ffebee')
+        self.tree.tag_configure('overdue', background=theme.wash('bad'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,
@@ -344,8 +345,8 @@ class ContractProgress(ttk.Frame):
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=140 if col in ('contract', 'site') else 100,
                              anchor='w')
-        self.tree.tag_configure('over', background='#fff8e1')
-        self.tree.tag_configure('done', background='#e8f5e9')
+        self.tree.tag_configure('over', background=theme.wash('warn'))
+        self.tree.tag_configure('done', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.refresh()
 
@@ -426,8 +427,8 @@ class MaterialBudget(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=160 if col == 'material' else 110, anchor='w')
-        self.tree.tag_configure('over', background='#ffebee')
-        self.tree.tag_configure('ok', background='#e8f5e9')
+        self.tree.tag_configure('over', background=theme.wash('bad'))
+        self.tree.tag_configure('ok', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,

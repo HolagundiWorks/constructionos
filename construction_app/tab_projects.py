@@ -18,8 +18,13 @@ import projman
 import projectcost
 import bill_export
 import report_open
+import theme
 from crud_frame import CrudFrame, Field
 from tab_masters import client_options, site_options, project_options
+
+
+def _inr(value):
+    return '₹ {:,.0f}'.format(round(float(value or 0)))
 
 
 def _build_projects(parent, db_getter):
@@ -65,37 +70,30 @@ def _build_milestones(parent, db_getter):
 
 
 class ProjectOverview(ttk.Frame):
+    """One project on one screen: money (budget/cost/billed/margin), programme
+    (slip + LD exposure), and the risk items that decide whether it finishes
+    well — retention withheld, agreed-but-unbilled variations, open blockers,
+    RFIs and non-conformances. Read-only; every figure is computed live."""
+
     def __init__(self, parent, db_getter):
-        super().__init__(parent)
+        super().__init__(parent, style='Stage.TFrame')
         self.db_getter = db_getter
         self._map = {}
         self.project_var = tk.StringVar()
 
-        top = ttk.Frame(self); top.pack(fill='x', padx=10, pady=(10, 4))
-        ttk.Label(top, text='Project', font=('TkDefaultFont', 11, 'bold')).pack(side='left')
-        self.combo = ttk.Combobox(top, textvariable=self.project_var, width=28,
+        top = ttk.Frame(self, style='Stage.TFrame')
+        top.pack(fill='x', padx=10, pady=(10, 4))
+        ttk.Label(top, text='Project', style='Section.TLabel').pack(side='left')
+        self.combo = ttk.Combobox(top, textvariable=self.project_var, width=30,
                                   state='readonly')
         self.combo.pack(side='left', padx=6)
         self.combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
         ttk.Button(top, text='Reload', command=self.reload).pack(side='left')
 
-        self.tiles = ttk.Frame(self); self.tiles.pack(fill='x', padx=8, pady=8)
-        self._vars = {}
-        specs = [('Budget', 'budget', '#5d4037'), ('Cost to Date', 'cost', '#c62828'),
-                 ('Billed', 'billed', '#1565c0'), ('Margin so far', 'margin', '#2e7d32'),
-                 ('Budget Used', 'used', '#6a1b9a'), ('Progress', 'progress', '#00695c')]
-        for idx, (title, key, accent) in enumerate(specs):
-            r, c = divmod(idx, 3)
-            card = ttk.LabelFrame(self.tiles, text=title)
-            card.grid(row=r, column=c, padx=8, pady=6, sticky='nsew')
-            self.tiles.columnconfigure(c, weight=1)
-            var = tk.StringVar(value='—'); self._vars[key] = var
-            ttk.Label(card, textvariable=var, foreground=accent,
-                      font=('TkDefaultFont', 16, 'bold')).pack(padx=14, pady=12, anchor='w')
-
-        self.detail_var = tk.StringVar()
-        ttk.Label(self, textvariable=self.detail_var, justify='left',
-                  wraplength=760).pack(anchor='w', padx=12, pady=6)
+        self._grid = ttk.Frame(self, style='Stage.TFrame')
+        self._grid.pack(fill='x', padx=6, pady=(6, 2))
+        self._flags = ttk.Frame(self, style='Stage.TFrame')
+        self._flags.pack(fill='x', padx=12, pady=(2, 10))
         self.reload()
 
     def reload(self):
@@ -112,70 +110,185 @@ class ProjectOverview(ttk.Frame):
         raw = self.project_var.get().strip()
         return self._map.get(raw, raw.split(' - ')[0]) if raw else None
 
+    def _card(self, r, c, icon, label, value, valstyle, meta=''):
+        card = ttk.Frame(self._grid, style='StatCard.TFrame', padding=(14, 12))
+        card.grid(row=r, column=c, padx=6, pady=6, sticky='nsew')
+        head = ttk.Frame(card, style='Card.TFrame'); head.pack(fill='x')
+        ttk.Label(head, text=icon, style='StatIcon.TLabel').pack(side='left')
+        ttk.Label(head, text=label, style='StatLabel.TLabel').pack(
+            side='left', padx=(8, 0))
+        ttk.Label(card, text=value, style=valstyle).pack(anchor='w', pady=(8, 0))
+        if meta:
+            ttk.Label(card, text=meta, style='StatMeta.TLabel').pack(anchor='w')
+
     def refresh(self):
+        for w in self._grid.winfo_children():
+            w.destroy()
+        for w in self._flags.winfo_children():
+            w.destroy()
         pid = self._pid()
-        for v in self._vars.values():
-            v.set('—')
-        self.detail_var.set('')
         if pid is None:
+            ttk.Label(self._grid, text='Select a project to see its overview.',
+                      style='Muted.TLabel').grid(row=0, column=0, sticky='w')
             return
+        data = self._gather(pid)
+        if data is None:
+            return
+
+        good = 'StatGood.TLabel'
+        warn = 'StatWarn.TLabel'
+        info = 'StatInfo.TLabel'
+        ink = 'StatValue.TLabel'
+        m = data
+        pct = lambda v: '—' if v is None else '{:.0f}%'.format(v)
+        tiles = [
+            ('Budget', _inr(m['budget']), '\U0001F3AF', ink, 'planned spend'),
+            ('Cost to Date', _inr(m['cost']), '\U0001F4E4', warn,
+             'material + labour + hire'),
+            ('Billed', _inr(m['billed']), '\U0001F9FE', info, 'approved + paid'),
+            ('Margin so far', _inr(m['margin']), '\U0001F4CA',
+             good if m['margin'] >= 0 else warn, 'billed − cost'),
+            ('Budget Used', pct(m['used_pct']), '\U0001F4C9',
+             warn if m['over_budget'] else info,
+             'over budget' if m['over_budget'] else 'of budget'),
+            ('Milestone Progress', pct(m['progress']), '\U0001F6A9', info,
+             '{} of {} done'.format(m['ms_done'], m['ms_total'])),
+            ('Programme', '{} d late'.format(m['slip']) if m['slip'] > 0
+             else ('On time' if m['baselined'] else '—'),
+             '\U0001F4C6', warn if m['slip'] > 0 else good,
+             'LD exposure {}'.format(_inr(m['ld'])) if m['slip'] > 0
+             else ('no baseline' if not m['baselined'] else 'vs baseline')),
+            ('Retention Withheld', _inr(m['retention']), '\U0001F512', info,
+             'held by client'),
+        ]
+        cols = 4
+        for i in range(cols):
+            self._grid.columnconfigure(i, weight=1, uniform='ov')
+        for idx, (label, value, icon, style, meta) in enumerate(tiles):
+            self._card(idx // cols, idx % cols, icon, label, value, style, meta)
+
+        # risk flags — only what needs attention, coloured by severity
+        flags = []
+        if m['var_unbilled'] > 0:
+            flags.append(('act', '{} of approved variations not yet billed'.format(
+                _inr(m['var_unbilled']))))
+        if m['snag_blockers'] > 0:
+            flags.append(('act', '{} blocking snag(s) open — gate to handover'.format(
+                m['snag_blockers'])))
+        if m['ncr_critical'] > 0:
+            flags.append(('act', '{} critical NCR(s) open'.format(m['ncr_critical'])))
+        if m['over_budget']:
+            flags.append(('act', 'Cost has exceeded the budget'))
+        if m['rfis_open'] > 0:
+            flags.append(('watch', '{} RFI(s) awaiting an answer'.format(m['rfis_open'])))
+        if m['ncr_open'] > m['ncr_critical'] and m['ncr_open'] > 0:
+            flags.append(('watch', '{} non-conformance(s) open'.format(m['ncr_open'])))
+        if m['open_tasks'] > 0:
+            flags.append(('info', '{} programme task(s) still open'.format(m['open_tasks'])))
+        if not flags:
+            flags.append(('good', 'Nothing needs attention on this project'))
+
+        ttk.Label(self._flags, text='Attention', style='Section.TLabel').pack(
+            anchor='w', pady=(4, 2))
+        style_for = {'act': theme.palette()['error'],
+                     'watch': theme.palette()['warning'],
+                     'good': theme.palette()['success'],
+                     'info': theme.palette()['muted']}
+        for sev, text in flags:
+            row = ttk.Frame(self._flags, style='Stage.TFrame'); row.pack(fill='x')
+            tk.Frame(row, width=4, bg=style_for[sev]).pack(side='left', fill='y')
+            ttk.Label(row, text='  ' + text, style='Muted.TLabel').pack(
+                side='left', pady=2)
+
+    def _gather(self, pid):
         conn = self.db_getter()
         try:
-            p = conn.execute('SELECT * FROM projects WHERE id = ?', (pid,)).fetchone()
+            p = conn.execute('SELECT * FROM projects WHERE id = ?',
+                             (pid,)).fetchone()
             if p is None:
-                return
+                return None
             site_id = p['site_id']
 
-            def scalar(sql, params):
+            def scalar(sql, params=()):
                 return conn.execute(sql, params).fetchone()[0] or 0
 
             material = labour = hire = billed = 0
             if site_id is not None:
-                material = scalar("SELECT COALESCE(SUM(qty*rate),0) FROM material_ledger "
-                                  "WHERE txn_type='OUT' AND site_id=?", (site_id,))
-                labour = scalar("SELECT COALESCE(SUM(amount),0) FROM payments "
-                                "WHERE direction='Payment' AND party_type='Labour' AND site_id=?", (site_id,))
-                hire = scalar("SELECT COALESCE(SUM(total_amount),0) FROM equipment_hire WHERE site_id=?", (site_id,))
-                billed = scalar("SELECT COALESCE(SUM(net_payable),0) FROM bills "
-                                "WHERE status IN ('Approved','Paid') AND contract_id IN "
-                                "(SELECT id FROM contracts WHERE site_id=?)", (site_id,))
-                billed += scalar("SELECT COALESCE(SUM(net_payable),0) FROM ra_bills "
-                                 "WHERE status IN ('Approved','Paid') AND contract_id IN "
-                                 "(SELECT id FROM contracts WHERE site_id=?)", (site_id,))
+                material = scalar(
+                    "SELECT COALESCE(SUM(qty*rate),0) FROM material_ledger "
+                    "WHERE txn_type='OUT' AND site_id=?", (site_id,))
+                labour = scalar(
+                    "SELECT COALESCE(SUM(amount),0) FROM payments WHERE "
+                    "direction='Payment' AND party_type='Labour' AND site_id=?",
+                    (site_id,))
+                hire = scalar("SELECT COALESCE(SUM(total_amount),0) FROM "
+                              "equipment_hire WHERE site_id=?", (site_id,))
+            # contracts belonging to this project (tagged or on its site)
+            billed = scalar(
+                "SELECT COALESCE(SUM(net_payable),0) FROM bills WHERE "
+                "status IN ('Approved','Paid') AND contract_id IN "
+                "(SELECT id FROM contracts WHERE project_id=? OR site_id=?)",
+                (pid, site_id))
+            billed += scalar(
+                "SELECT COALESCE(SUM(net_payable),0) FROM ra_bills WHERE "
+                "status IN ('Approved','Paid') AND contract_id IN "
+                "(SELECT id FROM contracts WHERE project_id=? OR site_id=?)",
+                (pid, site_id))
+            retention = scalar(
+                "SELECT COALESCE(SUM(retention_amt),0) FROM bills WHERE "
+                "status IN ('Approved','Paid') AND contract_id IN "
+                "(SELECT id FROM contracts WHERE project_id=? OR site_id=?)",
+                (pid, site_id)) + scalar(
+                "SELECT COALESCE(SUM(retention_amt),0) FROM ra_bills WHERE "
+                "status IN ('Approved','Paid') AND contract_id IN "
+                "(SELECT id FROM contracts WHERE project_id=? OR site_id=?)",
+                (pid, site_id))
+            var_unbilled = scalar(
+                "SELECT COALESCE(SUM(amount),0) FROM variations WHERE "
+                "status='Approved' AND contract_id IN "
+                "(SELECT id FROM contracts WHERE project_id=? OR site_id=?)",
+                (pid, site_id))
             milestones = conn.execute(
-                'SELECT amount, status FROM milestones WHERE project_id=?', (pid,)).fetchall()
+                'SELECT amount, status FROM milestones WHERE project_id=?',
+                (pid,)).fetchall()
             open_tasks = scalar(
                 "SELECT COUNT(*) FROM timeline_tasks WHERE (project_id=? OR "
                 "(project_id IS NULL AND site_id=?)) AND status != 'Completed'",
                 (pid, site_id))
-            ms_total = len(milestones)
-            ms_done = sum(1 for m in milestones if (m['status'] or '').lower() == 'done')
+            snag_blockers = scalar(
+                "SELECT COUNT(*) FROM snags WHERE status='Open' AND "
+                "severity='Blocker' AND site_id=?", (site_id,))
+            rfis_open = scalar("SELECT COUNT(*) FROM rfis WHERE status='Open' "
+                               "AND site_id=?", (site_id,))
+            ncr_open = scalar("SELECT COUNT(*) FROM ncrs WHERE status='Open' "
+                              "AND site_id=?", (site_id,))
+            ncr_critical = scalar(
+                "SELECT COUNT(*) FROM ncrs WHERE status='Open' AND "
+                "severity='Critical' AND site_id=?", (site_id,))
+            # per-project programme position (slip + LD)
+            from tab_timeline import project_delay_position
+            pos = project_delay_position(conn, pid)
         finally:
             conn.close()
 
         cost = material + labour + hire
         bs = projman.budget_status(p['budget'], cost)
-        progress = projman.milestone_progress(milestones)
-        margin = round(billed - cost, 2)
-
-        def rupee(x):
-            return '₹ {:,.0f}'.format(round(float(x or 0)))
-        self._vars['budget'].set(rupee(bs['budget']))
-        self._vars['cost'].set(rupee(bs['cost']))
-        self._vars['billed'].set(rupee(billed))
-        self._vars['margin'].set(rupee(margin))
-        self._vars['used'].set('—' if bs['used_pct'] is None else '{:.0f}%'.format(bs['used_pct']))
-        self._vars['progress'].set('{:.0f}%'.format(progress))
-
-        parts = [
-            'Client site cost breakup: material {}, labour {}, hire {}.'.format(
-                rupee(material), rupee(labour), rupee(hire)),
-            'Milestones: {} of {} done.'.format(ms_done, ms_total),
-            'Open tasks: {}.'.format(open_tasks),
-        ]
-        if bs['over_budget']:
-            parts.append('⚠ Cost has exceeded the budget.')
-        self.detail_var.set('  '.join(parts))
+        ms_done = sum(1 for m in milestones
+                      if (m['status'] or '').lower() == 'done')
+        return {
+            'budget': bs['budget'], 'cost': bs['cost'], 'billed': billed,
+            'margin': round(billed - cost, 2),
+            'used_pct': bs['used_pct'], 'over_budget': bs['over_budget'],
+            'progress': projman.milestone_progress(milestones),
+            'ms_done': ms_done, 'ms_total': len(milestones),
+            'open_tasks': open_tasks,
+            'slip': pos.get('net_delay_days', 0) or 0,
+            'ld': (pos.get('ld') or {}).get('exposure', 0),
+            'baselined': pos.get('baselined', False),
+            'retention': retention, 'var_unbilled': var_unbilled,
+            'snag_blockers': snag_blockers, 'rfis_open': rfis_open,
+            'ncr_open': ncr_open, 'ncr_critical': ncr_critical,
+        }
 
 
 def _sole_on_site(conn, pid):
@@ -273,13 +386,14 @@ class ProjectCost(ttk.Frame):
         ttk.Button(top, text='Print / Export',
                    command=self.export).pack(side='left', padx=6)
 
+        pal = theme.palette()
         self.tiles = ttk.Frame(self); self.tiles.pack(fill='x', padx=8, pady=8)
         self._vars = {}
-        specs = [('Revenue', 'revenue', '#1565c0'),
-                 ('Cost', 'cost', '#c62828'),
-                 ('Margin', 'margin', '#2e7d32'),
-                 ('Margin %', 'margin_pct', '#00695c'),
-                 ('Budget Used', 'used', '#6a1b9a')]
+        specs = [('Revenue', 'revenue', pal['info']),
+                 ('Cost', 'cost', pal['error']),
+                 ('Margin', 'margin', pal['success']),
+                 ('Margin %', 'margin_pct', pal['success']),
+                 ('Budget Used', 'used', pal['muted'])]
         for idx, (title, key, accent) in enumerate(specs):
             r, c = divmod(idx, 3)
             card = ttk.LabelFrame(self.tiles, text=title)
@@ -293,14 +407,14 @@ class ProjectCost(ttk.Frame):
                   font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=12)
         ttk.Label(self, textvariable=self.detail_var, justify='left',
                   wraplength=820).pack(anchor='w', padx=12, pady=4)
-        ttk.Label(self, textvariable=self.warn_var, foreground='#8a5a00',
+        ttk.Label(self, textvariable=self.warn_var, foreground=pal['warning'],
                   wraplength=820, justify='left').pack(anchor='w', padx=12)
         ttk.Label(self, text=(
             'Tag a cost to a project on its entry form (material issue, payment, '
             'hire) or tag a contract to a project so its bills roll up here. '
             'Cost categories mirror the Overview tab (material, labour, hire); '
             'purchase orders and vendor invoices are not counted as realised '
-            'cost.'), foreground='#666', wraplength=820, justify='left') \
+            'cost.'), foreground=pal['muted'], wraplength=820, justify='left') \
             .pack(anchor='w', padx=12, pady=(6, 8))
 
     def reload(self):

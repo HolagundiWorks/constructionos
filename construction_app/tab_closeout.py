@@ -15,6 +15,7 @@ Retention register will then dutifully report as "still held".
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -90,8 +91,8 @@ class HandoverView(ttk.Frame):
             self.tree.column(c, width=190 if c == 'verdict' else
                              (150 if c == 'site' else 80),
                              anchor='w' if c in ('site', 'verdict') else 'e')
-        self.tree.tag_configure('blocked', background='#ffe3e3')
-        self.tree.tag_configure('ready', background='#e4f1e8')
+        self.tree.tag_configure('blocked', background=theme.wash('bad'))
+        self.tree.tag_configure('ready', background=theme.wash('good'))
         self.tree.pack(fill='x', padx=8, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 

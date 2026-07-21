@@ -14,6 +14,7 @@ run.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import theme
 
 from ui_guard import can_write
 
@@ -522,8 +523,8 @@ class ProfitAndLoss(ttk.Frame):
         self.tree.heading('amount', text='Amount')
         self.tree.column('particulars', width=280, anchor='w')
         self.tree.column('amount', width=140, anchor='w')
-        self.tree.tag_configure('head', background='#eceff1')
-        self.tree.tag_configure('total', background='#e8f5e9')
+        self.tree.tag_configure('head', background=theme.wash('muted'))
+        self.tree.tag_configure('total', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,
@@ -584,8 +585,8 @@ class BalanceSheet(ttk.Frame):
         self.tree.heading('amount', text='Amount')
         self.tree.column('particulars', width=280, anchor='w')
         self.tree.column('amount', width=140, anchor='w')
-        self.tree.tag_configure('head', background='#eceff1')
-        self.tree.tag_configure('total', background='#e8f5e9')
+        self.tree.tag_configure('head', background=theme.wash('muted'))
+        self.tree.tag_configure('total', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.summary_var = tk.StringVar()
         ttk.Label(self, textvariable=self.summary_var,

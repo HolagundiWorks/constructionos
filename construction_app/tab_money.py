@@ -15,6 +15,7 @@ import os
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import theme
 
 from ui_guard import can_write
 
@@ -115,8 +116,8 @@ class PaymentsFrame(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=50 if col == 'id' else 95, anchor='w')
-        self.tree.tag_configure('in', background='#e8f5e9')
-        self.tree.tag_configure('out', background='#ffebee')
+        self.tree.tag_configure('in', background=theme.wash('good'))
+        self.tree.tag_configure('out', background=theme.wash('bad'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 

@@ -15,6 +15,7 @@
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -138,7 +139,7 @@ class QuoteCompare(ttk.Frame):
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=170 if c == 'vendor' else 120,
                              anchor='e' if c in ('amount', 'vs_cheapest') else 'w')
-        self.tree.tag_configure('best', background='#e4f1e8')
+        self.tree.tag_configure('best', background=theme.wash('good'))
         self.tree.pack(fill='x', padx=8, pady=4)
 
         ttk.Label(self, textvariable=self.rec_var, foreground='#16557a',
@@ -265,7 +266,7 @@ class VendorRating(ttk.Frame):
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=200 if c == 'vendor' else 100,
                              anchor='w' if c == 'vendor' else 'e')
-        self.tree.tag_configure('approved', background='#e4f1e8')
+        self.tree.tag_configure('approved', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         ttk.Button(self, text='Refresh', command=self.refresh) \
             .pack(anchor='w', padx=8, pady=(0, 8))

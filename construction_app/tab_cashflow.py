@@ -15,6 +15,7 @@ re-deriving "what is owed" a second, different way.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk
 
@@ -81,7 +82,7 @@ class CashFlowForecast(ttk.Frame):
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=140 if c == 'period' else 120,
                              anchor='w' if c == 'period' else 'e')
-        self.tree.tag_configure('short', background='#ffe3e3')
+        self.tree.tag_configure('short', background=theme.wash('bad'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         ttk.Label(self, textvariable=self.warn_var, foreground='#a4343a',

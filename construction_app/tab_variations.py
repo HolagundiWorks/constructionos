@@ -15,6 +15,7 @@ All arithmetic lives in ``variation.py`` so it can be tested without a display.
 
 import tkinter as tk
 from tkinter import ttk
+import theme
 
 import bill_export
 import report_open
@@ -110,7 +111,7 @@ class VariationPosition(ttk.Frame):
             self.tree.heading(col, text=heads[col])
             self.tree.column(col, width=170 if col == 'contract' else 120,
                              anchor='w' if col == 'contract' else 'e')
-        self.tree.tag_configure('chase', background='#fff4e5')
+        self.tree.tag_configure('chase', background=theme.wash('warn'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 8))

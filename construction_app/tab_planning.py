@@ -14,6 +14,7 @@ bills, so nothing has to be re-entered to see the picture.
 """
 
 import tkinter as tk
+import theme
 from datetime import date, timedelta
 from tkinter import ttk, messagebox
 
@@ -88,8 +89,8 @@ class PPCView(ttk.Frame):
         for c in self.COLUMNS:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=140, anchor='w' if c == 'week' else 'e')
-        self.tree.tag_configure('poor', background='#ffe3e3')
-        self.tree.tag_configure('good', background='#e4f1e8')
+        self.tree.tag_configure('poor', background=theme.wash('bad'))
+        self.tree.tag_configure('good', background=theme.wash('good'))
         self.tree.pack(fill='x', padx=8, pady=4)
 
         ttk.Label(self, textvariable=self.summary_var,
@@ -202,7 +203,7 @@ class CVRView(ttk.Frame):
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=160 if c == 'head' else 130,
                              anchor='w' if c == 'head' else 'e')
-        self.tree.tag_configure('loss', background='#ffe3e3')
+        self.tree.tag_configure('loss', background=theme.wash('bad'))
         self.tree.pack(fill='x', padx=8, pady=4)
         ttk.Label(self, textvariable=self.warn_var, foreground='#a4343a',
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,

@@ -252,9 +252,9 @@ class BaselineView(ttk.Frame):
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=200 if col in ('task_name', 'note')
                              else 110, anchor='w')
-        self.tree.tag_configure('late', background='#ffe3e3')
-        self.tree.tag_configure('claim', background='#e4f1e8')
-        self.tree.tag_configure('unattributed', background='#fff4e5')
+        self.tree.tag_configure('late', background=theme.wash('bad'))
+        self.tree.tag_configure('claim', background=theme.wash('good'))
+        self.tree.tag_configure('unattributed', background=theme.wash('warn'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         ttk.Label(self, text=(
@@ -539,7 +539,7 @@ class CriticalPathView(ttk.Frame):
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=220 if col == 'task_name' else 110,
                              anchor='w')
-        self.tree.tag_configure('critical', background='#ffe3e3')
+        self.tree.tag_configure('critical', background=theme.wash('bad'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         ttk.Label(self, text=(

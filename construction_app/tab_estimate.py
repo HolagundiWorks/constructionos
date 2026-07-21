@@ -20,6 +20,7 @@ from ui_guard import can_write
 
 import estimate as estimate_calc
 import bill_export
+import ratebook_picker
 from tab_masters import site_options
 from tab_tax_invoice import _seller_from_settings
 
@@ -112,6 +113,8 @@ class EstimateTab(ttk.Frame):
             ttk.Entry(cell, textvariable=self.i[key], width=14).pack(side='left')
 
         ibtns = ttk.Frame(items); ibtns.pack(fill='x', padx=4, pady=4)
+        ttk.Button(ibtns, text='From Rate Book…',
+                   command=self.pick_from_rate_book).pack(side='left', padx=(3, 12))
         ttk.Button(ibtns, text='Add Item', command=self.add_item).pack(side='left', padx=3)
         ttk.Button(ibtns, text='Update Item', command=self.update_item).pack(side='left', padx=3)
         ttk.Button(ibtns, text='Delete Item', command=self.delete_item).pack(side='left', padx=3)
@@ -355,6 +358,16 @@ class EstimateTab(ttk.Frame):
         self.i['item_code'].set(vals[1]); self.i['description'].set(vals[2])
         self.i['unit'].set(vals[3]); self.i['qty'].set(vals[4])
         self.i['rate'].set(vals[5])
+
+    def pick_from_rate_book(self):
+        """Fill the item fields from a chosen rate-book line (still editable)."""
+        row = ratebook_picker.pick(self, self.db_getter)
+        if not row:
+            return
+        self.i['item_code'].set(row['code'])
+        self.i['description'].set(row['description'])
+        self.i['unit'].set(row['unit'])
+        self.i['rate'].set('{:g}'.format(float(row['rate'] or 0)))
 
     def _collect_item(self):
         try:

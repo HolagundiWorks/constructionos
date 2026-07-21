@@ -65,6 +65,11 @@ PALETTES = {
         'warning':     '#FF9932',
         'error':       '#C8442E',
         'info':        '#3B5568',   # links + info (slate, never the accent)
+        # Soft row washes for Treeview status rows — light tints on white.
+        'wash_bad':    '#FCE4E4',
+        'wash_warn':   '#FDF1DE',
+        'wash_good':   '#E4F1E8',
+        'wash_muted':  '#EEF1F4',
     },
     'dark': {
         'canvas':      '#101215',
@@ -86,6 +91,11 @@ PALETTES = {
         'warning':     '#FFB25C',
         'error':       '#F07862',
         'info':        '#8FB4CE',
+        # Soft row washes — dark, low-chroma tints that sit under light ink.
+        'wash_bad':    '#3A2020',
+        'wash_warn':   '#39301E',
+        'wash_good':   '#1E3329',
+        'wash_muted':  '#232830',
     },
 }
 
@@ -96,6 +106,18 @@ _state = {'mode': DEFAULT_MODE}
 def palette(mode=None):
     """The active colour scheme (or a named one)."""
     return PALETTES.get(mode or _state['mode'], PALETTES[DEFAULT_MODE])
+
+
+def wash(name, mode=None):
+    """A soft status-row background for the current scheme.
+
+    ``name`` is a semantic bucket — 'bad' (red), 'warn' (amber), 'good' (green)
+    or 'muted' (grey) — so a Treeview row highlight reads right in both light
+    and dark instead of painting a light tint onto a dark tree. Read it when a
+    row is tagged; already-built trees keep their colour across a live theme
+    flip (a Tk limitation), but a reopened tab picks up the new scheme."""
+    pal = palette(mode)
+    return pal.get('wash_' + name, pal['surface'])
 
 
 def mode():

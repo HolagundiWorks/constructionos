@@ -18,6 +18,7 @@ site, it is a site where nobody writes them down.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk
 
@@ -143,8 +144,8 @@ class SafetySummary(ttk.Frame):
         for c in self.COLUMNS:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=230 if c == 'state' else 130, anchor='w')
-        self.tree.tag_configure('bad', background='#ffe3e3')
-        self.tree.tag_configure('soon', background='#fff4e5')
+        self.tree.tag_configure('bad', background=theme.wash('bad'))
+        self.tree.tag_configure('soon', background=theme.wash('warn'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
     def refresh(self):

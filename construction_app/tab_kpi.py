@@ -13,6 +13,7 @@ yet" mean very different things.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk
 
@@ -49,10 +50,12 @@ class KPIDashboard(ttk.Frame):
         ttk.Label(self, text='Everything worth checking daily, in one place. '
                              'Red lines are money or risk that needs an action '
                              'today.',
-                  wraplength=720, justify='left', foreground='#555') \
+                  wraplength=720, justify='left',
+                  foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
-        ttk.Label(self, textvariable=self.headline_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.headline_var,
+                  foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 12, 'bold'), wraplength=720,
                   justify='left').pack(anchor='w', padx=8, pady=(0, 6))
 
@@ -68,9 +71,9 @@ class KPIDashboard(ttk.Frame):
         self.tree.column('value', width=130, anchor='e')
         self.tree.column('verdict', width=60, anchor='center')
         self.tree.column('meaning', width=340, anchor='w')
-        self.tree.tag_configure(ACT, background='#ffe3e3')
-        self.tree.tag_configure(WATCH, background='#fff4e5')
-        self.tree.tag_configure(GOOD, background='#e4f1e8')
+        self.tree.tag_configure(ACT, background=theme.wash('bad'))
+        self.tree.tag_configure(WATCH, background=theme.wash('warn'))
+        self.tree.tag_configure(GOOD, background=theme.wash('good'))
         self.tree.tag_configure(NONE, foreground='#888')
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 

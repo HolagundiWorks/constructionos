@@ -16,6 +16,7 @@ edited.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -122,9 +123,9 @@ class ComplianceCalendar(ttk.Frame):
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=50 if col == 'id' else
                              (240 if col == 'name' else 110), anchor='w')
-        self.tree.tag_configure('overdue', background='#ffe3e3')
-        self.tree.tag_configure('due', background='#fff4e5')
-        self.tree.tag_configure('filed', background='#e4f1e8')
+        self.tree.tag_configure('overdue', background=theme.wash('bad'))
+        self.tree.tag_configure('due', background=theme.wash('warn'))
+        self.tree.tag_configure('filed', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 

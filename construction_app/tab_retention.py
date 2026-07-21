@@ -16,6 +16,7 @@ held with the reason stated rather than given an invented date.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -133,8 +134,8 @@ class RetentionRegister(ttk.Frame):
             self.tree.column(c, width=130 if c in ('party', 'status') else 105,
                              anchor='e' if c in ('withheld', 'released',
                                                  'outstanding') else 'w')
-        self.tree.tag_configure('due', background='#ffe3e3')
-        self.tree.tag_configure('done', background='#e4f1e8')
+        self.tree.tag_configure('due', background=theme.wash('bad'))
+        self.tree.tag_configure('done', background=theme.wash('good'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         ttk.Label(self, textvariable=self.summary_var,
                   font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=6)

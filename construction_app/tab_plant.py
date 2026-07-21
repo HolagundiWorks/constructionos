@@ -11,6 +11,7 @@ grounds to ask.
 """
 
 import tkinter as tk
+import theme
 from datetime import date, timedelta
 from tkinter import ttk, messagebox
 
@@ -97,9 +98,9 @@ class FleetView(ttk.Frame):
         for col in self.COLUMNS:
             self.tree.heading(col, text=headings[col])
             self.tree.column(col, width=160 if col == 'name' else 110, anchor='w')
-        self.tree.tag_configure('overdue', background='#ffe3e3')
-        self.tree.tag_configure('due', background='#fff4e5')
-        self.tree.tag_configure('none', background='#f4f4f4')
+        self.tree.tag_configure('overdue', background=theme.wash('bad'))
+        self.tree.tag_configure('due', background=theme.wash('warn'))
+        self.tree.tag_configure('none', background=theme.wash('muted'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         ttk.Label(self, text=(

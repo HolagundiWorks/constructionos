@@ -19,6 +19,7 @@ created it.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -91,7 +92,7 @@ class GRNFrame(ttk.Frame):
         for c in self.HEAD:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=50 if c == 'id' else 120, anchor='w')
-        self.tree.tag_configure('posted', background='#e4f1e8')
+        self.tree.tag_configure('posted', background=theme.wash('good'))
         self.tree.pack(fill='x', padx=4, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 
@@ -572,8 +573,8 @@ class ThreeWayMatch(ttk.Frame):
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=140 if c in ('po', 'vendor', 'status') else 115,
                              anchor='w' if c in ('po', 'vendor', 'status') else 'e')
-        self.tree.tag_configure('bad', background='#ffe3e3')
-        self.tree.tag_configure('warn', background='#fff4e5')
+        self.tree.tag_configure('bad', background=theme.wash('bad'))
+        self.tree.tag_configure('warn', background=theme.wash('warn'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         ttk.Label(self, textvariable=self.summary_var,
                   font=('TkDefaultFont', 11, 'bold')).pack(anchor='w', padx=8, pady=6)

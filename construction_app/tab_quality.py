@@ -17,6 +17,7 @@ cannot disagree with the evidence beneath it.
 """
 
 import tkinter as tk
+import theme
 from datetime import date
 from tkinter import ttk, messagebox
 
@@ -99,9 +100,9 @@ class InspectionFrame(ttk.Frame):
         for c in self.HEAD:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=50 if c == 'id' else 115, anchor='w')
-        self.tree.tag_configure('fail', background='#ffe3e3')
-        self.tree.tag_configure('pass', background='#e4f1e8')
-        self.tree.tag_configure('pending', background='#fff4e5')
+        self.tree.tag_configure('fail', background=theme.wash('bad'))
+        self.tree.tag_configure('pass', background=theme.wash('good'))
+        self.tree.tag_configure('pending', background=theme.wash('warn'))
         self.tree.pack(fill='x', padx=4, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 
@@ -151,8 +152,8 @@ class InspectionFrame(ttk.Frame):
             self.item_tree.heading(c, text=heads2[c])
             self.item_tree.column(c, width=50 if c == 'id' else
                                   (230 if c == 'description' else 100), anchor='w')
-        self.item_tree.tag_configure('fail', background='#ffe3e3')
-        self.item_tree.tag_configure('hold', background='#fff4e5')
+        self.item_tree.tag_configure('fail', background=theme.wash('bad'))
+        self.item_tree.tag_configure('hold', background=theme.wash('warn'))
         self.item_tree.pack(fill='both', expand=True, padx=4, pady=4)
         self.item_tree.bind('<<TreeviewSelect>>', self._on_item)
 
