@@ -192,10 +192,12 @@ def apply(root, m=None):
     style.configure('Brand.TLabel', background=pal['rail'],
                     foreground=pal['accent'], font=FONT_H1)
 
-    # --- LabelFrame (form panels) — a single clean hairline, no groove
-    style.configure('TLabelframe', background=pal['surface'], relief='solid',
+    # --- LabelFrame (form panels): a hairline-defined region on the fog ground
+    # (not a raised white box) — this keeps its contents, which sit on the
+    # canvas colour, matching, and reads as HCW "definition from hairlines".
+    style.configure('TLabelframe', background=pal['canvas'], relief='solid',
                     borderwidth=1, **flat)
-    style.configure('TLabelframe.Label', background=pal['surface'],
+    style.configure('TLabelframe.Label', background=pal['canvas'],
                     foreground=pal['helper'], font=FONT_SMALL)
 
     # --- buttons: flat, subtle fill, hairline, roomy padding (Win11 feel);
@@ -338,5 +340,21 @@ def apply(root, m=None):
     style.configure('NavAccent.TFrame', background=pal['accent'])
     style.configure('NavRule.TFrame', background=pal['rail'])
     style.configure('NavRowActive.TFrame', background=pal['surface2'])
+
+    # --- dashboard stat cards: a hairline card, muted label + big value
+    style.configure('StatCard.TFrame', background=pal['surface'],
+                    relief='solid', borderwidth=1, **flat)
+    style.configure('StatIcon.TLabel', background=pal['surface'],
+                    foreground=pal['muted'], font=(_FAMILY, 13))
+    style.configure('StatLabel.TLabel', background=pal['surface'],
+                    foreground=pal['muted'], font=FONT_SMALL)
+    style.configure('StatValue.TLabel', background=pal['surface'],
+                    foreground=pal['ink'], font=FONT_KPI)
+    style.configure('StatInfo.TLabel', background=pal['surface'],
+                    foreground=pal['info'], font=FONT_KPI)
+    style.configure('StatGood.TLabel', background=pal['surface'],
+                    foreground=pal['success'], font=FONT_KPI)
+    style.configure('StatWarn.TLabel', background=pal['surface'],
+                    foreground=pal['error'], font=FONT_KPI)
 
     return pal

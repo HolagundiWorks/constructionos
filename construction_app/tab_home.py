@@ -28,32 +28,39 @@ class HomeTab(ttk.Frame):
 
         self.subtitle = tk.StringVar()
         ttk.Label(self, textvariable=self.subtitle,
-                  font=('TkDefaultFont', 10)).pack(anchor='w', padx=12)
+                  style='Muted.TLabel').pack(anchor='w', padx=12)
 
         self.grid_frame = ttk.Frame(self)
         self.grid_frame.pack(fill='both', expand=True, padx=8, pady=10)
 
-        # (title, key, accent) — accent used only as a hint colour.
+        # (title, key, pictogram, value-style). The colour carries meaning:
+        # green = money you hold or have brought in, red = money you owe,
+        # slate (info) = money in motion, ink = a plain count.
         self._tiles = [
-            ('Cash in Hand', 'cash', '#2e7d32'),
-            ('To Collect (Receivables)', 'receivable', '#1565c0'),
-            ('To Pay (Payables)', 'payable', '#c62828'),
-            ('Active Sites', 'sites', '#5d4037'),
-            ('Billed This Month', 'billed_month', '#00695c'),
-            ('Collected This Month', 'collected_month', '#6a1b9a'),
+            ('Cash in Hand', 'cash', '\U0001F4B5', 'StatGood.TLabel'),
+            ('To Collect', 'receivable', '\U0001F4E5', 'StatInfo.TLabel'),
+            ('To Pay', 'payable', '\U0001F4E4', 'StatWarn.TLabel'),
+            ('Active Sites', 'sites', '\U0001F3D7', 'StatValue.TLabel'),
+            ('Billed This Month', 'billed_month', '\U0001F9FE', 'StatInfo.TLabel'),
+            ('Collected This Month', 'collected_month', '✅', 'StatGood.TLabel'),
         ]
         self._vars = {}
-        for idx, (title, key, accent) in enumerate(self._tiles):
+        for idx, (title, key, icon, valstyle) in enumerate(self._tiles):
             r, c = divmod(idx, 3)
-            card = ttk.LabelFrame(self.grid_frame, text=title)
+            card = ttk.Frame(self.grid_frame, style='StatCard.TFrame',
+                             padding=(16, 14))
             card.grid(row=r, column=c, padx=8, pady=8, sticky='nsew')
-            self.grid_frame.columnconfigure(c, weight=1)
+            self.grid_frame.columnconfigure(c, weight=1, uniform='stat')
             self.grid_frame.rowconfigure(r, weight=1)
+            head = ttk.Frame(card, style='Card.TFrame')
+            head.pack(fill='x', anchor='w')
+            ttk.Label(head, text=icon, style='StatIcon.TLabel').pack(side='left')
+            ttk.Label(head, text=title, style='StatLabel.TLabel') \
+                .pack(side='left', padx=(8, 0))
             var = tk.StringVar(value='—')
             self._vars[key] = var
-            ttk.Label(card, textvariable=var, foreground=accent,
-                      font=('TkDefaultFont', 20, 'bold')) \
-                .pack(padx=16, pady=16, anchor='w')
+            ttk.Label(card, textvariable=var, style=valstyle) \
+                .pack(anchor='w', pady=(10, 0))
 
         ttk.Label(self, text='Tip: use Money > Cash Book for the day book, and '
                              'Money > Party Balances to see who owes whom.',

@@ -29,58 +29,9 @@ from tkinter import ttk
 import assets
 import branding
 import theme
+from widgets import Switch
 
 RAIL_WIDTH = 208
-
-
-class Switch(tk.Canvas):
-    """A small pill toggle, drawn on a Canvas (tkinter has no native switch).
-
-    On = the Radiant-Orange track with the knob to the right. Click toggles and
-    fires ``command(new_value)``. ``restyle()`` re-reads the theme after a
-    scheme change, since a Canvas is not a ttk widget."""
-
-    W, H = 42, 22
-
-    def __init__(self, parent, value=False, command=None):
-        pal = theme.palette()
-        super().__init__(parent, width=self.W, height=self.H,
-                         highlightthickness=0, bg=pal['rail'], cursor='hand2',
-                         takefocus=1)
-        self._value = bool(value)
-        self._command = command
-        self.bind('<Button-1>', lambda _e: self.toggle())
-        self.bind('<Key-space>', lambda _e: self.toggle())
-        self._render()
-
-    def _render(self):
-        pal = theme.palette()
-        self.delete('all')
-        track = pal['accent'] if self._value else pal['hairline']
-        h = self.H
-        r = h / 2
-        # pill track = two end circles + a middle rectangle
-        self.create_oval(1, 1, h - 1, h - 1, fill=track, outline='')
-        self.create_oval(self.W - h + 1, 1, self.W - 1, h - 1, fill=track,
-                         outline='')
-        self.create_rectangle(r, 1, self.W - r, h - 1, fill=track, outline='')
-        # knob
-        kx = self.W - h + 2 if self._value else 2
-        self.create_oval(kx, 2, kx + h - 4, h - 2, fill='#FFFFFF', outline='')
-
-    def toggle(self):
-        self._value = not self._value
-        self._render()
-        if self._command:
-            self._command(self._value)
-
-    def set(self, value):
-        self._value = bool(value)
-        self._render()
-
-    def restyle(self):
-        self.configure(bg=theme.palette()['rail'])
-        self._render()
 
 
 class RailStage(ttk.Frame):

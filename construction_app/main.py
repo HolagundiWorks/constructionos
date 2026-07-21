@@ -119,6 +119,37 @@ BUILDERS = {
 }
 
 
+# A pictogram per module — so a sub-tab inside a section is found by shape
+# before its word is read, echoing the rail. Kept distinct within each section.
+MODULE_ICONS = {
+    # Masters
+    'Sites': '\U0001F4CD', 'Clients': '\U0001F91D', 'Vendors': '\U0001F3ED',
+    'Materials': '\U0001F9F1', 'Labour': '\U0001F477', 'Equipment': '\U0001F69C',
+    # Projects
+    'Projects': '\U0001F3D7',
+    # Operations
+    'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
+    'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',
+    'Consumption': '\U0001F6E2', 'Site Reports': '\U0001F4DD', 'Quality': '✅',
+    'Look-ahead': '\U0001F4C5', 'Safety': '\U0001F9BA', 'Closeout': '\U0001F3C1',
+    'Timeline': '\U0001F4C6',
+    # Billing
+    'Rate Book': '\U0001F4D6', 'Rate Analysis': '\U0001F9EE', 'Bid / No Bid': '⚖',
+    'Quotations': '\U0001F4C4', 'Estimates': '\U0001F4D0', 'Contracts': '\U0001F4DC',
+    'BOQ / RA Bills': '\U0001F4D1', 'Variations': '\U0001F500',
+    'Running Bills': '\U0001F9FE', 'Tax Invoice': '\U0001F4C3',
+    # Purchases
+    'Sourcing': '\U0001F50E', 'Purchase Orders': '\U0001F6D2',
+    'Goods Receipt': '\U0001F4E5', 'Vendor Invoices': '\U0001F9FE',
+    'Subcontractors': '\U0001F91D',
+    # Money
+    'Key Numbers': '\U0001F511', 'Approvals': '✔', 'Cash & Parties': '\U0001F4B0',
+    'Cash Flow': '\U0001F4B8', 'Retention': '\U0001F512', 'Insight': '\U0001F4A1',
+    # Accounts
+    'GST & TDS': '\U0001F3DB', 'Compliance': '\U0001F5D3', 'Accounting': '\U0001F4CA',
+}
+
+
 def _apply_app_icon(root):
     """Set the window/taskbar icon from the bundled logo. Fails soft."""
     try:
@@ -135,10 +166,13 @@ def _apply_app_icon(root):
 
 
 def _section(parent, get, items):
-    """Build a sub-notebook holding a group of related tabs."""
+    """Build a sub-notebook holding a group of related tabs, each tab wearing
+    its module pictogram ahead of the (translated) label."""
     sub = ttk.Notebook(parent)
     for label, builder in items:
-        sub.add(builder(sub, get), text=i18n.t(label))
+        icon = MODULE_ICONS.get(label, '')
+        text = '{}  {}'.format(icon, i18n.t(label)) if icon else i18n.t(label)
+        sub.add(builder(sub, get), text=text)
     return sub
 
 

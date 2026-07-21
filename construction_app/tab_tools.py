@@ -32,6 +32,7 @@ import company
 import i18n
 import numbering
 from ui_guard import can_write
+from widgets import Switch
 
 
 class ToolsTab(ttk.Frame):
@@ -172,13 +173,16 @@ class ToolsTab(ttk.Frame):
         for row, (section, labels) in enumerate(modules.SECTIONS_CATALOG):
             ttk.Label(grid, text=section, width=12,
                       font=('TkDefaultFont', 9, 'bold')).grid(
-                          row=row, column=0, sticky='nw', padx=(0, 6), pady=2)
+                          row=row, column=0, sticky='nw', padx=(0, 10), pady=7)
             cell = ttk.Frame(grid); cell.grid(row=row, column=1, sticky='w')
             for col, label in enumerate(labels):
                 var = tk.IntVar(value=1)
                 self.module_vars[label] = var
-                ttk.Checkbutton(cell, text=label, variable=var).grid(
-                    row=col // 4, column=col % 4, sticky='w', padx=4, pady=1)
+                # a pill switch + label, on the fog ground the LabelFrame sits on
+                item = ttk.Frame(cell); item.grid(
+                    row=col // 3, column=col % 3, sticky='w', padx=(0, 18), pady=4)
+                Switch(item, variable=var, surface='canvas').pack(side='left')
+                ttk.Label(item, text=label).pack(side='left', padx=(7, 0))
         btns = ttk.Frame(mod); btns.pack(fill='x', padx=8, pady=4)
         ttk.Button(btns, text='Save Modules', command=self.save_modules).pack(side='left')
         ttk.Button(btns, text='Enable All',
