@@ -83,6 +83,10 @@ import opportunity_store
 import productivity
 import lessons
 import lessons_store
+import capture
+import portfolio_store
+import followups
+import drift
 
 
 class TestFinance(unittest.TestCase):
@@ -955,6 +959,151 @@ class TestReviewPack(unittest.TestCase):
         self.assertEqual(roll['projects'], 2)
         self.assertGreaterEqual(roll['risk_summary']['count'], 1)
         self.assertEqual(roll['evm']['worst_cpi'], 'A')
+
+
+class TestCapture(unittest.TestCase):
+    """Draft-and-confirm: AI proposes, a human disposes."""
+
+    def test_build_draft_carries_per_field_confidence(self):
+        d = capture.build_draft({'qty': 40, 'vendor': 'ACME'},
+                                confidence={'qty': 0.55, 'vendor': 0.95})
+        low = capture.low_confidence_fields(d)
+        self.assertEqual([f['name'] for f in low], ['qty'])   # only the shaky one
+        self.assertTrue(capture.needs_review(d))
+
+    def test_apply_overrides_makes_a_field_manual_and_certain(self):
+        d = capture.build_draft({'qty': 40}, confidence={'qty': 0.5})
+        d2 = capture.apply_overrides(d, {'qty': 42, 'note': 'added by hand'})
+        rec = capture.to_record(d2)
+        self.assertEqual(rec['qty'], 42)
+        self.assertEqual(rec['note'], 'added by hand')        # new manual field
+        qty = [f for f in d2['fields'] if f['name'] == 'qty'][0]
+        self.assertEqual(qty['source'], capture.MANUAL)
+        self.assertEqual(qty['confidence'], 1.0)
+        self.assertFalse(capture.needs_review(d2))            # nothing shaky left
+
+    def test_confidence_summary(self):
+        d = capture.build_draft({'a': 1, 'b': 2}, confidence={'a': 0.4, 'b': 1.0})
+        s = capture.confidence_summary(d)
+        self.assertEqual(s['fields'], 2)
+        self.assertEqual(s['min'], 0.4)
+        self.assertEqual(s['to_review'], 1)
+
+
+class TestPortfolioStore(unittest.TestCase):
+    """Federated roll-up across separate firm/year SQLite files (read-only)."""
+
+    def _make_db(self, project_names, risks):
+        import db
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        db.init_db()
+        conn = db.get_conn()
+        for name in project_names:
+            conn.execute("INSERT INTO projects (name) VALUES (?)", (name,))
+        conn.commit()
+        for (pid, lk, im, val) in risks:
+            risk_store.add(conn, project_id=pid, likelihood=lk, impact=im,
+                           impact_value=val)
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")   # so a ro open sees it
+        conn.close()
+        db.DB_PATH = orig
+        self._paths.append(path)
+        return path
+
+    def setUp(self):
+        self._paths = []
+
+    def tearDown(self):
+        for p in self._paths:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+    def test_rolls_up_projects_and_risk_exposure_across_files(self):
+        a = self._make_db(['A1', 'A2'], [(1, 5, 5, 200000)])   # 2 projects, 1 risk
+        b = self._make_db(['B1'], [(1, 4, 4, 100000)])         # 1 project, 1 risk
+        roll = portfolio_store.roll_up([('Firm A', a), ('Firm B', b)])
+        self.assertEqual(roll['files'], 2)
+        self.assertEqual(roll['totals']['projects'], 3)
+        self.assertEqual(roll['totals']['risk_count'], 2)
+        self.assertGreater(roll['totals']['risk_exposure'], 0)
+        self.assertEqual(roll['unreadable'], [])
+
+    def test_unreadable_file_is_skipped_not_fatal(self):
+        a = self._make_db(['A1'], [])
+        roll = portfolio_store.roll_up([a, '/no/such/file.db'])
+        self.assertEqual(roll['files'], 1)
+        self.assertIn('/no/such/file.db', roll['unreadable'])
+
+    def test_read_only_open_cannot_write(self):
+        a = self._make_db(['A1'], [])
+        conn = portfolio_store.open_readonly(a)
+        try:
+            with self.assertRaises(Exception):
+                conn.execute("INSERT INTO projects (name) VALUES ('X')")
+                conn.commit()
+        finally:
+            conn.close()
+
+
+class TestRiskMitigation(unittest.TestCase):
+    """E3.3 mitigation drafts — a starting point a human owns, per category."""
+
+    def test_suggests_a_response_and_action_for_a_cost_risk(self):
+        rs = risk_detect.detect({'projects_at_loss': 1,
+                                 'projects_worst_margin': -500000})
+        m = risk_detect.suggest_mitigation(rs[0])
+        self.assertEqual(m['suggested_response'], risk.REDUCE)
+        self.assertTrue(m['suggested_action'])
+
+    def test_with_mitigations_annotates_each_risk(self):
+        rs = risk_detect.detect({'compliance_overdue': 2})
+        annotated = risk_detect.with_mitigations(rs)
+        self.assertIn('suggested_response', annotated[0])
+        self.assertEqual(annotated[0]['suggested_response'], risk.AVOID)  # statutory
+
+
+class TestFollowups(unittest.TestCase):
+    """E4.1 event → follow-on decision logic, with the money/date gate."""
+
+    def test_grn_suggests_the_three_way_match(self):
+        fs = followups.for_event(followups.GRN_SAVED)
+        self.assertTrue(any('3-way match' in f['action'] for f in fs))
+        self.assertTrue(all(not f['gated'] for f in fs))   # none consequential
+
+    def test_consequential_follow_ups_are_gated(self):
+        self.assertTrue(followups.for_event(followups.PAYMENT_DUE)[0]['gated'])
+        gated = followups.gated_actions(followups.FILING_DUE)
+        self.assertTrue(gated and all(f['gated'] for f in gated))
+
+    def test_unknown_event_gives_no_suggestions_not_an_error(self):
+        self.assertEqual(followups.for_event('meteor_strike'), [])
+
+
+class TestDrift(unittest.TestCase):
+    """E5.2 weak-signal correlation — an early, explainable, low-confidence flag."""
+
+    def test_several_weak_signals_together_raise_drift(self):
+        d = drift.assess_drift({
+            'ppc_series': [80, 72, 65, 58],          # falling reliability (+2)
+            'slip_series': [1, 2, 1, 3],             # repeated small slips (+2)
+        })
+        self.assertTrue(d['drifting'])
+        self.assertEqual(d['confidence'], drift.LOW)
+        self.assertTrue(d['signals'])                # each named with a basis
+        self.assertIn('basis', d['signals'][0])
+
+    def test_one_signal_alone_does_not_trip_it(self):
+        d = drift.assess_drift({'rfi_age_series': [5, 8, 12]})  # +1 only
+        self.assertFalse(d['drifting'])
+
+    def test_quiet_project_is_not_drifting(self):
+        self.assertFalse(drift.assess_drift({})['drifting'])
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):

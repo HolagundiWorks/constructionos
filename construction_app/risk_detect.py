@@ -243,6 +243,56 @@ RULES = (
 )
 
 
+# --------------------------------------------------------- mitigation drafts
+# A suggested response + first action per category (E3.3). Deliberately a
+# *draft* a human edits and owns — never applied automatically. The response is
+# a risk.RESPONSES value; the action is a plain first step, not a plan.
+# (Uses the module-level ``risk`` import; note ``_risk`` is already a helper.)
+_MITIGATION = {
+    COST: (risk.REDUCE,
+           'Review the cost heads on the worst job; check for unbilled work or '
+           'a rate that no longer covers cost.'),
+    SCHEDULE: (risk.REDUCE,
+               'Log the delay causes now and re-sequence to protect the '
+               'critical path; record claimable days as they happen.'),
+    COMMERCIAL: (risk.REDUCE,
+                 'Pull the agreed value into the next bill and put the reminder '
+                 'in writing before it ages further.'),
+    QUALITY: (risk.REDUCE,
+              'Assign an owner and a close-out date; re-inspect before the work '
+              'is covered.'),
+    STATUTORY: (risk.AVOID,
+                'File the oldest return first to stop the daily late-fee clock.'),
+    EXTERNAL: (risk.TRANSFER,
+               'Chase the answer in writing and note the wait against the '
+               'programme so the delay carries the right name.'),
+}
+
+
+def suggest_mitigation(detected_risk):
+    """A draft response + first action for a detected risk, from its category.
+
+    Returns ``{'suggested_response', 'suggested_action'}`` — a starting point for
+    the owner to edit, never an applied decision. Unknown categories get a safe
+    generic prompt rather than nothing."""
+    cat = detected_risk.get('category')
+    response, action = _MITIGATION.get(
+        cat, (risk.REDUCE, 'Assign an owner and agree a mitigation and a '
+                           'target date.'))
+    return {'suggested_response': response, 'suggested_action': action}
+
+
+def with_mitigations(risks):
+    """Each detected risk annotated with a mitigation draft — the register's
+    'and here's a starting point' column."""
+    out = []
+    for r in risks or []:
+        merged = dict(r)
+        merged.update(suggest_mitigation(r))
+        out.append(merged)
+    return out
+
+
 def detect(snapshot):
     """Ranked, register-ready risks for a metrics ``snapshot`` (worst first).
 

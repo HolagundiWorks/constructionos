@@ -198,19 +198,29 @@ a model, or a pip dependency:
 | Phase | Built (module) | Remaining |
 |---|---|---|
 | **E0** | `earnedvalue.py`, `risk.py`, `risk_store.py` + `risks` table | risk tab (GUI); wider audit tagging |
-| **E1** | — | OCR/voice/vision capture — needs models/pip + the AI-runtime decision |
-| **E2** | `narrative.py` (KPI briefing); portfolio roll-up in `review_pack.py` | federated read model (data plumbing) + tabs |
-| **E3** | `risk_detect.py` (11 rules), `narrative.risk_briefing` | mitigation-draft text; risk tab |
-| **E4** | `review_pack.py` (pack + portfolio assembly) | event-driven follow-on hooks (GUI) |
-| **E5** | `forecast.py` (trend band + schedule forecast) | weak-signal correlation; feed into register |
+| **E1** | `capture.py` (draft-and-confirm framework) | the OCR/voice/vision **models** (external sidecars) + tabs |
+| **E2** | `narrative.py`; `review_pack.py` roll-up; `portfolio_store.py` (federated read model) | tabs |
+| **E3** | `risk_detect.py` (11 rules + mitigation drafts), `narrative.risk_briefing` | risk tab |
+| **E4** | `review_pack.py` (pack + portfolio); `followups.py` (event → follow-on logic) | GUI event wiring |
+| **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
 | **E6** | — | mobile capture app (separate front-end) |
 
-The residual is concentrated in exactly three places that this headless,
-no-pip environment cannot verify: **tkinter tabs** (need a display), **AI capture
-+ LLM narration polish** (need models/pip and the §6.1 runtime decision), and the
-**mobile app** (E6, a separate front-end). Everything else — all the maths and
-data logic — is done and tested (552-test suite). The full-run's single error is
-the pre-existing missing-`tkinter` GUI theme test, unrelated to this work.
+**The deterministic roadmap is complete.** Every piece that can be written and
+unit-tested without a display, a model, or a pip dependency is built (591-test
+suite). The irreducible residual is exactly three things this environment cannot
+produce or verify — and none is application logic:
+
+1. **tkinter tabs** — the on-screen registers and KPI/EVM surfacing. Need a
+   display to smoke-test (this container has no `tkinter`). The data, scoring,
+   and roll-ups behind every tab are done.
+2. **The ML models themselves** — OCR / speech-to-text / VLM for capture, and
+   the LLM that re-voices narration. These are **external local sidecars** by
+   design (see [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)), not
+   code in this repo; `capture.py` is the deterministic scaffold they feed.
+3. **The E6 mobile app** — a separate front-end project.
+
+The full-run's single error is the pre-existing missing-`tkinter` GUI theme test,
+unrelated to this work.
 
 ### Phase E0 — Foundation _(P0 · deterministic core first)_
 
@@ -263,6 +273,15 @@ an AI capability decision (local model vs opt-in cloud) — see §6.
 correctly pre-filled and every field editable; capture failure falls back to the
 normal form with no error; nothing is written without a human save; local/offline
 path works or degrades cleanly.
+**Built:** E1.1 the draft-and-confirm framework (`capture.py` — stages a model's
+extracted fields as an editable draft with per-field confidence, flags the
+low-confidence ones for review, folds in human overrides at full confidence, and
+only then yields a record to save; nothing is ever written on its own) ✅.
+_Remaining:_ E1.2/E1.3 the actual OCR / speech-to-text / VLM extractors — these
+are **external local model sidecars** (see
+[`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)), not code in this
+repo; `capture.py` is the deterministic scaffold they feed, and it is built and
+tested independently of any model.
 
 ### Phase E2 — KPI reach _(P0/P1 · portfolio + narration)_
 
@@ -281,11 +300,12 @@ path works or degrades cleanly.
 **Acceptance:** a portfolio of ≥2 projects rolls up correctly and matches the sum
 of per-project figures; every narrated sentence links to a deterministic number;
 a site with no network still shows its own KPIs.
-**Built this pass:** E2.2 roll-up (`earnedvalue.portfolio`, value-weighted; pooled
-via `review_pack.portfolio`) ✅; E2.3 narration (`narrative.kpi_briefing`, each
-sentence a template over a computed number) ✅; E2.4 portfolio advisory (pooled
-`advisory` counts in `review_pack.portfolio`) ✅. _Remaining:_ E2.1 the federated
-read model (file-level data plumbing + a tab) — needs DB federation and a display.
+**Built:** E2.1 federated read model (`portfolio_store.py` — opens each firm/year
+file **read-only** and pools projects, risk exposure, opportunity upside and
+lessons across them; each file stays authoritative, preserving offline-first) ✅;
+E2.2 roll-up (`earnedvalue.portfolio`, value-weighted; pooled via
+`review_pack.portfolio`) ✅; E2.3 narration (`narrative.kpi_briefing`) ✅; E2.4
+portfolio advisory (pooled `advisory` counts) ✅. _Remaining:_ the tab (display).
 
 ### Phase E3 — Risk _(P1 · early warning)_
 
@@ -305,12 +325,13 @@ read model (file-level data plumbing + a tab) — needs DB federation and a disp
 **Acceptance:** each detected risk lands in the register with a stated basis and
 severity/confidence; a user can answer "why am I seeing this?" from the rule +
 numbers; AI never auto-closes or auto-accepts a risk.
-**Built this pass:** E3.1 detection taxonomy (`risk_detect.py` — 11 snapshot rules
-across schedule/cost/commercial/quality/statutory/external, each scored via
+**Built:** E3.1 detection taxonomy (`risk_detect.py` — 11 snapshot rules across
+schedule/cost/commercial/quality/statutory/external, each scored via
 `risk.assess`, `source='ai'`, ranked, with a basis) ✅; E3.2 risk narrative
-(`narrative.risk_briefing`, top-N by exposure) ✅. Detected risks are register-ready
-(`risk_store.add(..., source='ai')`). _Remaining:_ E3.3 mitigation-draft text and
-surfacing in the risk tab (display-dependent).
+(`narrative.risk_briefing`, top-N by exposure) ✅; E3.3 mitigation drafts
+(`risk_detect.suggest_mitigation` / `with_mitigations` — a suggested response +
+first action per category, a draft the owner edits) ✅. Detected risks are
+register-ready (`risk_store.add(..., source='ai')`). _Remaining:_ the risk tab.
 
 ### Phase E4 — Automation _(P1 · remove rote assembly)_
 
@@ -326,10 +347,12 @@ surfacing in the risk tab (display-dependent).
 **Acceptance:** the weekly pack generates from live data with no manual assembly;
 every money/date-moving action remains a draft requiring approval; automations
 are logged with AI-origin (E0.3).
-**Built this pass:** E4.2 review-pack generation (`review_pack.build` assembles
-KPIs + advisories + risks + narrative + optional EVM/forecast into one draft dict;
-`review_pack.portfolio` does the same across projects) ✅. _Remaining:_ E4.1
-event-driven follow-on — needs GUI event hooks and a display to verify.
+**Built:** E4.2 review-pack generation (`review_pack.build` assembles KPIs +
+advisories + risks + narrative + optional EVM/forecast/opportunities into one
+draft dict; `review_pack.portfolio` across projects) ✅; E4.1 event → follow-on
+**decision logic** (`followups.py` — maps each event to its rote follow-ups, every
+consequential one flagged `gated` so it stays a human-approved draft) ✅.
+_Remaining:_ the GUI wiring that fires an event from a save handler.
 
 ### Phase E5 — Prediction _(P2 · forward view)_
 
@@ -345,10 +368,13 @@ event-driven follow-on — needs GUI event hooks and a display to verify.
 **Acceptance:** every forecast shows a range and its basis, never a false-precise
 point; a forecast feeds the register as a suggestion a human accepts/dismisses;
 confidence is labelled honestly (thin history → Low).
-**Built this pass:** E5.1 trend forecasts (`forecast.py` — least-squares trend with
-a low/value/high band and sample-driven confidence; `schedule_forecast` for
-duration/slip; cost EAC already in `earnedvalue`) ✅. _Remaining:_ E5.2 weak-signal
-correlation, and feeding forecasts into the register as suggestions.
+**Built:** E5.1 trend forecasts (`forecast.py` — least-squares trend with a
+low/value/high band and sample-driven confidence; `schedule_forecast` for
+duration/slip; cost EAC in `earnedvalue`) ✅; E5.2 weak-signal correlation
+(`drift.py` — pools falling PPC, repeated small slips, rising RFI age and
+low-confidence measurements into one low-confidence "drifting" flag, each signal
+named with its basis; raised only when ≥2 weak signals agree) ✅. _Remaining:_
+feeding a forecast/drift flag into the register as a suggestion (tab).
 
 ### Phase E6 — Field mobile _(P2 · capture at the source)_
 
