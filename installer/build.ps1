@@ -89,4 +89,16 @@ foreach ($a in $apps) {
     if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed for $($a.Name)." }
 }
 
-Write-Host "`nDone. Output is in installer\output"
+# Remove PyInstaller's working directory once the real app is in dist\. It is
+# throwaway, but it also contains a bootstrap <App>.exe that is NOT runnable —
+# its Python DLL is only assembled into dist\ by the final COLLECT step. Leaving
+# it behind invites double-clicking the wrong exe and the confusing
+# "Failed to load Python DLL ...\build\...\python3xx.dll" error.
+$buildDir = Join-Path $here 'build'
+if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir }
+
+Write-Host "`nDone."
+Write-Host "  App folder : installer\dist\<App>\<App>.exe   (run this to test)"
+Write-Host "  Packages   : installer\output\   (installer .exe and/or portable .zip)"
+Write-Host "  Tip: unzip a portable build to a NORMAL local folder (Desktop, C:\Apps)"
+Write-Host "       - not inside OneDrive - so Windows keeps all files on disk."
