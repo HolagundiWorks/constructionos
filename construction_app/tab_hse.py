@@ -120,7 +120,7 @@ class SafetySummary(ttk.Frame):
                              'takes long gets abandoned, and an abandoned '
                              'register is worse than none — it looks like a '
                              'record.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)
@@ -129,7 +129,7 @@ class SafetySummary(ttk.Frame):
         ttk.Button(top, text='Refresh', command=self.refresh).pack(side='left', padx=6)
         ttk.Button(top, text='Print / Export', command=self.export).pack(side='left')
 
-        ttk.Label(self, textvariable=self.headline_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.headline_var, foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(6, 2))
         ttk.Label(self, textvariable=self.stats_var, wraplength=700,

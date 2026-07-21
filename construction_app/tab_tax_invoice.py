@@ -13,6 +13,7 @@ keys ``company_name`` / ``seller_gstin`` / ``seller_address`` when set.
 """
 
 import os
+import theme
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -131,7 +132,7 @@ class TaxInvoiceTab(ttk.Frame):
         self._entry(einv, 1, 1, 'Transporter', 'transporter')
         self._entry(einv, 1, 2, 'Vehicle No', 'vehicle_no')
         self.einv_var = tk.StringVar()
-        ttk.Label(einv, textvariable=self.einv_var, foreground='#8a5a00',
+        ttk.Label(einv, textvariable=self.einv_var, foreground=theme.palette()['warning'],
                   wraplength=820, justify='left').grid(
             row=2, column=0, columnspan=3, padx=6, pady=(0, 4), sticky='w')
         for key in ('irn', 'eway_bill_no', 'vehicle_no'):

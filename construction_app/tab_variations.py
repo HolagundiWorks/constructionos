@@ -94,7 +94,7 @@ class VariationPosition(ttk.Frame):
         ttk.Label(self, text='Extra work that is approved but not yet billed is '
                              'money the client has already agreed to pay and '
                              'nobody has asked for. Bill it.',
-                  wraplength=680, justify='left', foreground='#555') \
+                  wraplength=680, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         self.headline = ttk.Label(self, textvariable=self.headline_var,

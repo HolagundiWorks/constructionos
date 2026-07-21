@@ -1,18 +1,22 @@
 """HTML for the browser/LAN front end — rendered as plain strings, standard
 library only (``html.escape``). No template engine, no pip.
 
-The look echoes the desktop HCW kit: one Radiant-Orange accent for the primary
-action, quiet slate surfaces, and a left rail + work stage. It is theme-aware
-(follows the browser's light/dark preference) and responsive, so a site engineer
-on a phone gets the same data as the office desktop. Everything is inlined —
-one self-contained document per response — so there are no extra asset requests
-to serve or cache.
+The look is the **HCW-UI design language**, driven from the *same* ``tokens``
+module as the desktop theme (a strict project rule: one design system, two
+skins). That means the exact kit values — Fog-Gray canvas, Pure-White cards,
+Coal-Black ink, the single **Radiant-Orange** accent for actions only — and the
+kit's shape law: **square surfaces (0 radius)**, buttons 4px, dialogs 8px, an
+instrument **rail** (a white panel, not a dark sidebar) whose active row wears a
+3px accent inset rule. It is theme-aware (follows the browser's light/dark) and
+responsive. Everything is inlined so there are no extra asset requests.
 """
 
 import html
 
+import tokens
+
 BRAND = 'Construction OS'
-ACCENT = '#FF4F18'
+ACCENT = tokens.LIGHT['accent']
 
 
 def esc(value):
@@ -26,117 +30,134 @@ def money(value):
         return esc(value)
 
 
-_CSS = """
-:root{
-  --accent:#FF4F18; --bg:#F4F5F7; --surface:#FFFFFF; --ink:#1B1E23;
-  --muted:#5B616B; --line:#E3E6EA; --rail:#20242B; --rail-ink:#E7EAF0;
-  --good:#1B7F5A; --warn:#B26A00; --bad:#C8442E;
-}
-@media (prefers-color-scheme:dark){
-  :root{ --bg:#12151A; --surface:#191C21; --ink:#E7EAF0; --muted:#9AA2AE;
-    --line:#2A2F37; --rail:#0F1216; --rail-ink:#E7EAF0;
-    --good:#4CC29A; --warn:#FFB25C; --bad:#F07862; }
-}
+# ── CSS variables generated from the shared design tokens ─────────────────────
+# (css-var-name, token-key). A test asserts the emitted CSS carries the token
+# values, so the web skin can't drift from the desktop / the kit.
+_VARMAP = [
+    ('bg', 'canvas'), ('surface', 'surface'), ('surface2', 'surface2'),
+    ('rail', 'rail'), ('ink', 'ink'), ('muted', 'muted'), ('helper', 'helper'),
+    ('line', 'hairline'), ('accent', 'accent'), ('accent-soft', 'accent_soft'),
+    ('accent-dark', 'accent_dark'), ('on-accent', 'on_accent'),
+    ('hover', 'hover'), ('good', 'success'), ('warn', 'warning'),
+    ('bad', 'error'), ('info', 'info'),
+]
+
+
+def _vars(scheme):
+    return ''.join('--{}:{};'.format(css, scheme[key]) for css, key in _VARMAP)
+
+
+_SHAPE = ('--r-btn:{}px;--r-dialog:{}px;'.format(
+    tokens.BUTTON_RADIUS, tokens.DIALOG_RADIUS))
+
+# Static rules reference the vars above. Square by default (radius 0); only
+# buttons (--r-btn) and dialog cards (--r-dialog) round.
+_STATIC = """
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  background:var(--bg);color:var(--ink)}
+body{margin:0;font:14px/1.55 __FONTSTACK__;background:var(--bg);color:var(--ink)}
 a{color:inherit;text-decoration:none}
 .layout{display:flex;min-height:100vh}
-.rail{width:230px;flex:0 0 230px;background:var(--rail);color:var(--rail-ink);
-  padding:18px 0;position:sticky;top:0;height:100vh;overflow:auto}
-.brand{font-weight:700;font-size:18px;padding:0 20px 14px;display:flex;
-  align-items:center;gap:9px}
-.brand .dot{width:11px;height:11px;border-radius:3px;background:var(--accent);
-  display:inline-block}
-.navgroup{padding:12px 20px 4px;font-size:11px;letter-spacing:.08em;
-  text-transform:uppercase;color:#8B93A1}
-.rail a{display:block;padding:7px 20px;color:var(--rail-ink);opacity:.82;
-  font-size:14px;border-left:3px solid transparent}
-.rail a:hover{opacity:1;background:rgba(255,255,255,.05)}
-.rail a.on{opacity:1;border-left-color:var(--accent);background:rgba(255,79,24,.12)}
+.rail{width:230px;flex:0 0 230px;background:var(--rail);color:var(--ink);
+  padding:16px 0;position:sticky;top:0;height:100vh;overflow:auto;
+  border-right:1px solid var(--line)}
+.brand{font-weight:650;font-size:16px;padding:0 20px 14px;display:flex;
+  align-items:center;gap:9px;color:var(--ink)}
+.brand .dot{width:11px;height:11px;background:var(--accent);display:inline-block}
+.navgroup{padding:14px 20px 4px;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--helper);font-weight:600}
+.rail a{display:block;padding:7px 20px;color:var(--muted);font-size:13px;
+  border-left:3px solid transparent}
+.rail a:hover{color:var(--ink);background:var(--hover)}
+.rail a.on{color:var(--ink);font-weight:600;border-left-color:var(--accent);
+  background:var(--surface2)}
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{display:flex;align-items:center;justify-content:space-between;
-  padding:12px 22px;border-bottom:1px solid var(--line);background:var(--surface)}
+  padding:12px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
 .topbar .who{color:var(--muted);font-size:13px}
-.content{padding:22px;max-width:1200px;width:100%}
-h1{font-size:22px;margin:0 0 4px}
-h2{font-size:15px;margin:22px 0 10px;color:var(--muted);font-weight:600;
-  text-transform:uppercase;letter-spacing:.05em}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;
-  padding:14px 16px}
-.card .k{color:var(--muted);font-size:12px;text-transform:uppercase;
-  letter-spacing:.04em}
-.card .v{font-size:22px;font-weight:700;margin-top:4px}
-.adv{background:var(--surface);border:1px solid var(--line);border-left-width:4px;
-  border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.topbar a{color:var(--info)}
+.content{padding:24px;max-width:1200px;width:100%}
+h1{font-size:20px;line-height:1.3;margin:0 0 4px;font-weight:650;
+  letter-spacing:-.005em}
+h2{font-size:11px;margin:24px 0 10px;color:var(--helper);font-weight:600;
+  text-transform:uppercase;letter-spacing:.06em}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);padding:16px}
+.card .k{color:var(--helper);font-size:11px;text-transform:uppercase;
+  letter-spacing:.06em;font-weight:600}
+.card .v{font-size:24px;font-weight:650;margin-top:6px;letter-spacing:-.01em}
+.adv{background:var(--surface);border:1px solid var(--line);border-left-width:3px;
+  padding:12px 16px;margin-bottom:8px}
 .adv.act{border-left-color:var(--bad)} .adv.watch{border-left-color:var(--warn)}
 .adv.good{border-left-color:var(--good)} .adv.info{border-left-color:var(--muted)}
 .adv .t{font-weight:600}
 .adv .m{color:var(--muted);font-size:13px;margin-top:3px}
-.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;
-  border:1px solid var(--line);color:var(--muted);margin-left:6px}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:var(--r-btn);
+  border:1px solid var(--line);color:var(--muted);margin-left:8px}
 table{width:100%;border-collapse:collapse;background:var(--surface);
-  border:1px solid var(--line);border-radius:10px;overflow:hidden}
-th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);
-  font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border:1px solid var(--line)}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);
+  font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   max-width:320px}
-th{background:var(--bg);color:var(--muted);font-weight:600;font-size:12px;
-  text-transform:uppercase;letter-spacing:.03em}
+th{background:var(--surface2);color:var(--helper);font-weight:600;font-size:11px;
+  text-transform:uppercase;letter-spacing:.04em}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(127,127,127,.05)}
+tr:hover td{background:var(--hover)}
 .tablewrap{overflow-x:auto}
-.btn{display:inline-block;background:var(--accent);color:#fff;border:none;
-  border-radius:9px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer}
+.btn{display:inline-block;background:var(--accent);color:var(--on-accent);
+  border:1px solid var(--accent);border-radius:var(--r-btn);padding:9px 16px;
+  font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--accent-dark);border-color:var(--accent-dark)}
 .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
-input[type=text],input[type=password],input[type=search]{
-  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;
-  background:var(--surface);color:var(--ink);font-size:14px}
-.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-.toolbar form{display:flex;gap:8px;flex:1;min-width:220px}
-.banner{background:#FFF3E0;border:1px solid #FFCC80;color:#8A4B00;padding:9px 14px;
-  border-radius:9px;margin-bottom:16px;font-size:13px}
-@media (prefers-color-scheme:dark){.banner{background:#2A1E10;border-color:#5A3B14;color:#FFC98A}}
-.muted{color:var(--muted)} .right{text-align:right}
-.pager{display:flex;gap:8px;align-items:center;margin-top:14px;color:var(--muted);
-  font-size:13px}
-.pager a{border:1px solid var(--line);border-radius:8px;padding:5px 11px}
-.dl{display:grid;grid-template-columns:190px 1fr;gap:2px 16px;background:var(--surface);
-  border:1px solid var(--line);border-radius:10px;padding:16px}
-.dl dt{color:var(--muted);font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
-.dl dd{margin:0;padding:6px 0;border-bottom:1px solid var(--line);
-  word-break:break-word}
-/* Forms */
-.frow{margin:12px 0;max-width:540px}
-.frow label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
-select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);
-  border-radius:9px;background:var(--surface);color:var(--ink);font-size:14px;
-  font-family:inherit}
+.btn.ghost:hover{background:var(--hover);color:var(--ink)}
+input[type=text],input[type=password],input[type=search],select,textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line);background:var(--surface);
+  color:var(--ink);font-size:14px;font-family:inherit;border-radius:0}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 textarea{resize:vertical}
-.formbtns{display:flex;gap:10px;margin-top:20px;max-width:540px}
-.err-list{background:#FDECEA;border:1px solid #F5B5AC;color:#9B2E1C;
-  border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:13px}
-@media (prefers-color-scheme:dark){.err-list{background:#2A1512;border-color:#5A241C;color:#F0A79A}}
-.rowbtns{display:flex;gap:10px;margin:12px 0}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.toolbar form{display:flex;gap:8px;flex:1;min-width:220px}
+.banner{background:var(--surface);border:1px solid var(--warn);border-left:3px solid var(--warn);
+  color:var(--ink);padding:10px 14px;border-radius:var(--r-dialog);margin-bottom:16px;
+  font-size:13px}
+.muted{color:var(--muted)} .right{text-align:right}
+.pager{display:flex;gap:8px;align-items:center;margin-top:16px;color:var(--muted);
+  font-size:13px}
+.pager a{border:1px solid var(--line);border-radius:var(--r-btn);padding:5px 11px}
+.dl{display:grid;grid-template-columns:190px 1fr;gap:0 16px;background:var(--surface);
+  border:1px solid var(--line);padding:16px}
+.dl dt{color:var(--helper);font-size:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.dl dd{margin:0;padding:7px 0;border-bottom:1px solid var(--line);word-break:break-word}
+/* Forms */
+.frow{margin:14px 0;max-width:540px}
+.frow label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.formbtns{display:flex;gap:10px;margin-top:22px;max-width:540px}
+.err-list{background:var(--surface);border:1px solid var(--bad);border-left:3px solid var(--bad);
+  color:var(--ink);border-radius:var(--r-dialog);padding:10px 14px;margin-bottom:16px;font-size:13px}
+.rowbtns{display:flex;gap:10px;margin:14px 0}
 form.inline{display:inline}
-/* Login */
+/* Login (a dialog card — the one rounded surface) */
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.loginbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;
-  padding:30px;width:100%;max-width:380px}
+.loginbox{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-dialog);padding:32px;width:100%;max-width:380px}
 .loginbox h1{font-size:20px;margin-bottom:4px}
-.loginbox .field{margin:14px 0}
-.loginbox label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.loginbox .field{margin:16px 0}
+.loginbox label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
 .err{color:var(--bad);font-size:13px;margin-top:10px}
 @media (max-width:720px){
   .layout{flex-direction:column}
   .rail{width:auto;flex:none;height:auto;position:static;display:flex;
-    flex-wrap:wrap;gap:2px;padding:10px}
+    flex-wrap:wrap;gap:2px;padding:10px;border-right:none;
+    border-bottom:1px solid var(--line)}
   .rail .brand{width:100%;padding:6px 10px}
   .navgroup{display:none}
-  .rail a{border-left:none;border-radius:8px;padding:6px 10px}
-  .rail a.on{background:rgba(255,79,24,.18)}
+  .rail a{border-left:none;padding:6px 10px}
+  .rail a.on{background:var(--surface2)}
 }
-"""
+""".replace('__FONTSTACK__', tokens.FONT_STACK)
+
+_CSS = (':root{' + _vars(tokens.LIGHT) + _SHAPE + '}'
+        '@media (prefers-color-scheme:dark){:root{' + _vars(tokens.DARK) + '}}'
+        + _STATIC)
 
 
 def _doc(title, body):

@@ -6,6 +6,27 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — One HCW-UI design system for desktop + web (strict rule)
+
+- **`tokens.py`** — a pure, tkinter-free single source of truth ported verbatim
+  from the kit's authoritative `hcwux/src/tokens.ts`: Fog-Gray canvas, Pure-White
+  cards, Coal-Black ink, the one Radiant-Orange accent (fills/active only; links
+  are slate), and the shape law — square surfaces (0 radius), 4px buttons, 8px
+  dialogs, 3px tab/nav alert rule. Both skins read from it.
+- **Desktop** (`theme.py`) now sources its palettes from `tokens.py` (no value
+  change — it already matched), and **24 tabs** had ad-hoc hex text colours
+  (`#555`, `#8a5a00`, `#2e7d32` …) replaced with `theme.palette()[role]`, so
+  every text colour flips correctly in dark mode.
+- **Web** (`webrender.py`) CSS is now **generated from the same tokens** and
+  corrected to the kit's shape: square cards/inputs/tables (was rounded), 4px
+  buttons, 8px dialog cards, and a white **instrument rail** (was a dark
+  sidebar) whose active row wears the 3px accent inset rule.
+- Guardrails: tests lock the tokens to the kit's values, assert the web CSS
+  carries the token values (can't drift from the desktop), and forbid any new
+  ad-hoc `foreground='#…'` literal from re-entering the app.
+
+---
+
 ## 2026-07-21 — Browser / LAN access: Masters data entry (Stage 2)
 
 - **Add / edit / delete the Masters in the browser** — sites, clients, vendors,

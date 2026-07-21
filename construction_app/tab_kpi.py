@@ -74,7 +74,7 @@ class KPIDashboard(ttk.Frame):
         self.tree.tag_configure(ACT, background=theme.wash('bad'))
         self.tree.tag_configure(WATCH, background=theme.wash('warn'))
         self.tree.tag_configure(GOOD, background=theme.wash('good'))
-        self.tree.tag_configure(NONE, foreground='#888')
+        self.tree.tag_configure(NONE, foreground=theme.palette()['helper'])
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 10))

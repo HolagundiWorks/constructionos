@@ -10,6 +10,7 @@ the analysis — otherwise the number dies in this screen.
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk, messagebox
 
 from ui_guard import can_write
@@ -126,7 +127,7 @@ class RateAnalysisFrame(ttk.Frame):
         ttk.Label(foot, textvariable=self.buildup_var).pack(anchor='w')
         ttk.Label(foot, textvariable=self.rate_var,
                   font=('TkDefaultFont', 12, 'bold')).pack(anchor='w')
-        ttk.Label(foot, textvariable=self.warn_var, foreground='#8a5a00',
+        ttk.Label(foot, textvariable=self.warn_var, foreground=theme.palette()['warning'],
                   wraplength=900, justify='left').pack(anchor='w')
         act = ttk.Frame(foot); act.pack(anchor='w', pady=(4, 0))
         ttk.Button(act, text='Send Rate to Rate Book',

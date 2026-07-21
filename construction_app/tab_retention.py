@@ -110,7 +110,7 @@ class RetentionRegister(ttk.Frame):
         ttk.Label(self, text='Retention is money you have already earned and '
                              'someone else is holding. It never appears on an '
                              'invoice, so it is the easiest money to forget.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)
@@ -120,7 +120,7 @@ class RetentionRegister(ttk.Frame):
         ttk.Button(top, text='Record Release', command=self.record_release).pack(side='left')
         ttk.Button(top, text='Print / Export', command=self.export).pack(side='left', padx=6)
 
-        ttk.Label(self, textvariable=self.due_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.due_var, foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(4, 0))
 
@@ -313,9 +313,9 @@ class SecurityDeposit(ttk.Frame):
         ttk.Label(self, textvariable=self.summary_var,
                   font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=10)
         ttk.Label(self, textvariable=self.bg_var,
-                  foreground='#226622').pack(anchor='w', padx=10)
+                  foreground=theme.palette()['success']).pack(anchor='w', padx=10)
         ttk.Label(self, textvariable=self.pg_note_var,
-                  foreground='#8a5a00').pack(anchor='w', padx=10, pady=(0, 4))
+                  foreground=theme.palette()['warning']).pack(anchor='w', padx=10, pady=(0, 4))
 
         headings = {'bill_no': 'Bill', 'bill_date': 'Date',
                     'value': 'Bill Value', 'deducted': 'Deposit Deducted',
@@ -330,7 +330,7 @@ class SecurityDeposit(ttk.Frame):
             'CPWD takes a 5% performance guarantee before work starts and 2.5% '
             'from every running bill. Both are your money. State PWDs differ — '
             'set the rate to match your agreement.'),
-            foreground='#666', wraplength=900, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=900, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     def reload_contracts(self):

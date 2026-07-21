@@ -6,6 +6,7 @@ leaves ``ok`` False so the caller can exit.
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk
 
 import auth
@@ -46,7 +47,7 @@ class LoginDialog:
         pw_entry.grid(row=3, column=1, pady=4)
 
         self.msg_var = tk.StringVar()
-        ttk.Label(frm, textvariable=self.msg_var, foreground='#c62828',
+        ttk.Label(frm, textvariable=self.msg_var, foreground=theme.palette()['error'],
                   wraplength=240).grid(row=4, column=0, columnspan=2, sticky='w')
 
         btns = ttk.Frame(frm)
@@ -55,7 +56,7 @@ class LoginDialog:
         ttk.Button(btns, text='Cancel', command=self._cancel).pack(side='left')
 
         ttk.Label(frm, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
-                  foreground='#999', font=('TkDefaultFont', 8)) \
+                  foreground=theme.palette()['helper'], font=('TkDefaultFont', 8)) \
             .grid(row=6, column=0, columnspan=2, pady=(12, 0))
 
         self.win.bind('<Return>', lambda e: self._attempt())

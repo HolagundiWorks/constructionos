@@ -52,7 +52,7 @@ class CashFlowForecast(ttk.Frame):
                              'being unprofitable. This projects what is still '
                              'open on your bills against what you owe and must '
                              'pay, starting from cash in hand.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         ctl = ttk.LabelFrame(self, text='Assumptions')
@@ -71,7 +71,7 @@ class CashFlowForecast(ttk.Frame):
         ttk.Label(row2, text='Weekly wage bill').pack(side='left')
         ttk.Entry(row2, textvariable=self.wages_var, width=12).pack(side='left', padx=4)
         ttk.Label(row2, text='(the outflow that cannot wait — labour walks off site)',
-                  foreground='#777').pack(side='left', padx=6)
+                  foreground=theme.palette()['muted']).pack(side='left', padx=6)
         ttk.Button(row2, text='Recalculate', command=self.refresh).pack(side='right')
 
         heads = {'period': 'Period from', 'inflow': 'Money in',
@@ -85,11 +85,11 @@ class CashFlowForecast(ttk.Frame):
         self.tree.tag_configure('short', background=theme.wash('bad'))
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
 
-        ttk.Label(self, textvariable=self.warn_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.warn_var, foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(4, 0))
         ttk.Label(self, textvariable=self.summary_var,
-                  foreground='#555').pack(anchor='w', padx=8, pady=(2, 4))
+                  foreground=theme.palette()['muted']).pack(anchor='w', padx=8, pady=(2, 4))
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=(0, 8))
         ttk.Button(btns, text='Refresh', command=self.refresh).pack(side='left')
         ttk.Button(btns, text='Print / Export', command=self.export).pack(side='left', padx=6)

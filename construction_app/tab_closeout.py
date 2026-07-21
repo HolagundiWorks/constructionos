@@ -74,10 +74,10 @@ class HandoverView(ttk.Frame):
                              'that clock is what releases your retention. A '
                              'punch list left drifting is retention left '
                              'uncollected.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
-        ttk.Label(self, textvariable=self.headline_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.headline_var, foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(0, 4))
 
@@ -110,7 +110,7 @@ class HandoverView(ttk.Frame):
         ttk.Button(btns, text='Refresh', command=self.refresh).pack(side='left')
         ttk.Button(btns, text='Print / Export', command=self.export).pack(side='left', padx=6)
         ttk.Label(btns, text='Select a site to see its trades.',
-                  foreground='#777').pack(side='left', padx=10)
+                  foreground=theme.palette()['muted']).pack(side='left', padx=10)
 
     def refresh(self):
         for item in self.tree.get_children():

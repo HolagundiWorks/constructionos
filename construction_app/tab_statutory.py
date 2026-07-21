@@ -8,6 +8,7 @@ because they change.
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk
 
 import statutory
@@ -22,7 +23,7 @@ class StatutoryCalculator(ttk.Frame):
                   font=('TkDefaultFont', 12, 'bold')).pack(anchor='w', padx=8, pady=(8, 2))
         ttk.Label(self, text='Optional — for contractors who file EPF / ESI / '
                             'BOCW cess. Rates are editable; nothing here is '
-                            'deducted automatically.', foreground='#666',
+                            'deducted automatically.', foreground=theme.palette()['muted'],
                   wraplength=560, justify='left').pack(anchor='w', padx=8, pady=(0, 8))
 
         self.v = {

@@ -3960,6 +3960,65 @@ class TestTakeoff(unittest.TestCase):
         self.assertEqual(totals, {'sqm': 40.0, 'nos': 3.0})
 
 
+class TestDesignSystem(unittest.TestCase):
+    """One HCW-UI design system governs both the desktop and the web (a strict
+    project rule). These lock the shared tokens to the kit and prove both skins
+    are driven from them — so the two can't drift apart."""
+
+    def test_tokens_match_the_kit(self):
+        # Canonical values from hcwux/src/tokens.ts (the kit's single source of
+        # truth): Radiant-Orange accent, Fog-Gray canvas, Coal ink, slate links,
+        # square surfaces with 4px buttons / 8px dialogs / 3px tab alert rule.
+        import tokens
+        self.assertEqual(tokens.LIGHT['accent'], '#FF4F18')
+        self.assertEqual(tokens.LIGHT['canvas'], '#F2F4F7')
+        self.assertEqual(tokens.LIGHT['surface'], '#FFFFFF')
+        self.assertEqual(tokens.LIGHT['ink'], '#141517')
+        self.assertEqual(tokens.LIGHT['info'], '#3B5568')      # links = slate
+        self.assertEqual(tokens.DARK['accent'], '#FF5C28')
+        self.assertEqual(tokens.RADIUS, 0)
+        self.assertEqual(tokens.BUTTON_RADIUS, 4)
+        self.assertEqual(tokens.DIALOG_RADIUS, 8)
+        self.assertEqual(tokens.TAB_ALERT_WIDTH, 3)
+
+    def test_desktop_theme_is_token_sourced(self):
+        import theme
+        import tokens
+        self.assertIs(theme.PALETTES['light'], tokens.LIGHT)
+        self.assertIs(theme.PALETTES['dark'], tokens.DARK)
+
+    def test_web_css_is_token_sourced(self):
+        import webrender
+        import tokens
+        css = webrender._CSS
+        # the emitted CSS must carry the token values, not hand-picked hex
+        for val in (tokens.LIGHT['accent'], tokens.LIGHT['canvas'],
+                    tokens.LIGHT['ink'], tokens.LIGHT['surface'],
+                    tokens.DARK['accent'], tokens.DARK['canvas']):
+            self.assertIn(val, css)
+        # shape law: square inputs, 4px buttons, 8px dialogs
+        self.assertIn('border-radius:0', css)
+        self.assertIn('--r-btn:4px', css)
+        self.assertIn('--r-dialog:8px', css)
+
+    def test_no_adhoc_foreground_hex_in_app(self):
+        # Every text colour must come from the palette, so it flips with the
+        # theme. `tokens.py` is the one place literal hex may live.
+        import glob
+        pat = re.compile(r"(?:foreground|fg)\s*=\s*['\"]#[0-9A-Fa-f]{3,6}['\"]")
+        app = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, 'construction_app')
+        offenders = []
+        for f in glob.glob(os.path.join(app, '*.py')):
+            if os.path.basename(f) in ('tokens.py',):
+                continue
+            for i, line in enumerate(open(f, encoding='utf-8'), 1):
+                if pat.search(line):
+                    offenders.append('{}:{}'.format(os.path.basename(f), i))
+        self.assertEqual(offenders, [], 'ad-hoc foreground hex (use '
+                         'theme.palette()[role]): {}'.format(offenders))
+
+
 class TestOllamaCatalog(unittest.TestCase):
     """The model catalogue folded in from the Ollama Manager."""
 

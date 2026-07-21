@@ -16,6 +16,7 @@ rejected bill is not deleted, it is sent back.
 """
 
 import tkinter as tk
+import theme
 from datetime import datetime
 from tkinter import ttk, messagebox
 
@@ -127,7 +128,7 @@ class ApprovalsTab(ttk.Frame):
         ttk.Label(self, text='Everything sitting in draft, in one queue. '
                              'Approving records who signed and when — a status '
                              'anyone can change is not evidence.',
-                  wraplength=720, justify='left', foreground='#555') \
+                  wraplength=720, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         ttk.Label(self, textvariable=self.summary_var,
@@ -157,7 +158,7 @@ class ApprovalsTab(ttk.Frame):
         for c in self.HIST:
             self.hist.heading(c, text=heads2[c])
             self.hist.column(c, width=150 if c == 'when' else 110, anchor='w')
-        self.hist.tag_configure('rej', foreground='#a4343a')
+        self.hist.tag_configure('rej', foreground=theme.palette()['error'])
         self.hist.pack(fill='both', expand=True, padx=8, pady=(0, 10))
 
     def refresh(self):

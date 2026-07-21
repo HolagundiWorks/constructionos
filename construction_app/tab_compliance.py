@@ -129,7 +129,7 @@ class ComplianceCalendar(ttk.Frame):
         self.tree.pack(fill='both', expand=True, padx=8, pady=4)
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
 
-        ttk.Label(self, textvariable=self.note_var, foreground='#555',
+        ttk.Label(self, textvariable=self.note_var, foreground=theme.palette()['muted'],
                   wraplength=900, justify='left').pack(anchor='w', padx=10)
         ttk.Label(self, text=(
             'Dates shown are the standard statutory dates. The government '
@@ -137,7 +137,7 @@ class ComplianceCalendar(ttk.Frame):
             'portal before relying on a date, and edit the row if it has '
             'moved. No late fee or interest is calculated here; those rates '
             'change too often to quote a figure you could act on.'),
-            foreground='#8a5a00', wraplength=900, justify='left') \
+            foreground=theme.palette()['warning'], wraplength=900, justify='left') \
             .pack(anchor='w', padx=10, pady=(2, 8))
 
     # ------------------------------------------------------------- flags
@@ -299,7 +299,7 @@ class ComplianceCalendar(ttk.Frame):
                 row=idx, column=1, padx=10, pady=3, sticky='w')
         ttk.Label(win, text=('Due date is editable — if the department '
                              'extended it by notification, correct it here.'),
-                  foreground='#555', wraplength=320, justify='left').grid(
+                  foreground=theme.palette()['muted'], wraplength=320, justify='left').grid(
             row=5, column=0, columnspan=2, padx=10, pady=(2, 6), sticky='w')
 
         def save():

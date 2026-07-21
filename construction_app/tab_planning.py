@@ -71,7 +71,7 @@ class PPCView(ttk.Frame):
                              'counted strictly: a part-finished task is a miss. '
                              'Typical sites start near 50%. The reasons below '
                              'are what you actually fix.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)
@@ -184,7 +184,7 @@ class CVRView(ttk.Frame):
                              'Profit at the end of a job is a post-mortem — '
                              'this is the same arithmetic early enough to do '
                              'something about it.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)
@@ -205,7 +205,7 @@ class CVRView(ttk.Frame):
                              anchor='w' if c == 'head' else 'e')
         self.tree.tag_configure('loss', background=theme.wash('bad'))
         self.tree.pack(fill='x', padx=8, pady=4)
-        ttk.Label(self, textvariable=self.warn_var, foreground='#a4343a',
+        ttk.Label(self, textvariable=self.warn_var, foreground=theme.palette()['error'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(4, 0))
         ttk.Label(self, textvariable=self.summary_var,

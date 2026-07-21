@@ -334,7 +334,7 @@ class MeasurementFrame(ttk.Frame):
         ttk.Button(btns, text='Export Measurement Book (Form 23)',
                    command=self.export_mb).pack(side='right', padx=3)
         ttk.Label(btns, textvariable=self.check_var,
-                  foreground='#8a5a00').pack(side='right', padx=8)
+                  foreground=theme.palette()['warning']).pack(side='right', padx=8)
 
     def export_mb(self):
         """Print the book in Form 23 layout (a CMB for works >= Rs 15 lakh)."""

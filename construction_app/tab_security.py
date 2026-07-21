@@ -7,6 +7,7 @@ nobody can lock themselves out.
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk, messagebox
 
 import auth
@@ -28,7 +29,7 @@ class SecurityTab(ttk.Frame):
         ttk.Checkbutton(enable_row, text='Require sign-in (enable login & user accounts)',
                         variable=self.enable_var, command=self._toggle_security).pack(side='left')
         self.status_var = tk.StringVar()
-        ttk.Label(self, textvariable=self.status_var, foreground='#555',
+        ttk.Label(self, textvariable=self.status_var, foreground=theme.palette()['muted'],
                   wraplength=620, justify='left').pack(anchor='w', padx=10)
 
         self.tree = ttk.Treeview(self, columns=self.COLUMNS, show='headings', height=7)

@@ -10,6 +10,7 @@ outside the score and override it.
 """
 
 import json
+import theme
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -151,17 +152,17 @@ class BidScorecard(ttk.Frame):
             combo.grid(row=idx, column=1, padx=4, pady=2)
             combo.bind('<<ComboboxSelected>>', lambda e: self.recalc())
             ttk.Label(scores, text='1 = {}   |   5 = {}'.format(
-                f['low'], f['high']), foreground='#666').grid(
+                f['low'], f['high']), foreground=theme.palette()['muted']).grid(
                 row=idx, column=2, padx=8, pady=2, sticky='w')
 
         out = ttk.Frame(self); out.pack(fill='x', padx=8, pady=4)
         ttk.Label(out, textvariable=self.verdict_var,
                   font=('TkDefaultFont', 12, 'bold')).pack(anchor='w')
-        ttk.Label(out, textvariable=self.evidence_var, foreground='#333',
+        ttk.Label(out, textvariable=self.evidence_var, foreground=theme.palette()['muted'],
                   wraplength=980, justify='left').pack(anchor='w')
-        ttk.Label(out, textvariable=self.veto_var, foreground='#b00020',
+        ttk.Label(out, textvariable=self.veto_var, foreground=theme.palette()['error'],
                   wraplength=980, justify='left').pack(anchor='w', pady=(4, 0))
-        ttk.Label(out, textvariable=self.warn_var, foreground='#8a5a00',
+        ttk.Label(out, textvariable=self.warn_var, foreground=theme.palette()['warning'],
                   wraplength=980, justify='left').pack(anchor='w')
 
         btns = ttk.Frame(self); btns.pack(fill='x', padx=8, pady=4)
@@ -199,7 +200,7 @@ class BidScorecard(ttk.Frame):
             'they cite evidence rather than a number. Recording what you '
             'actually decided and how it turned out is what lets the scoring '
             'be checked against reality later.'),
-            foreground='#666', wraplength=980, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=980, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     # ------------------------------------------------------------ loading

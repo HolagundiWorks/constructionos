@@ -18,6 +18,7 @@ Which documents count as "billed to this party":
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk, messagebox
 
 import allocation
@@ -150,7 +151,7 @@ class AllocateDialog(tk.Toplevel):
         ttk.Label(self, text='Tick off the bills this money settles. Anything '
                              'you leave unallocated still counts as received — '
                              'it just is not tied to a bill.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=12, pady=(0, 8))
 
         wrap = ttk.Frame(self); wrap.pack(fill='both', expand=True, padx=12)
@@ -177,7 +178,7 @@ class AllocateDialog(tk.Toplevel):
         ttk.Button(btns, text='Save', command=self.save).pack(side='right')
         ttk.Button(btns, text='Cancel', command=self.destroy).pack(side='right', padx=6)
         ttk.Label(self, text='Double-click a row to type an amount.',
-                  foreground='#777').pack(anchor='w', padx=12, pady=(0, 8))
+                  foreground=theme.palette()['muted']).pack(anchor='w', padx=12, pady=(0, 8))
 
     def reload(self):
         p = self.payment

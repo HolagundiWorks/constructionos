@@ -11,6 +11,7 @@ when setup is needed (empty masters and not previously completed/skipped).
 """
 
 import tkinter as tk
+import theme
 from tkinter import ttk
 
 import assets
@@ -50,7 +51,7 @@ class SetupWizard:
             .grid(row=1, column=0, columnspan=2, pady=(0, 4), sticky='w')
         ttk.Label(frm, text='All fields are optional — you can add or change '
                             'everything later. This appears only once.',
-                  foreground='#666', wraplength=340, justify='left') \
+                  foreground=theme.palette()['muted'], wraplength=340, justify='left') \
             .grid(row=2, column=0, columnspan=2, pady=(0, 10), sticky='w')
 
         self.vars = {}
@@ -73,7 +74,7 @@ class SetupWizard:
         ttk.Button(btns, text='Skip', command=self._skip).pack(side='left')
 
         ttk.Label(frm, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
-                  foreground='#999', font=('TkDefaultFont', 8)) \
+                  foreground=theme.palette()['helper'], font=('TkDefaultFont', 8)) \
             .grid(row=4 + len(rows), column=0, columnspan=2, pady=(12, 0))
 
         self.win.protocol('WM_DELETE_WINDOW', self._skip)

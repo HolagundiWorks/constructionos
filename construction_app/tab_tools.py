@@ -16,6 +16,7 @@ reloads from the restored data.
 """
 
 import os
+import theme
 import shutil
 import sqlite3
 from datetime import date, datetime
@@ -104,7 +105,7 @@ class ToolsTab(ttk.Frame):
         firm = firm_box
         ttk.Label(firm, text='Works GST % is the GST rate applied to RA / running '
                              'bills in the Output GST view (typical works contract '
-                             'rate is 18%).', wraplength=540, foreground='#666',
+                             'rate is 18%).', wraplength=540, foreground=theme.palette()['muted'],
                   justify='left').grid(row=2, column=0, columnspan=2, padx=6, sticky='w')
         ttk.Button(firm, text='Save Firm Details', command=self.save_firm) \
             .grid(row=3, column=0, padx=6, pady=6, sticky='w')
@@ -115,7 +116,7 @@ class ToolsTab(ttk.Frame):
         ttk.Button(logo_row, text='Remove',
                    command=self.remove_firm_logo).pack(side='left', padx=(6, 0))
         self.logo_status = tk.StringVar()
-        ttk.Label(firm, textvariable=self.logo_status, foreground='#666',
+        ttk.Label(firm, textvariable=self.logo_status, foreground=theme.palette()['muted'],
                   wraplength=540, justify='left') \
             .grid(row=4, column=0, columnspan=2, padx=6, pady=(0, 4), sticky='w')
 
@@ -124,7 +125,7 @@ class ToolsTab(ttk.Frame):
         series.pack(fill='x', padx=12, pady=(6, 6))
         ttk.Label(series, text='Blank invoice numbers auto-fill from this series. '
                               'With FY reset on, numbering restarts each April, e.g. '
-                              'INV/2026-27/001.', wraplength=540, foreground='#666',
+                              'INV/2026-27/001.', wraplength=540, foreground=theme.palette()['muted'],
                   justify='left').grid(row=0, column=0, columnspan=4, padx=6,
                                        pady=(6, 2), sticky='w')
         self.series = {'invoice_prefix': tk.StringVar(),
@@ -166,7 +167,7 @@ class ToolsTab(ttk.Frame):
         lang.pack(fill='x', padx=12, pady=(6, 6))
         ttk.Label(lang, text='Menu and tab names can be shown in Hindi or '
                             'Hinglish. Applies the next time you open the app.',
-                  wraplength=540, foreground='#666', justify='left') \
+                  wraplength=540, foreground=theme.palette()['muted'], justify='left') \
             .pack(anchor='w', padx=8, pady=(6, 2))
         self.lang_var = tk.StringVar()
         self._lang_names = {name: code for code, name in i18n.LANGUAGES}
@@ -225,11 +226,11 @@ class ToolsTab(ttk.Frame):
         self._build_web_panel()
 
         self.status_var = tk.StringVar()
-        ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
+        ttk.Label(self, textvariable=self.status_var, foreground=theme.palette()['success'],
                   wraplength=560, justify='left') \
             .pack(anchor='w', padx=12, pady=(4, 2))
         ttk.Label(self, text='{} · {}'.format(branding.APP_NAME, branding.CREDIT),
-                  foreground='#888').pack(anchor='w', padx=12, pady=(0, 12))
+                  foreground=theme.palette()['helper']).pack(anchor='w', padx=12, pady=(0, 12))
         self.refresh()
 
     def refresh(self):
@@ -834,11 +835,11 @@ class ToolsTab(ttk.Frame):
                                        state='disabled')
         self.web_stop_btn.pack(side='left', padx=2)
         self.web_status_var = tk.StringVar(value='Stopped.')
-        ttk.Label(web, textvariable=self.web_status_var, foreground='#2e7d32') \
+        ttk.Label(web, textvariable=self.web_status_var, foreground=theme.palette()['success']) \
             .pack(anchor='w', padx=8, pady=(2, 0))
         self.web_urls_var = tk.StringVar()
         ttk.Label(web, textvariable=self.web_urls_var, wraplength=560,
-                  justify='left', foreground='#666').pack(
+                  justify='left', foreground=theme.palette()['muted']).pack(
             anchor='w', padx=8, pady=(0, 8))
 
     def start_web(self):

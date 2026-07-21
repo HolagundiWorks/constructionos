@@ -469,7 +469,7 @@ class BaselineView(ttk.Frame):
             'establish now rather than at the final account. Liquidated '
             'damages are an estimate on the terms set against the project, not '
             'a statement of what will be charged.'),
-            foreground='#666', wraplength=980, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=980, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     def reload_projects(self):
@@ -733,7 +733,7 @@ class CriticalPathView(ttk.Frame):
 
         ttk.Label(self, textvariable=self.headline_var,
                   font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=10)
-        ttk.Label(self, textvariable=self.warn_var, foreground='#b00020',
+        ttk.Label(self, textvariable=self.warn_var, foreground=theme.palette()['error'],
                   wraplength=980, justify='left').pack(anchor='w', padx=10)
 
         headings = {'task_name': 'Task', 'duration': 'Days', 'start': 'Earliest Start',
@@ -754,7 +754,7 @@ class CriticalPathView(ttk.Frame):
             'day lost there is a day lost on the whole job, and the day that '
             'runs into liquidated damages. Set a task\'s Dependency to the '
             'name(s) of the task(s) it waits for, separated by commas.'),
-            foreground='#666', wraplength=980, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=980, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     def reload_projects(self):

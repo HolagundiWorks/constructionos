@@ -116,7 +116,7 @@ class QuoteCompare(ttk.Frame):
         ttk.Label(self, text='The three-quote rule is not bureaucracy — it is '
                              'the difference between a price and an opening '
                              'position.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)
@@ -142,7 +142,7 @@ class QuoteCompare(ttk.Frame):
         self.tree.tag_configure('best', background=theme.wash('good'))
         self.tree.pack(fill='x', padx=8, pady=4)
 
-        ttk.Label(self, textvariable=self.rec_var, foreground='#16557a',
+        ttk.Label(self, textvariable=self.rec_var, foreground=theme.palette()['info'],
                   font=('TkDefaultFont', 11, 'bold'), wraplength=700,
                   justify='left').pack(anchor='w', padx=8, pady=(6, 2))
         ttk.Label(self, textvariable=self.summary_var, wraplength=700,
@@ -256,7 +256,7 @@ class VendorRating(ttk.Frame):
                              'last rather than being assumed poor — an unrated '
                              'factor is unknown, not bad. Edit the scores on '
                              'the Vendors master.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         heads = {'vendor': 'Vendor', 'approved': 'Approved', 'quality': 'Quality',

@@ -88,7 +88,7 @@ class InspectionFrame(ttk.Frame):
         ttk.Label(self, text='Record the checks before work is covered up. A '
                              'Hold point that is not signed off stops the work '
                              '— that is the point of the plan.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         hdr = ttk.LabelFrame(self, text='Inspections')
@@ -352,13 +352,13 @@ class InspectionFrame(ttk.Frame):
                 conn.close()
         if not rows:
             self.gate_var.set('No checks loaded — use "Load Checklist".')
-            self.gate_label.configure(foreground='#777')
+            self.gate_label.configure(foreground=theme.palette()['muted'])
         elif allowed:
             self.gate_var.set('✓ WORK MAY PROCEED — all hold points cleared.')
-            self.gate_label.configure(foreground='#2e7d46')
+            self.gate_label.configure(foreground=theme.palette()['success'])
         else:
             self.gate_var.set('✗ DO NOT PROCEED — ' + reason)
-            self.gate_label.configure(foreground='#a4343a')
+            self.gate_label.configure(foreground=theme.palette()['error'])
 
     def _on_item(self, _e=None):
         sel = self.item_tree.selection()

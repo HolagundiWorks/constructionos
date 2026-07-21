@@ -109,7 +109,7 @@ class FleetView(ttk.Frame):
             'changed. Set both intervals on the machine in Masters > '
             'Equipment; a machine with no interval reads "not scheduled" '
             'rather than OK, because the app cannot know it is fine.'),
-            foreground='#666', wraplength=900, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=900, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     def refresh(self):
@@ -197,7 +197,7 @@ class FuelView(ttk.Frame):
         ttk.Label(self, textvariable=self.headline_var,
                   font=('TkDefaultFont', 10, 'bold')).pack(anchor='w', padx=10)
         ttk.Label(self, textvariable=self.nowork_var,
-                  foreground='#8a5a00').pack(anchor='w', padx=10)
+                  foreground=theme.palette()['warning']).pack(anchor='w', padx=10)
 
         headings = {'log_date': 'Date', 'equipment': 'Machine',
                     'operator': 'Operator', 'hours_run': 'Hours',
@@ -216,7 +216,7 @@ class FuelView(ttk.Frame):
             'days to have a norm. A high day is a question, not a finding — '
             'a machine can idle on standby and a tank can be filled the '
             'evening before.'.format(plant.MIN_SAMPLE)),
-            foreground='#666', wraplength=900, justify='left') \
+            foreground=theme.palette()['muted'], wraplength=900, justify='left') \
             .pack(anchor='w', padx=10, pady=(0, 8))
 
     def _int(self, var, default):

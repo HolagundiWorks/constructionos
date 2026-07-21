@@ -80,7 +80,7 @@ class GRNFrame(ttk.Frame):
                              'order. Posting a GRN puts the accepted quantity '
                              'into stock — that is the only way material should '
                              'enter the ledger.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         hdr = ttk.LabelFrame(self, text='Receipts')
@@ -156,7 +156,7 @@ class GRNFrame(ttk.Frame):
         ttk.Button(ib, text='Delete Item', command=self.delete_item).pack(side='left', padx=3)
 
         self.status_var = tk.StringVar()
-        ttk.Label(self, textvariable=self.status_var, foreground='#2e7d32',
+        ttk.Label(self, textvariable=self.status_var, foreground=theme.palette()['success'],
                   wraplength=700, justify='left').pack(anchor='w', padx=8, pady=(0, 8))
 
     def _entry(self, parent, r, c, label, key):
@@ -556,7 +556,7 @@ class ThreeWayMatch(ttk.Frame):
                              'receipt behind it — a payment about to leave for '
                              'material that never arrived. Check this before '
                              'paying a vendor.',
-                  wraplength=700, justify='left', foreground='#555') \
+                  wraplength=700, justify='left', foreground=theme.palette()['muted']) \
             .pack(anchor='w', padx=8, pady=(0, 6))
 
         top = ttk.Frame(self); top.pack(fill='x', padx=8, pady=4)

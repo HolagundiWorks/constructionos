@@ -25,6 +25,8 @@ kit specifies.
 import tkinter as tk
 from tkinter import ttk
 
+import tokens
+
 # Brand font. The kit uses Urbanist (web-only); Segoe UI is the closest calm,
 # legible system face on Windows and needs no bundling.
 _FAMILY = 'Segoe UI'
@@ -42,62 +44,9 @@ FONT_MICRO = (_FAMILY, 8)
 NAV_PAD_Y = 8            # primary — rail nav row
 TAB_PAD_Y = 7           # secondary — stage notebook tab (~1x the nav row)
 
-# Solid-hex approximations of the kit's alpha tokens (tkinter has no alpha):
-# hairline = Coal@10% over the ground; accent_soft = Orange@14-20% over the card.
-PALETTES = {
-    'light': {
-        'canvas':      '#F2F4F7',   # Fog Gray — the calm ground
-        'surface':     '#FFFFFF',   # Pure White — cards
-        'surface2':    '#E7EAF0',   # quiet fog — secondary / selected surface
-        'rail':        '#FFFFFF',   # the instrument rail sits over the fog stage
-        'ink':         '#141517',   # Coal Black
-        'muted':       '#5B616B',   # secondary slate
-        'helper':      '#667085',   # helper slate
-        'hairline':    '#DCDEE1',
-        'accent':      '#FF4F18',   # Radiant Orange — active / CTA only
-        'accent_soft': '#FDE7DF',   # selected-row wash
-        'accent_dark': '#DB3E0F',   # accent hover
-        'on_accent':   '#FFFFFF',
-        'hover':       '#ECEEF2',   # neutral hover wash
-        'entry':       '#FFFFFF',
-        'heading':     '#E7EAF0',   # table heading band
-        'success':     '#1B7F5A',
-        'warning':     '#FF9932',
-        'error':       '#C8442E',
-        'info':        '#3B5568',   # links + info (slate, never the accent)
-        # Soft row washes for Treeview status rows — light tints on white.
-        'wash_bad':    '#FCE4E4',
-        'wash_warn':   '#FDF1DE',
-        'wash_good':   '#E4F1E8',
-        'wash_muted':  '#EEF1F4',
-    },
-    'dark': {
-        'canvas':      '#101215',
-        'surface':     '#191C21',
-        'surface2':    '#232830',
-        'rail':        '#191C21',
-        'ink':         '#EDEFF3',
-        'muted':       '#9AA2AE',
-        'helper':      '#98A1AD',
-        'hairline':    '#2E333B',
-        'accent':      '#FF5C28',
-        'accent_soft': '#3E2A20',
-        'accent_dark': '#FF7A4D',
-        'on_accent':   '#FFFFFF',
-        'hover':       '#272A2E',
-        'entry':       '#191C21',
-        'heading':     '#232830',
-        'success':     '#4CC29A',
-        'warning':     '#FFB25C',
-        'error':       '#F07862',
-        'info':        '#8FB4CE',
-        # Soft row washes — dark, low-chroma tints that sit under light ink.
-        'wash_bad':    '#3A2020',
-        'wash_warn':   '#39301E',
-        'wash_good':   '#1E3329',
-        'wash_muted':  '#232830',
-    },
-}
+# Colour schemes come from the shared, tkinter-free ``tokens`` module — the one
+# source of truth for both the desktop and the browser front end (see tokens.py).
+PALETTES = {'light': tokens.LIGHT, 'dark': tokens.DARK}
 
 DEFAULT_MODE = 'light'
 _state = {'mode': DEFAULT_MODE}
