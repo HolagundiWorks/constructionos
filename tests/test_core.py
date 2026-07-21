@@ -3800,6 +3800,55 @@ class TestReferenceData(unittest.TestCase):
                     pass
 
 
+class TestLogoTint(unittest.TestCase):
+    """The stdlib PNG recolour that makes the dark logo readable on the dark
+    rail — lift dark pixels to near-white, keep the alpha."""
+
+    def test_dark_logo_lifts_to_near_white_keeping_alpha(self):
+        import struct
+        import zlib
+        import assets
+        import logo_tint
+        fd, dst = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
+        try:
+            lifted = logo_tint.tint_dark_to_light(assets.LOGO_RECT, dst)
+            self.assertGreater(lifted, 0)
+            with open(dst, 'rb') as fh:
+                ihdr, idat = logo_tint._read_chunks(fh.read())
+            w, h, bd, ct, _c, _f, it = struct.unpack('>IIBBBBB', ihdr)
+            self.assertEqual((bd, ct, it), (8, 6, 0))     # still 8-bit RGBA
+            px = logo_tint._unfilter(zlib.decompress(idat), w, h, 4)
+            opaque = [px[i] for i in range(0, len(px), 4) if px[i + 3] > 200]
+            transparent = sum(1 for i in range(0, len(px), 4)
+                              if px[i + 3] == 0)
+            self.assertTrue(opaque)
+            self.assertTrue(all(v >= 200 for v in opaque),
+                            'opaque pixels should be lifted, not left dark')
+            self.assertGreater(transparent, 0, 'alpha must be preserved')
+        finally:
+            try:
+                os.remove(dst)
+            except OSError:
+                pass
+
+    def test_unsupported_input_raises(self):
+        import logo_tint
+        fd, p = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
+        with open(p, 'wb') as fh:
+            fh.write(b'this is not a png')
+        try:
+            with self.assertRaises(logo_tint.Unsupported):
+                logo_tint.tint_dark_to_light(p, p + '.out')
+        finally:
+            for q in (p, p + '.out'):
+                try:
+                    os.remove(q)
+                except OSError:
+                    pass
+
+
 class TestTabModuleImports(unittest.TestCase):
     """Guard against a module using a distinctive analytics module it forgot to
     import — a bug that stays hidden until data reaches that code path (as the

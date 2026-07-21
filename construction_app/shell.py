@@ -54,18 +54,16 @@ class RailStage(ttk.Frame):
         rail.pack_propagate(False)
         self._rail = rail
 
-        # identity: the logo at the top of the rail
+        # identity: the logo at the top of the rail. A dark-mode variant (the
+        # artwork lifted to near-white) is swapped in when the theme is dark, so
+        # the black logo doesn't vanish on the dark rail.
         brand_box = ttk.Frame(rail, style='Rail.TFrame')
         brand_box.pack(fill='x', pady=(16, 8), padx=14)
+        self._brand_text = brand
         self._logo_img = None
-        try:
-            img = tk.PhotoImage(file=assets.LOGO_RECT)
-            if img.width() > RAIL_WIDTH - 28:
-                img = img.subsample(2, 2)
-            self._logo_img = img
-            ttk.Label(brand_box, image=img, style='Rail.TLabel').pack(anchor='w')
-        except Exception:
-            ttk.Label(brand_box, text=brand, style='Brand.TLabel').pack(anchor='w')
+        self._logo_lbl = ttk.Label(brand_box, style='Rail.TLabel')
+        self._logo_lbl.pack(anchor='w')
+        self._load_logo()
         ttk.Label(brand_box, text=branding.TAGLINE,
                   style='RailMuted.TLabel').pack(anchor='w', pady=(4, 0))
         if subtitle:
@@ -102,6 +100,27 @@ class RailStage(ttk.Frame):
 
         if entries:
             self.select(entries[0]['key'])
+
+    # ---------------------------------------------------------------- logo
+    def _load_logo(self):
+        """Put the theme-appropriate logo in the rail; fall back to the light
+        logo, then to plain text, if an asset is missing (e.g. a build that
+        didn't bundle the white variant)."""
+        dark = theme.mode() == 'dark'
+        candidates = ([assets.LOGO_RECT_WHITE, assets.LOGO_RECT] if dark
+                      else [assets.LOGO_RECT])
+        for path in candidates:
+            try:
+                img = tk.PhotoImage(file=path)
+            except Exception:
+                continue
+            if img.width() > RAIL_WIDTH - 28:
+                img = img.subsample(2, 2)
+            self._logo_img = img                 # keep a reference alive
+            self._logo_lbl.configure(image=img, text='', style='Rail.TLabel')
+            return
+        self._logo_lbl.configure(image='', text=self._brand_text,
+                                 style='Brand.TLabel')
 
     # ---------------------------------------------------------------- rail
     def _add_row(self, parent, entry):
@@ -163,3 +182,4 @@ class RailStage(ttk.Frame):
         self._switch.restyle()
         self._sw_label.configure(text=self._theme_label())
         self._sep.configure(bg=theme.palette()['hairline'])
+        self._load_logo()                    # black ↔ near-white logo
