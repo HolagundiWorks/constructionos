@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U3: record a payment from the client
+
+- **MoneyPage is now write-capable.** A `CommandBar` **New payment** button opens
+  a stock `ContentDialog` **built from the API's field metadata** (`GET
+  /api/payments` → kind/options/default/required), rendered with stock inputs
+  (`ComboBox` / `NumberBox` / `TextBox`), then `POST /api/payments` — which the
+  Python engine computes and **posts to the ledger** via `journal_post.post_all`.
+  Create-only (a payment is a record of fact). No maths in C#.
+- **Verified end-to-end**, not just compiled: restarted the backend on current
+  code, `POST /api/payments` returned **201** with the created row (id, amount,
+  direction…) and the list reflected it. `dotnet build` 0 errors. The same
+  metadata-driven form pattern extends to tax/vendor invoices and bills next.
+
+---
+
 ## 2026-07-22 — WinUI U5: command-palette search in the shell
 
 - **Global tab search.** A stock `AutoSuggestBox` in the `NavigationView` search
