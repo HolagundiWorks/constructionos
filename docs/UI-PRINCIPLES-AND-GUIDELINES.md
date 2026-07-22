@@ -403,6 +403,7 @@ Copy into PR descriptions when touching `winui/`:
 | Doc | Role |
 |---|---|
 | This file | **How UI should feel and which Fluent rules we enforce** |
+| [`../.github/instructions/winui3.instructions.md`](../.github/instructions/winui3.instructions.md) | **WinUI 3 / Windows App SDK coding standard** — the hard API/threading/windowing/theming rules (auto-applied to `*.xaml`/`*.cs`/`*.csproj` by VS Code / Copilot) |
 | [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | Architecture, component mapping, phases U0–U7 |
 | [`PRODUCT.md`](PRODUCT.md) | Audience, jobs-to-be-done, product non-negotiables |
 | [`API.md`](API.md) | JSON contract the client binds to |

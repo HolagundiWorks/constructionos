@@ -48,6 +48,12 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         // Keep the standard OS title bar above the ribbon.
         ExtendsContentIntoTitleBar = false;
+        // Mica backdrop (Windows 11 signature material). The shell's layers use
+        // semi-transparent theme brushes (Card/Layer fills) so Mica tints through
+        // — see UI-PRINCIPLES §3.4. MicaBackdrop (the stock SystemBackdrop API,
+        // WinAppSDK 1.3+) manages its own DispatcherQueue/activation, so it's a
+        // safe one-liner here.
+        SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         // Open wide enough for the ribbon to breathe (the strip scrolls if it
         // still doesn't fit). Set here so nothing resizes the window mid-render.
         try { AppWindow?.Resize(new Windows.Graphics.SizeInt32(1400, 900)); }

@@ -82,7 +82,7 @@ public static class FieldForm
         XamlRoot root, string title, IReadOnlyList<Spec> fields,
         IReadOnlyDictionary<string, string>? values = null)
     {
-        var panel = new StackPanel { Spacing = 10, MinWidth = 360 };
+        var panel = new StackPanel { Spacing = 12, MinWidth = 360 };
         var inputs = new Dictionary<string, FrameworkElement>();
         foreach (var f in fields)
         {
@@ -93,7 +93,7 @@ public static class FieldForm
                 current = DateTime.Today.ToString("yyyy-MM-dd");
             var input = BuildInput(f, current ?? "");
             inputs[f.Key] = input;
-            var cell = new StackPanel { Spacing = 2 };
+            var cell = new StackPanel { Spacing = 4 };
             cell.Children.Add(new TextBlock
             {
                 Text = f.Label + (f.Required ? " *" : ""),

@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI 3 coding standard + conformance pass
+
+- Added **`.github/instructions/winui3.instructions.md`** — a WinUI 3 / Windows
+  App SDK coding standard (legacy-UWP-API bans, XAML/threading/windowing/dialogs,
+  MVVM, theming, 4px spacing, materials, control selection, accessibility). The
+  `applyTo` frontmatter auto-applies it to `*.xaml`/`*.cs`/`*.csproj` in VS Code /
+  Copilot; linked from `CLAUDE.md` and `UI-PRINCIPLES-AND-GUIDELINES.md`.
+- **Audited the shipped `winui/` client against it** — already compliant on the
+  critical rules (no legacy UWP APIs, `ContentDialog.XamlRoot` always set,
+  `NumberBox` for numeric input, theme brushes only, `DispatcherQueue.TryEnqueue`,
+  `App.UnhandledException` handled). Applied the gaps: **Mica backdrop**
+  (`SystemBackdrop = new MicaBackdrop()`; stress-tested 0/12 startups) and **4px
+  spacing** in the ribbon + `FieldForm`. Documented the two deliberate deviations
+  (Excel ribbon over `NavigationView`; pinned net8 / WindowsAppSDK 1.5) in the
+  standard's "ACO project notes".
+
 ## 2026-07-22 — UI principles & guidelines (Fluent / WinUI)
 
 - New **`docs/UI-PRINCIPLES-AND-GUIDELINES.md`**: detailed ACO UI rules grounded

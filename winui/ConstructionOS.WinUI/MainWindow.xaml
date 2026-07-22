@@ -25,14 +25,14 @@
         <TextBlock Text="Accelerated Construction Operations"
                    Style="{StaticResource CaptionTextBlockStyle}"
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                   VerticalAlignment="Bottom" Margin="8,0,0,3"/>
+                   VerticalAlignment="Bottom" Margin="8,0,0,4"/>
       </StackPanel>
       <ScrollViewer Grid.Column="1" VerticalScrollMode="Disabled"
                     VerticalScrollBarVisibility="Disabled"
                     HorizontalScrollMode="Auto"
                     HorizontalScrollBarVisibility="Auto"
                     VerticalAlignment="Center">
-        <StackPanel x:Name="Tabs" Orientation="Horizontal" Spacing="2"/>
+        <StackPanel x:Name="Tabs" Orientation="Horizontal" Spacing="4"/>
       </ScrollViewer>
       <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="240"
                       PlaceholderText="Search tabs…" VerticalAlignment="Center"
@@ -51,7 +51,7 @@
                     VerticalScrollBarVisibility="Disabled"
                     HorizontalScrollMode="Auto"
                     HorizontalScrollBarVisibility="Auto">
-        <StackPanel x:Name="Ribbon" Orientation="Horizontal" Spacing="2"/>
+        <StackPanel x:Name="Ribbon" Orientation="Horizontal" Spacing="4"/>
       </ScrollViewer>
     </Border>
 
