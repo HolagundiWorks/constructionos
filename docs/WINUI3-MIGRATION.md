@@ -243,7 +243,7 @@ the tree for non-Windows use or delete per a later call.
 
 | Phase | Deliverable | Where verifiable |
 |---|---|---|
-| **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **Here (Python, headless)** |
+| **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done (Python, headless)** |
 | **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | Windows |
 | **U2** | Masters + generic **DataGrid** CRUD page bound to the API (replaces `CrudFrame`) | Windows |
 | **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | Windows |

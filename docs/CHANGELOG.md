@@ -6,6 +6,19 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud track: C0 purity + U0 JSON API
+
+- **C0 headless purity.** Cost/revenue DB bridge moved to tkinter-free
+  `project_rollup.py`; `evm` / dashboard / KPI no longer import `tab_projects`.
+  `lessons.apply_rates` extracted; display-only theme tests skip without tkinter.
+- **U0 JSON API (`webapi.py`).** Session-gated `/api/*` over the domain: health,
+  me, login, dashboard/KPI, menu, workflow, EVM, review, risks, opportunities,
+  and masters CRUD. CSRF via `X-CSRF-Token` / body; Viewers read-only.
+  `webserver` accepts JSON bodies and PUT/DELETE.
+- **Tests.** `TestWebApi` in `test_web.py`; full headless suite 648 OK (5 skipped).
+
+---
+
 ## 2026-07-22 — RA-bill statutory documents in the browser (Form 23 + Form 26)
 
 - **Measurement Book and RA abstract, printable from the browser.** An RA bill's
