@@ -23,6 +23,8 @@ dict of real columns to INSERT.
 
 from datetime import date
 
+import civil
+
 
 def _f(key, label, kind='text', options=None, fk_sql=None, default='',
        required=False, store=True):
@@ -81,6 +83,25 @@ def _bill(v):
             'previous_billed': _r(v['previous_billed']),
             'retention_amt': ret, 'other_deductions': other,
             'net_payable': _r(this - ret - other), 'remarks': v['remarks']}
+
+
+def _ra_bill(v):
+    # Reuse the desktop's pure roll-up (CPWA Form 26 recovery block) so the
+    # browser and the RA Bill tab compute identical retention / TDS / cess / net.
+    t = civil.ra_bill_totals(v['this_bill_value'], v['previous_value'],
+                             v['retention_pct'], v['other_deductions'],
+                             v['tds_pct'], v['cess_pct'])
+    return {'bill_no': v['bill_no'], 'contract_id': v['contract_id'],
+            'bill_date': v['bill_date'], 'status': v['status'],
+            'this_bill_value': t['this_bill_value'],
+            'previous_value': t['previous_value'],
+            'cumulative_value': t['cumulative_value'],
+            'retention_pct': _r(v['retention_pct']),
+            'retention_amt': t['retention_amt'],
+            'tds_pct': _r(v['tds_pct']), 'tds_amt': t['tds_amt'],
+            'cess_pct': _r(v['cess_pct']), 'cess_amt': t['cess_amt'],
+            'other_deductions': t['other_deductions'],
+            'net_payable': t['net_payable'], 'remarks': v['remarks']}
 
 
 DOCS = {
@@ -144,6 +165,31 @@ DOCS = {
             _f('previous_billed', 'Previously billed', 'number', default='0'),
             _f('retention_pct', 'Retention %', 'number', default='5',
                store=False),
+            _f('other_deductions', 'Other deductions', 'number', default='0'),
+            _f('status', 'Status', 'combo',
+               options=['Draft', 'Approved', 'Paid'], default='Draft'),
+            _f('remarks', 'Remarks', 'textarea'),
+        ],
+    },
+    'ra_bills': {
+        'label': 'RA Bill',
+        'note': ('Running-account bill. Enter the value of work done in THIS '
+                 'bill (detailed measurements stay in the desktop Measurement '
+                 'Book). The CPWA Form-26 recoveries — security deposit, income-'
+                 'tax TDS, labour cess — are charged on this bill’s value. '
+                 'Posts to the ledger when Approved or Paid.'),
+        'compute': _ra_bill,
+        'fields': [
+            _f('bill_no', 'Bill no', required=True),
+            _f('contract_id', 'Contract', 'fk', fk_sql=_CONTRACTS),
+            _f('bill_date', 'Date', default='@today'),
+            _f('this_bill_value', 'Value of work this bill', 'number',
+               required=True),
+            _f('previous_value', 'Value billed previously', 'number',
+               default='0'),
+            _f('retention_pct', 'Security deposit %', 'number', default='2.5'),
+            _f('tds_pct', 'Income-tax TDS %', 'number', default='0'),
+            _f('cess_pct', 'Labour cess %', 'number', default='0'),
             _f('other_deductions', 'Other deductions', 'number', default='0'),
             _f('status', 'Status', 'combo',
                options=['Draft', 'Approved', 'Paid'], default='Draft'),

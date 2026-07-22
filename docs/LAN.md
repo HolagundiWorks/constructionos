@@ -24,14 +24,17 @@ drift):
   roll-up (subtotal → contingency → GST → grand total) is the same pure
   `estimate.estimate_totals` the desktop uses, and estimates never post to the
   ledger.
-* **Money documents that post** — **payments, tax invoices, vendor invoices and
-  running bills** (`web_docs.py`). The browser writes the document with the same
-  derived amounts the desktop computes (GST, TDS, net payable, retention), then
-  posts through the shared, idempotent `journal_post.post_all` — so the double
-  entry comes from the desktop's `posting.py` rules, never re-implemented here.
-  These are **create + view** only (records of fact), and posting is state-gated:
-  a *Draft* bill saves without posting. The only money flow still desktop-only is
-  the measurement-book **RA bill** workflow (Form 23/26, recoveries).
+* **Money documents that post** — **payments, tax invoices, vendor invoices,
+  running bills and RA bills** (`web_docs.py`). The browser writes the document
+  with the same derived amounts the desktop computes (GST, TDS, net payable,
+  retention; RA bills reuse `civil.ra_bill_totals` for the CPWA Form-26 recovery
+  block — security deposit + income-tax TDS + labour cess), then posts through
+  the shared, idempotent `journal_post.post_all` — so the double entry comes from
+  the desktop's `posting.py` rules, never re-implemented here. **Create + view**
+  only (records of fact), and posting is state-gated: a *Draft* saves without
+  posting. For an RA bill the browser records the value + recoveries; the
+  detailed **Measurement Book** (per-item measurements, part-rates, the printed
+  Form 23/26) stays on the desktop.
 
 Writes are gated: a **Viewer** sees the data but no edit buttons and is refused
 (403) if it POSTs anyway; only **Operator**/**Admin** may change data. Every form

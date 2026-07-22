@@ -878,14 +878,18 @@ socket-free and unit-tested), `webrender.py`, `netinfo.py`, `web_main.py`
 - ✅ **Stage 3a — Estimates.** Header + line items (add/remove rows), the roll-up
   reusing the same pure `estimate.estimate_totals` as the desktop. No posting.
 - ✅ **Stage 3b — money documents that post.** Payments, tax invoices, vendor
-  invoices and running bills: the web writes the row with the *same* derived
-  amounts the desktop computes (GST, TDS, net payable, retention, the
-  incremental bill value), then posts via the shared, idempotent
-  `journal_post.post_all` — so the double entry comes from `posting.py`, never
-  re-implemented. Create + view only (records of fact); posting is state-gated,
-  so a Draft posts nothing, and every posted entry balances.
-- ⏳ **Next** — RA bills with the full measurement-book workflow (Form 23/26,
-  recoveries) stay desktop-only; GST/compliance remain view-only in the browser.
+  invoices, running bills **and RA bills**: the web writes the row with the
+  *same* derived amounts the desktop computes (GST, TDS, net payable, retention,
+  the incremental bill value; RA bills reuse `civil.ra_bill_totals` for the CPWA
+  Form-26 recovery block — security deposit + income-tax TDS + labour cess),
+  then posts via the shared, idempotent `journal_post.post_all` — so the double
+  entry comes from `posting.py`, never re-implemented. Create + view only
+  (records of fact); posting is state-gated, so a Draft posts nothing, and every
+  posted entry balances.
+- ⏳ **Remaining browser gap** — only the RA-bill **measurement-book detail**
+  (per-item measurements, part-rates, the printed Form 23/26) stays desktop-only;
+  the browser records the bill's value + statutory recoveries and posts it.
+  GST/compliance registers remain view-only in the browser.
 
 **Plain HTTP, LAN-only by design.** Traffic (including the login) is
 unencrypted — fine on a trusted office network, and behind an HTTPS reverse

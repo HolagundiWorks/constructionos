@@ -371,6 +371,36 @@ class TestWebRouter(unittest.TestCase):
         self.assertAlmostEqual(b['retention_amt'], 7500.0, places=2)
         self.assertAlmostEqual(b['net_payable'], 142500.0, places=2)
 
+    def test_ra_bill_posts_form26_recoveries(self):
+        import webapp
+        sid = self._login_admin()
+        # this=100000, prev=50000, SD 2.5%, TDS 2%, cess 1%
+        #  -> retention 2500, tds 2000, cess 1000, net 94500, cumulative 150000
+        r = self._post_doc(sid, 'ra_bills', {
+            'bill_no': 'RA-1', 'bill_date': '2026-07-21',
+            'this_bill_value': '100000', 'previous_value': '50000',
+            'retention_pct': '2.5', 'tds_pct': '2', 'cess_pct': '1',
+            'other_deductions': '0', 'status': 'Approved'})
+        self.assertEqual(r.status, 303)
+        conn = self.db.get_conn()
+        try:
+            row = conn.execute('SELECT retention_amt, tds_amt, cess_amt, '
+                               'net_payable, cumulative_value FROM '
+                               'ra_bills').fetchone()
+            je = conn.execute('SELECT source, total_debit, total_credit FROM '
+                              'journal_entries').fetchall()
+        finally:
+            conn.close()
+        self.assertAlmostEqual(row['retention_amt'], 2500.0, places=2)
+        self.assertAlmostEqual(row['tds_amt'], 2000.0, places=2)
+        self.assertAlmostEqual(row['cess_amt'], 1000.0, places=2)
+        self.assertAlmostEqual(row['net_payable'], 94500.0, places=2)
+        self.assertAlmostEqual(row['cumulative_value'], 150000.0, places=2)
+        self.assertEqual(len(je), 1)
+        self.assertEqual(je[0]['source'], 'RABill')
+        self.assertAlmostEqual(je[0]['total_debit'], je[0]['total_credit'],
+                               places=2)
+
     def test_draft_bill_saves_but_does_not_post(self):
         import webapp
         sid = self._login_admin()

@@ -6,6 +6,20 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Browser / LAN access: RA bills + more registers
+
+- **RA bills in the browser** — record a running-account bill's value and the
+  CPWA **Form-26 recoveries** (security deposit, income-tax TDS, labour cess),
+  reusing the desktop's pure `civil.ra_bill_totals` so both compute identical
+  retention/TDS/cess/net, then posts via `journal_post.post_all`. The detailed
+  Measurement Book (per-item measurements, part-rates, printed Form 23/26) stays
+  on the desktop. Verified: SD 2.5% / TDS 2% / cess 1% on ₹1,00,000 → 2500 /
+  2000 / 1000, net 94,500, cumulative 1,50,000, and a balanced `RABill` entry.
+- **Three more editable registers** — Projects, Milestones and the Rate Book now
+  add/edit/delete in the browser (same drift-guarded `web_masters` path).
+
+---
+
 ## 2026-07-22 — Browser / LAN access: money documents that post (Stage 3b)
 
 - **Record money in the browser** — payments, tax invoices, vendor invoices and
