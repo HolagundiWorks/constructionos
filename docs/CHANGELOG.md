@@ -6,6 +6,23 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — U0 hardening: JSON-API writes now audit reliably
+
+- **Fixed: API write audits were silently dropped.** `PUT`/`DELETE /api/risks`
+  and every `POST`/`PUT`/`DELETE /api/opportunities` wrote an `audit_log` row but
+  never committed it — the register store committed the *change* first, so the
+  later `auth.audit(...)` insert sat in an uncommitted transaction and was rolled
+  back on connection close. The audit trail (a governance guarantee the contract
+  promises: "every write audited") was missing those actions. Added the missing
+  `conn.commit()` to the five affected handlers in `webapi.py`.
+- **Regression test.** `TestWebApi.test_api_writes_are_audited` drives
+  create/update/delete for a risk and an opportunity through the API and asserts
+  all six `api_*` rows appear in `GET /api/audit`. Swept every read endpoint
+  (health, dashboard, menu, workflow, evm, review, portfolio, all masters + docs)
+  — all 200. Full suite 663 green.
+
+---
+
 ## 2026-07-22 — Roadmap continue: U0.1 API widen + WinUI U1 scaffold
 
 - **API u0.1.** Money docs create (`payments`, invoices, bills), submittals CRUD,
