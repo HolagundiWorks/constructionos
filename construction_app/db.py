@@ -660,6 +660,31 @@ CREATE TABLE IF NOT EXISTS drawings (
     remarks TEXT
 );
 
+-- Submittals: the pre-execution approval of a proposed material / make / shop
+-- drawing. Distinct from an RFI (a question about the documents) and a drawing
+-- revision (which copy is current) — conflating them causes scope-creep
+-- confusion. A resubmittal is a NEW row whose supersedes_id points at the prior.
+CREATE TABLE IF NOT EXISTS submittals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submittal_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    spec_ref TEXT,                       -- BOQ item / spec clause it satisfies
+    title TEXT,                          -- e.g. "M30 admixture — make X"
+    submittal_type TEXT DEFAULT 'Material',  -- Material / Make / Shop Drawing / Sample
+    submitted_date TEXT,
+    submitted_by TEXT,
+    required_by TEXT,                    -- approval needed by, to hold programme
+    status TEXT DEFAULT 'Submitted',
+        -- Submitted / Approved / Approved as noted / Revise & resubmit / Rejected
+    reviewer TEXT,                       -- architect / EIC / PMC
+    reviewed_date TEXT,
+    review_remarks TEXT,
+    supersedes_id INTEGER,               -- prior submittal id on a resubmit
+                                         -- (informational/traceability; 0 = none)
+    remarks TEXT
+);
+
 -- ------------------------------- health & safety (Phase 8, Wave 4)
 -- Deliberately small. Safety at this scale is mostly informal, and a heavy
 -- module would simply go unfilled. These cover the jobs that actually kill
@@ -1202,6 +1227,7 @@ CREATE INDEX IF NOT EXISTS idx_snags_site ON snags(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_quotes_req ON quotes(requisition_id);
 CREATE INDEX IF NOT EXISTS idx_rfis_status ON rfis(status);
 CREATE INDEX IF NOT EXISTS idx_drawings_no ON drawings(drawing_no, revision);
+CREATE INDEX IF NOT EXISTS idx_submittals_status ON submittals(status);
 CREATE INDEX IF NOT EXISTS idx_permits_site ON work_permits(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_incidents_site ON incidents(site_id, severity);
 CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);

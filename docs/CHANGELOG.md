@@ -6,6 +6,53 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Rate Realisation: the lessons-learned loop
+
+- **Feed what things actually cost back into the rate library.** A new **Rate
+  Realisation** view (Billing › Rate Book, second sub-tab) puts each material's
+  **achieved** purchase rate next to its **standard/reference** rate. The
+  achieved rate is *quantity-weighted* from the goods-received ledger — a
+  500-bag order at ₹402 outweighs a 5-bag top-up at ₹450 — so it reflects what
+  the job really paid, not a plain average.
+- **One click closes the loop.** "Apply Achieved → Standard" (per-selection or
+  all-drifted) rewrites `materials.rate`, which flows into estimates, rate
+  analysis and the material budget — so the next estimate is priced on reality.
+  Scope is a single finished site (a job's lessons at closeout) or all sites (a
+  periodic refresh).
+- **Honest by construction.** Nothing auto-applies; the number of purchases
+  behind each achieved rate is shown so a one-off spike can't silently reset a
+  good standard, a material with no purchase history is skipped (no-data, not a
+  zero), and a **Viewer cannot apply**. Pure maths in `lessons.py`
+  (`weighted_rate`, `realise`), UI in `tab_lessons.py`; 7 new tests (weighted
+  average, over/under/no-data classification, and the admin-applies /
+  viewer-blocked write-back).
+
+---
+
+## 2026-07-21 — Submittals register (document control)
+
+- **The last document-control gap is closed.** A **submittal** — the
+  pre-execution approval of a proposed material / make / shop drawing ("approve
+  what I intend to use") — is now a register in **Purchases › Sourcing ›
+  Submittals**, beside RFIs and drawing revisions. Deliberately a *separate*
+  table from `rfis`: an RFI is a question about the documents, a submittal is a
+  proposal for approval, and conflating them is a known cause of scope-creep
+  confusion.
+- Status lifecycle: Submitted → Approved / Approved as noted / Revise & resubmit
+  / Rejected. A resubmittal is a new row whose `supersedes_id` cites the prior
+  (traceability, informational — no self-FK, so a blank never breaks an insert).
+- `submittals.py` (pure): `is_open` / `is_approved` / `is_overdue` — only an
+  undecided submittal is open, and only an open one past its required-by date is
+  overdue (a decided one is out of the reviewer's court). `dashboard.collect`
+  counts open submittals and flags overdue ones with an **advisory** that goes
+  `act` when any is overdue (else `watch`), mirroring the RFI advisory.
+- Ships behind the existing Sourcing module toggle; mostly relevant to PMC /
+  departmental work. Verified: schema applies clean, Sourcing tab builds
+  headlessly, 7 new unit tests (pure lifecycle + a DB-backed dashboard count)
+  pass, full suite green apart from the pre-existing real-display GUI smoke test.
+
+---
+
 ## 2026-07-21 — Browser / LAN access: Estimates (Stage 3a)
 
 - **Prepare a priced estimate in the browser** — header + line items, with

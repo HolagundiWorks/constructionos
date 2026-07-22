@@ -50,6 +50,7 @@ import estimate
 import finance
 import hse
 import isodate
+import lessons
 import mb
 import money
 import muster
@@ -69,6 +70,7 @@ import retention
 import sourcing
 import statutory
 import subcontract
+import submittals
 import variation
 import wages
 import earnedvalue
@@ -1780,6 +1782,175 @@ class TestPlanning(unittest.TestCase):
         result = planning.cvr({'Material': (100000, 0)})
         self.assertIsNone(result['margin_pct'])
         self.assertEqual(result['margin'], -100000)
+
+
+class TestSubmittals(unittest.TestCase):
+    """A submittal is the pre-execution approval of a proposed material/make.
+    Only an undecided one is 'open', and only an open one can be overdue."""
+
+    def test_only_submitted_is_open(self):
+        self.assertTrue(submittals.is_open('Submitted'))
+        for st in ('Approved', 'Approved as noted', 'Revise & resubmit',
+                   'Rejected'):
+            self.assertFalse(submittals.is_open(st))
+
+    def test_approved_as_noted_counts_as_approved(self):
+        self.assertTrue(submittals.is_approved('Approved'))
+        self.assertTrue(submittals.is_approved('Approved as noted'))
+        self.assertFalse(submittals.is_approved('Revise & resubmit'))
+        self.assertFalse(submittals.is_approved('Rejected'))
+
+    def test_open_and_past_required_by_is_overdue(self):
+        self.assertTrue(
+            submittals.is_overdue('2026-01-01', 'Submitted', '2026-07-21'))
+
+    def test_future_required_by_is_not_overdue(self):
+        self.assertFalse(
+            submittals.is_overdue('2026-12-01', 'Submitted', '2026-07-21'))
+
+    def test_a_decided_submittal_is_never_overdue(self):
+        """Once answered the ball is out of the reviewer's court."""
+        self.assertFalse(
+            submittals.is_overdue('2026-01-01', 'Approved', '2026-07-21'))
+
+    def test_no_deadline_is_not_overdue(self):
+        self.assertFalse(submittals.is_overdue('', 'Submitted', '2026-07-21'))
+
+
+class TestSubmittalsDashboard(unittest.TestCase):
+    """The dashboard counts open submittals and flags the overdue ones."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _add(self, no, status, required_by):
+        self.conn.execute(
+            "INSERT INTO submittals (submittal_no, site_id, title, "
+            "submitted_date, required_by, status) VALUES (?, 1, ?, "
+            "'2026-06-01', ?, ?)", (no, no, required_by, status))
+        self.conn.commit()
+
+    def test_open_count_and_overdue_flag(self):
+        import dashboard
+        self._add('SUB-1', 'Submitted', '2026-06-10')   # overdue
+        self._add('SUB-2', 'Submitted', '2026-12-01')   # open, not overdue
+        self._add('SUB-3', 'Approved', '2026-05-01')    # decided, not counted
+        s = dashboard.collect(self.conn)
+        self.assertEqual(s['submittals_open'], 2)
+        self.assertEqual(s['submittals_overdue'], 1)
+        rows = [r for r in dashboard._bottlenecks(s)
+                if r['label'] == 'Submittals awaiting approval']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['severity'], 'act')     # because one is overdue
+
+
+class TestLessons(unittest.TestCase):
+    """Achieved rate = what was actually paid, quantity-weighted, fed back into
+    the standard rate so the next estimate is priced on reality."""
+
+    def test_weighted_not_plain_average(self):
+        # 500 bags @ 402 and 5 @ 450 -> near 402, not the midpoint 426
+        r = lessons.weighted_rate(505, 500 * 402 + 5 * 450)
+        self.assertAlmostEqual(r, 402.48, places=2)
+        self.assertLess(r, 410)
+
+    def test_no_purchases_is_no_data_not_zero(self):
+        self.assertIsNone(lessons.weighted_rate(0, 0))
+        self.assertEqual(lessons.realise(380, 0, 0)['direction'], 'no-data')
+        self.assertIsNone(lessons.realise(380, 0, 0)['achieved'])
+
+    def test_paid_more_than_standard_reads_over(self):
+        r = lessons.realise(380, 100, 40200, 3)   # achieved 402
+        self.assertEqual(r['achieved'], 402.0)
+        self.assertEqual(r['delta'], 22.0)
+        self.assertEqual(r['pct'], 5.8)
+        self.assertEqual(r['direction'], 'over')
+
+    def test_paid_less_reads_under(self):
+        r = lessons.realise(400, 50, 18000)        # achieved 360
+        self.assertEqual(r['direction'], 'under')
+        self.assertEqual(r['delta'], -40.0)
+
+    def test_zero_standard_has_no_percentage(self):
+        r = lessons.realise(0, 10, 1000)
+        self.assertEqual(r['achieved'], 100.0)
+        self.assertIsNone(r['pct'])
+
+
+class TestRateRealisationApply(unittest.TestCase):
+    """Applying the achieved rate rewrites the material's standard rate — the
+    closeout lessons-learned loop — and a Viewer cannot."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.conn.execute(
+            "INSERT INTO materials (name, unit, rate) VALUES ('Cement','bag',380)")
+        self.conn.execute(
+            "INSERT INTO material_ledger (txn_date, site_id, material_id, "
+            "txn_type, qty, rate) VALUES ('2026-07-01', 1, 1, 'IN', 100, 402)")
+        self.conn.commit()
+
+    def tearDown(self):
+        import session
+        session.logout()
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _rate(self):
+        return self.conn.execute(
+            "SELECT rate FROM materials WHERE id = 1").fetchone()[0]
+
+    def test_admin_apply_updates_standard_rate(self):
+        import session
+        from tab_lessons import RateRealisation
+        session.login('admin', 'Admin')
+        rr = RateRealisation.__new__(RateRealisation)      # no Tk
+        rr.db_getter = self.db.get_conn
+        rr._rows = [(1, 402.0, 22.0)]
+        n = rr._apply([(1, 402.0)])
+        self.assertEqual(n, 1)
+        self.assertEqual(self._rate(), 402.0)
+
+    def test_viewer_cannot_apply(self):
+        import session
+        from tab_lessons import RateRealisation
+        session.login('viewer', 'Viewer')
+        rr = RateRealisation.__new__(RateRealisation)
+        rr.db_getter = self.db.get_conn
+        n = rr._apply([(1, 402.0)])
+        self.assertEqual(n, 0)
+        self.assertEqual(self._rate(), 380.0)              # unchanged
 
 
 class TestApproval(unittest.TestCase):
