@@ -44,14 +44,17 @@ double-clicking one folder.
 > cross-platform / no-pip constraints **for the front-end only**. The **Python
 > domain core + its tests stay** and are reused as a **localhost backend
 > service** (JSON API) the WinUI 3 client calls. See
-> [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md) and
+> [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
+> [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
+> (Fluent / Windows 11 principles for the WinUI client), and
 > [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md). Until that lands, the
 > tkinter app remains the shipping UI and the constraints above still govern all
 > **domain/backend** work (which the WinUI move does *not* relax). Development
 > now spans **two environments** — a cloud agent (headless Python) and a local
 > Windows box (WinUI 3 / GUI); the roadmap is split accordingly
 > ([`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md) §5A/§5B).
-
+> Local WinUI work follows the UI principles doc; cloud agents do not invent
+> custom chrome or claim WinUI screenshots from Linux.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
