@@ -86,16 +86,16 @@ with minimal typing?_
 > roadmap:
 > - **Local — native WinUI 3 client** (`U` phases): replatform the desktop UI to
 >   stock Fluent controls over the Python domain, kept as a localhost JSON API.
->   **U0** (API) built; **U1/U2 built and run** on Windows (shell + Masters
->   ListView CRUD); **U3–U5** pages partial (money/EVM/charts/Controls/Process).
->   See [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9.
+>   **U0** (API **u0.7**) built; **U1/U2 built and run**; **U3–U5** advancing
+>   (payment create, LiveCharts KPI/cashflow/ageing, AutoSuggest). See
+>   [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9.
 > - **Cloud — headless services** (`C` phases): AI-origin audit, signal feed,
 >   event hooks, capture/field intake and the JSON API that the clients share.
->   **C0–C13 / U0.6 complete**; tracked in the changelog and gap roadmap §5A.
+>   **C0–C14 / U0.7** merged; tracked in the changelog and gap roadmap §5A.
 
 - ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
 - ✅ **Cloud track (C0–C14 / U0.7)** — JSON API thickened for WinUI forms (FK options, contracts, cashflow, allocations). See gap roadmap §5A.
-- ⏳ **Local track** — **L0** tkinter display smoke; finish **U3–U5** / **L7** MSIX; **L8** OCR/STT/VLM weights over `sidecars/stub_server.py`.
+- ⏳ **Local track** — verify WinUI build of chart/search/FK/payment create; finish billing/purchases forms; **L0** smoke; **L7** MSIX; **L8** weights.
 - ⏳ **Browser / LAN — remaining parity.** RA-bill statutory documents are viewable and printable in the browser; the one piece still desktop-only is **per-item measurement *entry***. GST / compliance registers stay desktop / view-only for now.
 - ⏳ **Real-display GUI render check.** Headless CI has no Tk, so GUI smoke tests run only on a machine with a display (or Xvfb). **705+** pure-logic tests pass headlessly (5 skipped).
 

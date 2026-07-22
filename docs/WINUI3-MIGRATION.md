@@ -249,9 +249,9 @@ the tree for non-Windows use or delete per a later call.
 | **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.1** |
 | **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | **✅ Built + runs** — shell over `/api/menu`, Settings gear, offline fallback, `NavRoute` |
 | **U2** | Masters + generic **ListView** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Built** — `Views/MastersPage.*`, one metadata-driven page (list + add/edit/delete form) for every master |
-| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **🚧 Partial** — Money + Capture + Import pages built; billing/purchases forms pending |
-| **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | **🚧 Partial** — EVM + Productivity pages built; **Charts page plots a real LiveCharts column series** (money KPIs from `/api/kpi`, SkiaSharp native verified deploying); EVM/ageing series + KPI cards pending |
-| **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | **🚧 Partial** — Risks/Opportunities/Lessons/Submittals/Portfolio + Process pages built; `AutoSuggestBox` search pending |
+| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **🚧 Partial** — Money list + **create payment** form from API fields; Capture/Import built; billing/purchases forms pending |
+| **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | **🚧 Partial** — KPI columns + **cashflow** + **ageing** LiveCharts from `/api/kpi|/api/cashflow|/api/ageing`; KPI cards pending |
+| **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | **🚧 Partial** — register/Process pages built; **AutoSuggestBox** over `/api/search` (`nav`/`tag`) in shell |
 | **U6** | Packaging: PyInstaller backend sidecar inside **MSIX**; launch/停 lifecycle; signing | Windows — notes in [`winui/PACKAGING.md`](../winui/PACKAGING.md) |
 | **U7** | Parity pass, persona menus (menu.py), accessibility, retire tkinter on Windows | Windows |
 

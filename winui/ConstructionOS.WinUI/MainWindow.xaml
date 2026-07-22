@@ -11,9 +11,16 @@
                     Loaded="Nav_Loaded"
                     SelectionChanged="Nav_SelectionChanged">
       <NavigationView.PaneHeader>
-        <TextBlock Text="Construction OS"
-                   Style="{StaticResource SubtitleTextBlockStyle}"
-                   Margin="12,8"/>
+        <StackPanel Margin="12,8" Spacing="8">
+          <TextBlock Text="Construction OS"
+                     Style="{StaticResource SubtitleTextBlockStyle}"/>
+          <AutoSuggestBox x:Name="SearchBox"
+                          PlaceholderText="Search tabs &amp; records"
+                          QueryIcon="Find"
+                          TextChanged="SearchBox_TextChanged"
+                          SuggestionChosen="SearchBox_SuggestionChosen"
+                          QuerySubmitted="SearchBox_QuerySubmitted"/>
+        </StackPanel>
       </NavigationView.PaneHeader>
       <Frame x:Name="ContentFrame" Margin="12"/>
     </NavigationView>

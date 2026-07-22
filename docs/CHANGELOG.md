@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U3–U5 bind: charts, AutoSuggest, FK pickers, payment create
+
+Source-only (verify build on Windows):
+
+- **Charts.** `ChartsPage` plots KPI columns plus cash-flow (in/out/balance) and
+  ageing buckets from `/api/cashflow` and `/api/ageing`.
+- **Search.** Shell `AutoSuggestBox` queries `/api/search` and navigates via
+  `nav`/`tag` (and Masters by table).
+- **FK pickers.** Shared `FieldForm` — masters use ComboBox of `{id,label}`
+  options from U0.7 instead of raw id NumberBox.
+- **Money create.** Payments CommandBar → create-only dialog from API field
+  metadata; surfaces gated follow-ups.
+
+---
+
 ## 2026-07-22 — Cloud U0.7: WinUI API thickenings
 
 Continue headless API work that unblocks local U3–U5 without .NET:

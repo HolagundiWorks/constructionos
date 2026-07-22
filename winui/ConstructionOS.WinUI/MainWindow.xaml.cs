@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ConstructionOS.WinUI.Helpers;
@@ -7,14 +8,11 @@ using ConstructionOS.WinUI.Views;
 namespace ConstructionOS.WinUI;
 
 /// <summary>
-/// U1 shell: NavigationView items from GET /api/menu?persona=…; Settings gear
-/// opens connection settings.
+/// U1 shell: NavigationView from GET /api/menu; AutoSuggest from GET /api/search;
+/// Settings gear; master tabs → MastersPage.
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    // Menu tab label → API master table. The tab labels come from the persona
-    // menu (/api/menu); the API registers are the lowercase table names. One
-    // generic MastersPage serves them all (U2).
     private static readonly Dictionary<string, string> MasterTables = new()
     {
         ["Sites"] = "sites", ["Clients"] = "clients", ["Vendors"] = "vendors",
@@ -23,6 +21,10 @@ public sealed partial class MainWindow : Window
         ["Projects"] = "projects", ["Milestones"] = "milestones",
         ["Rate Book"] = "rate_book", ["Contracts"] = "contracts",
     };
+
+    private sealed record SearchHit(string Display, string? NavTag, string? Table, int? Id);
+
+    private List<SearchHit> _searchHits = new();
 
     public MainWindow()
     {
@@ -87,7 +89,6 @@ public sealed partial class MainWindow : Window
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(24),
             };
-            // Still allow Settings when offline.
             Nav.MenuItems.Clear();
             Nav.MenuItems.Add(new NavigationViewItem
             {
@@ -106,15 +107,102 @@ public sealed partial class MainWindow : Window
             return;
         }
         if (args.SelectedItem is NavigationViewItem item)
+            NavigateTag(item.Tag?.ToString() ?? "");
+    }
+
+    void NavigateTag(string tag)
+    {
+        var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
+        if (MasterTables.TryGetValue(tab, out var table))
+            ContentFrame.Navigate(typeof(MastersPage), table);
+        else
+            ContentFrame.Navigate(NavRoute.Resolve(tag));
+    }
+
+    private async void SearchBox_TextChanged(AutoSuggestBox sender,
+        AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        var q = (sender.Text ?? "").Trim();
+        if (q.Length < 2)
         {
-            var tag = item.Tag?.ToString() ?? "";
-            // Master tabs carry a table name to the one generic MastersPage
-            // (U2); everything else resolves by NavRoute (typed tag → page).
-            var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
-            if (MasterTables.TryGetValue(tab, out var table))
-                ContentFrame.Navigate(typeof(MastersPage), table);
-            else
-                ContentFrame.Navigate(NavRoute.Resolve(tag));
+            sender.ItemsSource = null;
+            _searchHits = new();
+            return;
         }
+        try
+        {
+            var data = await ApiClient.Default.GetJsonAsync(
+                "api/search?q=" + Uri.EscapeDataString(q));
+            _searchHits = new List<SearchHit>();
+            if (data.TryGetProperty("tabs", out var tabs)
+                && tabs.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var t in tabs.EnumerateArray())
+                {
+                    var label = t.TryGetProperty("label", out var lb)
+                        ? lb.GetString() : t.GetString();
+                    var section = t.TryGetProperty("section", out var sec)
+                        ? sec.GetString() : null;
+                    var tab = t.TryGetProperty("tab", out var tb)
+                        ? tb.GetString() : label;
+                    var nav = !string.IsNullOrEmpty(section) && !string.IsNullOrEmpty(tab)
+                        ? $"{section}/{tab}" : tab;
+                    _searchHits.Add(new SearchHit(label ?? tab ?? "?", nav, null, null));
+                }
+            }
+            if (data.TryGetProperty("records", out var recs)
+                && recs.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var r in recs.EnumerateArray())
+                {
+                    var display = r.TryGetProperty("display", out var d)
+                        ? d.GetString()
+                        : r.TryGetProperty("label", out var l) ? l.GetString() : "?";
+                    var nav = r.TryGetProperty("nav", out var n) ? n.GetString()
+                        : r.TryGetProperty("tag", out var tg) ? tg.GetString() : null;
+                    var table = r.TryGetProperty("table", out var tbl)
+                        ? tbl.GetString() : null;
+                    int? id = null;
+                    if (r.TryGetProperty("id", out var idEl)
+                        && idEl.TryGetInt32(out var iid))
+                        id = iid;
+                    _searchHits.Add(new SearchHit(display ?? "?", nav, table, id));
+                }
+            }
+            sender.ItemsSource = _searchHits.Select(h => h.Display).Take(20).ToList();
+        }
+        catch
+        {
+            sender.ItemsSource = null;
+        }
+    }
+
+    private void SearchBox_SuggestionChosen(AutoSuggestBox sender,
+        AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        var text = args.SelectedItem as string;
+        OpenSearchHit(text);
+    }
+
+    private void SearchBox_QuerySubmitted(AutoSuggestBox sender,
+        AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        OpenSearchHit(args.ChosenSuggestion as string ?? sender.Text);
+    }
+
+    void OpenSearchHit(string? display)
+    {
+        if (string.IsNullOrWhiteSpace(display)) return;
+        var hit = _searchHits.FirstOrDefault(h => h.Display == display);
+        if (hit == null) return;
+        if (!string.IsNullOrEmpty(hit.Table)
+            && MasterTables.Values.Contains(hit.Table))
+        {
+            ContentFrame.Navigate(typeof(MastersPage), hit.Table);
+            return;
+        }
+        if (!string.IsNullOrEmpty(hit.NavTag))
+            NavigateTag(hit.NavTag!);
     }
 }
