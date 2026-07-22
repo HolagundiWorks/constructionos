@@ -18,6 +18,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Internalise the AI: one built-in model, Start/Stop only
+
+- **The AI is now internal.** The app ships **one hardcoded model**
+  (`qwen2.5-coder:1.5b`) and the whole downloader/manager surface is gone — no
+  model catalogue, no pull, no "install Ollama", no model picker. `assistant`
+  always uses the built-in model (any stale `assistant_model` setting is
+  ignored; a test enforces it).
+- **AI Engine is now just Start / Stop** (`tab_ollama.py` rewritten): a status
+  line plus Start / Stop, and first Start registers the bundled model offline.
+  The local runtime is still Ollama, but bundled and never shown.
+- Removed the `ollama_catalog` module and the redundant "AI Assistant" settings
+  panel in Tools (model/host fields, Test/Start buttons). 612 tests pass.
+
+---
+
 ## 2026-07-22 — Browser / LAN access: RA bills + more registers
 
 - **RA bills in the browser** — record a running-account bill's value and the

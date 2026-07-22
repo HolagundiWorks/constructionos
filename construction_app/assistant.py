@@ -140,13 +140,13 @@ _VALID_TABLES = {d['table'] for d in SCHEMA_DOCS} | {
 
 # ------------------------------------------------------------------ config
 def get_config(conn):
-    """Return (model, host) from app_settings, falling back to defaults."""
-    rows = {r['key']: r['value'] for r in conn.execute(
-        "SELECT key, value FROM app_settings WHERE key IN "
-        "('assistant_model', 'assistant_host')")}
-    model = (rows.get('assistant_model') or '').strip() or ollama_client.DEFAULT_MODEL
-    host = (rows.get('assistant_host') or '').strip() or ollama_client.DEFAULT_HOST
-    return model, host
+    """Return (model, host). The model is **hardcoded** — the app ships one
+    built-in model (``ollama_client.DEFAULT_MODEL``) and there is no picker; the
+    host stays configurable but defaults to localhost."""
+    row = conn.execute("SELECT value FROM app_settings WHERE key = "
+                       "'assistant_host'").fetchone()
+    host = ((row['value'] if row else '') or '').strip() or ollama_client.DEFAULT_HOST
+    return ollama_client.DEFAULT_MODEL, host
 
 
 # ---------------------------------------------------------------- retrieval

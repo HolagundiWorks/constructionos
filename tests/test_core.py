@@ -2084,7 +2084,7 @@ class TestWriteGuards(unittest.TestCase):
         """The gap that was actually shipped: a Viewer could rewrite firm
         details, the invoice series and the cash opening balance."""
         tools = dict(self._writers(os.path.join(self.APP, 'tab_tools.py')))
-        for fn in ('save_firm', 'save_ai', 'save_series', 'save_language',
+        for fn in ('save_firm', 'save_series', 'save_language',
                    'choose_sync_folder'):
             self.assertTrue(tools.get(fn), 'tab_tools.{} is unguarded'.format(fn))
         money = dict(self._writers(os.path.join(self.APP, 'tab_money.py')))
@@ -4999,21 +4999,8 @@ class TestDesignSystem(unittest.TestCase):
                          'theme.palette()[role]): {}'.format(offenders))
 
 
-class TestOllamaCatalog(unittest.TestCase):
-    """The model catalogue folded in from the Ollama Manager."""
-
-    def test_choices_and_tag_roundtrip(self):
-        import ollama_catalog as cat
-        self.assertTrue(cat.MODELS)
-        choices = cat.choices()
-        self.assertEqual(len(choices), len(cat.MODELS))
-        # a dropdown label round-trips back to its bare tag
-        for (tag, _sz, _note), choice in zip(cat.MODELS, choices):
-            self.assertEqual(cat.tag_from_choice(choice), tag)
-        # a hand-typed bare tag survives
-        self.assertEqual(cat.tag_from_choice('llama3.1:8b'), 'llama3.1:8b')
-        self.assertEqual(cat.tag_from_choice(''), '')
-        self.assertIn(':', cat.SUGGESTED)
+class TestOllamaApi(unittest.TestCase):
+    """The local Ollama API client (the runtime behind the built-in AI)."""
 
     def test_api_base_url_normalises(self):
         import ollama_api as api
@@ -5024,13 +5011,32 @@ class TestOllamaCatalog(unittest.TestCase):
         self.assertEqual(api.human_size(0), '0 B')
         self.assertTrue(api.human_size(5 * 1024 ** 3).endswith('GB'))
 
-    def test_suggested_is_the_inbuilt_default(self):
-        # The catalogue's default and the assistant's default must be the same
-        # model, and it must be a real entry in the list.
-        import ollama_catalog as cat
-        import ollama_client as client
-        self.assertEqual(cat.SUGGESTED, client.DEFAULT_MODEL)
-        self.assertIn(cat.SUGGESTED, [tag for tag, _s, _n in cat.MODELS])
+    def test_assistant_model_is_hardcoded(self):
+        # No picker: the assistant always uses the single built-in model, even
+        # if a stale app_settings 'assistant_model' value is present.
+        import db
+        import assistant
+        import ollama_client
+        fd, path = tempfile.mkstemp(suffix='.db'); os.close(fd); os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        db.init_db()
+        try:
+            conn = db.get_conn()
+            conn.execute("INSERT INTO app_settings (key, value) VALUES "
+                         "('assistant_model', 'some-other-model')")
+            conn.commit()
+            model, _host = assistant.get_config(conn)
+            conn.close()
+            self.assertEqual(model, ollama_client.DEFAULT_MODEL)
+            self.assertEqual(model, 'qwen2.5-coder:1.5b')
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
 
 
 class TestModelProvision(unittest.TestCase):

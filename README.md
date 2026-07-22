@@ -56,14 +56,14 @@ built **entirely on the Python standard library**: `tkinter` for the UI,
   user accounts and roles (Admin / Operator / Viewer), **versioned PBKDF2**
   password hashing (600k iterations, upgraded transparently on login), account
   lockout, and an audit log.
-- **Optional AI assistant** — ask questions about your own data in plain English
-  via a **local Ollama** model, using retrieval-augmented, **read-only**
-  text-to-SQL (engine-enforced `query_only`); deterministic quick answers work
-  without it. The Windows installer can bundle an **inbuilt model**
-  (`qwen2.5-coder:1.5b`, ~1 GB, Apache-2.0, tuned for the assistant's NL→SQL) so
-  the assistant runs **fully offline, out of the box** — no download on first
-  use. Managed in-app under **Assistant › AI Engine**, where you can also fetch
-  larger models if the machine can take them.
+- **Built-in AI assistant** — ask questions about your own data in plain English,
+  using retrieval-augmented, **read-only** text-to-SQL (engine-enforced
+  `query_only`); deterministic quick answers work even with the engine off. The
+  app ships **one built-in model** (`qwen2.5-coder:1.5b`, ~1 GB, Apache-2.0,
+  tuned for the assistant's NL→SQL) that runs entirely on the machine — **no
+  downloader, no model picker, no accounts**. The only control is **Start / Stop**
+  under **Assistant › AI Engine** (the local runtime is Ollama, bundled and
+  hidden). The installer sets it up so it works fully offline out of the box.
 - **Browser / LAN access** — run a built-in web server so anyone on the office
   network opens Construction OS in a **browser at `http://<host>:<port>`, no
   client to install**. Login is required (reuses the app's accounts + PBKDF2

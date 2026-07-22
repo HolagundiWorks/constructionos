@@ -55,8 +55,8 @@ with minimal typing?_
 - **Bid / no-bid** scorecard (ledger-evidenced, vetoes override the score).
 
 ### AI
-- **Assistant** — read-only text-to-SQL over your own data via a local model (TF-IDF retrieval, conversational follow-ups, deterministic quick answers that work with no LLM).
-- **Inbuilt offline model** (`qwen2.5-coder:1.5b`, Apache-2.0) the installer can bundle for out-of-the-box offline AI; **AI Engine** manager as its own rail row (server, install, model set-up).
+- **Assistant** — read-only text-to-SQL over your own data (TF-IDF retrieval, conversational follow-ups, deterministic quick answers that work with no LLM).
+- **Internalised, one built-in model** (`qwen2.5-coder:1.5b`, Apache-2.0) that runs entirely on the machine — **no downloader, catalogue, or picker**. The only control is **Start / Stop** on its own **AI Engine** rail row (the local Ollama runtime is bundled + hidden; the model is registered offline at first start).
 
 ### Takeoff
 - Bluebeam-style **on-drawing quantity takeoff** — calibrate scale, then length / area / volume / count, live quantities, **Send to Estimate**; PDF → PNG via poppler / Ghostscript when present.
