@@ -1,15 +1,17 @@
-# Construction OS — UI Replatform to WinUI 3 (Native Windows)
+# ACO — UI Replatform to WinUI 3 (Native Windows)
 
 **Migration architecture, component mapping, and phased plan for moving the UI
 from the tkinter "HCW UX" shell to native WinUI 3 — stock Fluent components only,
 no custom controls**
 
 _Document type: Migration architecture & implementation spec_
-_Version: 1.0 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
+_Version: 1.1 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
+_Product: **ACO** (Accelerated Construction Operations; formerly Construction OS)._
 _Decision: native WinUI 3 desktop (Windows-only, C#/.NET) — authorised departure
 from the stdlib/cross-platform constraints. Read with
-[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) and
-[`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)._
+[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md),
+[`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md), and
+[`PRODUCT.md`](PRODUCT.md) (brand: ACO + Radiant Orange logo mark)._
 
 ---
 

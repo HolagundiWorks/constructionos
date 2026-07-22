@@ -21,7 +21,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
 $apps = @(
-    @{ Name = 'Construction OS'; Spec = 'ConstructionOS.spec'; Iss = 'ConstructionOS.iss'; Dir = 'ConstructionOS'; Exe = 'ConstructionOS.exe' }
+    @{ Name = 'ACO'; Spec = 'ConstructionOS.spec'; Iss = 'ConstructionOS.iss'; Dir = 'ConstructionOS'; Exe = 'ConstructionOS.exe' }
 )
 
 # 1. A real Python — the Microsoft Store stub on PATH cannot build.

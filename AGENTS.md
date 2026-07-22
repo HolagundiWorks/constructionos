@@ -1,4 +1,4 @@
-# AGENTS.md — Construction OS (Construction ERP)
+# AGENTS.md — ACO (Accelerated Construction Operations)
 
 This file is written for an **AI coding agent** (Claude Code, Cursor, etc.)
 that will read, modify, or extend this codebase. It documents architecture,
@@ -17,10 +17,15 @@ the one-command way to re-check the numbers.
 
 ## 0. Product vision (read this first)
 
-Construction OS is a **full ERP for Indian construction contractors** — a
-focused, zero-dependency alternative to heavyweight suites, tailored to the
-civil trade. It runs offline on one PC, keeps everything in a single SQLite
-file, and is built entirely on the Python standard library.
+**ACO** (**Accelerated Construction Operations**, formerly *Construction OS*)
+is a **full ERP for Indian construction contractors** — a focused,
+zero-dependency alternative to heavyweight suites, tailored to the civil
+trade. It runs offline on one PC, keeps everything in a single SQLite file,
+and is built entirely on the Python standard library.
+
+**Brand:** short name `ACO`; full name in `branding.APP_FULL_NAME`; logo mark
+kept and recoloured to Radiant Orange (`#FF4F18`). Installed data folder is
+`%LOCALAPPDATA%\ACO` (legacy `Construction OS` still opened if present).
 
 The **Indian context** matters throughout: money carries GST split into
 CGST+SGST (intra-state) or IGST (inter-state); vendor payments are subject to
@@ -505,8 +510,9 @@ payments        1──* payment_allocations   (payment → bill settlement)
   `modules.py`. `main.py` reads them once at startup and skips disabled tabs (and
   any section left empty), so **changes apply on next launch**.
 - **Paths**: use `paths.py`. An installed build stores data in
-  `%LOCALAPPDATA%\Construction OS` so the app runs from a read-only Program
-  Files folder; hardcoding a path next to the code breaks that.
+  `%LOCALAPPDATA%\ACO` so the app runs from a read-only Program
+  Files folder (legacy `%LOCALAPPDATA%\Construction OS` still opened if
+  present); hardcoding a path next to the code breaks that.
 - **Write guards**: every write entry point starts with `ui_guard.can_write()`
   (§20).
 

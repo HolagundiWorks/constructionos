@@ -42,7 +42,7 @@ class RailStage(ttk.Frame):
     """A left rail of pictogram nav rows and a right stage that shows one at a
     time."""
 
-    def __init__(self, parent, entries, brand='Construction OS',
+    def __init__(self, parent, entries, brand=None,
                  subtitle='', on_toggle_theme=None):
         super().__init__(parent, style='Stage.TFrame')
         # entries: {'key', 'label', 'icon', 'build': callable(parent)->widget}
@@ -58,12 +58,11 @@ class RailStage(ttk.Frame):
         rail.pack_propagate(False)
         self._rail = rail
 
-        # identity: the logo at the top of the rail. A dark-mode variant (the
-        # artwork lifted to near-white) is swapped in when the theme is dark, so
-        # the black logo doesn't vanish on the dark rail.
+        # identity: the logo at the top of the rail. Dark theme uses the
+        # orange mark's lifted variant so it stays vivid on the dark rail.
         brand_box = ttk.Frame(rail, style='Rail.TFrame')
         brand_box.pack(fill='x', pady=(16, 8), padx=14)
-        self._brand_text = brand
+        self._brand_text = brand or branding.APP_NAME
         self._logo_img = None
         self._logo_lbl = ttk.Label(brand_box, style='Rail.TLabel')
         self._logo_lbl.pack(anchor='w')

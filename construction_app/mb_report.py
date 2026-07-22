@@ -11,6 +11,7 @@ contract's measurements, grouped into Form-23 pages); the RA abstract is keyed
 by a single *RA bill* (its measured items versus the tender).
 """
 
+import branding
 import bill_export
 import mb
 
@@ -20,7 +21,7 @@ def company_name(conn):
     read the same way the desktop reads it, so both print the same name."""
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 def contract_context(conn, contract_id):

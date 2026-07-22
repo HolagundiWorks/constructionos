@@ -98,7 +98,7 @@ public sealed partial class MainWindow : Window
 
             AddTab("Settings");   // leaf → SettingsPage via NavRoute
 
-            Title = $"Construction OS (api {apiVer})";
+            Title = $"ACO (api {apiVer})";
             // Defer the first navigation to a later (Low-priority) UI turn. Doing
             // it synchronously here — in the same async continuation that just
             // built the tab strip, while the window's initial layout is still in

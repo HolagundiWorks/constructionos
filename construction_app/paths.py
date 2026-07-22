@@ -26,7 +26,10 @@ import os
 import sys
 
 # The per-user folder name under %LOCALAPPDATA% for an installed build.
-APP_DIR_NAME = 'Construction OS'
+# Legacy installs used "Construction OS"; we still open that folder if present
+# so existing books are not stranded after the ACO rebrand.
+APP_DIR_NAME = 'ACO'
+_LEGACY_APP_DIR_NAMES = ('Construction OS',)
 
 
 def is_frozen():
@@ -52,16 +55,24 @@ def resource_base():
 def data_dir():
     """Writable directory for the database, company registry and sidecars.
 
-    Installed: ``%LOCALAPPDATA%\\Construction OS`` (per user, created on first
-    use, no admin). From source: the code directory, preserving the
-    self-contained behaviour the developer already relies on. If the per-user
-    folder cannot be created for any reason, falls back to the code directory
-    rather than failing to start.
+    Installed: ``%LOCALAPPDATA%\\ACO`` (per user, created on first
+    use, no admin). If that folder does not exist yet but a legacy
+    ``Construction OS`` data folder does, that legacy path is reused so an
+    upgrade does not orphan the book. From source: the code directory,
+    preserving the self-contained behaviour the developer already relies on.
+    If the per-user folder cannot be created for any reason, falls back to the
+    code directory rather than failing to start.
     """
     if not is_frozen():
         return _source_dir()
     base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
     target = os.path.join(base, APP_DIR_NAME)
+    if os.path.isdir(target):
+        return target
+    for legacy in _LEGACY_APP_DIR_NAMES:
+        legacy_path = os.path.join(base, legacy)
+        if os.path.isdir(legacy_path):
+            return legacy_path
     try:
         os.makedirs(target, exist_ok=True)
         return target

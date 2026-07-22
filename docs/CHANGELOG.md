@@ -1,10 +1,24 @@
-# Changelog — Construction OS
+# Changelog — Construction OS / ACO
 
 Notable changes, newest first. Dates are `YYYY-MM-DD`. This log records *what*
 changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 `AGENTS.md` §23 documents the architecture of the later modules.
 
 ---
+
+## 2026-07-22 — Rebrand: ACO (Accelerated Construction Operations)
+
+- Product renamed from **Construction OS** → **ACO** (*Accelerated Construction
+  Operations*). Constants in `construction_app/branding.py`
+  (`APP_NAME`, `APP_FULL_NAME`, `WINDOW_TITLE`, orange brand tokens).
+- **Logo mark kept**; fill recoloured to **Radiant Orange** `#FF4F18` (square +
+  rectangle PNGs, dark-rail variants, `app.ico`). Tint helper:
+  `tools/logo_tint.recolor_opaque`.
+- User-facing titles, letterhead fallbacks, web/LAN brand, WinUI shell header
+  (ACO + full name in the ribbon), installer display name, and
+  `%LOCALAPPDATA%\ACO` data folder (legacy `Construction OS` folder still opened
+  if present).
+- Docs: `PRODUCT.md`, `README.md`, `CLAUDE.md`, `AGENTS.md`.
 
 ## 2026-07-22 — WinUI: Excel-style ribbon, U3 money forms, startup-crash fix
 

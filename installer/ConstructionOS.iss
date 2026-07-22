@@ -1,4 +1,4 @@
-; Inno Setup script for Construction OS.
+; Inno Setup script for ACO (Accelerated Construction Operations).
 ; Wraps the PyInstaller one-folder build (dist\ConstructionOS\) into a single
 ; Setup.exe with Start-menu and desktop shortcuts and an uninstaller.
 ;
@@ -14,7 +14,8 @@
 ; on first use instead. Both Ollama and the Qwen2.5-Coder model are permissively
 ; licensed (MIT / Apache-2.0), so shipping their official artefacts is fine.
 
-#define AppName "Construction OS"
+#define AppName "ACO"
+#define AppVerName "ACO — Accelerated Construction Operations"
 #define AppVersion "1.0.0"
 #define Publisher "Human Centric Works, Hospet"
 #define AppURL "https://github.com/HolagundiWorks/constructionos"
@@ -24,14 +25,14 @@
 AppId={{6F2B9C4E-1D3A-4E77-9C2B-CONSTRUCTIONOS}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName} {#AppVersion}
+AppVerName={#AppVerName} {#AppVersion}
 AppPublisher={#Publisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#Publisher}
-VersionInfoProductName={#AppName}
+VersionInfoProductName={#AppVerName}
 ; The AGPL-3.0 licence, shown and accepted during install.
 LicenseFile=..\LICENSE
 DefaultDirName={autopf}\{#AppName}
@@ -83,10 +84,11 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#ExeName}"; Tasks: desktopic
 Filename: "https://ollama.com/download"; Description: "Open the Ollama download page"; Tasks: ollama; Check: OllamaNotBundled; Flags: postinstall shellexec skipifsilent nowait
 Filename: "{app}\{#ExeName}"; Description: "Launch {#AppName} now"; Flags: nowait postinstall skipifsilent
 
-; NOTE: the user's data lives in %LOCALAPPDATA%\Construction OS (databases,
-; company registry). It is deliberately NOT removed on uninstall, so an
-; upgrade or reinstall never destroys a contractor's books. To remove it, the
-; user deletes that folder by hand.
+; NOTE: the user's data lives in %LOCALAPPDATA%\ACO (databases, company
+; registry; legacy %LOCALAPPDATA%\Construction OS is still opened if present).
+; It is deliberately NOT removed on uninstall, so an upgrade or reinstall never
+; destroys a contractor's books. To remove it, the user deletes that folder by
+; hand.
 
 [Code]
 function OllamaBundled: Boolean;

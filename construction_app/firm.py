@@ -11,6 +11,8 @@ anything asking for money should carry the bank details to pay into. Before
 this, only the GST tax invoice did; everything else showed a bare name.
 """
 
+import branding
+
 # app_settings keys -> the dict keys the letterhead helpers expect.
 _MAP = {
     'company_name': 'name',
@@ -50,7 +52,7 @@ def details(conn):
         "SELECT key, value FROM app_settings WHERE key IN ({})".format(
             ', '.join('?' * len(_MAP))), list(_MAP))}
     out = {v: saved.get(k, '').strip() for k, v in _MAP.items()}
-    out['name'] = out['name'] or 'Construction OS'
+    out['name'] = out['name'] or branding.APP_NAME
     return out
 
 

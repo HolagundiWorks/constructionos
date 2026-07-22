@@ -1,6 +1,6 @@
 """Headless entry point for the browser/LAN server.
 
-Run this on an always-on office machine so colleagues reach Construction OS in a
+Run this on an always-on office machine so colleagues reach ACO (Accelerated Construction Operations) in a
 browser — no client to install, no desktop window:
 
     python web_main.py                 # 0.0.0.0:8080, every LAN interface
@@ -12,6 +12,8 @@ OS\\construction.db`` when installed, or the file beside the code from source).
 Login is required; the first visit creates the administrator.
 """
 
+import branding
+
 import argparse
 
 import db
@@ -20,7 +22,7 @@ import webserver
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Construction OS — LAN web server')
+    parser = argparse.ArgumentParser(description=branding.WINDOW_TITLE + ' — LAN web server')
     parser.add_argument('--host', default='0.0.0.0',
                         help='bind address (default 0.0.0.0 = all interfaces)')
     parser.add_argument('--port', type=int, default=8080,
@@ -29,7 +31,7 @@ def main(argv=None):
 
     db.init_db()      # make sure the schema exists before the first request
 
-    print('Construction OS — web / LAN server')
+    print(branding.APP_NAME + ' — web / LAN server')
     print('Serving database: {}'.format(db.DB_PATH))
     if args.host in ('0.0.0.0', '::'):
         print('Open in a browser on this network:')

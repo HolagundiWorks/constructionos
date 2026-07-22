@@ -14,6 +14,7 @@ RA bills in status Approved/Paid count as "previously billed" when computing the
 previous quantity/value of a later bill.
 """
 
+import branding
 import os
 import webbrowser
 import tkinter as tk
@@ -42,7 +43,7 @@ def _company_name(conn):
     """Firm name from app_settings (Tools > Firm Details), for printouts."""
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 def _fill_contract_combo(combo, mapping, options, include_blank=False):

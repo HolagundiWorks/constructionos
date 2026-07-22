@@ -10,6 +10,7 @@ evening before — and arithmetic alone is not grounds to accuse anyone. It is
 grounds to ask.
 """
 
+import branding
 import tkinter as tk
 import theme
 from datetime import date, timedelta
@@ -27,7 +28,7 @@ from tab_masters import equipment_options, vendor_options
 def _company_name(conn):
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 def plant_logs(conn, since=None):

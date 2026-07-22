@@ -3487,6 +3487,10 @@ class TestPaths(unittest.TestCase):
     def test_frozen_build_redirects_data_to_a_per_user_folder(self):
         sys.frozen = True
         sys._MEIPASS = os.path.join('X:', 'app', '_internal')
+        # Isolate from any legacy %LOCALAPPDATA%\Construction OS on the box.
+        tmp = tempfile.mkdtemp()
+        prev = os.environ.get('LOCALAPPDATA')
+        os.environ['LOCALAPPDATA'] = tmp
         try:
             self.assertTrue(self.paths.is_frozen())
             # resources come from the bundle
@@ -3495,8 +3499,17 @@ class TestPaths(unittest.TestCase):
             data = self.paths.data_dir()
             self.assertNotEqual(data, sys._MEIPASS)
             self.assertIn(self.paths.APP_DIR_NAME, data)
+            self.assertTrue(data.startswith(tmp))
         finally:
+            if prev is None:
+                os.environ.pop('LOCALAPPDATA', None)
+            else:
+                os.environ['LOCALAPPDATA'] = prev
             del sys.frozen, sys._MEIPASS
+            try:
+                os.rmdir(tmp)
+            except OSError:
+                pass
 
     def test_data_and_resource_path_helpers_join_correctly(self):
         self.assertTrue(self.paths.data_path('construction.db')
@@ -3915,8 +3928,8 @@ class TestBrandedDocuments(unittest.TestCase):
         self.assertNotIn('Ph:', html)
 
     def test_letterhead_falls_back_to_a_name(self):
-        self.assertIn('Construction OS', self.be.letterhead_html({}))
-        self.assertIn('Construction OS', self.be.letterhead_html(None))
+        self.assertIn('ACO', self.be.letterhead_html({}))
+        self.assertIn('ACO', self.be.letterhead_html(None))
 
     def test_bank_block_needs_account_and_ifsc(self):
         self.assertIn('3012345678', self.be.bank_block_html(self.firm))
@@ -3985,7 +3998,7 @@ class TestFirmDetails(unittest.TestCase):
     def test_absent_values_are_empty_not_missing(self):
         import firm
         d = firm.details(self.conn)
-        self.assertEqual(d['name'], 'Construction OS')   # falls back
+        self.assertEqual(d['name'], 'ACO')   # falls back
         self.assertEqual(d['gstin'], '')
         self.assertFalse(firm.has_bank(d))
 

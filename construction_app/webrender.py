@@ -13,9 +13,10 @@ responsive. Everything is inlined so there are no extra asset requests.
 
 import html
 
+import branding
 import tokens
 
-BRAND = 'Construction OS'
+BRAND = branding.APP_NAME
 ACCENT = tokens.LIGHT['accent']
 
 

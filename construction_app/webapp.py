@@ -22,6 +22,8 @@ This is the foundation; write flows (Masters, then billing, then money) grow on
 top route by route.
 """
 
+import branding
+
 import secrets
 import sqlite3
 import threading
@@ -1507,7 +1509,7 @@ def _seller(conn):
     rows = {r['key']: r['value'] for r in conn.execute(
         "SELECT key, value FROM app_settings WHERE key IN "
         "('company_name', 'seller_gstin', 'seller_address')")}
-    return {'name': rows.get('company_name') or 'Construction OS',
+    return {'name': rows.get('company_name') or branding.APP_NAME,
             'gstin': rows.get('seller_gstin', ''),
             'address': rows.get('seller_address', '')}
 
@@ -1524,7 +1526,7 @@ def _print_estimate(conn, rid):
         'estimate_items WHERE estimate_id = ? ORDER BY id', (rid,)).fetchall()
     seller = _seller(conn)
     html = bill_export.build_estimate_html(
-        est, items, seller, company_name=seller.get('name') or 'Construction OS')
+        est, items, seller, company_name=seller.get('name') or branding.APP_NAME)
     return Response(html)
 
 

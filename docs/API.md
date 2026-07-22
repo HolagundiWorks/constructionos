@@ -1,11 +1,12 @@
-# Construction OS — JSON API contract (U0)
+# ACO — JSON API contract (U0)
 
 Localhost backend for the WinUI 3 client and future mobile. Stdlib Python;
 routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 `tests/test_web.py` (`TestWebApi`).
 
+**Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.8` (`GET /api/health` → `{"api":"u0.8"}`)  
+**Version:** `u0.8` (`GET /api/health` → `{"api":"u0.8","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth

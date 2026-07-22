@@ -101,6 +101,21 @@ def tint_dark_to_light(src_path, dst_path, ink=(237, 239, 243),
     Pixels darker than ``threshold`` (luminance) become ``ink`` (a near-white by
     default), keeping their alpha; lighter/coloured pixels pass through. Returns
     the number of pixels lifted."""
+    return recolor_opaque(src_path, dst_path, ink=ink, mode='dark_only',
+                          threshold=threshold)
+
+
+def recolor_opaque(src_path, dst_path, ink=(255, 79, 24), mode='all',
+                   threshold=128):
+    """Recolour opaque pixels to ``ink``, preserving alpha.
+
+    ``mode='all'`` — every opaque pixel becomes ``ink`` (keeps the mark shape,
+    swaps the fill — used for the ACO Radiant-Orange brand mark).
+    ``mode='dark_only'`` — only pixels darker than ``threshold`` luminance
+    (legacy dark→light rail lift).
+
+    Returns the number of pixels recoloured.
+    """
     with open(src_path, 'rb') as fh:
         raw = fh.read()
     ihdr, idat = _read_chunks(raw)
@@ -111,18 +126,39 @@ def tint_dark_to_light(src_path, dst_path, ink=(237, 239, 243),
     pixels = _unfilter(zlib.decompress(idat), width, height, bpp)
 
     ir, ig, ib = ink
-    lifted = 0
+    changed = 0
     for i in range(0, len(pixels), 4):
         r, g, b, a = pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]
         if a == 0:
             continue
-        lum = (r * 299 + g * 587 + b * 114) // 1000
-        if lum < threshold:
-            pixels[i], pixels[i + 1], pixels[i + 2] = ir, ig, ib
-            lifted += 1
+        if mode == 'dark_only':
+            lum = (r * 299 + g * 587 + b * 114) // 1000
+            if lum >= threshold:
+                continue
+        pixels[i], pixels[i + 1], pixels[i + 2] = ir, ig, ib
+        changed += 1
     with open(dst_path, 'wb') as fh:
         fh.write(_encode(pixels, width, height, bpp))
-    return lifted
+    return changed
+
+
+def write_ico_png(png_path, ico_path):
+    """Write a modern ICO that embeds the PNG payload (Vista+)."""
+    with open(png_path, 'rb') as fh:
+        png = fh.read()
+    ihdr, _ = _read_chunks(png)
+    width, height = struct.unpack('>II', ihdr[:8])
+    # ICO directory stores 0 for 256; clamp reported size to 255 otherwise.
+    w_byte = 0 if width >= 256 else width
+    h_byte = 0 if height >= 256 else height
+    # ICONDIR (6) + one ICONDIRENTRY (16) + PNG bytes
+    offset = 6 + 16
+    header = struct.pack('<HHH', 0, 1, 1)
+    entry = struct.pack('<BBBBHHII',
+                        w_byte, h_byte, 0, 0, 1, 32,
+                        len(png), offset)
+    with open(ico_path, 'wb') as fh:
+        fh.write(header + entry + png)
 
 
 def sample_colors(src_path, step=7):
