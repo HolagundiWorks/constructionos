@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U4: Home dashboard — KPI stat cards + InfoBar advisories
+
+- **Home page is a real dashboard now.** `Views/HomePage.*` renders the money
+  snapshot from `GET /api/kpi` as a horizontally-scrolling band of **stock KPI
+  stat cards** (cash / receivable / payable / net position / billed / collected
+  this month, `Border` + Fluent card brushes), and the `/api/dashboard`
+  advisories as stock **`InfoBar`s** severity-mapped (act→Error, watch→Warning,
+  good→Success) — replacing the flat text list. No maths in C#; every figure
+  comes from the API. `dotnet build` 0 errors.
+- Also added **`docs/CLOUD-TASKS.md`** — the headless "C"-track backlog for the
+  cloud agent (pure `gst.py`, `/api/gst`, `/api/measurements`, chart-ready
+  API shapes, audit sweep), each with acceptance tests + the stdlib/tkinter-free
+  rules; WinUI / MSIX / ML weights explicitly out of its scope.
+
+---
+
 ## 2026-07-22 — Cloud U0.7: WinUI API thickenings
 
 Continue headless API work that unblocks local U3–U5 without .NET:
