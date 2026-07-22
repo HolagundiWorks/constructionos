@@ -808,6 +808,53 @@ class TestWebApi(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertTrue(self._json(resp)['items'])
 
+    def test_contract_portfolio_forecast_docs_submittals(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        c = self._json(resp)
+        self.assertEqual(c['api'], 'u0.1')
+        self.assertIn('payments', c['docs'])
+        self.assertIn('sites', c['masters'])
+
+        resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('current', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/forecast', 'POST', cookies=cookies,
+            json_body={'series': [10, 20, 30, 40], 'periods_ahead': 1},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['kind'], 'trend')
+
+        resp = self.webapp.handle(self._req(
+            '/api/drift', 'POST', cookies=cookies,
+            json_body={'ppc_series': [80, 70, 60], 'slip_series': [1, 2, 1, 3]},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertTrue(self._json(resp)['drifting'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/payments', 'POST', cookies=cookies,
+            json_body={'pay_date': '2026-07-22', 'direction': 'Receipt',
+                       'party_type': 'Client', 'party_name': 'ACME',
+                       'mode': 'Cash', 'amount': 5000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertEqual(self._json(resp)['amount'], 5000.0)
+
+        resp = self.webapp.handle(self._req(
+            '/api/submittals', 'POST', cookies=cookies,
+            json_body={'title': 'M30 admixture', 'status': 'Submitted',
+                       'required_by': '2020-01-01'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201)
+        sub = self._json(resp)
+        self.assertTrue(sub['is_open'])
+        self.assertTrue(sub['is_overdue'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

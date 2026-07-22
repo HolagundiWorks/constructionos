@@ -6,6 +6,18 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Roadmap continue: U0.1 API widen + WinUI U1 scaffold
+
+- **API u0.1.** Money docs create (`payments`, invoices, bills), submittals CRUD,
+  `GET /api/portfolio`, `POST /api/forecast` + `/api/drift`,
+  `GET /api/contract` catalogue. Spec: [`docs/API.md`](API.md).
+- **WinUI U1 scaffold** under `winui/ConstructionOS.WinUI/` — NavigationView
+  shell, ApiClient (cookie+CSRF), Home / Risks / Process pages. Compiles only on
+  Windows (VS 2022 + Windows App SDK); see `winui/README.md`.
+- **Tests.** Web suite green; full headless suite OK.
+
+---
+
 ## 2026-07-22 — Cloud track: C3–C6 (audit origin, signal feed, events, lessons API)
 
 - **C3 AI-origin audit.** `audit_log.origin` (`manual`/`ai`) + `auth.audit(..., origin=)`;
