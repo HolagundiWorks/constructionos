@@ -175,6 +175,25 @@ the on-screen rendering is display-dependent. This is the same build/verify
 boundary as the rest of the roadmap: the model can be built and tested now, the
 rail/overlay rendering follows on a display.
 
+### 3.7 UI replatform to WinUI 3 (owner-approved, separate track)
+
+An owner decision moves the desktop UI from the tkinter "HCW UX" shell to
+**native WinUI 3** (Windows-only, C#/.NET, stock Fluent components only). This is
+a **separate "U" track**, not part of the E-phases, because it is a *front-end
+replatform* rather than a capability gap — and it **deliberately breaks** the
+stdlib / cross-platform / no-pip constraints (accepted). Full spec:
+[`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+
+| # | Target | Status | Approach | Verifiable |
+|---|---|---|---|---|
+| **U0** | Backend JSON API over the domain (`webapi.py`) | ❌ | Reuse the tested Python core as a localhost service; add JSON endpoints (stdlib, testable) | **Here (Python)** |
+| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
+
+**Key decision (already made):** reuse the domain as a backend, **do not** rewrite
+the 619-tested business modules in C#. The client renders; the Python core still
+computes. **U0 is the only piece buildable/verifiable in this environment**, and
+is the correct API-first first step.
+
 ---
 
 ## 4. Gap prioritisation (the short list)
