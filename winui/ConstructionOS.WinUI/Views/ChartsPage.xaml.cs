@@ -30,6 +30,7 @@ public sealed partial class ChartsPage : Page
         {
             await LoadKpiAsync();
             await LoadCashflowAsync();
+            await LoadAgeingAsync();
         };
     }
 
@@ -91,6 +92,28 @@ public sealed partial class ChartsPage : Page
         {
             CashCaption.Text = "Cash-flow forecast unavailable — "
                 + ApiException.UserMessage(ex);
+        }
+    }
+
+    private async Task LoadAgeingAsync()
+    {
+        try
+        {
+            var ag = await ApiClient.Default.GetJsonAsync("api/ageing");
+            var labels = StrArray(ag, "labels");
+            AgeChart.Series = new ISeries[]
+            {
+                // /api/ageing exposes top-level `labels` + `values` arrays (CT-4).
+                new ColumnSeries<double> { Name = "₹ outstanding", Values = NumArray(ag, "values") },
+            };
+            AgeChart.XAxes = new[] { new Axis { Labels = labels } };
+            AgeChart.YAxes = new[] { new Axis { Name = "₹" } };
+            if (labels.Length == 0)
+                AgeCaption.Text = "No outstanding receivables.";
+        }
+        catch (Exception ex)
+        {
+            AgeCaption.Text = "Ageing unavailable — " + ApiException.UserMessage(ex);
         }
     }
 

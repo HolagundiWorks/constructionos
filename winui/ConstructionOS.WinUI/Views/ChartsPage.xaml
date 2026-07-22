@@ -29,6 +29,17 @@
               CornerRadius="8">
         <lvc:CartesianChart x:Name="CashChart"/>
       </Border>
+
+      <TextBlock Text="Receivable ageing"
+                 Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+      <TextBlock x:Name="AgeCaption" TextWrapping="Wrap"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                 Text="Outstanding receivables by age bucket — from GET /api/ageing."/>
+      <Border Height="300" Padding="4"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              CornerRadius="8">
+        <lvc:CartesianChart x:Name="AgeChart"/>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </Page>

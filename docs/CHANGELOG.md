@@ -6,6 +6,26 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI: shared FieldForm (FK pickers) + receivable-ageing chart
+
+Reconciled a parallel WinUI session (`cursor/winui-u4-u5-api-bind`) that had
+independently built the same U3/U4/U5 work: adopted its two genuinely-better
+pieces onto main and dropped the rest as redundant.
+
+- **`Helpers/FieldForm.cs` — one metadata-driven form** for masters and money
+  docs, understanding combo string options **and FK `{id,label}` options** (from
+  the U0.7 `enrich_fields`). **FK fields are now a related-master `ComboBox`**
+  (label shown, id submitted) instead of a typed id. `MastersPage` and
+  `MoneyPage` were refactored onto it (killing the inline form duplication);
+  MoneyPage also surfaces gated **follow-ups** in an `InfoBar` after a payment.
+  FK enrichment verified live (`/api/labor` `site_id` → `[{id,label}]`).
+- **Receivable-ageing chart** added to the Charts page (`/api/ageing`
+  `labels`/`values`, CT-4) — U4's charts (KPIs, cash-flow, EVM, ageing) are now
+  all built. `dotnet build` 0 errors.
+- The redundant branch is deleted.
+
+---
+
 ## 2026-07-22 — WinUI U4: cash-flow forecast chart (on cloud CT-4 shapes)
 
 - **Cash-flow forecast on the Charts page.** A second stock LiveCharts chart binds
