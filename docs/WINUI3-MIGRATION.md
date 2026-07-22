@@ -270,7 +270,41 @@ contract in tested Python before any C# is written.
 
 ---
 
-## 11. Summary
+## 11. Local development — getting started (Windows)
+
+For picking this up on a Windows dev box:
+
+**Prerequisites**
+- **Windows 11** (or Windows 10 1809+).
+- **Visual Studio 2022** with the **".NET Desktop Development"** workload and the
+  **Windows App SDK / WinUI** components (or `winget install Microsoft.DotNet.SDK.8`
+  + the Windows App SDK).
+- **.NET 8 SDK**; **Windows App SDK 1.5+**.
+- **Python 3.8+** (already required) to run the backend during development.
+
+**First run (API-first, matches §9)**
+1. **Run the Python backend** (unchanged app, dev mode):
+   `cd construction_app && python web_main.py --host 127.0.0.1 --port 8080`
+   — and, once U0 lands, the JSON API is served under `/api/*` on the same port.
+2. **Verify the backend contract** headless before touching C#:
+   `python -m unittest discover -s tests` (the API tests extend `test_web.py`).
+3. **Scaffold the WinUI 3 client** (new solution, outside `construction_app/`):
+   `dotnet new winui3 -n ConstructionOS.WinUI` (or File → New → **Blank App,
+   Packaged (WinUI 3 in Desktop)** in VS 2022), then add
+   `CommunityToolkit.Mvvm`, `CommunityToolkit.WinUI.UI.Controls.DataGrid`, and a
+   charting package (`LiveChartsCore.SkiaSharpView.WinUI`) via NuGet.
+4. Point `Services/ApiClient.cs` at `http://127.0.0.1:8080/api` and build the
+   `MainWindow` `NavigationView` from `GET /api/menu?persona=…` (§4).
+
+**Repo layout suggestion:** keep the WinUI 3 solution in a sibling folder (e.g.
+`winui/ConstructionOS.WinUI/`) so the Python package (`construction_app/`) and its
+tests stay clean; the two are wired only by the localhost JSON contract.
+
+**Order of work:** U0 (Python API + tests) → U1 (shell) → U2 (DataGrid CRUD) →
+U3 (money/billing) → U4 (dashboard + charts) → U5 (Controls + Process view) →
+U6 (MSIX + backend sidecar) → U7 (parity, personas, retire tkinter on Windows).
+
+## 12. Summary
 
 Moving to **native WinUI 3** is a Windows-only, C#/.NET replatform of the **UI
 only** — made safe by **keeping the tested Python domain as a localhost backend

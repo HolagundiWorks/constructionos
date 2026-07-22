@@ -247,10 +247,11 @@ a model, or a pip dependency:
 | **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
 | **E6** | — | mobile capture app (separate front-end) |
 | **E7** Navigation & Workflow | `menu.py` (personas + grouping), `workflow.py` (flow graph) | Controls/register tabs, Process view, search (GUI) — see §3.6 |
+| **U** UI Replatform → WinUI 3 | — | Backend JSON API (U0, Python — buildable here) + WinUI 3 C# client (U1–U7, Windows) — see §3.7 & [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) |
 
 **The deterministic roadmap is complete.** Every piece that can be written and
-unit-tested without a display, a model, or a pip dependency is built (591-test
-suite). The irreducible residual is exactly three things this environment cannot
+unit-tested without a display, a model, or a pip dependency is built (619-test
+suite; the menu/workflow models of E7.1/E7.2 included). The irreducible residual is exactly three things this environment cannot
 produce or verify — and none is application logic:
 
 1. **tkinter tabs** — the on-screen registers and KPI/EVM surfacing. Need a
