@@ -21,7 +21,7 @@ public sealed partial class MainWindow : Window
         ["Materials"] = "materials", ["Labour"] = "labor",
         ["Equipment"] = "equipment", ["Thekedars"] = "thekedars",
         ["Projects"] = "projects", ["Milestones"] = "milestones",
-        ["Rate Book"] = "rate_book",
+        ["Rate Book"] = "rate_book", ["Contracts"] = "contracts",
     };
 
     public MainWindow()

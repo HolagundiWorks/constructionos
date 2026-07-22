@@ -6,8 +6,8 @@ _Document type: Gap analysis + Implementation roadmap (living status — update 
 _Version: 1.2 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
 _Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target
 architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
-Baseline (this branch, 2026-07-22): **176** Python modules (**113** tkinter-free
-by AST), **85** tables, **61** indexes, **706** headless-runnable tests
+Baseline (this branch, 2026-07-22): **177** Python modules (**114** tkinter-free
+by AST), **85** tables, **61** indexes, **708** headless-runnable tests
 (**5** GUI smoke skips without display)._
 
 ---
@@ -251,7 +251,7 @@ build/MSIX, display smoke, ML weights.
 | **E5** | `forecast`, `drift`, `signal_feed`, `signal_suggest` | Tab polish optional | Cloud done |
 | **E6** | Browser `/m/capture` modes (work-done / note / muster) | Native mobile optional | Local (optional) |
 | **E7** | `menu.py`, `workflow.py`, Controls, Lessons, persona, Process, search, N5 | L0 display smoke | Cloud shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.6**) + WinUI **U1/U2 built+run** (ListView); U3–U5 pages present | LiveCharts bind, billing forms, signed MSIX | **U0.6** · WinUI Local |
+| **U** | `webapi.py` `/api/*` (**U0.7**) + WinUI **U1/U2 built+run**; U3–U5 pages present | LiveCharts bind, billing forms, signed MSIX | **U0.7** · WinUI Local |
 
 **What this environment can still produce:** optional doc polish and bugfixes
 only — the cloud track’s deterministic floors and JSON API (**u0.6**) are
@@ -276,7 +276,7 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` — full capture/confirm floors through u0.6 | ✅ **u0.6** |
+| **Backend JSON API (U0)** | `webapi.py` — through **u0.7** (FK options, contracts, cashflow, allocations, PO create) | ✅ **u0.7** |
 | WinUI U1–U2 client | `winui/ConstructionOS.WinUI/` (shell, Settings, Masters ListView CRUD, registers) | ✅ **built + runs** on Windows |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
@@ -313,15 +313,17 @@ display.
 | **C10** | U0.3 (NL intent, sidecar bridge API, narrative, Productivity tab) | ✅ |
 | **C11** | U0.4 (text/muster/BOQ capture floors, pattern learn, more events) | ✅ |
 | **C12** | U0.5 (GRN draft, signal suggest, mobile modes, measurement extract) | ✅ |
-| **C13** | U0.6 (GRN confirm, vendor-invoice floor, pdftotext, snag/bill events) | ✅ — **cloud track complete** |
+| **C13** | U0.6 (GRN confirm, vendor-invoice floor, pdftotext, snag/bill events) | ✅ |
+| **C14** | U0.7 (FK options, contracts, BOQ list, cashflow, allocations, PO create, search nav) | ✅ |
 
 **Cloud non-goals (unchanged):** compiling WinUI on Linux, MSIX signing, tkinter
 smoke screenshots, shipping OCR/STT weights, native mobile UI, SSO.
 
 **Cloud track status:** deterministic PM core, navigation/workflow models,
-event/signal floors, and JSON API **u0.6** are built and tested headless. Further
+event/signal floors, and JSON API **u0.7** are built and tested headless. Further
 enterprise items that remain 🟡/❌ need **local** (display/.NET/weights) or an
-**owner decision** (SSO, concurrency redesign).
+**owner decision** (SSO, concurrency redesign). Cloud may still thicken the
+API for WinUI forms; C0–C14 floors are shipped.
 
 ### 5B. Local development track (Windows + display + .NET)
 
@@ -699,7 +701,7 @@ Work is split deliberately:
 
 | Track | Owns | Next |
 |---|---|---|
-| **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | ✅ **C0–C13 complete** — maintain / bugfix only |
+| **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | ✅ **C0–C14 / u0.7** — thicken API as WinUI needs; no display/.NET |
 | **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → finish **U3–U5** / **L7** MSIX → **L8** weights |
 
 Throughout, the discipline stays: **deterministic maths underneath, explainable

@@ -125,6 +125,17 @@ MASTERS = {
         _f('rate', 'Rate', 'number', default='0'),
         _f('specification', 'Specification', 'textarea'),
     ]},
+    'contracts': {'label': 'Contract', 'fields': [
+        _f('contract_no', 'Contract no', required=True),
+        _f('client_id', 'Client', 'fk', fk_sql=_CLIENTS),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('contract_value', 'Contract value', 'number', default='0'),
+        _f('retention_pct', 'Retention %', 'number', default='5'),
+        _f('start_date', 'Start date'),
+        _f('end_date', 'End date'),
+        _f('status', 'Status', 'combo',
+           options=['Active', 'Completed', 'Cancelled'], default='Active'),
+    ]},
     'thekedars': {'label': 'Thekedar', 'fields': [
         _f('name', 'Name', required=True),
         _f('phone', 'Phone'),
@@ -192,6 +203,26 @@ def label(table):
 def fk_options(conn, sql):
     """[(id, label), ...] for an fk dropdown."""
     return [(r[0], r[1]) for r in conn.execute(sql)]
+
+
+def enrich_fields(conn, fields):
+    """Copy field specs and resolve ``fk_sql`` into JSON-friendly ``options``.
+
+    WinUI / JSON clients need ``[{id, label}, …]`` — they must not run SQL.
+    The HTML layer still uses ``fk_sql`` via ``fk_options``; both stay present.
+    Missing tables or bad SQL yield an empty options list (soft-fail).
+    """
+    out = []
+    for field in fields or []:
+        f = dict(field)
+        if f.get('kind') == 'fk' and f.get('fk_sql'):
+            try:
+                pairs = fk_options(conn, f['fk_sql'])
+            except Exception:  # noqa: BLE001 — soft-fail for older DBs
+                pairs = []
+            f['options'] = [{'id': i, 'label': lab} for i, lab in pairs]
+        out.append(f)
+    return out
 
 
 def coerce(field, raw):
