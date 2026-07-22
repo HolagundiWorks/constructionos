@@ -6,7 +6,6 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
-<<<<<<< HEAD
 ## 2026-07-22 — Cloud U0.7: WinUI API thickenings
 
 Continue headless API work that unblocks local U3–U5 without .NET:
@@ -23,7 +22,9 @@ Continue headless API work that unblocks local U3–U5 without .NET:
 - **Search.** Record hits carry `nav`/`tag` for WinUI AutoSuggest.
 - API version **u0.7**; WinUI `MasterTables` includes Contracts.
 - Suite: **708** tests OK (5 skipped).
-=======
+
+---
+
 ## 2026-07-22 — WinUI U4: ChartsPage plots a real LiveCharts series
 
 - **First real chart.** `Views/ChartsPage.*` now binds a stock LiveCharts
@@ -37,7 +38,6 @@ Continue headless API work that unblocks local U3–U5 without .NET:
   deploys into the self-contained `win-x64` output, so the Charts tab renders on a
   clean machine rather than crashing on a missing native lib. `dotnet build` 0
   errors. Remaining U4: EVM/ageing series + the KPI stat cards.
->>>>>>> origin/main
 
 ---
 
