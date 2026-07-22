@@ -17,6 +17,12 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 - **Title bar kept standard** (`ExtendsContentIntoTitleBar = false`): with a top
   ribbon, extending content into the title bar made the nav collide with the
   caption/close buttons — the OS title bar now sits cleanly above the ribbon.
+- **Fixed: only "Home" showed in the ribbon.** `Nav_Loaded` probed
+  `GET /api/health` **before** logging in, but that endpoint needs a session
+  (401 without) — so the whole nav build hit its catch and fell back to a lone
+  Home item. Now it calls `EnsureSessionAsync()` first and treats the (cosmetic,
+  title-only) health probe as non-fatal, so the full always-on + section menu
+  loads.
 
 ---
 

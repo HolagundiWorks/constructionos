@@ -37,9 +37,18 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var health = await ApiClient.Default.HealthAsync();
-            var apiVer = health.TryGetProperty("api", out var v) ? v.ToString() : "?";
+            // Log in FIRST — /api/health (and /api/menu) require a session, so
+            // probing health before the session 401s and would abort the whole
+            // nav. The health call is only for the title's API version, so keep
+            // it after login and non-fatal.
             await ApiClient.Default.EnsureSessionAsync();
+            var apiVer = "?";
+            try
+            {
+                var health = await ApiClient.Default.HealthAsync();
+                if (health.TryGetProperty("api", out var v)) apiVer = v.ToString();
+            }
+            catch { /* health is cosmetic — never block the menu on it */ }
             var persona = Uri.EscapeDataString(AppSettings.Current.Persona);
             var menu = await ApiClient.Default.GetJsonAsync("api/menu?persona=" + persona);
             Nav.MenuItems.Clear();
