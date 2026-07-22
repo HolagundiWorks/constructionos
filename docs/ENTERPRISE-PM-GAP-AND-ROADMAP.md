@@ -276,6 +276,10 @@ tests`). This is where the *engine* is built.
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
 | **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ✅ **built** — `/api/*` (C1/C2) |
+| AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
+| Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
+| Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
+| Lessons API (C6) | `/api/lessons` + store | ✅ built + tested |
 | Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
 
 **Cannot be done in the cloud env:** anything needing a **display** (tkinter/GUI

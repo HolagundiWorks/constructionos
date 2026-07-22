@@ -40,9 +40,8 @@ cd construction_app && python -m compileall -q .
   ([`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)):
   - **Cloud (this agent, headless Python):** domain/data/backend modules, the
     JSON API (**U0 `webapi.py` — built**), pure models (EVM, risk, opportunity,
-    forecast, drift, menu, workflow), unit tests, docs. **No display, no .NET,
-    no ML models here.** Next cloud leftovers: AI-origin audit tagging, event
-    hooks, forecast→register feed.
+    forecast, drift, menu, workflow), signal feed / event hooks / audit origin
+    (C3–C6), unit tests, docs. **No display, no .NET, no ML models here.**
   - **Local (Windows + display + .NET):** tkinter GUI tabs, the WinUI 3 client
     (U1–U7), smoke tests, MSIX packaging, model sidecars.
 

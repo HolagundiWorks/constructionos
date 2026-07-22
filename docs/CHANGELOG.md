@@ -6,6 +6,20 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud track: C3–C6 (audit origin, signal feed, events, lessons API)
+
+- **C3 AI-origin audit.** `audit_log.origin` (`manual`/`ai`) + `auth.audit(..., origin=)`;
+  `capture.origin_of` for confirmed capture drafts.
+- **C4 signal feed.** `signal_feed.py` turns drift / schedule forecast / rising
+  cost trends into AI risk drafts (`source='ai'`), with dedupe + audit.
+- **C5 event hooks.** `event_hooks.react` composes `followups` + optional
+  `risk_detect`; gated flags preserved.
+- **C6 lessons API.** `/api/lessons` CRUD; also `/api/events`, `/api/signals/feed`,
+  `/api/audit?origin=ai`.
+- **Tests.** 661 headless OK (5 skipped).
+
+---
+
 ## 2026-07-22 — Cloud track: C0 purity + U0 JSON API
 
 - **C0 headless purity.** Cost/revenue DB bridge moved to tkinter-free
