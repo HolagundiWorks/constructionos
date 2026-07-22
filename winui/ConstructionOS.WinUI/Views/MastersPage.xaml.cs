@@ -1,19 +1,18 @@
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Navigation;
-using CommunityToolkit.WinUI.UI.Controls;
 using ConstructionOS.WinUI.Services;
 
 namespace ConstructionOS.WinUI.Views;
 
 /// <summary>
 /// Generic master-data register (U2), bound to GET/POST/PUT/DELETE
-/// /api/{table}. Its grid columns AND its add/edit form are generated from the
-/// API's field metadata (<c>fields</c>), so this one page replaces the tkinter
-/// <c>CrudFrame</c> for every master — no per-master XAML. The client holds no
-/// business rules: validation and coercion stay on the Python side.
+/// /api/{table}. Its add/edit form is generated from the API's field metadata
+/// (<c>fields</c>), so this one page serves every master — no per-master XAML.
+/// The list is a stock WinUI ListView (the CommunityToolkit DataGrid is UWP-only
+/// and crashes WinUI 3); rows show as readable lines and selection maps back to
+/// the underlying record by index. No business rules live here.
 /// </summary>
 public sealed partial class MastersPage : Page
 {
@@ -23,6 +22,7 @@ public sealed partial class MastersPage : Page
     private string _table = "";
     private string _label = "Masters";
     private readonly List<FieldSpec> _fields = new();
+    private List<Dictionary<string, object?>> _rows = new();
 
     public MastersPage() => InitializeComponent();
 
@@ -44,8 +44,8 @@ public sealed partial class MastersPage : Page
             _label = data.TryGetProperty("label", out var l) ? l.GetString() ?? _table : _table;
             TitleText.Text = _label + " register";
             ParseFields(data);
-            BuildColumns();
-            Grid.ItemsSource = ParseItems(data);
+            _rows = ParseItems(data);
+            Grid.ItemsSource = _rows.Select(Line).ToList();
             UpdateButtons();
             Notice.IsOpen = false;
         }
@@ -75,26 +75,6 @@ public sealed partial class MastersPage : Page
         }
     }
 
-    private void BuildColumns()
-    {
-        Grid.Columns.Clear();
-        Grid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "ID",
-            Binding = new Binding { Path = new PropertyPath("[id]") },
-            Width = new DataGridLength(56),
-        });
-        foreach (var f in _fields)
-        {
-            Grid.Columns.Add(new DataGridTextColumn
-            {
-                Header = f.Label,
-                Binding = new Binding { Path = new PropertyPath($"[{f.Key}]") },
-                Width = DataGridLength.SizeToCells,
-            });
-        }
-    }
-
     private static List<Dictionary<string, object?>> ParseItems(JsonElement data)
     {
         var rows = new List<Dictionary<string, object?>>();
@@ -109,7 +89,20 @@ public sealed partial class MastersPage : Page
         return rows;
     }
 
-    private Dictionary<string, object?>? Selected => Grid.SelectedItem as Dictionary<string, object?>;
+    // One readable line per record for the ListView (id first, then the fields).
+    private string Line(Dictionary<string, object?> r)
+    {
+        var parts = new List<string>();
+        if (r.TryGetValue("id", out var id)) parts.Add($"#{id}");
+        foreach (var f in _fields)
+            if (r.TryGetValue(f.Key, out var v) && !string.IsNullOrEmpty(v?.ToString()))
+                parts.Add($"{f.Label}: {v}");
+        return string.Join("    ", parts);
+    }
+
+    private Dictionary<string, object?>? Selected =>
+        (Grid.SelectedIndex >= 0 && Grid.SelectedIndex < _rows.Count)
+            ? _rows[Grid.SelectedIndex] : null;
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateButtons();
 
@@ -232,8 +225,7 @@ public sealed partial class MastersPage : Page
                     TextWrapping = TextWrapping.Wrap, Height = 72,
                 };
             case "fk":
-                // Foreign keys are entered by id for now; a real picker (a ComboBox
-                // populated from the related master) is a noted U2 refinement.
+                // Foreign keys are entered by id for now; a picker is a noted refinement.
                 return new NumberBox
                 {
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,

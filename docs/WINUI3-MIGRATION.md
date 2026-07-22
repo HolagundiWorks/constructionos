@@ -253,13 +253,33 @@ the tree for non-Windows use or delete per a later call.
 | **U7** | Parity pass, persona menus (menu.py), accessibility, retire tkinter on Windows | Windows |
 
 **Build status:** U0 is built and proven headless (the tested Python API). The
-U1–U5 WinUI client now **compiles clean** — `dotnet build -p:Platform=x64` on the
-Windows dev box (.NET 10 SDK + Windows App SDK) returns **0 errors** for the whole
-solution (shell, generic masters CRUD, money/EVM/charts, Controls/Process pages,
-`ApiClient`). That is a *compile* proof, not a *run* proof: launching the packaged
-app against the Python backend and screenshotting the UI is the next verification
-(and needs an interactive desktop session). One benign `NETSDK1206` RID warning
-from WindowsAppSDK remains.
+U1–U5 WinUI client now **compiles *and runs*** on the Windows dev box (.NET 10 SDK
++ Windows App SDK 1.5): `dotnet build -c Debug -p:Platform=x64` is **0 errors**, and
+the self-contained exe (`-r win-x64 --self-contained -p:WindowsAppSDKSelfContained=true`,
+which bundles the .NET 8 + WindowsAppSDK runtimes so nothing extra need be
+installed) launches a **responsive "Construction OS" window** that logs into the
+Python backend and builds its rail from `/api/menu`.
+
+Getting there took four real fixes to the scaffold, all committed:
+1. **`app.manifest`** had a malformed `<manifest>` root — a Win32 manifest's root
+   must be `<assembly>`, or activation fails at start ("side-by-side
+   configuration is incorrect").
+2. **DataGrid → stock `ListView`.** The scaffold referenced
+   `CommunityToolkit.WinUI.UI.Controls.DataGrid` 7.1.2, which is the **UWP/WinUI-2**
+   build and was never ported to WinUI 3; it crashes at startup with a
+   `themeresources.xaml` `XamlParseException`. Every register page now uses the
+   stock WinUI `ListView` (which also honours the "stock controls only" rule).
+3. **`<UseRidGraph>true</UseRidGraph>`** so WindowsAppSDK's native win-x64 assets
+   deploy (clears `NETSDK1206`).
+4. **`<WindowsPackageType>None</WindowsPackageType>`** so it runs unpackaged via
+   the bootstrapper (U6 will add a separate MSIX packaging project rather than
+   flip this back).
+
+Run it: start the backend (`cd construction_app && python web_main.py --host
+127.0.0.1 --port 8080`), then launch the built `ConstructionOS.WinUI.exe` (or F5
+in VS 2022). Note: launching it from an automation/CI shell that then exits tears
+the window down — start it from an interactive session (double-click / VS / your
+own terminal) to keep it open.
 
 ---
 

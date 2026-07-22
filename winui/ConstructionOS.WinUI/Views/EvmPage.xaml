@@ -1,11 +1,9 @@
 <Page
     x:Class="ConstructionOS.WinUI.Views.EvmPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid RowDefinitions="Auto,*" Padding="8">
     <TextBlock Text="Earned Value" Style="{StaticResource TitleTextBlockStyle}"/>
-    <controls:DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="True"
-                       IsReadOnly="True" Margin="0,8,0,0"/>
+    <ListView x:Name="Grid" Grid.Row="1" Margin="0,8,0,0" SelectionMode="Single"/>
   </Grid>
 </Page>

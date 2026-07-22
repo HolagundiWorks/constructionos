@@ -24,6 +24,36 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI client runs (fixes: manifest, DataGrid→ListView, packaging)
+
+Got the merged WinUI U1–U5 client to actually **launch and render** a responsive
+"Construction OS" window against the Python backend (was: compile-only). Four
+scaffold fixes, all found by launching and reading the crash/event logs:
+
+- **`app.manifest` root was `<manifest>` not `<assembly>`** → activation failed at
+  process start ("side-by-side configuration is incorrect"). Fixed to a valid
+  Win32 manifest (+ PerMonitorV2 DPI, long-path aware).
+- **CommunityToolkit DataGrid (7.1.2) is UWP/WinUI-2** and crashes WinUI 3 at
+  startup (`Cannot locate …themeresources.xaml`); it was never ported to WinUI 3.
+  Replaced it across **all** register pages (Risks, Opportunities, Lessons,
+  Submittals, Money, EVM, Portfolio, and the U2 Masters CRUD) with the **stock
+  WinUI `ListView`** + a small `Ui.Lines` helper — which also satisfies the
+  roadmap's "stock controls only" rule. Masters keeps add/edit/delete via the
+  `CommandBar` with selection mapped back to the record by index.
+- **`<UseRidGraph>true</UseRidGraph>`** so WindowsAppSDK's native win-x64 assets
+  deploy (clears `NETSDK1206`), and **`<WindowsPackageType>None</WindowsPackageType>`**
+  so it runs unpackaged via the bootstrapper.
+- **`App.xaml.cs`** gains a dev crash-logger (UI/CLR/task unhandled exceptions →
+  `%TEMP%\cos_winui_crash.log`) that made the above diagnosable without a debugger.
+
+Verified: `dotnet build -p:Platform=x64` → 0 errors; the self-contained exe
+(bundles .NET 8 + WindowsAppSDK) shows a responsive window (`Responding=True`,
+title "Construction OS") that logs in and loads the persona menu. See
+[`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9 for the run recipe. Python side
+unchanged.
+
+---
+
 ## 2026-07-22 — WinUI U2 scaffold: generic masters DataGrid CRUD
 
 - **One metadata-driven CRUD page for every master.** `Views/MastersPage.*`
