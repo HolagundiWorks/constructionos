@@ -676,15 +676,14 @@ control.
 The SOP gap analysis (`docs/REPORT-sop-gap-analysis.md`) is otherwise closed;
 these three are what is left, none of them a money leak:
 
-- ⏳ **Submittals register** — the one document-control artefact still absent.
-  RFIs (the question) and the drawing-revision register (which copy is current)
-  both exist in Sourcing; a **submittal** is the third, distinct thing — "here
-  is the material / make I intend to use, approve it" — logged with a
-  submitted-date, a required-by date, and an Approved / Approved-as-noted /
-  Rejected status. Mostly matters for PMC / departmental work with a formal
-  approval chain; a jobbing contractor rarely needs it, hence low priority. It
-  should **not** be folded into the RFI table — conflating the two is exactly
-  the scope-creep confusion the research warns about.
+- ✅ **Submittals register** — the last document-control artefact, now built
+  (Purchases › Sourcing › Submittals; `submittals.py`, `submittals` table). A
+  submittal — "here is the material / make I intend to use, approve it" — is
+  logged with submitted/required-by dates and a Submitted / Approved / Approved
+  as noted / Revise & resubmit / Rejected status; a resubmittal is a new row
+  citing the prior. Kept **separate** from the RFI and drawing tables (folding
+  them together is the scope-creep confusion the research warns about). An
+  overdue open submittal raises a dashboard advisory, mirroring the RFI one.
 - ⏳ **Lessons-learned → rate library feedback** — closeout captures snags and
   handover readiness, but the loop that feeds *achieved* rates back into the
   Rate Book (so the next estimate is priced on reality, not the last guess)

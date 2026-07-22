@@ -69,6 +69,7 @@ import retention
 import sourcing
 import statutory
 import subcontract
+import submittals
 import variation
 import wages
 
@@ -999,6 +1000,84 @@ class TestPlanning(unittest.TestCase):
         result = planning.cvr({'Material': (100000, 0)})
         self.assertIsNone(result['margin_pct'])
         self.assertEqual(result['margin'], -100000)
+
+
+class TestSubmittals(unittest.TestCase):
+    """A submittal is the pre-execution approval of a proposed material/make.
+    Only an undecided one is 'open', and only an open one can be overdue."""
+
+    def test_only_submitted_is_open(self):
+        self.assertTrue(submittals.is_open('Submitted'))
+        for st in ('Approved', 'Approved as noted', 'Revise & resubmit',
+                   'Rejected'):
+            self.assertFalse(submittals.is_open(st))
+
+    def test_approved_as_noted_counts_as_approved(self):
+        self.assertTrue(submittals.is_approved('Approved'))
+        self.assertTrue(submittals.is_approved('Approved as noted'))
+        self.assertFalse(submittals.is_approved('Revise & resubmit'))
+        self.assertFalse(submittals.is_approved('Rejected'))
+
+    def test_open_and_past_required_by_is_overdue(self):
+        self.assertTrue(
+            submittals.is_overdue('2026-01-01', 'Submitted', '2026-07-21'))
+
+    def test_future_required_by_is_not_overdue(self):
+        self.assertFalse(
+            submittals.is_overdue('2026-12-01', 'Submitted', '2026-07-21'))
+
+    def test_a_decided_submittal_is_never_overdue(self):
+        """Once answered the ball is out of the reviewer's court."""
+        self.assertFalse(
+            submittals.is_overdue('2026-01-01', 'Approved', '2026-07-21'))
+
+    def test_no_deadline_is_not_overdue(self):
+        self.assertFalse(submittals.is_overdue('', 'Submitted', '2026-07-21'))
+
+
+class TestSubmittalsDashboard(unittest.TestCase):
+    """The dashboard counts open submittals and flags the overdue ones."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _add(self, no, status, required_by):
+        self.conn.execute(
+            "INSERT INTO submittals (submittal_no, site_id, title, "
+            "submitted_date, required_by, status) VALUES (?, 1, ?, "
+            "'2026-06-01', ?, ?)", (no, no, required_by, status))
+        self.conn.commit()
+
+    def test_open_count_and_overdue_flag(self):
+        import dashboard
+        self._add('SUB-1', 'Submitted', '2026-06-10')   # overdue
+        self._add('SUB-2', 'Submitted', '2026-12-01')   # open, not overdue
+        self._add('SUB-3', 'Approved', '2026-05-01')    # decided, not counted
+        s = dashboard.collect(self.conn)
+        self.assertEqual(s['submittals_open'], 2)
+        self.assertEqual(s['submittals_overdue'], 1)
+        rows = [r for r in dashboard._bottlenecks(s)
+                if r['label'] == 'Submittals awaiting approval']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['severity'], 'act')     # because one is overdue
 
 
 class TestApproval(unittest.TestCase):
