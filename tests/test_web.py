@@ -155,6 +155,15 @@ class TestWebRouter(unittest.TestCase):
         resp = webapp.handle(self._req('/', cookies={'cosid': sid}))
         self.assertIn(b'/evm', resp.body)             # rail links to it
 
+    def test_weekly_review_page_renders(self):
+        import webapp
+        sid = self._login_admin()
+        resp = webapp.handle(self._req('/review', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Weekly Review', resp.body)
+        self.assertIn(b'Money at a glance', resp.body)
+        self.assertIn(b'/review', resp.body)          # rail links to it
+
     def test_users_table_is_never_exposed(self):
         import webapp
         sid = self._login_admin()

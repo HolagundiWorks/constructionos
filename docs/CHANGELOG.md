@@ -6,6 +6,33 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Opportunity register + Weekly Review — Enterprise-PM UI complete
+
+- **Opportunity register** (Project Management › Opportunities). The upside twin
+  of the risk register, over the existing pure `opportunity.py` /
+  `opportunity_store.py`: likelihood × impact → band, probability-weighted
+  **expected upside**, urgency-driven priority — all **computed live and never
+  typed**, derive-on-save so a stored band can't drift. Best-first, with the
+  strongest opportunities washed green (pursue) rather than red. Writes gated for
+  Viewers; sortable columns.
+- **Weekly Review** (Money › Review, and browser `/review`). The whole weekly
+  review assembled in one call by the pure `review_pack.build`, bridged to the
+  live database by the new `review_assemble.py`: a plain-language narrative
+  (`narrative.py`), money at a glance, the portfolio EVM, advisories, and the
+  risk & opportunity summaries. It states on screen that it is **a draft to
+  read, not a decision — nothing here books, files or pays**. Desktop tab and
+  the browser page render one identical pack (shared assembler), so the two
+  surfaces can never disagree.
+- **Enterprise-PM backbone is now fully surfaced** — every pure module (EVM,
+  risk, opportunity, forecast, narrative, review-pack, lessons, submittals) has
+  a screen.
+- **Tests.** `review_assemble.assemble` (KPIs + EVM + opportunities present; EVM
+  honestly absent when no project is measured) in `test_core`; the `/review`
+  route + rail link in `test_web`; both new tabs build in the GUI smoke test.
+  Full suite 623 green.
+
+---
+
 ## 2026-07-22 — Earned Value (SPI / CPI / EAC) — desktop tab + browser view
 
 - **Earned Value surfaced.** A new read-only **Project Management › Earned

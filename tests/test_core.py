@@ -75,6 +75,7 @@ import variation
 import wages
 import earnedvalue
 import evm
+import review_assemble
 import risk
 import risk_store
 import forecast
@@ -495,6 +496,51 @@ class TestEvmAssembly(unittest.TestCase):
         self.assertEqual(rows[0]['name'], 'Real')
         self.assertEqual(port['projects'], 1)
         self.assertEqual(port['bac'], 1000.0)
+
+
+class TestReviewAssemble(unittest.TestCase):
+    """The DB bridge that feeds the Weekly Review — one assembled pack from the
+    live database, shared by the desktop tab and the browser page."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_assemble_pulls_kpis_evm_and_opportunities(self):
+        import opportunity_store
+        self.conn.execute(
+            "INSERT INTO projects (name, contract_value, start_date, end_date) "
+            "VALUES ('Ward-7 Road', 1000000, '2026-01-01', '2026-12-31')")
+        self.conn.commit()
+        opportunity_store.add(self.conn, title='Early-completion bonus',
+                              likelihood=4, impact=4, value=200000)
+        pack = review_assemble.assemble(self.conn, generated='2026-07-21')
+        self.assertEqual(pack['generated'], '2026-07-21')
+        for key in ('kpis', 'advisories', 'risks', 'narrative'):
+            self.assertIn(key, pack)
+        self.assertIsNotNone(pack.get('evm'))            # a measured project
+        self.assertEqual(pack['evm']['projects'], 1)
+        self.assertEqual(pack['opportunities']['count'], 1)
+
+    def test_no_measured_project_leaves_evm_absent_not_zeroed(self):
+        pack = review_assemble.assemble(self.conn, generated='2026-07-21')
+        self.assertIsNone(pack.get('evm'))               # honestly absent
+        self.assertEqual(pack['opportunities']['count'], 0)
 
 
 class TestRisk(unittest.TestCase):

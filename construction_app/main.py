@@ -46,6 +46,8 @@ from tab_takeoff import build_takeoff_tab
 from tab_projects import build_projects_tab
 from tab_evm import build_evm_tab
 from tab_risk import build_risk_tab
+from tab_opportunity import build_opportunity_tab
+from tab_review import build_review_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -86,6 +88,7 @@ BUILDERS = {
     'Projects': build_projects_tab,
     'Earned Value': build_evm_tab,
     'Risks': build_risk_tab,
+    'Opportunities': build_opportunity_tab,
     'Warehouse': build_warehouse_tab,
     'Muster & Wages': build_muster_tab,
     'Labour Ops': build_labor_ops_tab,
@@ -120,6 +123,7 @@ BUILDERS = {
     'Cash Flow': build_cashflow_tab,
     'Retention': build_retention_tab,
     'Insight': build_insight_tab,
+    'Review': build_review_tab,
     'GST & TDS': build_gst_tab,
     'Compliance': build_compliance_tab,
     'Accounting': build_accounting_tab,
@@ -134,6 +138,7 @@ MODULE_ICONS = {
     'Materials': '\U0001F9F1', 'Labour': '\U0001F477', 'Equipment': '\U0001F69C',
     # Projects
     'Projects': '\U0001F3D7', 'Earned Value': '\U0001F4C8', 'Risks': '⚠',
+    'Opportunities': '\U0001F31F',
     # Operations
     'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
     'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',
@@ -153,6 +158,7 @@ MODULE_ICONS = {
     # Money
     'Key Numbers': '\U0001F511', 'Approvals': '✔', 'Cash & Parties': '\U0001F4B0',
     'Cash Flow': '\U0001F4B8', 'Retention': '\U0001F512', 'Insight': '\U0001F4A1',
+    'Review': '\U0001F5DE',
     # Accounts
     'GST & TDS': '\U0001F3DB', 'Compliance': '\U0001F5D3', 'Accounting': '\U0001F4CA',
 }

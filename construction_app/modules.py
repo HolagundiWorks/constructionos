@@ -19,7 +19,8 @@ SECTIONS_CATALOG = [
     # portfolio, the programme (Gantt/CPM/baseline/LD) and the weekly plan —
     # rather than "what happened on site today".
     ('Project Management',
-     ['Projects', 'Earned Value', 'Timeline', 'Look-ahead', 'Risks']),
+     ['Projects', 'Earned Value', 'Timeline', 'Look-ahead', 'Risks',
+      'Opportunities']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
                     'Equipment Hire', 'Plant', 'Consumption', 'Site Reports',
                     'Quality', 'Safety', 'Closeout']),
@@ -30,7 +31,7 @@ SECTIONS_CATALOG = [
     ('Purchases', ['Sourcing', 'Purchase Orders', 'Goods Receipt',
                    'Vendor Invoices', 'Subcontractors']),
     ('Money', ['Key Numbers', 'Approvals', 'Cash & Parties', 'Cash Flow',
-               'Retention', 'Insight']),
+               'Retention', 'Insight', 'Review']),
     ('Accounts', ['GST & TDS', 'Compliance', 'Accounting']),
 ]
 

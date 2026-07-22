@@ -33,6 +33,7 @@ import bill_export
 import estimate
 import evm
 import journal_post
+import review_assemble
 import web_docs
 import web_masters
 import webrender as R
@@ -221,7 +222,8 @@ def _nav(conn):
     """Rail groups, in a stable order, listing only tables that exist here."""
     have = _viewable_tables(conn)
     nav = [('', [('/', 'Dashboard', 'dashboard'),
-                 ('/evm', 'Earned Value', 'evm')])]
+                 ('/evm', 'Earned Value', 'evm'),
+                 ('/review', 'Weekly Review', 'review')])]
     placed = set()
     for group, keys in _GROUPS:
         items = []
@@ -256,6 +258,8 @@ def handle(request):
         return _dashboard(request, sess)
     if path == '/evm':
         return _evm(request, sess)
+    if path == '/review':
+        return _review(request, sess)
     if path == '/t' or path == '/t/':
         return _redirect('/')
     if path.startswith('/t/'):
@@ -469,6 +473,111 @@ def _evm_body(rows, port):
         R.table(headers, trows, scroll=True),
         '<p class="muted">{}</p>'.format(R.esc(note)),
     ])
+
+
+def _review(request, sess):
+    """Weekly Review, in the browser — the same assembled pack as the desktop
+    tab, read only. Reuses ``review_assemble.assemble`` so the two agree."""
+    conn = db.get_conn()
+    try:
+        pack = review_assemble.assemble(conn)
+        return _shell('Weekly Review', _review_body(pack), sess, conn,
+                      active='review')
+    finally:
+        conn.close()
+
+
+def _review_body(pack):
+    def li(items):
+        return '<ul>{}</ul>'.format(''.join(
+            '<li>{}</li>'.format(R.esc(x)) for x in items))
+
+    parts = ['<h1>Weekly Review</h1>',
+             '<p class="muted">Generated {} · a draft to read, not a decision '
+             '— nothing here books, files or pays.</p>'.format(
+                 R.esc(pack['generated']))]
+
+    # In plain words
+    parts.append('<h2>In plain words</h2>')
+    parts.append(li(pack['narrative']['kpi'] or ['Nothing notable to report.']))
+    if pack['narrative']['risk']:
+        parts.append('<p class="muted">{}</p>'.format(
+            R.esc(pack['narrative']['risk']).replace('\n', '<br>')))
+
+    # Money at a glance
+    k = pack['kpis']
+    money_cards = [
+        ('Cash in hand', R.money(k['cash'])),
+        ('Receivable', R.money(k['receivable'])),
+        ('Past 90 days', R.money(k['receivable_90plus'])),
+        ('Payable', R.money(k['payable'])),
+        ('Billed this month', R.money(k['billed_this_month'])),
+        ('Collected this month', R.money(k['collected_this_month'])),
+    ]
+    parts.append('<h2>Money at a glance</h2>')
+    parts.append('<div class="cards">{}</div>'.format(''.join(
+        '<div class="card"><div class="k">{}</div><div class="v">{}</div></div>'
+        .format(R.esc(a), R.esc(b)) for a, b in money_cards)))
+
+    # Earned value (portfolio)
+    e = pack.get('evm')
+    if e:
+        parts.append('<h2>Earned value (portfolio)</h2>')
+        parts.append(
+            '<p>{n} project(s) measured · CPI {cpi} · SPI {spi} · {oc} over '
+            'cost · {bh} behind.{worst}</p>'.format(
+                n=e['projects'], cpi=_evm_index(e['cpi']),
+                spi=_evm_index(e['spi']), oc=e['over_cost'],
+                bh=e['behind_schedule'],
+                worst=(' Worst: {} (CPI {}).'.format(
+                    R.esc(e['worst_cpi']), _evm_index(e['worst_cpi_value']))
+                    if e['worst_cpi'] else '')))
+
+    # Advisories
+    adv = pack['advisories']
+    c = adv['counts']
+    parts.append('<h2>Advisories</h2>')
+    parts.append('<p class="muted">{} to act on · {} to watch · {} good · {} '
+                 'info</p>'.format(c.get('act', 0), c.get('watch', 0),
+                                   c.get('good', 0), c.get('info', 0)))
+    for card in adv['cards']:
+        parts.append(
+            '<div class="adv {sev}"><div class="t">{title}</div>'
+            '<div class="m">{detail}</div>'
+            '<div class="m"><strong>Do:</strong> {action} '
+            '<span class="muted">· {where}</span></div></div>'.format(
+                sev=R.esc(card['severity']), title=R.esc(card['title']),
+                detail=R.esc(card['detail']), action=R.esc(card['action']),
+                where=R.esc(card.get('where', ''))))
+
+    # Risks
+    r = pack['risks']
+    parts.append('<h2>Risks</h2>')
+    if not r['count']:
+        parts.append('<p class="muted">No risks flagged on the numbers '
+                     'recorded so far.</p>')
+    else:
+        parts.append('<p class="muted">{} flagged · {} need action now · total '
+                     'expected exposure {}</p>'.format(
+                         r['count'], r['needs_action'],
+                         R.money(r['total_expected_exposure'])))
+        parts.append(li('[{}] {} — {}'.format(
+            t['band'], t.get('title', 'risk'), t.get('basis', ''))
+            for t in r['top']))
+
+    # Opportunities
+    o = pack.get('opportunities')
+    if o and o['count']:
+        parts.append('<h2>Opportunities</h2>')
+        parts.append('<p class="muted">{} logged · {} worth pursuing now · '
+                     'total expected upside {}</p>'.format(
+                         o['count'], o['pursue_now'],
+                         R.money(o['total_expected_value'])))
+        parts.append(li('[{}] {} — expected upside {}'.format(
+            t.get('band', 'Low'), t.get('title', 'opportunity'),
+            R.money(t.get('expected_value'))) for t in o['top']))
+
+    return ''.join(parts)
 
 
 def _table_route(request, sess, rest):

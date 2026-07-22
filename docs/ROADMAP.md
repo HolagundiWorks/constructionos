@@ -54,6 +54,8 @@ with minimal typing?_
 - **Critical-path / dependency scheduling** (CPM) and an **MS-Project-grade scheduler** (working calendar, typed deps FS/SS/FF/SF + lag, WBS); **baseline-vs-actual** with LD / EOT exposure; per-project Gantt.
 - **Risk register** (Project Management › Risks) — likelihood × impact → score / band / expected exposure (derive-on-save via `risk.py`/`risk_store.py`), owner, response, mitigation, and **Auto-detect** that raises risks from the current figures (`risk_detect`) each with a drafted response.
 - **Earned Value** (Project Management › Earned Value, and browser `/evm`) — per-project **SPI / CPI / EAC / VAC / TCPI** with a value-weighted portfolio roll-up, worst-first. BAC = contract value / budget, AC = project cost roll-up, EV = billed value, PV = time-scheduled from the project window (`earnedvalue.py` maths, `evm.py` assembly; the two proxies are footnoted on screen, not hidden).
+- **Opportunity register** (Project Management › Opportunities) — the upside twin of the risk register: likelihood × impact → band, probability-weighted **expected upside**, urgency-driven priority (`opportunity.py`/`opportunity_store.py`, same derive-on-save discipline), best-first with the strongest washed green.
+- **Weekly Review** (Money › Review, and browser `/review`) — the whole weekly review assembled in one call: plain-language narrative, money at a glance, portfolio EVM, advisories, and the risk & opportunity summaries (`review_pack.py` assembly over `advisory`/`risk_detect`/`narrative`/`earnedvalue`). A draft to read — it books, files and pays nothing.
 - **Bid / no-bid** scorecard (ledger-evidenced, vetoes override the score).
 
 ### AI
@@ -77,7 +79,7 @@ with minimal typing?_
 
 ## 🚧 In progress · ⏳ Next
 
-- 🚧 **Enterprise PM backbone** — deterministic EVM, risk, forecast, opportunity, execution KPIs, narration / review-pack. The pure modules have landed; **lessons-learned**, **submittals**, the **risk register**, and now **Earned Value** (SPI/CPI/EAC, desktop + browser) are shipped (above). Still to surface in the UI: the **opportunity** register and the **review-pack / narrative** report. Tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
+- ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
 - ⏳ **Browser / LAN — remaining parity.** The RA-bill **measurement-book detail** (per-item measurements, part-rates, printed Form 23/26) and the **GST / compliance** registers stay desktop / view-only for now; everything else is browser-editable.
 - ⏳ **Real-display GUI render check.** A validation task, not a code gap: the headless CI has no Tk, so the two GUI smoke tests run only on a machine with a display (or Xvfb). The 600+ pure-logic tests pass headlessly.
 
