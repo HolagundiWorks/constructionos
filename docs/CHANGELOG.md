@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U4: cash-flow forecast chart (on cloud CT-4 shapes)
+
+- **Cash-flow forecast on the Charts page.** A second stock LiveCharts chart binds
+  `GET /api/cashflow`'s chart-ready arrays (cloud CT-4): projected **money in /
+  out as columns** and the **running balance as a line** per forecast week. The
+  Python engine still owns the lag maths; the client only plots `labels` +
+  `series.{in,out,balance}`. Empty-state caption when there's nothing to project.
+  With this, U4's charts (KPIs, cash-flow, EVM) are built — only the ageing
+  series is left. `dotnet build` 0 errors.
+- Follows the **cloud CT-1…CT-5 merge** (pure `gst.py`, `/api/gst`,
+  `/api/measurements` CRUD, chart shapes, a master-API audit-commit fix) — merged
+  reconciled with the WinUI work; **713 tests green**.
+
+---
+
 ## 2026-07-22 — WinUI U3: record a payment from the client
 
 - **MoneyPage is now write-capable.** A `CommandBar` **New payment** button opens

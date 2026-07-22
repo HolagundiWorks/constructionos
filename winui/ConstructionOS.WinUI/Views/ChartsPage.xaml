@@ -3,11 +3,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI">
-  <!-- U4: money KPIs from GET /api/kpi bound to a stock LiveCharts column chart.
-       No business maths in C# — the values come straight from the Python API. -->
+  <!-- U4: money KPIs (/api/kpi) + cash-flow forecast (/api/cashflow) bound to
+       stock LiveCharts. No business maths in C# — every value from the API. -->
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12">
-      <TextBlock Text="Charts / Key Numbers" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="Charts / Key Numbers"
+                 Style="{StaticResource TitleTextBlockStyle}"/>
       <TextBlock x:Name="Caption" TextWrapping="Wrap"
                  Text="Money snapshot from GET /api/kpi."/>
       <Border Height="340" Padding="4"
@@ -15,7 +16,19 @@
               CornerRadius="8">
         <lvc:CartesianChart x:Name="Chart"/>
       </Border>
-      <TextBlock x:Name="Status" TextWrapping="Wrap" FontFamily="Consolas"/>
+      <TextBlock x:Name="Status" TextWrapping="Wrap"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+      <TextBlock Text="Cash-flow forecast"
+                 Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
+      <TextBlock x:Name="CashCaption" TextWrapping="Wrap"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                 Text="Projected money in / out and the running balance per week — from GET /api/cashflow."/>
+      <Border Height="340" Padding="4"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              CornerRadius="8">
+        <lvc:CartesianChart x:Name="CashChart"/>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </Page>
