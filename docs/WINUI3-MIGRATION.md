@@ -252,11 +252,14 @@ the tree for non-Windows use or delete per a later call.
 | **U6** | Packaging: PyInstaller backend sidecar inside **MSIX**; launch/停 lifecycle; signing | Windows — notes in [`winui/PACKAGING.md`](../winui/PACKAGING.md) |
 | **U7** | Parity pass, persona menus (menu.py), accessibility, retire tkinter on Windows | Windows |
 
-**Build status:** U0 is built and proven headless (the tested Python API). U1–U5
-are **scaffolded C#/XAML** — with the **.NET 10 SDK now installed on the Windows
-dev box**, the client can be restored/built/iterated locally (Windows App SDK
-build tools required for the XAML compiler); it still cannot be built or
-screenshotted from a non-Windows/no-display runner.
+**Build status:** U0 is built and proven headless (the tested Python API). The
+U1–U5 WinUI client now **compiles clean** — `dotnet build -p:Platform=x64` on the
+Windows dev box (.NET 10 SDK + Windows App SDK) returns **0 errors** for the whole
+solution (shell, generic masters CRUD, money/EVM/charts, Controls/Process pages,
+`ApiClient`). That is a *compile* proof, not a *run* proof: launching the packaged
+app against the Python backend and screenshotting the UI is the next verification
+(and needs an interactive desktop session). One benign `NETSDK1206` RID warning
+from WindowsAppSDK remains.
 
 ---
 

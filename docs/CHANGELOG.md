@@ -6,6 +6,24 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI client compiles (U1–U5) + branch merge
+
+- **Merged** `cursor/complete-remaining-roadmap-32b0` into main (Controls/Process/
+  persona desktop tabs, `portfolio_store` + `workflow_state`, `productivity_store`,
+  AI sidecar scaffolds, and the WinUI U3–U5 pages) — reconciled with main's U0
+  audit fix and U2 masters CRUD. Conflicts in `MainWindow.xaml.cs` (routing unions
+  the master tabs + the new pages), `README.md` and the changelog were resolved as
+  unions. Merged Python tree: **671 tests green**.
+- **The WinUI client builds.** `dotnet build -p:Platform=x64` (.NET 10 SDK +
+  Windows App SDK) compiles the whole solution — shell, `MastersPage`,
+  Money/EVM/Charts, Controls (Opportunities/Lessons/Submittals) + Process pages,
+  `ApiClient` — with **0 errors** (one benign `NETSDK1206` RID warning). First real
+  verification of the previously-uncompilable scaffold. *Compile* proof, not yet a
+  *run* proof (launching against the backend + screenshots is next).
+- **`.gitignore`** now excludes .NET build output (`bin/`, `obj/`, `.vs/`, MSIX).
+
+---
+
 ## 2026-07-22 — WinUI U2 scaffold: generic masters DataGrid CRUD
 
 - **One metadata-driven CRUD page for every master.** `Views/MastersPage.*`
