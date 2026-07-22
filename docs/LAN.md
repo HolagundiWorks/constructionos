@@ -18,7 +18,8 @@ browser — the same fields as the desktop, built from one shared spec
 (`web_masters.py`, checked against the live schema by a test so the two can't
 drift):
 
-* **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**.
+* **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**,
+  **Projects**, **Milestones** and the **Rate Book**.
 * **Estimates** — header + line items (add/remove rows in the browser). The
   roll-up (subtotal → contingency → GST → grand total) is the same pure
   `estimate.estimate_totals` the desktop uses, and estimates never post to the

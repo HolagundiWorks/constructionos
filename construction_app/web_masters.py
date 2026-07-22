@@ -26,6 +26,8 @@ def _f(key, label, kind='text', options=None, fk_sql=None, default='',
 
 
 _SITES = 'SELECT id, name FROM sites ORDER BY name'
+_CLIENTS = 'SELECT id, name FROM clients ORDER BY name'
+_PROJECTS = 'SELECT id, name FROM projects ORDER BY name'
 
 # table -> {label, fields}. Order and wording follow the desktop tabs.
 MASTERS = {
@@ -83,6 +85,41 @@ MASTERS = {
         _f('service_interval_days', 'Service every (days)', 'number',
            default='0'),
         _f('last_service_date', 'Last Serviced On'),
+    ]},
+    'projects': {'label': 'Project', 'fields': [
+        _f('name', 'Project name', required=True),
+        _f('client_id', 'Client', 'fk', fk_sql=_CLIENTS),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('start_date', 'Start date'),
+        _f('end_date', 'End date'),
+        _f('budget', 'Budget', 'number', default='0'),
+        _f('status', 'Status', 'combo',
+           options=['Active', 'On Hold', 'Completed', 'Cancelled'],
+           default='Active'),
+        _f('contract_value', 'Contract value (for LDs)', 'number', default='0'),
+        _f('ld_pct_per_week', 'LD % per week', 'number', default='0.5'),
+        _f('ld_cap_pct', 'LD cap %', 'number', default='10'),
+        _f('eot_granted_days', 'Extension granted (days)', 'number',
+           default='0'),
+        _f('notes', 'Notes', 'textarea'),
+    ]},
+    'milestones': {'label': 'Milestone', 'fields': [
+        _f('project_id', 'Project', 'fk', fk_sql=_PROJECTS),
+        _f('name', 'Milestone', required=True),
+        _f('target_date', 'Target date'),
+        _f('actual_date', 'Actual date'),
+        _f('amount', 'Amount', 'number', default='0'),
+        _f('status', 'Status', 'combo', options=['Pending', 'Done'],
+           default='Pending'),
+        _f('notes', 'Notes', 'textarea'),
+    ]},
+    'rate_book': {'label': 'Rate Item', 'fields': [
+        _f('code', 'Code'),
+        _f('category', 'Category'),
+        _f('description', 'Description', 'textarea', required=True),
+        _f('unit', 'Unit'),
+        _f('rate', 'Rate', 'number', default='0'),
+        _f('specification', 'Specification', 'textarea'),
     ]},
 }
 
