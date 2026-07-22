@@ -36,7 +36,10 @@ import web_docs
 import web_masters
 import webrender as R
 
-PAGE_SIZE = 50
+# Register lists scroll (with a sticky header) rather than page; this caps how
+# many rows are loaded into one scroll view — beyond it, the count line says so
+# and the user narrows with search.
+MAX_ROWS = 500
 
 # Writable registers beyond the flat-CRUD Masters. Estimates have child line
 # items and a computed total, but (unlike bills) never post to the ledger, so
@@ -427,10 +430,8 @@ def _register_list(request, conn, sess, table, cols):
     text_cols = [c[0] for c in cols if 'CHAR' in c[1] or 'TEXT' in c[1]
                  or 'CLOB' in c[1] or c[1] == '']
     q = (request.query.get('q') or '').strip()
-    try:
-        page = max(1, int(request.query.get('p') or 1))
-    except ValueError:
-        page = 1
+    show = colnames[:9]     # a manageable width; the record view has every field
+    pk = _pk(cols)
 
     where, params = '', []
     if q and text_cols:
@@ -441,49 +442,63 @@ def _register_list(request, conn, sess, table, cols):
     total = conn.execute(
         'SELECT COUNT(*) AS c FROM "{}"{}'.format(table, where),
         params).fetchone()['c']
-    offset = (page - 1) * PAGE_SIZE
-    # Show a manageable width in the list; the record view has every field.
-    show = colnames[:9]
-    order = ' ORDER BY "{}" DESC'.format(_pk(cols)) if _pk(cols) else ''
-    rows = conn.execute(
-        'SELECT {} FROM "{}"{}{} LIMIT ? OFFSET ?'.format(
-            ', '.join('"{}"'.format(c) for c in show), table, where, order),
-        params + [PAGE_SIZE, offset]).fetchall()
 
-    pk = _pk(cols)
+    # Sort: the column must be one on screen (identifiers come only from that
+    # trusted set, never the raw query value). Default is newest-first by pk.
+    sort = request.query.get('sort') or ''
+    if sort not in show:
+        sort = ''
+    direction = 'asc' if request.query.get('dir') == 'asc' else 'desc'
+    if sort:
+        order = ' ORDER BY "{}" {}'.format(sort, 'ASC' if direction == 'asc'
+                                           else 'DESC')
+    elif pk:
+        order = ' ORDER BY "{}" DESC'.format(pk)
+    else:
+        order = ''
+
+    # Scroll, not pages: fetch a generous window and let the table scroll; if
+    # there is more, say so (honest, not silently truncated).
+    rows = conn.execute(
+        'SELECT {} FROM "{}"{}{} LIMIT ?'.format(
+            ', '.join('"{}"'.format(c) for c in show), table, where, order),
+        params + [MAX_ROWS]).fetchall()
+
     data = [[r[c] for c in show] for r in rows]
     link = None
     if pk:
         ids = [r[pk] for r in rows]
         link = lambda i: '/t/{}/{}'.format(table, ids[i])
 
+    def sort_href(col):
+        # first click on a column sorts ascending; clicking it again flips
+        nd = 'desc' if (sort == col and direction == 'asc') else 'asc'
+        parts = (['q=' + urllib.parse.quote(q)] if q else []) + [
+            'sort=' + urllib.parse.quote(col), 'dir=' + nd]
+        return '/t/{}?{}'.format(table, '&'.join(parts))
+
+    header_links = [(sort_href(c),
+                     ('' if sort != c else (' ▲' if direction == 'asc' else ' ▼')))
+                    for c in show]
+
     add_btn = ''
     if _can_create(table) and can_write(sess['role']):
         add_btn = '<a class="btn" href="/t/{tbl}/new">+ New {lbl}</a>'.format(
             tbl=R.esc(table), lbl=R.esc(_create_label(table)))
+    count_txt = ('{} record(s)'.format(total) if total <= MAX_ROWS else
+                 'showing first {} of {} — search to narrow'.format(len(data),
+                                                                    total))
     search = (
         '<div class="toolbar"><form method="get" action="/t/{tbl}">'
         '<input type="search" name="q" placeholder="Search {lbl}…" value="{q}">'
         '<button class="btn ghost" type="submit">Search</button></form>'
-        '<span class="muted">{total} record(s)</span>{add}</div>'
-    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q), total=total,
-             add=add_btn)
+        '<span class="muted">{count}</span>{add}</div>'
+    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q),
+             count=R.esc(count_txt), add=add_btn)
 
     body = ['<h1>{}</h1>'.format(R.esc(_label(table))), search,
-            R.table([_label(c) for c in show], data, link=link)]
-
-    pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    if pages > 1:
-        nav = ['<div class="pager">']
-        base = '/t/{}?{}p='.format(table, ('q=' + urllib.parse.quote(q) + '&') if q else '')
-        if page > 1:
-            nav.append('<a href="{}{}">‹ Prev</a>'.format(base, page - 1))
-        nav.append('<span>Page {} of {}</span>'.format(page, pages))
-        if page < pages:
-            nav.append('<a href="{}{}">Next ›</a>'.format(base, page + 1))
-        nav.append('</div>')
-        body.append(''.join(nav))
-
+            R.table([_label(c) for c in show], data, link=link,
+                    header_links=header_links, scroll=True)]
     return _shell(_label(table), ''.join(body), sess, conn, active=table)
 
 

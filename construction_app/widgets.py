@@ -139,3 +139,43 @@ class ScrollFrame(ttk.Frame):
 
     def restyle(self):
         self._canvas.configure(bg=theme.palette()['canvas'])
+
+
+def make_sortable(tree):
+    """Make a ``ttk.Treeview``'s column headers click-to-sort.
+
+    Numeric-aware (₹/commas stripped so amounts sort as numbers, not text),
+    toggles ascending/descending on repeat clicks, and shows an ▲/▼ arrow on the
+    active column. Call once *after* the headings are set. Returns a ``resort``
+    callable that re-applies the current sort — call it at the end of a data
+    refresh so the chosen order sticks across a reload."""
+    base = {c: tree.heading(c)['text'] for c in tree['columns']}
+    state = {'col': None, 'rev': False}
+
+    def _key(value):
+        s = str(value).replace(',', '').replace('₹', '').strip()
+        try:
+            return (0, float(s))
+        except ValueError:
+            return (1, s.lower())
+
+    def resort():
+        col = state['col']
+        if not col:
+            return
+        items = sorted(((tree.set(k, col), k) for k in tree.get_children('')),
+                       key=lambda p: _key(p[0]), reverse=state['rev'])
+        for i, (_v, k) in enumerate(items):
+            tree.move(k, '', i)
+        for c in tree['columns']:
+            arrow = ('  ▼' if state['rev'] else '  ▲') if c == col else ''
+            tree.heading(c, text=base[c] + arrow)
+
+    def click(col):
+        state['rev'] = (not state['rev']) if state['col'] == col else False
+        state['col'] = col
+        resort()
+
+    for c in tree['columns']:
+        tree.heading(c, command=lambda cc=c: click(cc))
+    return resort

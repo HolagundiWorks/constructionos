@@ -104,6 +104,10 @@ th{background:var(--surface2);color:var(--helper);font-weight:600;font-size:11px
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--hover)}
 .tablewrap{overflow-x:auto}
+.tablewrap.scroll{max-height:70vh;overflow:auto}
+.tablewrap.scroll thead th{position:sticky;top:0;z-index:1}
+th a{color:inherit;display:block;text-decoration:none}
+th a:hover{color:var(--accent)}
 .btn{display:inline-block;background:var(--accent);color:var(--on-accent);
   border:1px solid var(--accent);border-radius:var(--r-btn);padding:9px 16px;
   font-size:13px;font-weight:600;cursor:pointer}
@@ -197,10 +201,22 @@ def page(title, body, *, user='', nav=None, active='', warning=''):
     return _doc(title, inner)
 
 
-def table(columns, rows, *, link=None):
+def table(columns, rows, *, link=None, header_links=None, scroll=False):
     """columns = list of header strings. rows = list of lists of cell values.
-    link (optional) = function(row_index) -> href to make each row clickable."""
-    head = ''.join('<th>{}</th>'.format(esc(c)) for c in columns)
+
+    link (optional) = function(row_index) -> href to make each row clickable.
+    header_links (optional) = list parallel to columns of ``(href, arrow)`` — a
+    clickable, sortable header with an ▲/▼ indicator. scroll = wrap in a
+    fixed-height scroll box with a sticky header (instead of paging)."""
+    ths = []
+    for i, c in enumerate(columns):
+        hl = header_links[i] if header_links else None
+        if hl and hl[0]:
+            ths.append('<th><a href="{}">{}{}</a></th>'.format(
+                esc(hl[0]), esc(c), hl[1] or ''))
+        else:
+            ths.append('<th>{}</th>'.format(esc(c)))
+    head = ''.join(ths)
     body = []
     for i, row in enumerate(rows):
         href = link(i) if link else None
@@ -210,8 +226,9 @@ def table(columns, rows, *, link=None):
                         '</tr>'.format(esc(href), cells))
         else:
             body.append('<tr>{}</tr>'.format(cells))
-    return ('<div class="tablewrap"><table><thead><tr>{}</tr></thead>'
-            '<tbody>{}</tbody></table></div>').format(head, ''.join(body))
+    cls = 'tablewrap scroll' if scroll else 'tablewrap'
+    return ('<div class="{}"><table><thead><tr>{}</tr></thead>'
+            '<tbody>{}</tbody></table></div>').format(cls, head, ''.join(body))
 
 
 def _trim(value, limit=120):

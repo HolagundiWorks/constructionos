@@ -20,6 +20,7 @@ import risk_store
 import risk_detect
 import theme
 from ui_guard import can_write
+from widgets import make_sortable
 from tab_masters import project_options
 
 _STATUSES = ['Open', 'Mitigating', 'Closed']
@@ -100,6 +101,7 @@ class RiskRegisterTab(ttk.Frame):
         for band, key in (('Critical', 'wash_bad'), ('High', 'wash_warn'),
                           ('Medium', 'wash_muted'), ('Low', 'wash_good')):
             self.tree.tag_configure(band, background=theme.wash(key[5:]))
+        self._resort = make_sortable(self.tree)     # click-to-sort headers
 
         # --- form
         form = ttk.LabelFrame(self, text='Details')
@@ -217,6 +219,7 @@ class RiskRegisterTab(ttk.Frame):
                 c=summ['count'], n=summ['needs_action'],
                 e=summ['total_expected_exposure'], cr=bb['Critical'],
                 hi=bb['High'], me=bb['Medium'], lo=bb['Low']))
+        self._resort()          # keep the chosen sort after a reload
 
     def _on_select(self, _e=None):
         sel = self.tree.selection()

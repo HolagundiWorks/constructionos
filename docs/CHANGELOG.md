@@ -18,6 +18,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Tables: sortable columns; browser lists scroll, not page
+
+- **Sortable columns everywhere.** Click a column header to sort (numeric-aware
+  — ₹/commas stripped so amounts sort as numbers), toggling ascending/descending
+  with an ▲/▼ arrow. Desktop: a reusable `widgets.make_sortable` wired into
+  `CrudFrame` (so every master/operations register gets it) and the Risk tab,
+  and the chosen order **sticks across a data refresh**. Web: header links carry
+  `?sort=&dir=`, whitelisted to the shown columns (identifiers never come from
+  the raw query, so it stays injection-safe).
+- **Browser register lists scroll instead of paging.** The old Prev/Next pager
+  is gone; the table sits in a fixed-height scroll box with a **sticky header**,
+  loading up to 500 rows. If there are more, the count line says *"showing first
+  500 of N — search to narrow"* rather than silently truncating.
+
+---
+
 ## 2026-07-22 — Shell: status footer, rail refresh, no floating dock
 
 - **Status footer** — a full-width taskbar at the bottom of the window with a
