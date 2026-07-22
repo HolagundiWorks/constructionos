@@ -27,7 +27,10 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ExtendsContentIntoTitleBar = true;
+        // Keep a standard OS title bar: with the top-ribbon NavigationView,
+        // extending content into the title bar makes the ribbon collide with the
+        // caption/close buttons. A normal title bar sits above the ribbon.
+        ExtendsContentIntoTitleBar = false;
     }
 
     private async void Nav_Loaded(object sender, RoutedEventArgs e)

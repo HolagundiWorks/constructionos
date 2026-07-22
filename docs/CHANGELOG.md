@@ -14,6 +14,9 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
   the requested auto-collapse, with no custom chrome. Section parents open a
   dropdown of their tabs; the search palette + Settings gear sit in the bar.
   Stock control only; routing/selection unchanged. `dotnet build` 0 errors.
+- **Title bar kept standard** (`ExtendsContentIntoTitleBar = false`): with a top
+  ribbon, extending content into the title bar made the nav collide with the
+  caption/close buttons — the OS title bar now sits cleanly above the ribbon.
 
 ---
 
