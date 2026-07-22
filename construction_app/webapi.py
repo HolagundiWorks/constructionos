@@ -750,9 +750,9 @@ def _create_master(request, sess, table):
             table, ', '.join('"{}"'.format(c) for c in cols),
             ', '.join('?' for _ in cols))
         cur = conn.execute(sql, [values[c] for c in cols])
-        conn.commit()
         new_id = cur.lastrowid
         auth.audit(conn, sess['username'], 'api_create', table, new_id)
+        conn.commit()
         row = conn.execute(
             'SELECT * FROM "{}" WHERE id = ?'.format(table), (new_id,)
         ).fetchone()
@@ -801,8 +801,8 @@ def _update_master(request, sess, table, rid):
         sql = 'UPDATE "{}" SET {} WHERE id = ?'.format(
             table, ', '.join('"{}" = ?'.format(c) for c in cols))
         conn.execute(sql, [merged[c] for c in cols] + [rid])
-        conn.commit()
         auth.audit(conn, sess['username'], 'api_update', table, rid)
+        conn.commit()
         row = conn.execute(
             'SELECT * FROM "{}" WHERE id = ?'.format(table), (rid,)
         ).fetchone()
@@ -824,11 +824,11 @@ def _delete_master(request, sess, table, rid):
             return _err('Not found', 404)
         try:
             conn.execute('DELETE FROM "{}" WHERE id = ?'.format(table), (rid,))
-            conn.commit()
         except Exception as exc:  # noqa: BLE001 — FK integrity → plain error
             return _err('Cannot delete: record is still used elsewhere ({})'
                         .format(exc), 409)
         auth.audit(conn, sess['username'], 'api_delete', table, rid)
+        conn.commit()
         return _ok({'deleted': rid})
     finally:
         conn.close()
