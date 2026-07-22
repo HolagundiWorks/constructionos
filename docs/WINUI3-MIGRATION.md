@@ -28,7 +28,7 @@ rest of the product held (documented so the trade is explicit, not accidental):
 | **Cross-platform** (Win/Linux/Mac) | **Broken** — WinUI 3 is **Windows 10/11 only** |
 | **Double-click-a-folder / USB** | **Replaced** — MSIX package + Windows App SDK runtime |
 | Single SQLite file, offline | **Kept** |
-| The **pure domain core + 619 tests** | **Kept** (reused as a backend — §1) |
+| The **pure domain core + ~642 tests** | **Kept** (reused as a backend — §1) |
 
 The single most important design decision below (§1) is what makes this a
 **replatform of the *UI*** rather than a **rewrite of the *whole app***.
@@ -37,8 +37,8 @@ The single most important design decision below (§1) is what makes this a
 
 ## 1. Target architecture — reuse the domain, replace only the UI
 
-**Do not reimplement the ~60 pure Python business modules (finance, civil, EVM,
-risk, scheduling, …) and their 619 tests in C#.** Keep them. Run the existing
+**Do not reimplement the ~93 pure Python business modules (finance, civil, EVM,
+risk, scheduling, …) and their ~642 tests in C#.** Keep them. Run the existing
 Python core as a **local backend service** that the WinUI 3 client calls over
 **localhost HTTP** — the same "server does the compute, thin client renders"
 topology already documented for the LAN/AI layers.
@@ -52,7 +52,7 @@ topology already documented for the LAN/AI layers.
  ├────────────┼──────────────────────────────────────────────────┤
  │  Python backend service  (existing, ~unchanged)               │
  │    NEW: JSON API (webapi.py) over the SAME domain + db         │
- │    reuses finance/civil/risk/earnedvalue/… (619 tests kept)   │
+ │    reuses finance/civil/risk/earnedvalue/… (~642 tests kept)   │
  │    auth/roles/audit reused; SQLite single file                │
  └─────────────────────────────────────────────────────────────┘
 ```
@@ -71,7 +71,7 @@ topology already documented for the LAN/AI layers.
   `127.0.0.1` — never exposed to the network.
 
 **Alternative rejected:** rewriting the domain in C# would duplicate 60 modules
-and 619 tests, double the maintenance, and risk silent money-maths divergence —
+and ~642 tests, double the maintenance, and risk silent money-maths divergence —
 for no user-visible gain. The client/service split is the correct decomposition.
 
 ---
@@ -227,7 +227,7 @@ the official Windows glyph list at build time.
 
 ## 8. What this keeps vs. gives up
 
-**Keeps:** the entire pure domain core and its 619 tests; the SQLite single-file
+**Keeps:** the entire pure domain core and its ~642 tests; the SQLite single-file
 data model; auth/roles/audit; the EVM/risk/opportunity/lessons/workflow/menu
 logic just built; offline operation.
 
@@ -265,7 +265,7 @@ contract in tested Python before any C# is written.
   extending `tests/test_web.py`.
 - **Client (Windows):** MVVM ViewModels unit-tested (xUnit) against a mocked
   `ApiClient`; WinUI UI tests via **WinAppDriver**; the domain stays covered by
-  the existing 619 Python tests. No business logic is tested twice because none
+  the existing ~642 Python tests. No business logic is tested twice because none
   is duplicated.
 
 ---

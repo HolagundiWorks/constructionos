@@ -7,7 +7,7 @@ is the short, always-loaded memory.
 Construction OS — a full **ERP for Indian construction contractors**: pure
 **Python standard library**, **tkinter** desktop UI, optional **stdlib web/LAN**
 front-end, a single **SQLite** file, **no pip dependencies**. Business maths lives
-in ~90 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
+in ~93 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
 
 ## Hard rules (don't break without explicit instruction)
 - **Stdlib only, no pip** in the domain/backend. New business maths → a **pure,
@@ -36,13 +36,16 @@ cd construction_app && python -m compileall -q .
   **Python domain core + tests stay** and are reused as a **localhost backend
   service** (a JSON API the WinUI 3 client calls). Spec:
   [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md).
-- **Two development environments** — the roadmap is split accordingly
-  ([`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)):
-  - **Cloud (this agent, headless Python):** domain/data/backend modules, the
-    JSON API (U0), pure models (EVM, risk, opportunity, forecast, drift, menu,
-    workflow), unit tests, docs. **No display, no .NET, no ML models here.**
-  - **Local (Windows + display + .NET):** tkinter GUI tabs, the WinUI 3 client
-    (U1–U7), smoke tests, MSIX packaging, model sidecars.
+- **Two development environments** — the actionable split lives in
+  [`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)
+  §5A / §5B:
+  - **Cloud (this agent, headless Python):** domain/data/backend, **U0 JSON API**,
+    purity fixes, event/forecast→register logic, unit tests, docs. **No display,
+    no .NET, no ML models.** Next: **C0** (extract cost roll-up from
+    `tab_projects`) → **C1/C2** (`webapi.py`).
+  - **Local (Windows + display + .NET):** residual tkinter (Controls, Lessons
+    Learned tab, Process view, persona rail), WinUI 3 client (**U1–U7** after
+    U0), smoke tests, MSIX, model sidecars.
 
 ## Watch out
 - **Flat 143+-module namespace** invites filename collisions — `lessons.py`
