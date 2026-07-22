@@ -6,6 +6,23 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: N5 groups, portfolio, productivity, match narration
+
+- **N5 grouping.** Billing/Operations section notebooks render `menu.GROUPS` as
+  nested group tabs; Process deep-link walks nested notebooks.
+- **More event wiring.** Measurement save and variation Approve surface gated
+  `event_hooks` drafts (same pattern as GRN).
+- **Portfolio shell.** Money › Portfolio tab + WinUI `PortfolioPage` over
+  `portfolio_store` (federated paths optional).
+- **Productivity bridge.** `productivity_store` feeds Key Numbers +
+  `GET /api/productivity` from muster/plant/work-done (pure ratios unchanged).
+- **3-way match narration.** `procurement.narrate_match` / `narrate_summary`
+  on the Goods Receipt match view.
+- **Nav status.** N1–N3/N5/N6 marked built in the gap table; N4 partial (tab
+  search only).
+
+---
+
 ## 2026-07-22 — Remaining roadmap: Controls / Process / persona / WinUI / field
 
 - **L1 Controls section.** `modules.SECTIONS_CATALOG` gains **Controls** (Risk

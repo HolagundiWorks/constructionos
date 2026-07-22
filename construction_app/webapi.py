@@ -95,6 +95,9 @@ def handle(request, sess):
     if path == 'portfolio' and method == 'GET':
         return _portfolio(request)
 
+    if path == 'productivity' and method == 'GET':
+        return _productivity(request)
+
     if path == 'menu' and method == 'GET':
         return _menu(request)
 
@@ -868,7 +871,8 @@ def _api_contract():
             'GET /api/health', 'GET /api/contract',
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
-            'GET /api/workflow', 'GET /api/evm', 'GET /api/project/{id}/evm',
+            'GET /api/productivity', 'GET /api/workflow', 'GET /api/evm',
+            'GET /api/project/{id}/evm',
             'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
             'GET /api/submittals', 'GET /api/audit?origin=',
             'GET /api/search?q=', 'GET /api/{master}', 'GET /api/{doc}',
@@ -900,6 +904,19 @@ def _portfolio(request):
     try:
         return _ok({'current': portfolio_store.file_rollup(conn, name='current'),
                     'federated': False})
+    finally:
+        conn.close()
+
+
+def _productivity(request):
+    """GET /api/productivity — crew/plant utilisation from muster + plant logs."""
+    import productivity_store
+    conn = _conn()
+    try:
+        return _ok(productivity_store.firm_summary(
+            conn,
+            from_date=(request.query or {}).get('from'),
+            to_date=(request.query or {}).get('to')))
     finally:
         conn.close()
 

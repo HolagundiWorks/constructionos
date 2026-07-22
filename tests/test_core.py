@@ -1534,6 +1534,53 @@ class TestMenuModel(unittest.TestCase):
         self.assertTrue(any('Risk Register' in L for L in labels))
         self.assertEqual(menu.search_tabs('zzznomatch'), [])
 
+    def test_billing_groups_still_overlay_the_live_catalog(self):
+        tabs = self._catalog_map()['Billing']
+        grouped = menu.groups_for('Billing', tabs)
+        self.assertGreater(len(grouped), 1)
+        self.assertEqual(menu.flatten(grouped), tabs)
+        self.assertIn('Portfolio', self._catalog_map()['Money'])
+
+
+class TestProcurementNarration(unittest.TestCase):
+    def test_over_invoiced_is_plain_language(self):
+        import procurement as p
+        m = p.three_way(1000, 400, 900, 0)
+        text = p.narrate_match(m, 'PO-9')
+        self.assertIn('PO-9', text)
+        self.assertIn('over-invoiced', text.lower())
+        s = p.narrate_summary(p.summarise([m]))
+        self.assertIn('over-invoiced', s.lower())
+
+
+class TestProductivityStore(unittest.TestCase):
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_empty_book_has_undefined_rates(self):
+        import productivity_store
+        conn = self.db.get_conn()
+        try:
+            s = productivity_store.firm_summary(conn)
+            self.assertIsNone(s['units_per_hour'])
+            self.assertIsNone(s['plant_util_pct'])
+        finally:
+            conn.close()
+
 
 class TestWorkflowState(unittest.TestCase):
     """E7.4 — book-derived completion for the Process view."""

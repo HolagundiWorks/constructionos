@@ -24,6 +24,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | GET | `/api/review` | Weekly review pack |
 | GET | `/api/portfolio` | Current-file roll-up; `?paths=a.db,b.db` federates |
 | GET | `/api/menu?persona=Owner` | Sections/tabs for NavigationView |
+| GET | `/api/productivity` | Crew/plant utilisation from muster + plant logs |
 | GET | `/api/workflow?infer=1` | Flow graphs + progress (book-inferred by default) |
 | GET | `/api/search?q=` | Command-palette hits over the catalog |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value |

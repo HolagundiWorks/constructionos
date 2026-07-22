@@ -860,7 +860,7 @@ Rail entries are Home, Assistant, Process, AI Engine, one row per enabled
 section from `modules.SECTIONS_CATALOG` (persona-filtered via `menu.resolve`),
 then Tools. A status footer carries a live AI indicator.
 
-The catalog is **8 sections over 50 toggleable modules**: Masters, Project
+The catalog is **8 sections over 51 toggleable modules**: Masters, Project
 Management, Controls, Operations, Billing, Purchases, Money, Accounts. Home,
 Assistant, Process, AI Engine and Tools are always on and not in the catalog.
 

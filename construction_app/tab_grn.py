@@ -651,12 +651,13 @@ class ThreeWayMatch(ttk.Frame):
             self.tree.insert('', 'end', values=values, tags=(tag,) if tag else ())
 
         s = procurement.summarise(matches)
+        narration = procurement.narrate_summary(s)
         self.summary_var.set(
-            'At risk (invoiced without a receipt): {:,.2f}   ·   awaiting '
-            'delivery {:,.2f}   ·   received not yet invoiced {:,.2f}   ·   '
-            '{} of {} POs need attention'.format(
-                s['at_risk'], s['awaiting_delivery'], s['received_not_invoiced'],
-                s['problem_count'], s['total_count']))
+            '{}  ·  At risk ₹{:,.0f} · awaiting delivery ₹{:,.0f} · '
+            'received not invoiced ₹{:,.0f} · {}/{} POs need attention'.format(
+                narration, s['at_risk'], s['awaiting_delivery'],
+                s['received_not_invoiced'], s['problem_count'],
+                s['total_count']))
 
     def export(self):
         html = bill_export.build_statement_html(

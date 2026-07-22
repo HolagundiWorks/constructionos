@@ -36,7 +36,7 @@ SECTIONS_CATALOG = [
     ('Purchases', ['Sourcing', 'Purchase Orders', 'Goods Receipt',
                    'Vendor Invoices', 'Subcontractors']),
     ('Money', ['Key Numbers', 'Approvals', 'Cash & Parties', 'Cash Flow',
-               'Retention', 'Insight', 'Review']),
+               'Retention', 'Insight', 'Review', 'Portfolio']),
     ('Accounts', ['GST & TDS', 'Compliance', 'Accounting']),
 ]
 

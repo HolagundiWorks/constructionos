@@ -92,6 +92,8 @@ public sealed partial class MainWindow : Window
             else if (tag.Contains("Earned", StringComparison.OrdinalIgnoreCase)
                      || tag.Contains("EVM", StringComparison.OrdinalIgnoreCase))
                 ContentFrame.Navigate(typeof(EvmPage));
+            else if (tag.Contains("Portfolio", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(PortfolioPage));
             else if (tag.Contains("Chart", StringComparison.OrdinalIgnoreCase)
                      || tag.Contains("Key Numbers", StringComparison.OrdinalIgnoreCase))
                 ContentFrame.Navigate(typeof(ChartsPage));

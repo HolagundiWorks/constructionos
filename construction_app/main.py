@@ -52,6 +52,7 @@ from tab_lessons_learned import build_lessons_learned_tab
 from tab_process import build_process_tab
 from tab_sourcing import build_sourcing_tab, build_submittals
 from tab_review import build_review_tab
+from tab_portfolio import build_portfolio_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -132,6 +133,7 @@ BUILDERS = {
     'Retention': build_retention_tab,
     'Insight': build_insight_tab,
     'Review': build_review_tab,
+    'Portfolio': build_portfolio_tab,
     'GST & TDS': build_gst_tab,
     'Compliance': build_compliance_tab,
     'Accounting': build_accounting_tab,
@@ -168,7 +170,7 @@ MODULE_ICONS = {
     # Money
     'Key Numbers': '\U0001F511', 'Approvals': '✔', 'Cash & Parties': '\U0001F4B0',
     'Cash Flow': '\U0001F4B8', 'Retention': '\U0001F512', 'Insight': '\U0001F4A1',
-    'Review': '\U0001F5DE',
+    'Review': '\U0001F5DE', 'Portfolio': '\U0001F4CA',
     # Accounts
     'GST & TDS': '\U0001F3DB', 'Compliance': '\U0001F5D3', 'Accounting': '\U0001F4CA',
 }
@@ -189,15 +191,42 @@ def _apply_app_icon(root):
             pass
 
 
-def _section(parent, get, items):
-    """Build a sub-notebook holding a group of related tabs, each tab wearing
-    its module pictogram ahead of the (translated) label."""
-    sub = ttk.Notebook(parent)
-    for label, builder in items:
-        icon = MODULE_ICONS.get(label, '')
-        text = '{}  {}'.format(icon, i18n.t(label)) if icon else i18n.t(label)
-        sub.add(builder(sub, get), text=text)
-    return sub
+def _section(parent, get, title, items):
+    """Build a sub-notebook holding a group of related tabs.
+
+    When ``menu.GROUPS`` defines a 3rd-level overlay for ``title``, render an
+    outer notebook of named groups, each holding its tabs — otherwise a flat
+    notebook (the historical behaviour).
+    """
+    builders = {label: builder for label, builder in items}
+    tabs = [label for label, _ in items]
+    groups = menu.groups_for(title, tabs)
+
+    def _add_tabs(nb, labels):
+        for label in labels:
+            builder = builders.get(label)
+            if builder is None:
+                continue
+            icon = MODULE_ICONS.get(label, '')
+            text = ('{}  {}'.format(icon, i18n.t(label)) if icon
+                    else i18n.t(label))
+            nb.add(builder(nb, get), text=text)
+
+    # One implicit group → flat section notebook.
+    if len(groups) == 1 and groups[0][0] is None:
+        sub = ttk.Notebook(parent)
+        _add_tabs(sub, groups[0][1])
+        return sub
+
+    outer = ttk.Notebook(parent)
+    for group_label, labels in groups:
+        shown = [t for t in labels if t in builders]
+        if not shown:
+            continue
+        inner = ttk.Notebook(outer)
+        _add_tabs(inner, shown)
+        outer.add(inner, text=group_label or i18n.t(title))
+    return outer
 
 
 def main():
@@ -290,18 +319,28 @@ def main():
         if key not in {e['key'] for e in sh.entries}:
             return
         sh.select(key)
-        nb = sh._built.get(key)
-        if not isinstance(nb, ttk.Notebook):
+        root_nb = sh._built.get(key)
+        if not isinstance(root_nb, ttk.Notebook):
             return
-        try:
-            end = nb.index('end')
-        except Exception:
-            return
-        for i in range(end):
-            text = nb.tab(i, 'text') or ''
-            if tab in text or text.strip().endswith(tab):
-                nb.select(i)
-                break
+
+        def _select_tab(nb, name):
+            try:
+                end = nb.index('end')
+            except Exception:
+                return False
+            for i in range(end):
+                text = nb.tab(i, 'text') or ''
+                child = nb.nametowidget(nb.tabs()[i])
+                if name in text or text.strip().endswith(name):
+                    nb.select(i)
+                    return True
+                # Nested group notebook (E7.3 3rd level).
+                if isinstance(child, ttk.Notebook) and _select_tab(child, name):
+                    nb.select(i)
+                    return True
+            return False
+
+        _select_tab(root_nb, tab)
 
     # One rail entry per always-on screen and per enabled section; each section
     # keeps its sub-notebook, built lazily the first time the row is opened.
@@ -325,7 +364,8 @@ def main():
             continue
         entries.append({'key': 'sec:' + title, 'label': i18n.t(title),
                         'icon': icons.get(title, '◆'),
-                        'build': (lambda p, it=items: _section(p, get, it))})
+                        'build': (lambda p, t=title, it=items:
+                                  _section(p, get, t, it))})
     entries.append({'key': 'tools', 'label': i18n.t('Tools'),
                     'icon': icons['tools'],
                     'build': lambda p: build_tools_tab(p, get)})

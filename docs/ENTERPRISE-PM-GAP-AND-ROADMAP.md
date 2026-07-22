@@ -164,12 +164,12 @@ operational-flow mapping. The gaps:
 
 | # | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|---|
-| **N1** | Menu home for the new registers | 🟡 | Risks / Opportunities live under Project Management; Weekly Review under Money; **Lessons Learned register** still has no dedicated tab (Rate Realisation ≠ lessons-learned); Submittals sit inside Sourcing | Part 2 registers partly reachable; Lessons Learned register still buried | Controls section + Lessons Learned tab (E7.3); keep Submittals or promote | P1 · M · UI |
-| **N2** | Guided operational workflow | 🟡 | Flow graph built (`workflow.py` — next-step/progress, drift-guarded); Process view (UI) pending | New users can't yet *see* the operating sequence | Process view over `workflow`/`advisory`/`followups` (E7.4) | P1 · M · UI |
-| **N3** | Role/persona-scoped menu | 🟡 | Persona→sections model built (`menu.py`, composes with feature-flags); rail filtering (UI) pending | Model ready; menu not yet rendered per persona | Rail filtering over `menu.resolve` (E7.3) | P1 · S · UI |
-| **N4** | Global search / command palette / breadcrumbs | ❌ | 47+ tabs, findability by memory; no deep-linking | Slow navigation; no jump-to-record | Search index over tabs+records; align with web URL routing | P2 · M · UI |
-| **N5** | Sub-section grouping (3rd level) | 🟡 | Grouping overlay built (`menu.GROUPS`/`groups_for`/`flatten`, drift-guarded); render pending | Model ready; 3rd level not yet rendered | Render grouped tabs in the section notebook (E7.3) | P2 · S · UI |
-| **N6** | Workflow-menu alignment | 🟡 | Steps of one process sit in different sections (Sourcing↔Bid/No-Bid; Measurement↔DPR) | Functional grouping fights the flow | Resolved by N2's Process view (overlay, not a re-org) | P2 · S · UX |
+| **N1** | Menu home for the new registers | ✅ | Controls section + Lessons Learned tab shipped | — | Maintain | — |
+| **N2** | Guided operational workflow | ✅ | Process rail over `workflow` + `workflow_state` | — | Maintain | — |
+| **N3** | Role/persona-scoped menu | ✅ | Tools › Persona + `menu.resolve` in rail | — | Maintain | — |
+| **N4** | Global search / command palette / breadcrumbs | 🟡 | Process “Go to…” + `menu.search_tabs` / `GET /api/search`; no record-level deep-link yet | Tab findability improved; record jump still open | Extend search to records; align with web URLs | P2 · M · UI |
+| **N5** | Sub-section grouping (3rd level) | ✅ | `menu.GROUPS` rendered as nested notebooks in `_section` | — | Maintain | — |
+| **N6** | Workflow-menu alignment | ✅ | Resolved by Process view (overlay, not a re-org) | — | Maintain | — |
 
 **Guardrail:** the menu *model* — the role→section map, the workflow step graph,
 the catalog grouping — is **pure config/data and unit-testable headless**; only
