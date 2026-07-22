@@ -104,6 +104,9 @@ import muster_draft
 import boq_import
 import text_extract
 import pattern_learn
+import material_match
+import grn_draft
+import signal_suggest
 
 
 class TestFinance(unittest.TestCase):
@@ -1556,6 +1559,57 @@ class TestFollowupsNewEvents(unittest.TestCase):
         self.assertTrue(ncr)
         att = followups.for_event(followups.ATTENDANCE_SAVED)
         self.assertTrue(att)
+
+
+class TestMaterialMatchAndGrnDraft(unittest.TestCase):
+    def setUp(self):
+        self.mats = [
+            {'id': 1, 'name': 'OPC 53 Cement', 'unit': 'bags', 'category': 'cement'},
+            {'id': 2, 'name': 'TMT 12mm', 'unit': 'MT', 'category': 'steel'},
+        ]
+
+    def test_match_and_challan_parse(self):
+        m = material_match.match_one('opc 53 cement', self.mats)
+        self.assertEqual(m['material_id'], 1)
+        text = ('Challan DC-12 vehicle MH12AB1234 2026-07-22\n'
+                '1. OPC 53 Cement 40 bags\n'
+                '2. Unknown Widget 3 nos')
+        d = grn_draft.draft_from_text(text, self.mats)
+        self.assertEqual(d['header']['challan_no'], 'DC-12')
+        self.assertEqual(d['matched'], 1)
+        self.assertEqual(d['unmatched'], 1)
+
+
+class TestMeasurementExtract(unittest.TestCase):
+    def test_mb_dims(self):
+        e = text_extract.extract(
+            'measurement nos 4 length 3 breadth 2 depth 1 footing',
+            target='measurement')
+        self.assertEqual(e['target'], 'measurement')
+        self.assertEqual(e['fields']['quantity'], 24.0)
+
+
+class TestSignalSuggest(unittest.TestCase):
+    def test_empty_book_preview(self):
+        import db, tempfile, os
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd); os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        try:
+            db.init_db()
+            conn = db.get_conn()
+            r = signal_suggest.suggest(conn, apply=False)
+            self.assertIn('drift', r)
+            self.assertFalse(r['applied'])
+            conn.close()
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
 
 
 class TestAuditOrigin(unittest.TestCase):

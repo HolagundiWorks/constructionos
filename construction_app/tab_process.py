@@ -10,6 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import menu
+import signal_suggest
 import theme
 import workflow
 import workflow_state
@@ -64,6 +65,15 @@ class ProcessTab(ttk.Frame):
         # --- workflows
         self.flows = ttk.Frame(self)
         self.flows.pack(fill='both', expand=True, padx=12, pady=4)
+
+        # --- soft-signal preview (E5)
+        self.signals = ttk.LabelFrame(self, text='Early signals (preview)')
+        self.signals.pack(fill='x', padx=12, pady=4)
+        self.signals_var = tk.StringVar()
+        ttk.Label(self.signals, textvariable=self.signals_var,
+                  wraplength=720, justify='left').pack(
+            anchor='w', padx=8, pady=6)
+
         ttk.Button(self, text='Refresh', command=self.refresh).pack(
             anchor='w', padx=12, pady=(0, 10))
 
@@ -71,6 +81,7 @@ class ProcessTab(ttk.Frame):
         conn = self.db_getter()
         try:
             report = workflow_state.progress_report(conn)
+            sug = signal_suggest.suggest(conn, apply=False)
         finally:
             conn.close()
         for child in self.flows.winfo_children():
@@ -96,6 +107,23 @@ class ProcessTab(ttk.Frame):
                     box, text='Open next step',
                     command=lambda s=nxt['section'], t=nxt['tab']: self.on_goto(s, t)
                 ).pack(anchor='w', padx=8, pady=(0, 8))
+        d = sug.get('drift') or {}
+        drafts = sug.get('drafts') or []
+        if d.get('drifting'):
+            sigs = ', '.join(
+                (s.get('signal') if isinstance(s, dict) else str(s))
+                for s in (d.get('signals') or [])) or 'weak signals'
+            self.signals_var.set(
+                'Drifting — {}. {} draft risk(s) ready (not written). '
+                'Apply via API / Controls › Risk Register.'.format(
+                    sigs, len(drafts)))
+        elif drafts:
+            self.signals_var.set(
+                '{} prediction draft(s) available (preview only).'.format(
+                    len(drafts)))
+        else:
+            self.signals_var.set(
+                'No early drift flag from PPC / RFI soft signals right now.')
         self._filter()
 
     def _filter(self):

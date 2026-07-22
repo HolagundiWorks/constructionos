@@ -55,7 +55,7 @@ cd construction_app && python -m compileall -q .
   existing module before adding one.
 - Keep this file and `AGENTS.md` accurate: if you change something they describe,
   update them in the same commit. Catalog is **8 sections / 52 modules** (incl.
-  Controls + Productivity); API version **u0.4**.
+  Controls + Productivity); API version **u0.5**.
 
 ## Key docs
 Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM +

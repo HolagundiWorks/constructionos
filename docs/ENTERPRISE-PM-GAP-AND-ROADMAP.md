@@ -93,7 +93,7 @@ gap, its impact, and the required work.
 | Earned Value Management (SPI/CPI/EAC) | ✅ | Maths (`earnedvalue.py`) + DB bridge (`evm.py`) + desktop tab + browser `/evm` | — | Maintain; keep bridge tkinter-free (see §5A C0) | — |
 | Formal risk register + scoring | ✅ | Scoring (`risk.py`) + store (`risk_store.py`) + **Controls › Risk Register** + detection (`risk_detect.py`) | — | Maintain | — |
 | Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; notes in `docs/CONCURRENCY.md` | Contention under many concurrent field users | Conflict handling / redesign only with owner decision | P1 · L · Platform |
-| Mobile field capture | 🟡 | Browser `/m/capture` + `/api/capture/*` (E6-lite); no native app | Field data can sync via LAN; native app still open | Native mobile optional | P1 · L · Platform |
+| Mobile field capture | 🟡 | `/m/capture` modes: work-done, paste note, muster | Native app still open | Native mobile optional | P1 · L · Platform |
 | AI-origin tagging in audit | ✅ | `audit_log.origin` + default `manual`; AI paths tagged; `?origin=` filter | — | Maintain | — |
 | Enterprise identity (SSO, project roles) | ❌ | Roles Admin/Operator/Viewer built; no SSO or per-project scoping | Larger orgs need finer access; solo users need none | Optional SSO + per-project role scoping (opt-in) | P2 · M · Platform |
 
@@ -101,8 +101,8 @@ gap, its impact, and the required work.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Photo → GRN / vendor-invoice draft (OCR) | 🟡 | `capture` + `sidecar_bridge` soft-fail; no weights in-repo | Largest source of typing + transcription error | Install OCR sidecar weights locally (L8) | P1 · L · AI |
-| Voice → DPR / measurement draft | 🟡 | Same bridge (`stt` kind); no weights | Field notes captured hours late at a desk | Install STT weights locally (L8) | P1 · M · AI |
+| Photo → GRN / vendor-invoice draft (OCR) | 🟡 | `grn_draft` + `material_match` + API; OCR weights still local | Largest source of typing error | Pair with OCR sidecar (L8) | P1 · L · AI |
+| Voice → DPR / measurement draft | 🟡 | `text_extract` (DPR + measurement) + STT bridge; no weights | Field notes captured late | Install STT weights (L8) | P1 · M · AI |
 | Photo of muster → attendance draft | 🟡 | `labor_match` + `muster_draft` + API; no OCR weights | Repetitive daily typing; name errors | Pair with OCR sidecar (L8) | P2 · M · AI |
 | BOQ / tender PDF → import draft | 🟡 | `boq_import` CSV/TSV/plain + API; PDF still open | Slow tender onboarding | PDF/VLM sidecar later | P2 · M · AI |
 | Free-text (WhatsApp) → structured record | 🟡 | `text_extract` + capture confirm targets | Updates live in chat, never in the system | Optional model extractor over same drafts | P2 · M · AI |
@@ -148,7 +148,7 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 | Risk register + likelihood×impact scoring | ✅ | Scoring + store + **Risks** tab + AI detection | — | Maintain | — |
 | Rule-based risk detection taxonomy | ✅ | `risk_detect.py` (11 rules + mitigation drafts) | Detection not yet auto-wired from every save event | Optional: event hook → draft into register (E4) | P1 · M · Core |
 | Risk narrative (top-N by exposure) | ✅ | `narrative.risk_briefing` in Weekly Review | — | Maintain | — |
-| Predictive / early-weak-signal risk | ❌ | Threshold rules only | Drift caught late, after a threshold trips | Correlate soft signals; trend projection (range+basis) | P2 · L · AI |
+| Predictive / early-weak-signal risk | 🟡 | `drift` + `signal_feed` + `signal_suggest` (PPC/RFI → drafts) | Richer predictors still open | Optional apply into register; more series later | P2 · L · AI |
 | Cross-project learning | 🟡 | `pattern_learn` → AI lesson drafts (opt-in apply) | Past overruns don't auto-inform new jobs | Human still applies; richer learning later | P2 · L · AI |
 
 **Guardrail:** no risk flag without a stated basis; AI *detects & ranks*, a human
@@ -251,7 +251,7 @@ What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 | **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
 | **E6** | Browser `/m/capture` + `/api/capture/*` (E6-lite) | Native mobile app (optional) | Local (optional) |
 | **E7** | `menu.py`, `workflow.py`, Controls, Lessons Learned, persona, Process, search, N5 groups | Display smoke (L0) | Cloud models+UI shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.4**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.4** · scaffolds Local |
+| **U** | `webapi.py` `/api/*` (**U0.5**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.5** · scaffolds Local |
 
 **What this environment can still produce:** pure Python domain, SQLite stores,
 stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
@@ -276,7 +276,7 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, capture floors, patterns | ✅ **u0.4** |
+| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, capture floors, GRN/signals | ✅ **u0.5** |
 | WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient + pages) | ✅ scaffolded (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
@@ -312,6 +312,7 @@ display.
 | **C9** | U0.2 (search records, match/reconcile/ageing/filings, portfolio advisories) | ✅ |
 | **C10** | U0.3 (NL intent, sidecar bridge API, narrative, Productivity tab) | ✅ |
 | **C11** | U0.4 (text/muster/BOQ capture floors, pattern learn, more events) | ✅ |
+| **C12** | U0.5 (GRN draft, signal suggest, mobile modes, measurement extract) | ✅ |
 
 **Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
 

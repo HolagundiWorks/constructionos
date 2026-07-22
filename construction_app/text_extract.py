@@ -54,7 +54,18 @@ def unit_norm(u):
     return mapping.get(u, u or 'Nos')
 
 
-TARGETS = ('work_done', 'daily_progress', 'ncr', 'snag')
+TARGETS = ('work_done', 'daily_progress', 'ncr', 'snag', 'measurement')
+
+_MB_DIMS = re.compile(
+    r'(?:nos|no\.?s?)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*'
+    r'(?:[x×*]\s*)?(?:l(?:en(?:gth)?)?)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*'
+    r'(?:[x×*]\s*)?(?:b(?:readth)?|w(?:idth)?)\s*[=:]?\s*(\d+(?:\.\d+)?)?\s*'
+    r'(?:[x×*]\s*)?(?:d(?:epth)?|h(?:eight)?)\s*[=:]?\s*(\d+(?:\.\d+)?)?',
+    re.I)
+_MB_SIMPLE = re.compile(
+    r'\b(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)'
+    r'(?:\s*[x×]\s*(\d+(?:\.\d+)?))?'
+    r'(?:\s*[x×]\s*(\d+(?:\.\d+)?))?\b')
 
 
 def detect_target(text):
@@ -64,6 +75,8 @@ def detect_target(text):
         return 'ncr'
     if _SNAG.search(t):
         return 'snag'
+    if re.search(r'\b(mb|measurement|nos\s*[x×]|length|breadth|depth)\b', t, re.I):
+        return 'measurement'
     if _QTY.search(t) and not _LABOUR.search(t):
         return 'work_done'
     if _LABOUR.search(t) or _WEATHER.search(t) or re.search(r'\bdpr\b', t, re.I):
@@ -71,6 +84,49 @@ def detect_target(text):
     if _QTY.search(t):
         return 'work_done'
     return 'daily_progress'
+
+
+def extract_measurement(text):
+    """Measurement-book style dims → nos/length/breadth/depth (+ description)."""
+    import civil
+    t = (text or '').strip()
+    conf = {}
+    nos = length = breadth = depth = None
+    m = _MB_DIMS.search(t)
+    if m:
+        nos = float(m.group(1))
+        length = float(m.group(2))
+        breadth = float(m.group(3)) if m.group(3) else None
+        depth = float(m.group(4)) if m.group(4) else None
+    else:
+        m2 = _MB_SIMPLE.search(t)
+        if m2:
+            # Ambiguous: treat as Nos x L [x B [x D]]
+            nos = float(m2.group(1))
+            length = float(m2.group(2))
+            breadth = float(m2.group(3)) if m2.group(3) else None
+            depth = float(m2.group(4)) if m2.group(4) else None
+    conf['nos'] = 0.85 if nos is not None else 0.3
+    conf['length'] = 0.85 if length is not None else 0.3
+    conf['breadth'] = 0.7 if breadth is not None else 0.4
+    conf['depth'] = 0.7 if depth is not None else 0.4
+    qty = civil.measurement_quantity(nos, length, breadth, depth)
+    conf['quantity'] = min(conf['nos'], conf['length'])
+    desc = re.sub(r'\s+', ' ', t).strip()[:200]
+    conf['description'] = 0.65
+    dm = _DATE.search(t)
+    mb_date = _norm_date(dm.group(1) if dm else '')
+    conf['mb_date'] = 0.85 if dm else 0.5
+    fields = {
+        'description': desc,
+        'nos': nos if nos is not None else 1.0,
+        'length': length if length is not None else '',
+        'breadth': breadth if breadth is not None else '',
+        'depth': depth if depth is not None else '',
+        'quantity': qty,
+        'mb_date': mb_date,
+    }
+    return fields, conf
 
 
 def extract_work_done(text):
@@ -181,6 +237,7 @@ _EXTRACTORS = {
     'daily_progress': extract_daily_progress,
     'ncr': extract_ncr,
     'snag': extract_snag,
+    'measurement': extract_measurement,
 }
 
 

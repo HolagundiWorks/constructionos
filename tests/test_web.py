@@ -814,7 +814,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.4')
+        self.assertEqual(c['api'], 'u0.5')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -1067,6 +1067,41 @@ class TestWebApi(unittest.TestCase):
             headers={'X-CSRF-Token': csrf}))
         self.assertEqual(resp.status, 201, resp.body)
         self.assertEqual(self._json(resp)['target'], 'ncr')
+
+    def test_u05_grn_draft_signals_suggest_mobile_modes(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.webapp.handle(self._req(
+            '/api/materials', 'POST', cookies=cookies,
+            json_body={'name': 'OPC 53 Cement', 'unit': 'bags'},
+            headers={'X-CSRF-Token': csrf}))
+
+        resp = self.webapp.handle(self._req(
+            '/api/grn/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Challan DC-1\n1. OPC 53 Cement 10 bags'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertGreaterEqual(self._json(resp)['matched'], 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/suggest', 'POST', cookies=cookies,
+            json_body={'apply': False},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn('drift', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/m/capture', cookies=cookies, query={'mode': 'free_text'}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Paste note', resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/text/extract', 'POST', cookies=cookies,
+            json_body={'text': 'measurement nos 2 length 5 breadth 1 depth 1',
+                       'target': 'measurement'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['fields']['quantity'], 10.0)
 
 
 if __name__ == '__main__':

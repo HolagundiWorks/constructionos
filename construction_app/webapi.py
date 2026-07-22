@@ -24,6 +24,7 @@ import event_hooks
 import evm
 import followups
 import forecast
+import grn_draft
 import journal_post
 import lessons_store
 import menu
@@ -38,6 +39,7 @@ import review_assemble
 import risk_store
 import sidecar_bridge
 import signal_feed
+import signal_suggest
 import submittals as submittals_mod
 import text_extract
 import web_docs
@@ -72,7 +74,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.4'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.5'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -164,6 +166,12 @@ def handle(request, sess):
 
     if path == 'signals/preview' and method == 'POST':
         return _signals_preview(request)
+
+    if path == 'signals/suggest' and method == 'POST':
+        return _signals_suggest(request, sess)
+
+    if path == 'grn/draft' and method == 'POST':
+        return _grn_draft(request)
 
     if path == 'capture/draft' and method == 'POST':
         return _capture_draft(request, sess)
@@ -918,7 +926,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.4',
+        'api': 'u0.5',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -949,7 +957,9 @@ def _api_contract():
             'POST /api/text/extract',
             'POST /api/muster/draft', 'POST /api/muster/confirm',
             'POST /api/boq/import/draft', 'POST /api/boq/import/confirm',
-            'POST /api/patterns/learn', 'POST /api/signals/preview',
+            'POST /api/grn/draft',
+            'POST /api/patterns/learn',
+            'POST /api/signals/preview', 'POST /api/signals/suggest',
             'POST /api/reconcile', 'POST /api/intent',
             'POST /api/sidecar/extract',
             'POST/PUT/DELETE /api/{master}[/{id}]',
@@ -1622,6 +1632,45 @@ def _signals_preview(request):
         ld_exposure=body.get('ld_exposure') or 0,
     )
     return _ok({'drafts': drafts, 'count': len(drafts)})
+
+
+def _signals_suggest(request, sess):
+    """POST /api/signals/suggest — soft signals from the live book → drafts.
+
+    Body: ``{apply?: bool, project_id?}``. Default preview-only.
+    """
+    body = _payload(request)
+    apply = bool(body.get('apply'))
+    if apply:
+        denied = _require_write(request, sess)
+        if denied:
+            return denied
+    project_id = body.get('project_id')
+    try:
+        project_id = int(project_id) if project_id not in (None, '') else None
+    except (TypeError, ValueError):
+        project_id = None
+    conn = _conn()
+    try:
+        result = signal_suggest.suggest(
+            conn, project_id=project_id, apply=apply,
+            username=sess.get('username') or 'system')
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _grn_draft(request):
+    """POST /api/grn/draft — {text} challan paste → matched GRN line drafts."""
+    body = _payload(request)
+    text = body.get('text') or ''
+    conn = _conn()
+    try:
+        mats = conn.execute(
+            'SELECT id, name, unit, category FROM materials').fetchall()
+    finally:
+        conn.close()
+    return _ok(grn_draft.draft_from_text(text, mats))
 
 
 def _capture_draft(request, sess):

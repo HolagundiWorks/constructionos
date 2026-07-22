@@ -105,6 +105,10 @@ public sealed partial class MainWindow : Window
             else if (tag.Contains("Capture", StringComparison.OrdinalIgnoreCase)
                      || tag.Contains("AI Engine", StringComparison.OrdinalIgnoreCase))
                 ContentFrame.Navigate(typeof(CapturePage));
+            else if (tag.Contains("Import", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("Goods Receipt", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("BOQ", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(ImportPage));
             else
                 ContentFrame.Navigate(typeof(HomePage));
         }

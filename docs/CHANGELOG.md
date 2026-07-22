@@ -6,6 +6,20 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: U0.5 GRN draft, signal suggest, mobile modes
+
+- **GRN draft floor.** `material_match` + `grn_draft` + `POST /api/grn/draft`
+  (challan paste → matched lines; no stock post).
+- **Measurement extract.** `text_extract` target `measurement` (Nos×L×B×D).
+- **Live signal suggest.** `signal_suggest` + `POST /api/signals/suggest` (PPC/RFI
+  soft signals → drift → preview drafts; opt-in apply). Process tab shows preview.
+- **Mobile capture modes.** `/m/capture` — work done / paste note / muster names
+  with Preview→Confirm.
+- **WinUI** `ImportPage` scaffold for GRN/BOQ/text/signals.
+- **API u0.5.** Predictive weak-signal row marked partial (drift+suggest built).
+
+---
+
 ## 2026-07-22 — Continue: U0.4 capture floors, pattern learn, more events
 
 - **Text extract.** `text_extract.py` + `POST /api/text/extract` — WhatsApp/site
