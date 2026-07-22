@@ -36,7 +36,7 @@ import numbering
 import refdata
 import sampledata
 from ui_guard import can_write
-from widgets import Switch
+from widgets import Switch, ScrollFrame
 
 
 class ToolsTab(ttk.Frame):
@@ -67,6 +67,11 @@ class ToolsTab(ttk.Frame):
             .pack(side='left', padx=6)
         ttk.Button(actions, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
+
+        # --- Web / LAN access (open in a browser, no client install) ---
+        # Placed near the top so the LAN server is easy to find.
+        self._web = None
+        self._build_web_panel()
 
         # --- One-click backup to a remembered folder (e.g. a synced drive) ---
         # "Cloud backup" for an offline app: point this at the local folder of
@@ -220,10 +225,6 @@ class ToolsTab(ttk.Frame):
         rbtn = ttk.Frame(ref); rbtn.pack(fill='x', padx=8, pady=(0, 8))
         ttk.Button(rbtn, text='Load CPWD Reference Data',
                    command=self.load_reference_data).pack(side='left')
-
-        # --- Web / LAN access (open in a browser, no client install) ---
-        self._web = None
-        self._build_web_panel()
 
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground=theme.palette()['success'],
@@ -882,10 +883,16 @@ class ToolsTab(ttk.Frame):
 
 
 def build_tools_tab(parent, db_getter):
-    """Tools as an inner notebook: data/settings, security, and the audit log."""
+    """Tools as an inner notebook: data/settings, security, and the audit log.
+
+    Backup & Settings has many stacked panels (including Web / LAN access), so
+    it lives inside a ScrollFrame — otherwise the lower panels fall below the
+    window with no way to reach them."""
     from tab_security import SecurityTab, AuditTab
     nb = ttk.Notebook(parent)
-    nb.add(ToolsTab(nb, db_getter), text='Backup & Settings')
+    scroll = ScrollFrame(nb)
+    ToolsTab(scroll.body, db_getter).pack(fill='x', anchor='n')
+    nb.add(scroll, text='Backup & Settings')
     nb.add(SecurityTab(nb, db_getter), text='Users & Security')
     nb.add(AuditTab(nb, db_getter), text='Audit Log')
     return nb

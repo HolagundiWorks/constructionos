@@ -180,15 +180,6 @@ def _section(parent, get, items):
     return sub
 
 
-def _ai_section(parent, get):
-    """The Assistant screen: Ask-your-data, plus the folded-in Ollama manager
-    (server + models) — one place for everything AI."""
-    nb = ttk.Notebook(parent)
-    nb.add(build_assistant_tab(nb, get), text='\U0001F4AC  ' + i18n.t('Assistant'))
-    nb.add(build_ollama_tab(nb, get), text='⚙  AI Engine')
-    return nb
-
-
 def main():
     db.init_db()
 
@@ -248,6 +239,7 @@ def main():
     icons = {
         'home': '\U0001F3E0',        # house
         'assistant': '\U0001F4AC',   # speech balloon
+        'aiengine': '\U0001F916',    # robot — the local LLM / Ollama manager
         'tools': '⚙',           # gear
         'Masters': '\U0001F5C2',            # card index dividers
         'Project Management': '\U0001F3D7',  # building construction
@@ -265,7 +257,12 @@ def main():
          'build': lambda p: build_home_tab(p, get)},
         {'key': 'assistant', 'label': i18n.t('Assistant'),
          'icon': icons['assistant'],
-         'build': lambda p: _ai_section(p, get)},
+         'build': lambda p: build_assistant_tab(p, get)},
+        # The local LLM / Ollama manager as its own rail row — start/stop the
+        # server, install Ollama, pull or set up the model — so it is found at a
+        # glance rather than buried as a sub-tab.
+        {'key': 'aiengine', 'label': 'AI Engine', 'icon': icons['aiengine'],
+         'build': lambda p: build_ollama_tab(p, get)},
     ]
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels
