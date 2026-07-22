@@ -541,6 +541,7 @@ def _update_risk(request, sess, rid):
             return _err('Risk not found', 404)
         risk_store.update(conn, rid, **fields)
         auth.audit(conn, sess['username'], 'api_update', 'risks', rid)
+        conn.commit()          # the store committed the change; persist the audit too
         return _ok(_row(risk_store.get(conn, rid)))
     finally:
         conn.close()
@@ -556,6 +557,7 @@ def _delete_risk(request, sess, rid):
             return _err('Risk not found', 404)
         risk_store.delete(conn, rid)
         auth.audit(conn, sess['username'], 'api_delete', 'risks', rid)
+        conn.commit()          # persist the audit alongside the store's delete
         return _ok({'deleted': rid})
     finally:
         conn.close()
@@ -596,6 +598,7 @@ def _create_opp(request, sess):
     try:
         new_id = opportunity_store.add(conn, **fields)
         auth.audit(conn, sess['username'], 'api_create', 'opportunities', new_id)
+        conn.commit()          # the store committed the row; persist the audit too
         return _ok(_row(opportunity_store.get(conn, new_id)), status=201)
     finally:
         conn.close()
@@ -613,6 +616,7 @@ def _update_opp(request, sess, oid):
             return _err('Opportunity not found', 404)
         opportunity_store.update(conn, oid, **fields)
         auth.audit(conn, sess['username'], 'api_update', 'opportunities', oid)
+        conn.commit()          # persist the audit alongside the store's update
         return _ok(_row(opportunity_store.get(conn, oid)))
     finally:
         conn.close()
@@ -628,6 +632,7 @@ def _delete_opp(request, sess, oid):
             return _err('Opportunity not found', 404)
         opportunity_store.delete(conn, oid)
         auth.audit(conn, sess['username'], 'api_delete', 'opportunities', oid)
+        conn.commit()          # persist the audit alongside the store's delete
         return _ok({'deleted': oid})
     finally:
         conn.close()

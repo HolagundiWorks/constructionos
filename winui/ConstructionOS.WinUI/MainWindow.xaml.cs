@@ -12,6 +12,18 @@ namespace ConstructionOS.WinUI;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    // Menu tab label → API master table. The tab labels come from the persona
+    // menu (/api/menu); the API registers are the lowercase table names. One
+    // generic MastersPage serves them all (U2).
+    private static readonly Dictionary<string, string> MasterTables = new()
+    {
+        ["Sites"] = "sites", ["Clients"] = "clients", ["Vendors"] = "vendors",
+        ["Materials"] = "materials", ["Labour"] = "labor",
+        ["Equipment"] = "equipment", ["Thekedars"] = "thekedars",
+        ["Projects"] = "projects", ["Milestones"] = "milestones",
+        ["Rate Book"] = "rate_book",
+    };
+
     public MainWindow()
     {
         InitializeComponent();
@@ -96,7 +108,13 @@ public sealed partial class MainWindow : Window
         if (args.SelectedItem is NavigationViewItem item)
         {
             var tag = item.Tag?.ToString() ?? "";
-            ContentFrame.Navigate(NavRoute.Resolve(tag));
+            // Master tabs carry a table name to the one generic MastersPage
+            // (U2); everything else resolves by NavRoute (typed tag → page).
+            var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
+            if (MasterTables.TryGetValue(tab, out var table))
+                ContentFrame.Navigate(typeof(MastersPage), table);
+            else
+                ContentFrame.Navigate(NavRoute.Resolve(tag));
         }
     }
 }

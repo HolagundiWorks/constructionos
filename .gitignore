@@ -30,3 +30,14 @@ demo.db
 installer/ai/*.gguf
 installer/vendor/
 *.gguf
+
+# WinUI 3 / .NET build outputs — the C#/XAML sources are tracked; MSBuild output,
+# restored packages and generated files are not.
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+winui/**/AppPackages/
+winui/**/Generated Files/
+*.appx
+*.msix

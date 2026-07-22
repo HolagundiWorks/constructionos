@@ -18,7 +18,7 @@ public sealed partial class ProductivityPage : Page
                 var u = JsonRows.Prop(data, "units_per_hour", "—");
                 var p = JsonRows.Prop(data, "plant_util_pct", "—");
                 Summary.Text = $"Firm units/hr: {u} · plant util %: {p}";
-                var rows = JsonRows.FromEnvelope(data, "sites", "items");
+                var rows = Ui.Lines(data, "sites", "items");
                 Grid.ItemsSource = rows;
                 Status.Text = rows.Count == 0 ? "No site rows." : $"{rows.Count} site(s).";
             }

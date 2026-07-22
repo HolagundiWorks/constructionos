@@ -189,7 +189,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 | # | Target | Status | Approach | Verifiable |
 |---|---|---|---|---|
 | **U0** | Backend JSON API over the domain (`webapi.py`) | ✅ | Reuse the tested Python core as a localhost service; JSON endpoints under `/api/*` (stdlib, testable) | **Here (Python)** |
-| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | 🟡 | U1–U5 hardened client (ApiClient/Settings/NavRoute/PageLoad) + packaging notes; build/MSIX on Windows | Windows/.NET only |
+| **U1–U7** | WinUI 3 C# client (NavigationView, ListView, Fluent, Segoe icons, charts) | 🟡 | **U1/U2 built + run** on Windows; U3–U5 pages partial; LiveCharts bind + MSIX open | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
 the tested business modules in C#. The client renders; the Python core still
@@ -211,11 +211,13 @@ Controls/Process/persona · event hooks (C5) + L4 wiring · capture **floors**
 
 1. **L0 display smoke** — full suite + `test_smoke_tabs` light/dark on a box
    with tkinter. _(S · Platform)_
-2. **L5 WinUI build/run** against `web_main.py` (source hardened). _(M · Platform)_
 
 **P1 — high value remaining:**
 
-3. **L6–L7** LiveCharts bind + signed MSIX. _(L · Platform)_
+2. **L6–L7** LiveCharts series bind + signed MSIX (U1/U2 already **build + run**).
+   _(L · Platform)_
+3. **U3–U5 finish** — billing/purchases forms, chart binding, AutoSuggest search.
+   _(M · Platform)_
 4. **Capture models (L8)** — OCR/STT/VLM **weights** over `stub_server` /
    `sidecar_bridge`. _(L · AI)_
 
@@ -249,7 +251,7 @@ build/MSIX, display smoke, ML weights.
 | **E5** | `forecast`, `drift`, `signal_feed`, `signal_suggest` | Tab polish optional | Cloud done |
 | **E6** | Browser `/m/capture` modes (work-done / note / muster) | Native mobile optional | Local (optional) |
 | **E7** | `menu.py`, `workflow.py`, Controls, Lessons, persona, Process, search, N5 | L0 display smoke | Cloud shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.6**) + **hardened** WinUI source (ApiClient/Settings/NavRoute/PageLoad) | VS build, LiveCharts bind, signed MSIX | **U0.6** · WinUI Local |
+| **U** | `webapi.py` `/api/*` (**U0.6**) + WinUI **U1/U2 built+run** (ListView); U3–U5 pages present | LiveCharts bind, billing forms, signed MSIX | **U0.6** · WinUI Local |
 
 **What this environment can still produce:** optional doc polish and bugfixes
 only — the cloud track’s deterministic floors and JSON API (**u0.6**) are
@@ -275,7 +277,7 @@ display.
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
 | **Backend JSON API (U0)** | `webapi.py` — full capture/confirm floors through u0.6 | ✅ **u0.6** |
-| WinUI U1 client | `winui/ConstructionOS.WinUI/` (hardened ApiClient, Settings, NavRoute, pages) | ✅ hardened source (Windows to build) |
+| WinUI U1–U2 client | `winui/ConstructionOS.WinUI/` (shell, Settings, Masters ListView CRUD, registers) | ✅ **built + runs** on Windows |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
 | Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
@@ -351,8 +353,8 @@ sidecars** are built and verified.
 | **L2** | **E7.3 persona rail** via `menu.resolve` | E7.1 | ✅ Tools › Persona + rail filter | P1 |
 | **L3** | **E7.4 Process view + search** | E7.2 | ✅ Process rail + `workflow_state` | P1 |
 | **L4** | **E4 GUI event wiring** (GRN + payment API follow-ups) | C5 | ✅ drafts surfaced, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | Source hardened; **VS 2022 build still required** (env-blocked in cloud) | P0 |
-| **L6** | **U2–U5 WinUI pages** | U1 | ✅ pages hardened (status/errors/helpers); **bind LiveCharts + run on Windows** | P1 |
+| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | ✅ **built + runs** (manifest/ListView/unpackaged fixes) | P0 |
+| **L6** | **U2–U5 WinUI pages** | U1 | ✅ U2 Masters CRUD; U3–U5 pages partial — **bind LiveCharts + finish forms** | P1 |
 | **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` + settings path notes; **signed MSIX on Windows** | P1 |
 | **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | Soft-fail `stub_server.py` + `health_check.py` ✅; **install weights locally** | P2 |
 | **L9** | **E6 mobile capture** | U0 | ✅ `/m/capture` + API; native app optional later | P2 |
@@ -622,8 +624,8 @@ E0 Foundation ──┬──> E2 KPI reach ──┐
   E6 mobile — browser ✅; native app optional (**L9**).
 - **Wave E (usability):** E7 — models + Controls/Process/persona/search ✅;
   residual = **L0** display smoke.
-- **Wave U (replatform):** **U0 API ✅ (C1–C13)** → **L5–L7** WinUI build/MSIX
-  (source hardened; compile still Windows-only).
+- **Wave U (replatform):** **U0 API ✅ (C1–C13)** → **U1/U2 ✅ built+run** →
+  finish U3–U5 / **L7** MSIX / LiveCharts bind.
 
 ---
 
@@ -687,10 +689,10 @@ The distance from today's Construction OS to an enterprise PM + AI platform is
 **short on domain logic** — EVM, risk, opportunity, forecast, drift, narrative,
 review-pack, menu/workflow, and the **U0.6 JSON API** are **built and tested**.
 Navigation (Controls / Lessons / Process / persona / N5) is **shipped**. What
-remains is concentrated in three places: (1) **WinUI 3 compile/run + MSIX** on
-Windows (source hardened; L5–L7), (2) **display smoke** for tkinter tabs (L0),
-and (3) the **AI capture frontier** — install OCR/STT/VLM **weights** over the
-soft-fail stub (L8); native mobile optional (L9). Owner decisions still open:
+remains is concentrated in three places: (1) **finish WinUI U3–U5 + MSIX**
+(U1/U2 already build and run on Windows), (2) **display smoke** for tkinter tabs
+(L0), and (3) the **AI capture frontier** — install OCR/STT/VLM **weights** over
+the soft-fail stub (L8); native mobile optional (L9). Owner decisions still open:
 SSO / project roles, concurrency redesign beyond `CONCURRENCY.md`.
 
 Work is split deliberately:
@@ -698,7 +700,7 @@ Work is split deliberately:
 | Track | Owns | Next |
 |---|---|---|
 | **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | ✅ **C0–C13 complete** — maintain / bugfix only |
-| **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → **L5** WinUI build → **L6–L7** charts/MSIX → **L8** weights |
+| **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → finish **U3–U5** / **L7** MSIX → **L8** weights |
 
 Throughout, the discipline stays: **deterministic maths underneath, explainable
 AI on top, a human on anything that moves money or a date, and the offline solo

@@ -1,0 +1,35 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.MastersPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- U2: one generic register page for every master (sites, clients, …).
+       The add/edit form is built from the API's field metadata (GET
+       /api/{table}.fields), so this single page replaces the tkinter CrudFrame
+       for all ten masters. Stock ListView (no DataGrid). -->
+  <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock x:Name="TitleText" Text="Masters"
+               Style="{StaticResource TitleTextBlockStyle}"/>
+    <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
+                HorizontalAlignment="Left" Background="Transparent" IsOpen="False">
+      <AppBarButton x:Name="NewButton" Label="New" Click="OnNew">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
+      </AppBarButton>
+      <AppBarButton x:Name="EditButton" Label="Edit" Click="OnEdit" IsEnabled="False">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE70F;"/></AppBarButton.Icon>
+      </AppBarButton>
+      <AppBarButton x:Name="DeleteButton" Label="Delete" Click="OnDelete" IsEnabled="False">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
+      </AppBarButton>
+      <AppBarSeparator/>
+      <AppBarButton x:Name="RefreshButton" Label="Refresh" Click="OnRefresh">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
+      </AppBarButton>
+    </CommandBar>
+    <Grid Grid.Row="2" RowDefinitions="Auto,*">
+      <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True"
+               Severity="Error" Margin="0,0,0,8"/>
+      <ListView x:Name="Grid" Grid.Row="1" SelectionMode="Single"
+                SelectionChanged="OnSelectionChanged"/>
+    </Grid>
+  </Grid>
+</Page>

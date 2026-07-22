@@ -708,6 +708,41 @@ class TestWebApi(unittest.TestCase):
             '/api/risks/{}'.format(rid), cookies=cookies))
         self.assertEqual(resp.status, 404)
 
+    def test_api_writes_are_audited(self):
+        # Every API write must leave an audit row — the store commits the change
+        # AND the handler must commit the audit beside it (regression: risk
+        # update/delete and all opportunity writes used to drop the audit).
+        sid, csrf, _ = self._login()
+        C, H = {'cosid': sid}, {'X-CSRF-Token': csrf}
+        r = self.webapp.handle(self._req(
+            '/api/risks', 'POST', cookies=C,
+            json_body={'title': 'Audit me', 'likelihood': 3, 'impact': 3},
+            headers=H))
+        rid = self._json(r)['id']
+        self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), 'PUT', cookies=C,
+            json_body={'likelihood': 5}, headers=H))
+        self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), 'DELETE', cookies=C, headers=H))
+        r = self.webapp.handle(self._req(
+            '/api/opportunities', 'POST', cookies=C,
+            json_body={'title': 'Upside', 'likelihood': 2, 'impact': 4},
+            headers=H))
+        oid = self._json(r)['id']
+        self.webapp.handle(self._req(
+            '/api/opportunities/{}'.format(oid), 'PUT', cookies=C,
+            json_body={'impact': 5}, headers=H))
+        self.webapp.handle(self._req(
+            '/api/opportunities/{}'.format(oid), 'DELETE', cookies=C, headers=H))
+
+        resp = self.webapp.handle(self._req(
+            '/api/audit', cookies=C, query={'limit': '50'}))
+        self.assertEqual(resp.status, 200)
+        seen = {(x['action'], x['entity']) for x in self._json(resp)['items']}
+        for action in ('api_create', 'api_update', 'api_delete'):
+            self.assertIn((action, 'risks'), seen)
+            self.assertIn((action, 'opportunities'), seen)
+
     def test_master_create_and_viewer_denied(self):
         import auth
         sid, csrf, _ = self._login()

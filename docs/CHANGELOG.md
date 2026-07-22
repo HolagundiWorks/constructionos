@@ -6,16 +6,103 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
-## 2026-07-22 — Roadmap honesty pass (post WinUI harden)
+## 2026-07-22 — Roadmap honesty pass (post WinUI harden + local run)
 
 - Reconciled [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)
-  v1.2: counts (176 modules / 113 tkinter-free / 705 tests), §4 priority short
+  v1.2: counts (176 modules / 113 tkinter-free / 705+ tests), §4 priority short
   list, glance/waves/summary “Next” columns, E0–E4 leftover notes, L8 stub
-  server. [`ROADMAP.md`](ROADMAP.md) next-steps aligned.
+  server. Aligned with local proof that **U1/U2 build and run** (ListView).
+  [`ROADMAP.md`](ROADMAP.md) / [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9.
 
 ---
 
-## 2026-07-22 — Harden local WinUI + sidecar scaffolds
+## 2026-07-22 — WinUI client compiles (U1–U5) + branch merge
+
+- **Merged** `cursor/complete-remaining-roadmap-32b0` into main (Controls/Process/
+  persona desktop tabs, `portfolio_store` + `workflow_state`, `productivity_store`,
+  AI sidecar scaffolds, and the WinUI U3–U5 pages) — reconciled with main's U0
+  audit fix and U2 masters CRUD. Conflicts in `MainWindow.xaml.cs` (routing unions
+  the master tabs + the new pages), `README.md` and the changelog were resolved as
+  unions. Merged Python tree: **671 tests green**.
+- **The WinUI client builds.** `dotnet build -p:Platform=x64` (.NET 10 SDK +
+  Windows App SDK) compiles the whole solution — shell, `MastersPage`,
+  Money/EVM/Charts, Controls (Opportunities/Lessons/Submittals) + Process pages,
+  `ApiClient` — with **0 errors** (one benign `NETSDK1206` RID warning). First real
+  verification of the previously-uncompilable scaffold. *Compile* proof, not yet a
+  *run* proof (launching against the backend + screenshots is next).
+- **`.gitignore`** now excludes .NET build output (`bin/`, `obj/`, `.vs/`, MSIX).
+
+---
+
+## 2026-07-22 — WinUI client runs (fixes: manifest, DataGrid→ListView, packaging)
+
+Got the merged WinUI U1–U5 client to actually **launch and render** a responsive
+"Construction OS" window against the Python backend (was: compile-only). Four
+scaffold fixes, all found by launching and reading the crash/event logs:
+
+- **`app.manifest` root was `<manifest>` not `<assembly>`** → activation failed at
+  process start ("side-by-side configuration is incorrect"). Fixed to a valid
+  Win32 manifest (+ PerMonitorV2 DPI, long-path aware).
+- **CommunityToolkit DataGrid (7.1.2) is UWP/WinUI-2** and crashes WinUI 3 at
+  startup (`Cannot locate …themeresources.xaml`); it was never ported to WinUI 3.
+  Replaced it across **all** register pages (Risks, Opportunities, Lessons,
+  Submittals, Money, EVM, Portfolio, and the U2 Masters CRUD) with the **stock
+  WinUI `ListView`** + a small `Ui.Lines` helper — which also satisfies the
+  roadmap's "stock controls only" rule. Masters keeps add/edit/delete via the
+  `CommandBar` with selection mapped back to the record by index.
+- **`<UseRidGraph>true</UseRidGraph>`** so WindowsAppSDK's native win-x64 assets
+  deploy (clears `NETSDK1206`), and **`<WindowsPackageType>None</WindowsPackageType>`**
+  so it runs unpackaged via the bootstrapper.
+- **`App.xaml.cs`** gains a dev crash-logger (UI/CLR/task unhandled exceptions →
+  `%TEMP%\cos_winui_crash.log`) that made the above diagnosable without a debugger.
+
+Verified: `dotnet build -p:Platform=x64` → 0 errors; the self-contained exe
+(bundles .NET 8 + WindowsAppSDK) shows a responsive window (`Responding=True`,
+title "Construction OS") that logs in and loads the persona menu. See
+[`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9 for the run recipe. Python side
+unchanged.
+
+---
+
+## 2026-07-22 — WinUI U2 scaffold: generic masters DataGrid CRUD
+
+- **One metadata-driven CRUD page for every master.** `Views/MastersPage.*`
+  (WinUI, scaffold) is navigated to with a table name; it calls `GET /api/{table}`
+  and builds both the `DataGrid` columns and the add/edit `ContentDialog` **from
+  the API's field metadata** (`fields`: key/label/kind/options/default/required),
+  then writes via `POST`/`PUT`/`DELETE /api/{table}` with the CSRF header. One
+  page replaces the tkinter `CrudFrame` for all ten masters — no per-master XAML.
+  Stock Fluent controls only (`DataGrid`, `CommandBar`/`AppBarButton` with Segoe
+  Fluent glyphs, `NumberBox`/`ComboBox`/`TextBox`, `ContentDialog`, `InfoBar`).
+- **`ApiClient` gained `PutJsonAsync` / `DeleteAsync`** (shared CSRF body writer)
+  and an `ApiException` that surfaces the API's `{"error"}` text — so a Viewer's
+  403 or a validation 400 shows in the page's `InfoBar` rather than crashing.
+- **Shell wiring:** `MainWindow` routes any master tab (section-agnostic, by tab
+  label) to `MastersPage` via a `MasterTables` map.
+- **Windows-only:** this is C#/XAML scaffold — it compiles under VS 2022 +
+  Windows App SDK, not in the headless environment. The Python side is unchanged;
+  the domain + API stay covered by the 663-test suite. Known refinement: FK fields
+  are entered by id (a related-master picker is next). Spec:
+  [`docs/WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9 (U2).
+
+---
+
+## 2026-07-22 — U0 hardening: JSON-API writes now audit reliably
+
+- **Fixed: API write audits were silently dropped.** `PUT`/`DELETE /api/risks`
+  and every `POST`/`PUT`/`DELETE /api/opportunities` wrote an `audit_log` row but
+  never committed it — the register store committed the *change* first, so the
+  later `auth.audit(...)` insert sat in an uncommitted transaction and was rolled
+  back on connection close. The audit trail (a governance guarantee the contract
+  promises: "every write audited") was missing those actions. Added the missing
+  `conn.commit()` to the five affected handlers in `webapi.py`.
+- **Regression test.** `TestWebApi.test_api_writes_are_audited` drives
+  create/update/delete for a risk and an opportunity through the API and asserts
+  all six `api_*` rows appear in `GET /api/audit`. Swept every read endpoint
+  (health, dashboard, menu, workflow, evm, review, portfolio, all masters + docs)
+  — all 200. Full suite 663 green.
+
+## 2026-07-22 — Harden local WinUI + sidecar soft-fail stubs
 
 - **WinUI ApiClient.** Timeouts, Put/Delete, health probe, CSRF on writes,
   `ApiException` with status/body, session reset; `AppSettings` persisted under
@@ -26,8 +113,8 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
   Home/Process/registers/Money/EVM/Portfolio/Productivity/Charts/Capture/Import.
 - **Sidecars.** Stdlib `sidecars/stub_server.py` (loopback `/health` + `/extract`)
   and `health_check.py`; unit tests for stub extract + live probe.
-- **Docs.** `winui/README.md`, `PACKAGING.md`, roadmap L5–L7 notes. WinUI still
-  **not compiled** in this Linux cloud environment.
+- **Docs.** `winui/README.md`, `PACKAGING.md`, roadmap L5–L7 notes. (Later local
+  work proved compile + run — see entries above.)
 
 ---
 

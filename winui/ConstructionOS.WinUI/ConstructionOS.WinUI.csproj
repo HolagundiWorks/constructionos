@@ -10,17 +10,34 @@
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Unpackaged app: run as a plain .exe via the Windows App SDK bootstrapper
+         (which loads the installed framework runtime), instead of a classic-SxS
+         framework dependency that only resolves inside an MSIX package. This is
+         what makes `dotnet run` work; U6 adds a separate packaging project for
+         the MSIX rather than flipping the app project back to packaged. -->
+    <WindowsPackageType>None</WindowsPackageType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Hardened U1 scaffold — open on Windows with VS 2022 + Windows App SDK to build.
-         Cannot compile on Linux cloud agents. -->
+    <!-- WindowsAppSDK ships its native runtime assets under version-specific
+         RIDs (win10-x64, …). On the .NET 8+ SDK the RID graph is off by default,
+         so those assets aren't copied and the app fails to start with a
+         "side-by-side configuration is incorrect" error. Re-enable the RID graph
+         (fixes NETSDK1206) so the framework's native bits land in the output. -->
+    <UseRidGraph>true</UseRidGraph>
+    <!-- Hardened WinUI 3 client — builds on Windows with the .NET SDK + Windows
+         App SDK (VS 2022 or `dotnet build`); not on Linux cloud agents. -->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-    <PackageReference Include="CommunityToolkit.WinUI.UI.Controls.DataGrid" Version="7.1.2" />
+    <!-- No CommunityToolkit DataGrid: its latest (7.1.2) is the UWP/WinUI-2
+         build and crashes WinUI 3 at startup (it drags in the old
+         Microsoft.UI.Xaml whose theme resources clash), and it was never ported
+         to WinUI 3 (8.x). Registers use the stock WinUI 3 ListView instead,
+         which also honours the roadmap's "stock controls only" rule. -->
+    <!-- LiveCharts for U4 charts (WinUI 3 build). -->
     <PackageReference Include="LiveChartsCore.SkiaSharpView.WinUI" Version="2.0.0-rc2" />
   </ItemGroup>
 

@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml.Controls;
-using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
 
 namespace ConstructionOS.WinUI.Views;
@@ -9,13 +8,17 @@ public sealed partial class MoneyPage : Page
     public MoneyPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await PageLoad.BindListAsync(
-            Grid, Status,
-            async () =>
+        Loaded += async (_, _) =>
+        {
+            try
             {
                 var data = await ApiClient.Default.GetJsonAsync("api/payments");
-                return JsonRows.FromEnvelope(data, "items");
-            },
-            "No payments yet.");
+                Grid.ItemsSource = Ui.Lines(data);
+            }
+            catch (Exception ex)
+            {
+                Grid.ItemsSource = new[] { "Error: " + ex.Message };
+            }
+        };
     }
 }
