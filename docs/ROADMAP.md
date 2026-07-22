@@ -529,7 +529,8 @@ the leverage is in making the SOP step impossible to skip.
   since waiting on the client's walk-round is scheduling rather than a defect.
   This matters beyond tidiness: handover starts the DLP clock, and the DLP is
   what releases retention — a drifting punch list is retention left
-  uncollected. _(Lessons-learned feeding the rate library remains.)_
+  uncollected. _(Lessons-learned feeding the rate library now shipped — see
+  Rate Realisation under Billing › Rate Book.)_
 - ✅ **Vendor depth** — Purchases > Sourcing (`sourcing.py`). Quotes recorded
   against a requisition and compared, showing the **saving against the highest
   quote** (what justifies bothering) and the spread. The cheapest is a
@@ -684,10 +685,15 @@ these three are what is left, none of them a money leak:
   citing the prior. Kept **separate** from the RFI and drawing tables (folding
   them together is the scope-creep confusion the research warns about). An
   overdue open submittal raises a dashboard advisory, mirroring the RFI one.
-- ⏳ **Lessons-learned → rate library feedback** — closeout captures snags and
-  handover readiness, but the loop that feeds *achieved* rates back into the
-  Rate Book (so the next estimate is priced on reality, not the last guess)
-  remains. Small, and the highest-value of the three for estimate accuracy.
+- ✅ **Lessons-learned → rate library feedback** — **Rate Realisation** (Billing
+  › Rate Book, `lessons.py`, `tab_lessons.py`). For each material it sets the
+  **achieved** purchase rate — quantity-weighted from the goods-received ledger,
+  so a big order at the real price outweighs a small panic-buy — beside the
+  standard rate, and one click writes the achieved rate back as the new standard
+  (feeding estimates, rate analysis and the material budget). Scope is a single
+  finished site or all sites. Nothing auto-applies: the count of purchases
+  behind each figure is shown so a one-off spike doesn't silently reset a good
+  rate, and a Viewer cannot apply.
 - ⏳ **Real-display GUI render check** — a validation task, not a code gap. The
   headless test environment has no Tk, so two GUI **smoke** tests
   (`test_smoke_tabs`: floating dock, both-theme build) can only be exercised on

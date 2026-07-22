@@ -6,6 +6,29 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-21 — Rate Realisation: the lessons-learned loop
+
+- **Feed what things actually cost back into the rate library.** A new **Rate
+  Realisation** view (Billing › Rate Book, second sub-tab) puts each material's
+  **achieved** purchase rate next to its **standard/reference** rate. The
+  achieved rate is *quantity-weighted* from the goods-received ledger — a
+  500-bag order at ₹402 outweighs a 5-bag top-up at ₹450 — so it reflects what
+  the job really paid, not a plain average.
+- **One click closes the loop.** "Apply Achieved → Standard" (per-selection or
+  all-drifted) rewrites `materials.rate`, which flows into estimates, rate
+  analysis and the material budget — so the next estimate is priced on reality.
+  Scope is a single finished site (a job's lessons at closeout) or all sites (a
+  periodic refresh).
+- **Honest by construction.** Nothing auto-applies; the number of purchases
+  behind each achieved rate is shown so a one-off spike can't silently reset a
+  good standard, a material with no purchase history is skipped (no-data, not a
+  zero), and a **Viewer cannot apply**. Pure maths in `lessons.py`
+  (`weighted_rate`, `realise`), UI in `tab_lessons.py`; 7 new tests (weighted
+  average, over/under/no-data classification, and the admin-applies /
+  viewer-blocked write-back).
+
+---
+
 ## 2026-07-21 — Submittals register (document control)
 
 - **The last document-control gap is closed.** A **submittal** — the

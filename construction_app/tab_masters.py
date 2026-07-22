@@ -5,6 +5,8 @@ the shared ``options_func`` callbacks used wherever another tab needs a foreign
 key to one of these masters (each returns ``[(id, label), ...]``).
 """
 
+from tkinter import ttk
+
 from crud_frame import CrudFrame, Field
 
 
@@ -80,8 +82,11 @@ def build_materials_tab(parent, db_getter):
 
 
 def build_rate_book_tab(parent, db_getter):
-    """Rate Book / Specification library — standard priced items with specs,
-    a PWD-style schedule of rates to reuse in estimates and BOQs."""
+    """Rate Book / Specification library — standard priced items with specs, a
+    PWD-style schedule of rates to reuse in estimates and BOQs — plus a **Rate
+    Realisation** view: the closeout lessons-learned loop that refreshes the
+    material standard rates from what was actually paid."""
+    from tab_lessons import RateRealisation
     fields = [
         Field('code', 'Code'),
         Field('category', 'Category'),
@@ -90,8 +95,12 @@ def build_rate_book_tab(parent, db_getter):
         Field('rate', 'Rate', kind='number', default='0'),
         Field('specification', 'Specification', width=240),
     ]
-    return CrudFrame(parent, db_getter, 'rate_book', fields,
-                     'Rate Book / Specifications', order_by='code, id')
+    nb = ttk.Notebook(parent)
+    nb.add(CrudFrame(nb, db_getter, 'rate_book', fields,
+                     'Rate Book / Specifications', order_by='code, id'),
+           text='Rate Book')
+    nb.add(RateRealisation(nb, db_getter), text='Rate Realisation')
+    return nb
 
 
 def build_labor_tab(parent, db_getter):
