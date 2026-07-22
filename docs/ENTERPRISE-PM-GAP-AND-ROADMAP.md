@@ -186,7 +186,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 
 | # | Target | Status | Approach | Verifiable |
 |---|---|---|---|---|
-| **U0** | Backend JSON API over the domain (`webapi.py`) | ❌ | Reuse the tested Python core as a localhost service; add JSON endpoints (stdlib, testable) | **Here (Python)** |
+| **U0** | Backend JSON API over the domain (`webapi.py`) | ✅ | Reuse the tested Python core as a localhost service; JSON endpoints under `/api/*` (stdlib, testable) | **Here (Python)** |
 | **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
@@ -247,7 +247,7 @@ a model, or a pip dependency:
 | **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
 | **E6** | — | mobile capture app (separate front-end) |
 | **E7** Navigation & Workflow | `menu.py` (personas + grouping), `workflow.py` (flow graph) | Controls/register tabs, Process view, search (GUI) — see §3.6 |
-| **U** UI Replatform → WinUI 3 | — | Backend JSON API (U0, Python — buildable here) + WinUI 3 C# client (U1–U7, Windows) — see §3.7 & [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) |
+| **U** UI Replatform → WinUI 3 | `webapi.py` `/api/*` (U0) | WinUI 3 C# client (U1–U7, Windows) — see §3.7 & [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) |
 
 **The deterministic roadmap is complete.** Every piece that can be written and
 unit-tested without a display, a model, or a pip dependency is built (619-test
@@ -275,7 +275,7 @@ tests`). This is where the *engine* is built.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ⬜ **next — buildable here** |
+| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ✅ **built** — `/api/*` (C1/C2) |
 | Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
 
 **Cannot be done in the cloud env:** anything needing a **display** (tkinter/GUI
