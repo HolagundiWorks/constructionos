@@ -6,6 +6,25 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Browser / LAN access: money documents that post (Stage 3b)
+
+- **Record money in the browser** — payments, tax invoices, vendor invoices and
+  running bills. Each writes the document with the *same* derived amounts the
+  desktop computes (GST, TDS, net payable, retention, incremental bill value),
+  then posts through the shared, idempotent `journal_post.post_all`, so the
+  double entry is produced by `posting.py`'s rules and never re-implemented.
+- Create + view only (records of fact). Posting is state-gated — a **Draft** bill
+  saves without posting; every posted entry balances (verified: payment 5000,
+  tax invoice 118000 incl. +18% GST, vendor invoice 59000 / net 58000, running
+  bill 150000 with retention 7500 / net 142500). Gated on role + session CSRF;
+  a posting hiccup is swallowed so it never loses the saved document.
+- `web_docs.py` (tkinter-free specs + `compute()` per document); `webapp.py`
+  `_doc_create` route + `_can_create`; `webserver.py` keeps blank POST values.
+  This completes the browser money-entry parity except the measurement-book RA
+  workflow, which stays on the desktop.
+
+---
+
 ## 2026-07-21 — Rate Realisation: the lessons-learned loop
 
 - **Feed what things actually cost back into the rate library.** A new **Rate

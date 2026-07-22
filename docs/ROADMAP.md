@@ -1,6 +1,6 @@
 # Construction OS — Roadmap
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-07-22_
 
 Audience: **small civil contractors in tier-2 / tier-3 Indian cities** (see
 `PRODUCT.md`). Every phase is judged by one question: _does this help a solo
@@ -851,6 +851,93 @@ universal standard, and the GCC 2019 supersedes some Works Manual terms
 (notably payment timelines). Anything this app *prints as a rule* must cite the
 governing contract, and anything state-variable ships as a configurable default
 rather than a constant.
+
+---
+
+## Browser / LAN access (added on request) — 🚧 toward full parity
+
+Use the app in a **browser on the office network, no client install**, at
+`http://<host>:<port>`. A built-in web server (`http.server` — still pure
+stdlib, no web framework, no pip) shares the *same* SQLite file and business
+logic as the desktop; `db.get_conn`'s per-request WAL connections make
+concurrent browser readers safe. Login is **always required** (reuses the
+desktop `auth` accounts — PBKDF2, lockout, audit log; the first visit bootstraps
+the admin; Viewers are read-only). The `users` table (hashes) and app config are
+never browsable. Files: `webserver.py`, `webapp.py` (`handle(request)→response`,
+socket-free and unit-tested), `webrender.py`, `netinfo.py`, `web_main.py`
+(headless `--host/--port`); launcher in **Tools › Web / LAN access**. See
+`docs/LAN.md`.
+
+- ✅ **Stage 1 — foundation + all read views.** Dashboard (KPIs, advisories,
+  bottlenecks, decisions) and every register — whitelisted from `sqlite_master`
+  minus a denylist — with search, pagination and a record view.
+- ✅ **Stage 2 — Masters data entry.** Add/edit/delete sites, clients, vendors,
+  materials, labour, equipment. `web_masters.py` is a **tkinter-free** spec
+  mirroring the desktop CRUD field-for-field (a test guards it against schema
+  drift); per-session CSRF; delete catches `IntegrityError`; edits audit-logged.
+- ✅ **Stage 3a — Estimates.** Header + line items (add/remove rows), the roll-up
+  reusing the same pure `estimate.estimate_totals` as the desktop. No posting.
+- ✅ **Stage 3b — money documents that post.** Payments, tax invoices, vendor
+  invoices and running bills: the web writes the row with the *same* derived
+  amounts the desktop computes (GST, TDS, net payable, retention, the
+  incremental bill value), then posts via the shared, idempotent
+  `journal_post.post_all` — so the double entry comes from `posting.py`, never
+  re-implemented. Create + view only (records of fact); posting is state-gated,
+  so a Draft posts nothing, and every posted entry balances.
+- ⏳ **Next** — RA bills with the full measurement-book workflow (Form 23/26,
+  recoveries) stay desktop-only; GST/compliance remain view-only in the browser.
+
+**Plain HTTP, LAN-only by design.** Traffic (including the login) is
+unencrypted — fine on a trusted office network, and behind an HTTPS reverse
+proxy for anything wider. Built-in TLS would mean shipping certs (a poor fit for
+a zero-config LAN tool), so it is documented rather than faked — the same
+honesty rule as the e-invoice QR and at-rest encryption.
+
+## One HCW-UI design system, desktop + web (strict rule) ✅
+
+A single design language governs **both** surfaces, driven from a pure,
+tkinter-free `tokens.py` ported verbatim from the kit's authoritative
+`hcwux/src/tokens.ts`: Fog-Gray canvas, Pure-White cards, Coal-Black ink, the
+one **Radiant-Orange** accent (fills/active only; links slate), and the shape
+law — square surfaces (0 radius) with 4px buttons, 8px dialogs and a 3px
+tab/nav alert rule. The desktop `theme.py` and the web `webrender.py` both read
+from it. Guard tests lock the tokens to the kit's values, assert the web CSS
+carries them (so the web can't drift from the desktop), and forbid any new
+ad-hoc `foreground='#…'` literal from re-entering the app.
+
+## Bluebeam-style takeoff from a drawing (added on request) ✅
+
+Measure quantities straight off a scaled drawing — calibrate the scale once,
+then a **polyline** for length, a **polygon** for area (× depth for volume), or
+**click-count**. Live quantities, totals by unit, save/load, and **Send to
+Estimate**. Pure engine `takeoff.py` (shoelace area, polyline length,
+scale-from-calibration); `pdf_render.py` renders a PDF page to PNG via an
+external poppler / Ghostscript when present (tkinter shows PNG, not PDF);
+`tab_takeoff.py` is the Canvas markup UI under Billing.
+
+## Inbuilt offline AI model (added on request) ✅
+
+The assistant's default is now **`qwen2.5-coder:1.5b`** — tuned for its NL→SQL,
+~1 GB, Apache-2.0 (so it can be redistributed). The Windows installer can
+**bundle it** (run `installer/fetch_payload.ps1` first): Ollama installs
+silently and the GGUF is laid beside the app, registered offline by a one-time
+in-app `ollama create` (`model_provision.py`, wired into Assistant › AI Engine).
+Result: the assistant runs **fully offline, out of the box**. The former
+standalone Ollama Manager is folded into the app (Assistant › AI Engine).
+The MS-Project-grade scheduler (`scheduler.py` — working calendar, typed
+dependencies FS/SS/FF/SF + lag, WBS rollup) drives the richer Gantt beside the
+CPM view.
+
+## Enterprise PM track (added on request) — see dedicated roadmap
+
+A deterministic enterprise-PM backbone (earned-value / EVM, risk register +
+detection, forecast, opportunity register, execution KPIs, narration + review
+pack, lessons-learned, submittals) is tracked in its own
+`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md` and `docs/EXECUTION-PART2.md`, with the
+solution reference in `docs/ENTERPRISE-PM-SOLUTION.md`. Pure modules
+(`earnedvalue.py`, `risk.py`/`risk_detect.py`, `forecast.py`, `opportunity.py`,
+`narrative.py`, `review_pack.py`, `lessons_register.py`, `submittals.py`) with
+their stores; kept stdlib-only like the rest.
 
 ---
 
