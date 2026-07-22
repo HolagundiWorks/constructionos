@@ -1,4 +1,4 @@
-# Construction OS — UI Principles & Guidelines
+# ACO — UI Principles & Guidelines
 
 **How the WinUI 3 client should look, feel, and behave** — grounded in
 Microsoft’s Windows 11 / Fluent Design System, adapted for an Indian T2/T3
@@ -28,7 +28,7 @@ no hand-rolled chrome, no reinvented icons.** See
 
 When this document and Microsoft’s guidance disagree on a Fluent mechanic,
 **Microsoft wins**. When they disagree on *product voice* (cash-first, Hindi/
-Hinglish, plain-language money), **Construction OS wins** — see
+Hinglish, plain-language money), **ACO wins** — see
 [`PRODUCT.md`](PRODUCT.md).
 
 ---
@@ -47,7 +47,7 @@ PRs should be reviewable against it.
 
 ---
 
-## 1. Windows 11 principles → Construction OS
+## 1. Windows 11 principles → ACO
 
 Microsoft’s five principles (from [design principles](https://learn.microsoft.com/en-us/windows/apps/design/design-principles))
 are the north star. Below: what each means *here*.
@@ -97,13 +97,20 @@ Every extra field is a tax on the munshi.
 
 | Do | Don’t |
 |---|---|
-| Use `NavigationView`, `CommandBar`, `ContentDialog`, `InfoBar`, `ListView`, `NumberBox`, `DatePicker`, `AutoSuggestBox` the way WinUI Gallery shows. | Invent a custom sidebar, ribbon, or tab strip. |
-| Match Windows placement conventions (Settings gear, search in the nav chrome, back only when hierarchy needs it). | Put Settings as a random page with no standard entry. |
-| Mirror patterns users know from File Explorer / Settings / Edge (list→details, overflow “More”). | Novel gestures as the only way to reach core money actions. |
+| Use `CommandBar`, `ContentDialog`, `InfoBar`, `ListView`, `NumberBox`, `DatePicker`, `AutoSuggestBox`, `ToggleButton`, `AppBarButton` the way WinUI Gallery shows. | Ship a **custom-templated** control, owner-drawn chrome, or a third-party UI kit that replaces Fluent. |
+| Match Windows placement conventions (search in the shell chrome, Settings reachable as a tab, back only when hierarchy needs it). | Put Settings as a random page with no standard entry. |
+| Mirror patterns users know from File Explorer / Settings / Edge (list→details, horizontal scroll for overflow). | Novel gestures as the only way to reach core money actions. |
 
-**Current shell (stock):** top `NavigationView` (`PaneDisplayMode="Top"`) with
-auto-collapse into “More”, section dropdowns, `AutoSuggestBox` search, Settings
-visible — see `winui/.../MainWindow.xaml`.
+**Current shell (stock primitives):** an **Excel-style ribbon** the owner asked
+for — a horizontal `ToggleButton` **section tab strip**, and picking a section
+fills a **command band** of that section's tabs as icon-over-label `AppBarButton`s
+(Segoe Fluent glyphs), with `AutoSuggestBox` search in the header and Settings as
+a leaf tab. It is **composed from stock controls, not a custom control** (no
+custom template, no owner-draw). This is an owner-directed departure from the
+default "use `NavigationView`" recommendation — additionally forced because
+`NavigationView` Top mode and `SelectorBar` both native-crash on the current
+Windows App SDK build (see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9,
+fix 7). See `winui/.../MainWindow.xaml`.
 
 ### 1.5 Complete + Coherent — “visually seamless across the app”
 
@@ -118,7 +125,7 @@ visible — see `winui/.../MainWindow.xaml`.
 
 ## 2. Product principles that override generic Fluent taste
 
-Fluent tells us *how* to be Windows. Construction OS tells us *what* to prioritize
+Fluent tells us *how* to be Windows. ACO tells us *what* to prioritize
 ([`PRODUCT.md`](PRODUCT.md)):
 
 1. **Cash-first, not ledger-first.** Home / Money lead with cash, baaki, billed vs
@@ -201,7 +208,8 @@ Do not fake glass with custom blurs or PNG overlays.
 
 ### 3.6 Motion
 
-- Use stock control motion (NavigationView, InfoBar open/close, ContentDialog).
+- Use stock control motion (ribbon `ToggleButton`/`AppBarButton`, InfoBar
+  open/close, ContentDialog).
 - Page transitions: prefer subtle / default `Frame` navigation — no parade of
   custom storyboards.
 - Motion must **feedback** (saved, deleted, error) or **orient** (where did I go),
@@ -211,21 +219,25 @@ Do not fake glass with custom blurs or PNG overlays.
 
 Principles from Microsoft: **consistency, simplicity, clarity**.
 
-**Structure for Construction OS:**
+**Structure for ACO:**
 
 - **Flat / lateral** at section level (Home, Masters, Money, Billing, …) —
-  peers, any order → top `NavigationView`.
-- **Hierarchical** inside a section (e.g. Project → BOQ → Measurements) —
-  parent item with children, or in-page list/details + breadcrumb if depth > 2.
-- Keep peer groups ≤ ~8 visible destinations; overflow is OK (stock “More”).
+  peers, any order → the ribbon **tab strip** (`ToggleButton`s).
+- **One level down** inside a section — the section's tabs show as icon commands
+  in the ribbon **band** (not a dropdown), so a section's destinations are one
+  click away. Deeper hierarchy (e.g. Project → BOQ → Measurements) uses in-page
+  list/details + breadcrumb if depth > 2.
+- Keep peer groups reasonable; overflow is OK — the tab strip and band each
+  scroll horizontally on a narrow window.
 - Avoid pogo-sticking: related money actions reachable without climbing to root
   and back (CommandBar on the page, or search).
-- **Back:** collapsed at shell today (flat sections). If a drill-down page is
-  pushed on the `Frame` stack, show back and follow Microsoft’s back-history
-  table (transient UI / item enumeration → dismiss, don’t invent history).
+- **Back:** none at the shell today (flat sections + one band level). If a
+  drill-down page is pushed on the `Frame` stack, show back and follow
+  Microsoft's back-history table (transient UI / item enumeration → dismiss,
+  don't invent history).
 
-**Search:** `AutoSuggestBox` in the NavigationView slot; results from
-`GET /api/search` with `nav`/`tag` for routing — no custom command palette chrome.
+**Search:** `AutoSuggestBox` in the ribbon header; results from
+`GET /api/search` with `section`/`tab` for routing — no custom command palette chrome.
 
 ### 3.8 Commanding
 
@@ -257,7 +269,7 @@ Principles from Microsoft: **consistency, simplicity, clarity**.
 
 Microsoft: **warm and relaxed**, **ready to lend a hand**, **crisp and clear**.
 
-Construction OS additions:
+ACO additions:
 
 | Pattern | Example |
 |---|---|
@@ -265,7 +277,7 @@ Construction OS additions:
 | Lead with what matters | “Client still owes ₹1,20,000” not “AR balance non-zero” |
 | Active voice on buttons | “Save payment”, “Generate RA bill”, “Print muster” |
 | Sentence case | “Purchase orders” not “Purchase Orders” in running UI (nav may title-case section names consistently) |
-| Errors: cause + next step | “Backend isn’t running. Start Construction OS API or retry.” |
+| Errors: cause + next step | “Backend isn’t running. Start ACO API or retry.” |
 | No blame | Not “You entered an invalid GSTIN.” → “That GSTIN doesn’t look right. Check the 15 characters and try again.” |
 | Define abbreviations once | “TDS (tax deducted at source)” on first use in a view |
 | Money language | Prefer “Net payable”, “Baaki”, “Received” over ledger jargon |
@@ -287,12 +299,12 @@ Use these recipes; don’t invent new shells.
 
 | Job | Stock pattern | Notes |
 |---|---|---|
-| App shell | `NavigationView` + `Frame` | Top pane mode shipping; left mode also Fluent-valid if product reverts |
+| App shell | Ribbon (`ToggleButton` tab strip + `AppBarButton` band) + `Frame` | Owner-directed Excel-style ribbon, composed from stock controls; `NavigationView` Top / `SelectorBar` avoided (native-crash on this SDK — WINUI3-MIGRATION §9 fix 7) |
 | Section landing / register | `ListView` + form / detail pane | FK fields from API `options` |
 | Document entry | Form + line `ListView` + totals | Totals read-only from API/domain |
 | Dashboard | KPI band + `InfoBar` list | Data from `/api/kpi`, `/api/dashboard` |
 | Charts | LiveCharts2 in a page | Series from `/api/cashflow|ageing|evm` `labels`/`values` |
-| Settings | `NavigationView` Settings + `ScrollViewer` form | Theme, persona, API URL |
+| Settings | Settings page (leaf tab) + `ScrollViewer` form | Theme, persona, API URL |
 | Search navigate | `AutoSuggestBox` | `/api/search` |
 | Blocking question | `ContentDialog` | Smoke backdrop |
 | Soft status | `InfoBar` | Severity by advisory level |
@@ -300,8 +312,10 @@ Use these recipes; don’t invent new shells.
 | Empty state | Short sentence + one action | “No vendors yet. Add a vendor.” |
 
 **Forbidden without explicit owner approval:** custom title bars that fight the
-system caption buttons, owner-draw ribbons, third-party UI kits that replace
-Fluent controls, emoji as primary navigation icons.
+system caption buttons, **owner-drawn or custom-templated** controls, third-party
+UI kits that replace Fluent controls, emoji as primary navigation icons. (The
+shipped ribbon is *not* owner-draw — it composes stock `ToggleButton` /
+`AppBarButton` — and is the owner-approved shell; see §1.4.)
 
 ---
 
@@ -333,8 +347,13 @@ Aligned with product trust rules:
 
 ## 7. Theming & branding
 
-- App name **Construction OS** appears in the shell header / window title at a
-  clear but not overpowering weight (`SubtitleTextBlockStyle` is fine).
+- App name **ACO** (with the full name *Accelerated Construction Operations* as a
+  quiet secondary caption) appears in the shell header / window title at a clear
+  but not overpowering weight (`SubtitleTextBlockStyle` + `CaptionTextBlockStyle`
+  as shipped). Brand strings come from `construction_app/branding.py`.
+- The logo mark is the existing geometry filled **Radiant Orange** (`#FF4F18`);
+  use accent **sparingly** in-shell (per §3.1) — the mark and letterhead carry
+  the brand, not coloured chrome.
 - Prefer system chrome + Fluent materials over heavy brand illustration in the
   ERP shell (this is a work tool, not a marketing landing page).
 - Printed documents may carry letterhead (`assets` / export HTML); the WinUI
