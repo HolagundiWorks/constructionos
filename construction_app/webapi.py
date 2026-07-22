@@ -15,9 +15,11 @@ import json
 import re
 
 import advisory
+import allocation
 import auth
 import boq_import
 import capture
+import cashflow_assemble
 import dashboard
 import drift
 import event_hooks
@@ -54,7 +56,7 @@ import workflow_state
 # Masters exposed as flat CRUD registers over the JSON API.
 _API_MASTERS = (
     'sites', 'clients', 'vendors', 'materials', 'labor', 'equipment',
-    'projects', 'milestones', 'thekedars', 'rate_book',
+    'projects', 'milestones', 'thekedars', 'rate_book', 'contracts',
 )
 
 # Money documents: create + list/get (no edit — records of fact).
@@ -77,7 +79,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.6'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.7'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -116,6 +118,9 @@ def handle(request, sess):
     if path == 'purchase_orders' and method == 'GET':
         return _list_ops_table('purchase_orders')
 
+    if path == 'purchase_orders' and method == 'POST':
+        return _create_purchase_order(request, sess)
+
     if path == 'goods_receipts' and method == 'GET':
         return _list_ops_table('goods_receipts')
 
@@ -127,6 +132,21 @@ def handle(request, sess):
 
     if path == 'ageing' and method == 'GET':
         return _ageing_summary(request)
+
+    if path == 'cashflow' and method == 'GET':
+        return _cashflow(request)
+
+    if path == 'bills/previous' and method == 'GET':
+        return _bills_previous(request)
+
+    if path == 'boq_items' and method == 'GET':
+        return _list_boq_items(request)
+
+    if path == 'allocations' and method == 'GET':
+        return _list_allocations(request)
+
+    if path == 'allocations' and method == 'POST':
+        return _save_allocations(request, sess)
 
     if path == 'menu' and method == 'GET':
         return _menu(request)
@@ -647,7 +667,7 @@ def _list_master(table):
         return _ok({
             'table': table,
             'label': web_masters.label(table),
-            'fields': web_masters.fields(table),
+            'fields': web_masters.enrich_fields(conn, web_masters.fields(table)),
             'items': _rows(rows),
         })
     finally:
@@ -946,7 +966,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.6',
+        'api': 'u0.7',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -959,7 +979,10 @@ def _api_contract():
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
-            'GET /api/match', 'GET /api/ageing',
+            'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
+            'GET /api/bills/previous?contract_id=',
+            'GET /api/boq_items?contract_id=',
+            'GET /api/allocations?payment_id=',
             'GET /api/workflow', 'GET /api/evm',
             'GET /api/project/{id}/evm',
             'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
@@ -984,6 +1007,8 @@ def _api_contract():
             'POST /api/signals/preview', 'POST /api/signals/suggest',
             'POST /api/reconcile', 'POST /api/intent',
             'POST /api/sidecar/extract',
+            'POST /api/purchase_orders',
+            'POST /api/allocations',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -1137,11 +1162,276 @@ def _ageing_summary(request):
             if r['invoice_date']:
                 items.append((r['invoice_date'], float(r['total_amount'] or 0)))
         aged = ageing.age_open_items(items)
+        buckets = [
+            {'label': label, 'amount': aged.get(label, 0.0)}
+            for label in ageing.BUCKETS
+        ]
         return _ok({
             'ageing': aged,
+            'buckets': buckets,
+            'total': aged.get('total', 0.0),
             'receivable': snap.get('receivable'),
             'receivable_90plus': snap.get('receivable_90plus'),
         })
+    finally:
+        conn.close()
+
+
+def _cashflow(request):
+    """GET /api/cashflow — plottable weekly/monthly forecast buckets."""
+    q = request.query or {}
+    conn = _conn()
+    try:
+        result = cashflow_assemble.assemble(
+            conn,
+            periods=q.get('periods') or 8,
+            mode=q.get('mode') or 'week',
+            receipt_lag_days=q.get('receipt_lag') or 45,
+            payment_lag_days=q.get('payment_lag') or 15,
+            weekly_wages=q.get('weekly_wages') or 0,
+        )
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _bills_previous(request):
+    """GET /api/bills/previous?contract_id= — sum of Approved/Paid net_payable.
+
+    Mirrors desktop running-bill previous_billed (Draft/Submitted excluded).
+    """
+    q = request.query or {}
+    try:
+        cid = int(q.get('contract_id') or 0)
+    except (TypeError, ValueError):
+        return _err('contract_id required', 400)
+    if cid <= 0:
+        return _err('contract_id required', 400)
+    exclude = q.get('exclude_id')
+    conn = _conn()
+    try:
+        sql = ("SELECT COALESCE(SUM(net_payable), 0) AS s FROM bills "
+               "WHERE contract_id = ? AND status IN ('Approved', 'Paid')")
+        params = [cid]
+        if exclude:
+            try:
+                sql += ' AND id != ?'
+                params.append(int(exclude))
+            except (TypeError, ValueError):
+                pass
+        s = conn.execute(sql, params).fetchone()['s']
+        return _ok({'contract_id': cid, 'previous_billed': float(s or 0)})
+    finally:
+        conn.close()
+
+
+def _list_boq_items(request):
+    """GET /api/boq_items?contract_id= — BOQ lines for a contract."""
+    q = request.query or {}
+    try:
+        cid = int(q.get('contract_id') or 0)
+    except (TypeError, ValueError):
+        cid = 0
+    conn = _conn()
+    try:
+        if cid > 0:
+            rows = conn.execute(
+                'SELECT * FROM boq_items WHERE contract_id = ? '
+                'ORDER BY id', (cid,)).fetchall()
+        else:
+            rows = conn.execute(
+                'SELECT * FROM boq_items ORDER BY id DESC LIMIT 500'
+            ).fetchall()
+        return _ok({
+            'table': 'boq_items',
+            'contract_id': cid or None,
+            'items': _rows(rows),
+        })
+    finally:
+        conn.close()
+
+
+def _list_allocations(request):
+    """GET /api/allocations?payment_id= — lines for one payment."""
+    q = request.query or {}
+    try:
+        pid = int(q.get('payment_id') or 0)
+    except (TypeError, ValueError):
+        return _err('payment_id required', 400)
+    if pid <= 0:
+        return _err('payment_id required', 400)
+    conn = _conn()
+    try:
+        pay = conn.execute(
+            'SELECT * FROM payments WHERE id = ?', (pid,)).fetchone()
+        if pay is None:
+            return _err('Payment not found', 404)
+        rows = conn.execute(
+            'SELECT * FROM payment_allocations WHERE payment_id = ? '
+            'ORDER BY id', (pid,)).fetchall()
+        allocs = _rows(rows)
+        return _ok({
+            'payment_id': pid,
+            'payment': _row(pay),
+            'items': allocs,
+            'allocated': allocation.money(
+                sum(allocation.money(a.get('amount')) for a in allocs)),
+            'unallocated': allocation.unallocated_amount(
+                pay['amount'], allocs),
+        })
+    finally:
+        conn.close()
+
+
+def _save_allocations(request, sess):
+    """POST /api/allocations — {payment_id, lines:[{doc_type,doc_id,amount}]}.
+
+    Replaces existing lines for the payment (same as desktop Allocate tab).
+    """
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    body.pop('csrf', None)
+    try:
+        pid = int(body.get('payment_id') or 0)
+    except (TypeError, ValueError):
+        return _err('payment_id required', 400)
+    if pid <= 0:
+        return _err('payment_id required', 400)
+    lines = body.get('lines') or body.get('items') or []
+    if not isinstance(lines, list):
+        return _err('lines must be a list', 400)
+    conn = _conn()
+    try:
+        pay = conn.execute(
+            'SELECT * FROM payments WHERE id = ?', (pid,)).fetchone()
+        if pay is None:
+            return _err('Payment not found', 404)
+        proposed = []
+        for row in lines:
+            if not isinstance(row, dict):
+                continue
+            try:
+                amount = float(row.get('amount') or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+            if amount <= 0:
+                continue
+            proposed.append({
+                'doc_type': (row.get('doc_type') or '').strip(),
+                'doc_id': int(row.get('doc_id') or 0),
+                'amount': amount,
+                'number': row.get('number'),
+                'open': row.get('open'),
+            })
+        ok, msg = allocation.validate(pay['amount'], proposed)
+        if not ok:
+            return _err(msg, 400)
+        conn.execute(
+            'DELETE FROM payment_allocations WHERE payment_id = ?', (pid,))
+        for row in proposed:
+            if not row['doc_type'] or row['doc_id'] <= 0:
+                continue
+            conn.execute(
+                'INSERT INTO payment_allocations '
+                '(payment_id, doc_type, doc_id, amount) VALUES (?,?,?,?)',
+                (pid, row['doc_type'], row['doc_id'],
+                 allocation.money(row['amount'])))
+        auth.audit(conn, sess['username'], 'api_allocate', 'payments', pid,
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        rows = conn.execute(
+            'SELECT * FROM payment_allocations WHERE payment_id = ? '
+            'ORDER BY id', (pid,)).fetchall()
+        allocs = _rows(rows)
+        return _ok({
+            'payment_id': pid,
+            'payment': _row(pay),
+            'items': allocs,
+            'allocated': allocation.money(
+                sum(allocation.money(a.get('amount')) for a in allocs)),
+            'unallocated': allocation.unallocated_amount(
+                pay['amount'], allocs),
+        })
+    finally:
+        conn.close()
+
+
+def _create_purchase_order(request, sess):
+    """POST /api/purchase_orders — header + optional items; total = sum(amount)."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    body.pop('csrf', None)
+    items = body.get('items') or []
+    if items and not isinstance(items, list):
+        return _err('items must be a list', 400)
+    conn = _conn()
+    try:
+        total = 0.0
+        cleaned = []
+        for it in items or []:
+            if not isinstance(it, dict):
+                continue
+            try:
+                qty = float(it.get('qty') or 0)
+                rate = float(it.get('rate') or 0)
+            except (TypeError, ValueError):
+                qty, rate = 0.0, 0.0
+            amount = round(qty * rate, 2)
+            total = round(total + amount, 2)
+            cleaned.append({
+                'description': (it.get('description') or '').strip(),
+                'unit': (it.get('unit') or '').strip(),
+                'qty': qty, 'rate': rate, 'amount': amount,
+                'material_id': it.get('material_id'),
+            })
+        if body.get('total_amount') is not None and not cleaned:
+            try:
+                total = float(body.get('total_amount') or 0)
+            except (TypeError, ValueError):
+                total = 0.0
+        cur = conn.execute(
+            'INSERT INTO purchase_orders '
+            '(po_no, vendor_id, site_id, po_date, expected_date, status, '
+            'gst_pct, notes, total_amount) VALUES (?,?,?,?,?,?,?,?,?)',
+            (
+                body.get('po_no') or '',
+                body.get('vendor_id'),
+                body.get('site_id'),
+                body.get('po_date') or '',
+                body.get('expected_date') or '',
+                body.get('status') or 'Draft',
+                float(body.get('gst_pct') or 18),
+                body.get('notes') or '',
+                total,
+            ))
+        po_id = cur.lastrowid
+        for it in cleaned:
+            mid = it.get('material_id')
+            try:
+                mid = int(mid) if mid not in (None, '') else None
+            except (TypeError, ValueError):
+                mid = None
+            conn.execute(
+                'INSERT INTO purchase_order_items '
+                '(purchase_order_id, description, unit, qty, rate, amount, '
+                'material_id) VALUES (?,?,?,?,?,?,?)',
+                (po_id, it['description'], it['unit'], it['qty'], it['rate'],
+                 it['amount'], mid))
+        auth.audit(conn, sess['username'], 'api_create', 'purchase_orders',
+                   po_id, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        row = conn.execute(
+            'SELECT * FROM purchase_orders WHERE id = ?', (po_id,)).fetchone()
+        lines = conn.execute(
+            'SELECT * FROM purchase_order_items WHERE purchase_order_id = ?',
+            (po_id,)).fetchall()
+        out = _row(row)
+        out['items'] = _rows(lines)
+        return _ok(out, status=201)
     finally:
         conn.close()
 
@@ -1318,7 +1608,7 @@ def _list_doc(table):
             'table': table,
             'label': web_docs.label(table),
             'note': web_docs.note(table),
-            'fields': web_docs.fields(table),
+            'fields': web_masters.enrich_fields(conn, web_docs.fields(table)),
             'items': _rows(rows),
             'create_only': True,
         })

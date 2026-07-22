@@ -290,12 +290,18 @@ class TestWebRouter(unittest.TestCase):
             form={'csrf': csrf, 'name': 'Nope'}, cookies={'cosid': tok}))
         self.assertEqual(r.status, 403)
 
-    def test_non_writable_register_has_no_create_route(self):
-        # contracts is viewable but not a Master / estimate / money document,
-        # so it has no browser create form (yet).
+    def test_contracts_master_has_create_route(self):
+        # Contracts are now a JSON + browser master (U0.7 billing spine).
         import webapp
         sid = self._login_admin()
         r = webapp.handle(self._req('/t/contracts/new', cookies={'cosid': sid}))
+        self.assertEqual(r.status, 200)
+
+    def test_variations_still_have_no_browser_create(self):
+        # Variations remain desktop-only (not in web_masters / money docs).
+        import webapp
+        sid = self._login_admin()
+        r = webapp.handle(self._req('/t/variations/new', cookies={'cosid': sid}))
         self.assertEqual(r.status, 404)
 
     # ---- Stage 3a: Estimates (header + line items, computed total) ------
@@ -849,9 +855,10 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.6')
+        self.assertEqual(c['api'], 'u0.7')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
+        self.assertIn('contracts', c['masters'])
 
         resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
         self.assertEqual(resp.status, 200)
@@ -1073,8 +1080,28 @@ class TestWebApi(unittest.TestCase):
             '/api/clients', 'POST', cookies=cookies,
             json_body={'name': 'Client A'},
             headers={'X-CSRF-Token': csrf}))
-        # contracts may be via masters or docs — try projects path if needed
-        # Use raw SQL via a known writable: skip confirm if no contract endpoint
+        resp = self.webapp.handle(self._req(
+            '/api/contracts', 'POST', cookies=cookies,
+            json_body={'contract_no': 'C-BOQ-1', 'client_id': 1,
+                       'contract_value': 100000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        cid = self._json(resp)['id']
+        lines = self._json(self.webapp.handle(self._req(
+            '/api/boq/import/draft', 'POST', cookies=cookies,
+            json_body={'text': 'item_no,description,unit,qty,rate\n'
+                               '1,Excavation,cum,10,100'},
+            headers={'X-CSRF-Token': csrf})))['lines']
+        resp = self.webapp.handle(self._req(
+            '/api/boq/import/confirm', 'POST', cookies=cookies,
+            json_body={'contract_id': cid, 'lines': lines},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        resp = self.webapp.handle(self._req(
+            '/api/boq_items', cookies=cookies, query={'contract_id': str(cid)}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['items']), 1)
+
         resp = self.webapp.handle(self._req(
             '/api/patterns/learn', 'POST', cookies=cookies,
             json_body={'min_count': 2, 'apply': False},
@@ -1188,6 +1215,100 @@ class TestWebApi(unittest.TestCase):
             headers={'X-CSRF-Token': csrf}))
         self.assertEqual(resp.status, 201, resp.body)
         self.assertTrue(self._json(resp).get('followups') is not None)
+
+    def test_u07_fk_options_cashflow_alloc_po(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies=cookies,
+            json_body={'name': 'Plot A'},
+            headers={'X-CSRF-Token': csrf}))
+        self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=cookies,
+            json_body={'name': 'BuildCo'},
+            headers={'X-CSRF-Token': csrf}))
+        self.webapp.handle(self._req(
+            '/api/vendors', 'POST', cookies=cookies,
+            json_body={'name': 'Steel Mart'},
+            headers={'X-CSRF-Token': csrf}))
+
+        resp = self.webapp.handle(self._req('/api/projects', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        fields = self._json(resp)['fields']
+        site_f = next(f for f in fields if f['key'] == 'site_id')
+        self.assertEqual(site_f['kind'], 'fk')
+        self.assertTrue(any(o.get('label') == 'Plot A' for o in site_f['options']))
+
+        resp = self.webapp.handle(self._req(
+            '/api/contracts', 'POST', cookies=cookies,
+            json_body={'contract_no': 'C-1', 'client_id': 1, 'site_id': 1,
+                       'contract_value': 50000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        cid = self._json(resp)['id']
+
+        resp = self.webapp.handle(self._req(
+            '/api/bills', 'POST', cookies=cookies,
+            json_body={'bill_no': 'RB-1', 'contract_id': cid,
+                       'bill_date': '2026-07-01', 'work_done_value': 10000,
+                       'previous_billed': 0, 'retention_pct': 5,
+                       'status': 'Approved'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/bills/previous', cookies=cookies,
+            query={'contract_id': str(cid)}))
+        self.assertEqual(resp.status, 200)
+        self.assertGreater(self._json(resp)['previous_billed'], 0)
+
+        resp = self.webapp.handle(self._req('/api/cashflow', cookies=cookies,
+                                           query={'periods': '4', 'mode': 'week'}))
+        self.assertEqual(resp.status, 200)
+        cf = self._json(resp)
+        self.assertEqual(len(cf['buckets']), 4)
+        self.assertIn('balance', cf['buckets'][0])
+
+        resp = self.webapp.handle(self._req('/api/ageing', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('buckets', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/payments', 'POST', cookies=cookies,
+            json_body={'pay_date': '2026-07-22', 'direction': 'Receipt',
+                       'party_type': 'Client', 'party_name': 'BuildCo',
+                       'mode': 'Bank', 'amount': 3000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        pid = self._json(resp)['id']
+
+        resp = self.webapp.handle(self._req(
+            '/api/allocations', 'POST', cookies=cookies,
+            json_body={'payment_id': pid, 'lines': [
+                {'doc_type': 'Bill', 'doc_id': 1, 'amount': 2000}]},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        alloc = self._json(resp)
+        self.assertEqual(alloc['allocated'], 2000.0)
+        self.assertEqual(alloc['unallocated'], 1000.0)
+
+        resp = self.webapp.handle(self._req(
+            '/api/purchase_orders', 'POST', cookies=cookies,
+            json_body={'po_no': 'PO-9', 'vendor_id': 1, 'site_id': 1,
+                       'po_date': '2026-07-22', 'status': 'Draft',
+                       'items': [{'description': 'TMT 12mm', 'unit': 'kg',
+                                  'qty': 10, 'rate': 50}]},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        po = self._json(resp)
+        self.assertEqual(po['total_amount'], 500.0)
+        self.assertEqual(len(po['items']), 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/search', cookies=cookies, query={'q': 'BuildCo'}))
+        self.assertEqual(resp.status, 200)
+        recs = self._json(resp).get('records') or []
+        self.assertTrue(any(r.get('nav') and r.get('tag') for r in recs))
 
 
 if __name__ == '__main__':

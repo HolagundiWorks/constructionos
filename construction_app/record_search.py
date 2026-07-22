@@ -71,7 +71,10 @@ def search_records(conn, query, limit=40):
                 'label': label,
                 'section': section,
                 'tab': tab,
+                # Browser deep-link + WinUI NavigationView tag (section/tab).
                 'href': '/t/{}/{}'.format(table, rid),
+                'nav': '{}/{}'.format(section, tab),
+                'tag': '{}/{}'.format(section, tab),
                 'display': '{} › {} — {}'.format(section, tab, label),
             })
             remaining -= 1

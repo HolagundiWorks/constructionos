@@ -6,6 +6,25 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud U0.7: WinUI API thickenings
+
+Continue headless API work that unblocks local U3–U5 without .NET:
+
+- **FK options.** `web_masters.enrich_fields` resolves `fk_sql` →
+  `options:[{id,label}]` on master/doc list payloads.
+- **Contracts master** + browser create; `GET/POST /api/contracts`.
+- **BOQ.** `GET /api/boq_items?contract_id=`; BOQ import confirm covered in tests.
+- **Running bills.** `GET /api/bills/previous?contract_id=`.
+- **Cashflow.** `cashflow_assemble` + `GET /api/cashflow` (plottable buckets).
+- **Ageing.** Plottable `buckets` array on `GET /api/ageing`.
+- **Allocations.** `GET/POST /api/allocations` over `allocation.py`.
+- **PO create.** `POST /api/purchase_orders` with items → derived total.
+- **Search.** Record hits carry `nav`/`tag` for WinUI AutoSuggest.
+- API version **u0.7**; WinUI `MasterTables` includes Contracts.
+- Suite: **708** tests OK (5 skipped).
+
+---
+
 ## 2026-07-22 — Roadmap honesty pass (post WinUI harden + local run)
 
 - Reconciled [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)
