@@ -814,7 +814,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.2')
+        self.assertEqual(c['api'], 'u0.3')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -950,6 +950,42 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req(
             '/api/purchase_orders', cookies=cookies))
         self.assertEqual(resp.status, 200)
+
+    def test_u03_intent_sidecar_narrative(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+
+        resp = self.webapp.handle(self._req(
+            '/api/intent', 'POST', cookies=cookies,
+            json_body={'text': 'run the three-way match on this GRN'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body.get('event'), 'grn_saved')
+        self.assertTrue(body.get('followups'))
+
+        resp = self.webapp.handle(self._req(
+            '/api/sidecar/status', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        sides = self._json(resp)['sidecars']
+        self.assertIn('ocr', sides)
+        self.assertTrue(sides['ocr']['stub'])
+        self.assertFalse(sides['ocr']['available'])  # no live sidecar here
+
+        resp = self.webapp.handle(self._req(
+            '/api/sidecar/extract', 'POST', cookies=cookies,
+            json_body={'kind': 'ocr', 'payload': {'path': '/tmp/nope.jpg'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        ext = self._json(resp)
+        self.assertFalse(ext['ok'])
+        self.assertIn('draft', ext)
+
+        resp = self.webapp.handle(self._req(
+            '/api/narrative', cookies=cookies, query={'kind': 'kpi'}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['kind'], 'kpi')
+        self.assertTrue(self._json(resp)['text'])
 
 
 if __name__ == '__main__':

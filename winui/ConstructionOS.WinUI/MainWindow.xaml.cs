@@ -100,6 +100,11 @@ public sealed partial class MainWindow : Window
             else if (tag.Contains("Process", StringComparison.OrdinalIgnoreCase)
                      || tag == "What's next")
                 ContentFrame.Navigate(typeof(ProcessPage));
+            else if (tag.Contains("Productiv", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(ProductivityPage));
+            else if (tag.Contains("Capture", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("AI Engine", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(CapturePage));
             else
                 ContentFrame.Navigate(typeof(HomePage));
         }

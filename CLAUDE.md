@@ -54,7 +54,8 @@ cd construction_app && python -m compileall -q .
   learned register) are different features; don't merge them. Check for an
   existing module before adding one.
 - Keep this file and `AGENTS.md` accurate: if you change something they describe,
-  update them in the same commit.
+  update them in the same commit. Catalog is **8 sections / 52 modules** (incl.
+  Controls + Productivity); API version **u0.3**.
 
 ## Key docs
 Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM +

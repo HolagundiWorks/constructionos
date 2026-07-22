@@ -65,7 +65,7 @@ GROUPS = {
     ],
     'Operations': [
         ('Site work', ['Warehouse', 'Muster & Wages', 'Labour Ops',
-                       'Equipment Hire', 'Plant']),
+                       'Equipment Hire', 'Plant', 'Productivity']),
         ('Records', ['Consumption', 'Site Reports']),
         ('Assurance', ['Quality', 'Safety', 'Closeout']),
     ],

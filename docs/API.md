@@ -5,7 +5,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 `tests/test_web.py` (`TestWebApi`).
 
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.2` (`GET /api/health` → `{"api":"u0.2"}`)  
+**Version:** `u0.3` (`GET /api/health` → `{"api":"u0.3"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -18,7 +18,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.2` |
+| GET | `/api/health` | Auth except login; reports `api: u0.3` |
 | GET | `/api/contract` | Endpoint catalogue for clients |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
@@ -31,6 +31,8 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | GET | `/api/ageing` | Receivables ageing buckets |
 | GET | `/api/workflow?infer=1` | Flow graphs + progress (book-inferred by default) |
 | GET | `/api/search?q=` | Tabs + records (N4) |
+| GET | `/api/narrative?kind=kpi\|risk` | Plain-language briefing (`narrative.py`) |
+| GET | `/api/sidecar/status` | OCR/STT/VLM stub + live probe |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
 | GET | `/api/audit?origin=ai` | Audit trail (`manual` includes legacy NULL) |
@@ -44,6 +46,8 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | POST | `/api/{doc}` | Money docs — **create only**; payments may return gated `followups` |
 | POST | `/api/capture/draft` | Stage extraction for human review |
 | POST | `/api/capture/confirm` | Confirm → `work_done_entries` + ACTIVITY_COMPLETE follow-ups |
+| POST | `/api/sidecar/extract` | `{kind: ocr\|stt\|vlm, payload?}` → capture draft (soft-fail `ok:false`) |
+| POST | `/api/intent` | `{text}` → gated follow-up / workflow drafts (`nl_intent`) |
 | POST | `/api/reconcile` | `{po_subtotal, invoice_subtotal, tolerance?}` + narration |
 | POST | `/api/events` | `{event, payload?, include_detect?, apply_risks?}` |
 | POST | `/api/signals/feed` | Prediction → AI risk drafts |
@@ -54,5 +58,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 - No business maths in the transport — domain modules compute; API serialises.
 - AI drafts audit with `origin=ai`; human writes `origin=manual`.
 - Money/date-moving automations stay **gated** drafts (`event_hooks` / `followups`).
+- Sidecars bind **loopback only**; missing models degrade to empty drafts.
 
-See also: [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md), [`winui/README.md`](../winui/README.md).
+See also: [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md), [`winui/README.md`](../winui/README.md),
+[`CONCURRENCY.md`](CONCURRENCY.md).

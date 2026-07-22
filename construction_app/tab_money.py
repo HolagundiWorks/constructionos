@@ -21,6 +21,29 @@ from ui_guard import can_write
 
 import money as m
 import bill_export
+import event_hooks
+import followups
+
+
+def _show_payment_followups(payment_id, direction):
+    """After a Payment (money out), surface gated drafts — never auto-post."""
+    if direction != 'Payment':
+        return
+    result = event_hooks.react(
+        followups.PAYMENT_DUE, payload={'payment_id': payment_id})
+    steps = result.get('followups') or []
+    if not steps:
+        return
+    lines = []
+    for f in steps:
+        tag = '  [needs your approval]' if f.get('gated') else ''
+        lines.append('• {} — {}{}'.format(
+            f.get('action', ''), f.get('where', ''), tag))
+    messagebox.showinfo(
+        'Suggested next steps',
+        'Saved. Draft follow-ups (nothing was auto-posted):\n\n'
+        + '\n'.join(lines))
+
 
 
 def _save_and_open_html(html, default_name):
@@ -305,15 +328,19 @@ class PaymentsFrame(ttk.Frame):
             return
         cols = list(d.keys())
         conn = self.db_getter()
+        new_id = None
         try:
-            conn.execute('INSERT INTO payments ({}) VALUES ({})'.format(
+            cur = conn.execute('INSERT INTO payments ({}) VALUES ({})'.format(
                 ', '.join(cols), ', '.join(['?'] * len(cols))),
                 [d[c] for c in cols])
+            new_id = cur.lastrowid
             conn.commit()
             self._refresh_list(conn)
         finally:
             conn.close()
         self.clear()
+        if new_id is not None:
+            _show_payment_followups(new_id, d.get('direction'))
 
     def update(self):
         if not can_write():

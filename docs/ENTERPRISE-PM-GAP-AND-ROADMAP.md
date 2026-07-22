@@ -92,7 +92,7 @@ gap, its impact, and the required work.
 | Portfolio roll-up across projects/firms | ✅ | Federated `portfolio_store` + Money › Portfolio + WinUI + `/api/portfolio` advisories | — | Maintain | — |
 | Earned Value Management (SPI/CPI/EAC) | ✅ | Maths (`earnedvalue.py`) + DB bridge (`evm.py`) + desktop tab + browser `/evm` | — | Maintain; keep bridge tkinter-free (see §5A C0) | — |
 | Formal risk register + scoring | ✅ | Scoring (`risk.py`) + store (`risk_store.py`) + **Controls › Risk Register** + detection (`risk_detect.py`) | — | Maintain | — |
-| Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; conflict handling | P1 · L · Platform |
+| Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; notes in `docs/CONCURRENCY.md` | Contention under many concurrent field users | Conflict handling / redesign only with owner decision | P1 · L · Platform |
 | Mobile field capture | 🟡 | Browser `/m/capture` + `/api/capture/*` (E6-lite); no native app | Field data can sync via LAN; native app still open | Native mobile optional | P1 · L · Platform |
 | AI-origin tagging in audit | ✅ | `audit_log.origin` + default `manual`; AI paths tagged; `?origin=` filter | — | Maintain | — |
 | Enterprise identity (SSO, project roles) | ❌ | Roles Admin/Operator/Viewer built; no SSO or per-project scoping | Larger orgs need finer access; solo users need none | Optional SSO + per-project role scoping (opt-in) | P2 · M · Platform |
@@ -101,8 +101,8 @@ gap, its impact, and the required work.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Photo → GRN / vendor-invoice draft (OCR) | ❌ | Manual entry only | Largest source of typing + transcription error | OCR + doc-parse → draft record, confidence per field | P1 · L · AI |
-| Voice → DPR / measurement draft | ❌ | Manual entry only | Field notes captured hours late at a desk | Speech-to-text → entity extraction → draft | P1 · M · AI |
+| Photo → GRN / vendor-invoice draft (OCR) | 🟡 | `capture` + `sidecar_bridge` soft-fail; no weights in-repo | Largest source of typing + transcription error | Install OCR sidecar weights locally (L8) | P1 · L · AI |
+| Voice → DPR / measurement draft | 🟡 | Same bridge (`stt` kind); no weights | Field notes captured hours late at a desk | Install STT weights locally (L8) | P1 · M · AI |
 | Photo of muster → attendance draft | ❌ | Manual grid entry | Repetitive daily typing; name errors | OCR + match to labour master → draft grid | P2 · M · AI |
 | BOQ / tender PDF → import draft | ❌ | Manual BOQ entry | Slow, error-prone tender onboarding | Document parse → line items + rates → draft | P2 · M · AI |
 | Free-text (WhatsApp) → structured record | ❌ | Manual re-keying | Updates live in chat, never in the system | NL extraction → typed draft (site report / issue) | P2 · M · AI |
@@ -120,7 +120,7 @@ true).
 | Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/measurement/variation/payment/capture/filings wired | — | Maintain; more save paths optional | — |
 | Recurring project-review pack generation | ✅ | `review_pack` + `review_assemble` + Weekly Review tab + `/review` | — | Maintain | — |
 | Mismatch / exception narration | ✅ | `procurement.narrate_*` + `finance.narrate_reconcile` + `/api/match` `/api/reconcile` | — | Maintain | — |
-| NL-triggered workflows | ❌ | NL assistant is read-only | Can't say "close snags + draft handover" | Map NL intent → concrete gated steps | P2 · M · AI |
+| NL-triggered workflows | 🟡 | `nl_intent` + `POST /api/intent` (keyword → gated drafts) | Richer NL still model-side | Optional model classifier over the same drafts | P2 · M · AI |
 
 **Guardrail:** anything that moves money, files with a department, or changes a
 contractual date is **always a draft a human approves** — automation removes
@@ -244,14 +244,14 @@ What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 | Phase | Built (module / surface) | Remaining | Track |
 |---|---|---|---|
 | **E0** | `earnedvalue` + `evm` + **Earned Value tab** + `/evm`; `risk` + `risk_store` + **Risks tab**; detection; **AI-origin audit** | — | Cloud done |
-| **E1** | `capture.py` (draft-and-confirm framework) | OCR/voice/VLM **model sidecars** + capture UI | Local (models/UI) |
-| **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** tab + `/review` | Dedicated multi-file portfolio shell (optional) | Local (shell) |
-| **E3** | `risk_detect` (11 rules + mitigations), `narrative.risk_briefing`, Risks tab; event detect hook | GUI auto-wire on save | Local (handlers) |
-| **E4** | `review_pack`, `followups`, `event_hooks` | GUI wiring that fires on save | Local (GUI) |
+| **E1** | `capture.py` + `sidecar_bridge.py` (soft-fail OCR/STT/VLM) | Model **weights** + live sidecar processes | Local (models) |
+| **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** + **Portfolio** + `/review` + `/api/narrative` | — | Cloud done |
+| **E3** | `risk_detect`, `narrative.risk_briefing`, Risks tab; event detect hook | More save-path auto-wire (optional) | Local (handlers) |
+| **E4** | `review_pack`, `followups`, `event_hooks` + GRN/measurement/variation/payment wiring | Remaining save handlers | Local (GUI) |
 | **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
-| **E6** | — | Mobile capture app | Local (separate) |
-| **E7** | `menu.py`, `workflow.py` (models + tests) | Controls section, Lessons Learned tab, Process view, persona rail, search | Local (UI) — models Cloud-done |
-| **U** | `webapi.py` `/api/*` (**U0.1**) + **WinUI U1 scaffold** under `winui/` | U2–U7 pages, MSIX, charts (Windows) | **U1 scaffolded** · **U2–U7 Local** |
+| **E6** | Browser `/m/capture` + `/api/capture/*` (E6-lite) | Native mobile app (optional) | Local (optional) |
+| **E7** | `menu.py`, `workflow.py`, Controls, Lessons Learned, persona, Process, search, N5 groups | Display smoke (L0) | Cloud models+UI shipped · L0 local |
+| **U** | `webapi.py` `/api/*` (**U0.3**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.3** · scaffolds Local |
 
 **What this environment can still produce:** pure Python domain, SQLite stores,
 stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
@@ -276,13 +276,16 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, forecast/drift, portfolio, contract map | ✅ **u0.1** |
-| WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient) | ✅ scaffolded (Windows to build) |
+| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, forecast/drift, portfolio, intent, sidecar, narrative | ✅ **u0.3** |
+| WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient + pages) | ✅ scaffolded (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
 | Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
 | Lessons API (C6) | `/api/lessons` + store | ✅ built + tested |
 | Headless purity (C0) | `project_rollup.py` | ✅ built + tested |
+| Sidecar bridge (E1 floor) | `sidecar_bridge.py` + `/api/sidecar/*` | ✅ soft-fail (no weights) |
+| NL intent floor | `nl_intent.py` + `POST /api/intent` | ✅ gated drafts only |
+| Concurrency notes | `docs/CONCURRENCY.md` | ✅ documented (no redesign) |
 | Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
 
 #### Already done on this track
@@ -307,6 +310,7 @@ display.
 | **C7** | Docs/counts hygiene after each merge | ongoing |
 | **C8** | U0.1 API widen + WinUI U1 scaffold | ✅ |
 | **C9** | U0.2 (search records, match/reconcile/ageing/filings, portfolio advisories) | ✅ |
+| **C10** | U0.3 (NL intent, sidecar bridge API, narrative, Productivity tab) | ✅ |
 
 **Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
 
@@ -328,6 +332,7 @@ sidecars** are built and verified.
 | Process view + search | Always-on **Process** rail |
 | Weekly Review tab + browser | Money › Review; `/review` |
 | Field capture (E6-lite) | Browser `/m/capture` + `/api/capture/*` |
+| Productivity | Operations › Productivity (`tab_productivity`) |
 | Rate Realisation (`tab_lessons`) | distinct from Lessons *Learned* register |
 
 #### Ordered action plan — local next
@@ -374,14 +379,13 @@ EVM/risk maths in C#.
 - **E0.2 Risk scoring ✅ + register ✅ + tab ✅** —
   `risk.py` / `risk_store.py` / **Project Management › Risks**. Detection via
   `risk_detect.py`. _Remaining: optional Controls-section home (local L1)._
-- **E0.3 AI-origin audit tagging ⏳** — the `risks` table already carries a
-  `source` (`manual`/`ai`) and `decided_by`/`decided_date`; extending the app-wide
-  audit log to tag AI-drafted origin on other records is not yet started
-  (**cloud C3**).
+- **E0.3 AI-origin audit tagging ✅** — `audit_log.origin` (`manual`/`ai`) via
+  `auth.audit(..., origin=)` (default manual); capture and signal-feed tag AI
+  drafts. Risks still carry their own `source` column.
 
 **Depends on:** existing analytics/cost/programme (present).
 **Acceptance:** EVM figures reconcile in tests ✅; risk scoring/store ✅; tab
-shipped ✅; no new pip dependency ✅. _Wider audit tagging remains open (C3)._
+shipped ✅; no new pip dependency ✅. _Audit origin tagging shipped (C3)._
 
 ### Phase E1 — Capture _(P1 · cut manual entry)_
 
@@ -540,15 +544,11 @@ a flat 47-tab grid. Addresses the §3.6 gaps (N1–N6). Reference:
   the "what's next" and completion from a state dict. 6 unit tests
   (`TestWorkflow`), including `unknown_locations() == []` — a drift-guard that
   every step points at a real menu location. (N2, N6)
-- **E7.3 "Controls" section + remaining register tabs (GUI · local L1/L2)** —
-  menu home for **Risk Register · Opportunity Register · Lessons Learned ·
-  Submittals**. Risks/Opportunities already live under Project Management;
-  Submittals under Sourcing. **Lessons Learned** (the register, not Rate
-  Realisation) still needs a dedicated tab over `lessons_store`. Persona rail
-  filtering over `menu.resolve`. (N1, N3)
-- **E7.4 Process view + search (GUI · local L3)** — a "What's next" overlay that
-  renders the E7.2 graph, plus a global search / command palette and breadcrumbs
-  aligned with the web layer's URL routing. (N2, N4)
+- **E7.3 "Controls" section + register tabs ✅** — Controls home for Risk /
+  Opportunity / Lessons Learned / Submittals; persona rail via `menu.resolve`.
+- **E7.4 Process view + search ✅** — Process rail over `workflow` +
+  `workflow_state`; tab + record search (`menu.search_tabs`, `record_search`);
+  N5 nested groups. Display smoke remains **L0** local.
 
 **Depends on:** E0–E5 stores/logic (built); `modules.SECTIONS_CATALOG`,
 `shell.RailStage`, `advisory`, `followups` (built).
@@ -557,11 +557,8 @@ a flat 47-tab grid. Addresses the §3.6 gaps (N1–N6). Reference:
 state); the Part 2 registers are reachable from a menu; a persona sees a menu
 scoped to their job. _Rendering (rail filtering, Process overlay, search UI) is
 display-dependent and verified on a display, per the standing boundary._
-**Built so far:** E7.1 (`menu.py`) and E7.2 (`workflow.py`) — the pure menu and
-workflow models — are **built and unit-tested** (drift-guarded against the live
-catalog). Risks / Opportunities / EVM / Weekly Review tabs shipped under existing
-sections. _Remaining:_ E7.3/E7.4 — Controls home, Lessons Learned tab, persona
-rail, Process view, search — **local track** (display-dependent).
+**Built:** E7.1–E7.4 models and desktop surfaces (Controls, Lessons Learned,
+persona, Process, search, N5 groups). _Remaining:_ L0 display smoke verification.
 
 ---
 

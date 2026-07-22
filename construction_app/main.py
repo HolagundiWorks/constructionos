@@ -53,6 +53,7 @@ from tab_process import build_process_tab
 from tab_sourcing import build_sourcing_tab, build_submittals
 from tab_review import build_review_tab
 from tab_portfolio import build_portfolio_tab
+from tab_productivity import build_productivity_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -103,6 +104,7 @@ BUILDERS = {
     'Labour Ops': build_labor_ops_tab,
     'Equipment Hire': build_equipment_hire_tab,
     'Plant': build_plant_tab,
+    'Productivity': build_productivity_tab,
     'Consumption': build_consumption_tab,
     'Site Reports': build_site_reports_tab,
     'Quality': build_quality_tab,
@@ -154,6 +156,7 @@ MODULE_ICONS = {
     # Operations
     'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
     'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',
+    'Productivity': '\U0001F4C8',
     'Consumption': '\U0001F6E2', 'Site Reports': '\U0001F4DD', 'Quality': '✅',
     'Look-ahead': '\U0001F4C5', 'Safety': '\U0001F9BA', 'Closeout': '\U0001F3C1',
     'Timeline': '\U0001F4C6',

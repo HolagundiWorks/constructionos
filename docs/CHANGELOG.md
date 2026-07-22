@@ -6,6 +6,25 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: U0.3 intent/sidecar/narrative, Productivity, concurrency notes
+
+- **NL intent floor.** `nl_intent.py` maps free text → gated `followups` /
+  `workflow` drafts; `POST /api/intent` (nothing auto-runs).
+- **Sidecar bridge.** `sidecar_bridge.py` soft-fails OCR/STT/VLM localhost
+  probes; `GET /api/sidecar/status`, `POST /api/sidecar/extract` → `capture`
+  drafts. Stub READMEs updated with HTTP contract.
+- **Narrative API.** `GET /api/narrative?kind=kpi|risk` over `narrative.py`.
+- **Productivity tab.** Operations › Productivity over `productivity_store`;
+  WinUI `ProductivityPage` + `CapturePage` scaffolds.
+- **Payment event wiring.** Cash & Parties payment create surfaces gated
+  `PAYMENT_DUE` follow-ups (same pattern as GRN).
+- **API u0.3.** Health/contract version bump.
+- **Concurrency notes.** `docs/CONCURRENCY.md` — honest single-file limits, no
+  redesign.
+- Gap glance / E0.3 / E7.3–E7.4 hygiene (already-shipped items marked built).
+
+---
+
 ## 2026-07-22 — Continue: N4 records, U0.2 API, portfolio advisory, audit default
 
 - **N4 record search.** `record_search.py` + Process palette + `GET /api/search`

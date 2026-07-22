@@ -97,6 +97,8 @@ import event_hooks
 import menu
 import workflow
 import modules as modules_cat
+import nl_intent
+import sidecar_bridge
 
 
 class TestFinance(unittest.TestCase):
@@ -1417,6 +1419,57 @@ class TestEventHooks(unittest.TestCase):
             followups.ACTIVITY_COMPLETE,
             snapshot={'cash': 1000, 'payables': 50000, 'receivable_90plus': 200000})
         self.assertIsInstance(r['risks'], list)
+
+
+class TestNlIntent(unittest.TestCase):
+    """Deterministic NL → gated follow-up / workflow drafts."""
+
+    def test_grn_phrase_maps_to_event(self):
+        r = nl_intent.resolve('please run the three-way match after GRN')
+        self.assertEqual(r['event'], followups.GRN_SAVED)
+        self.assertTrue(r['followups'])
+        self.assertEqual(r['gated_count'], 0)
+
+    def test_payment_phrase_is_gated(self):
+        r = nl_intent.resolve('draft payment for the vendor')
+        self.assertEqual(r['event'], followups.PAYMENT_DUE)
+        self.assertGreaterEqual(r['gated_count'], 1)
+
+    def test_close_snags_extra(self):
+        r = nl_intent.resolve('close snags and prepare handover')
+        self.assertTrue(any('Closeout' in (f.get('where') or '')
+                            for f in r['followups']))
+        self.assertGreaterEqual(r['gated_count'], 1)
+
+    def test_unknown_is_empty(self):
+        r = nl_intent.resolve('xyzzy nonsense')
+        self.assertIsNone(r['event'])
+        self.assertEqual(r['followups'], [])
+
+    def test_workflow_hint(self):
+        r = nl_intent.resolve('start looking at the tender bid')
+        self.assertEqual(r['workflow'], 'bid_to_contract')
+        self.assertIsNotNone(r['next_step'])
+
+
+class TestSidecarBridge(unittest.TestCase):
+    """E1 soft-fail bridge — stubs present, live extract fails cleanly."""
+
+    def test_status_reports_stubs(self):
+        st = sidecar_bridge.status()
+        self.assertIn('ocr', st)
+        self.assertTrue(st['ocr']['stub'])
+        self.assertFalse(st['ocr']['available'])
+
+    def test_extract_unavailable_returns_empty_draft(self):
+        r = sidecar_bridge.extract('ocr', payload={'path': '/no/such.jpg'})
+        self.assertFalse(r['ok'])
+        self.assertTrue(r['needs_review'])
+        self.assertEqual(capture.to_record(r['draft']), {})
+
+    def test_unknown_kind(self):
+        r = sidecar_bridge.extract('nope')
+        self.assertFalse(r['ok'])
 
 
 class TestAuditOrigin(unittest.TestCase):

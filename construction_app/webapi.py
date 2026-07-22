@@ -27,10 +27,13 @@ import journal_post
 import lessons_store
 import menu
 import modules
+import narrative
+import nl_intent
 import opportunity_store
 import portfolio_store
 import review_assemble
 import risk_store
+import sidecar_bridge
 import signal_feed
 import submittals as submittals_mod
 import web_docs
@@ -65,7 +68,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.2'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.3'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -124,6 +127,18 @@ def handle(request, sess):
 
     if path == 'search' and method == 'GET':
         return _search(request)
+
+    if path == 'intent' and method == 'POST':
+        return _intent(request)
+
+    if path == 'sidecar/status' and method == 'GET':
+        return _sidecar_status()
+
+    if path == 'sidecar/extract' and method == 'POST':
+        return _sidecar_extract(request)
+
+    if path == 'narrative' and method == 'GET':
+        return _narrative(request)
 
     if path == 'capture/draft' and method == 'POST':
         return _capture_draft(request, sess)
@@ -878,7 +893,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.2',
+        'api': 'u0.3',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -896,7 +911,9 @@ def _api_contract():
             'GET /api/project/{id}/evm',
             'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
             'GET /api/submittals', 'GET /api/audit?origin=',
-            'GET /api/search?q=', 'GET /api/{master}', 'GET /api/{doc}',
+            'GET /api/search?q=', 'GET /api/narrative?kind=',
+            'GET /api/sidecar/status',
+            'GET /api/{master}', 'GET /api/{doc}',
         ],
         'writes': [
             'POST/PUT/DELETE /api/risks[/{id}]',
@@ -904,7 +921,8 @@ def _api_contract():
             'POST/PUT/DELETE /api/lessons[/{id}]',
             'POST/PUT/DELETE /api/submittals[/{id}]',
             'POST /api/capture/draft', 'POST /api/capture/confirm',
-            'POST /api/reconcile',
+            'POST /api/reconcile', 'POST /api/intent',
+            'POST /api/sidecar/extract',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -1334,6 +1352,47 @@ def _search(request):
         'tabs': tabs,
         'records': records,
     })
+
+
+def _intent(request):
+    """POST /api/intent — {text, payload?} → gated follow-up / workflow drafts."""
+    body = _payload(request)
+    text = body.get('text') or body.get('query') or ''
+    payload = body.get('payload') if isinstance(body.get('payload'), dict) else {}
+    return _ok(nl_intent.resolve(text, payload=payload))
+
+
+def _sidecar_status():
+    """GET /api/sidecar/status — OCR/STT/VLM stub + live probe."""
+    return _ok({'sidecars': sidecar_bridge.status()})
+
+
+def _sidecar_extract(request):
+    """POST /api/sidecar/extract — {kind, payload?} → capture draft (soft-fail)."""
+    body = _payload(request)
+    kind = (body.get('kind') or '').strip().lower()
+    payload = body.get('payload') if isinstance(body.get('payload'), dict) else {}
+    if kind not in sidecar_bridge.KINDS:
+        return _err('kind must be one of: {}'.format(', '.join(sidecar_bridge.KINDS)))
+    result = sidecar_bridge.extract(kind, payload=payload)
+    # Soft-fail: still 200 with ok=False so clients degrade cleanly.
+    return _ok(result)
+
+
+def _narrative(request):
+    """GET /api/narrative?kind=kpi|risk — plain-language briefing over dashboard."""
+    kind = ((request.query or {}).get('kind') or 'kpi').strip().lower()
+    conn = _conn()
+    try:
+        snap = dashboard.collect(conn)
+    finally:
+        conn.close()
+    if kind == 'risk':
+        text = narrative.risk_briefing(snap)
+    else:
+        text = narrative.kpi_briefing(snap)
+        kind = 'kpi'
+    return _ok({'kind': kind, 'text': text})
 
 
 def _capture_draft(request, sess):
