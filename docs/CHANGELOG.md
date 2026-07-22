@@ -6,6 +6,17 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI shell: top ribbon nav (was left sidebar)
+
+- **NavigationView is now a top ribbon** (`PaneDisplayMode="Top"`, was `Left`):
+  the sections render as a horizontal bar, and WinUI **natively auto-collapses**
+  items that don't fit into a "More" (») overflow flyout as the window narrows —
+  the requested auto-collapse, with no custom chrome. Section parents open a
+  dropdown of their tabs; the search palette + Settings gear sit in the bar.
+  Stock control only; routing/selection unchanged. `dotnet build` 0 errors.
+
+---
+
 ## 2026-07-22 — Switch the internalised AI from Ollama to Foundry Local
 
 Replaced the built-in AI runtime with **Microsoft Foundry Local** (its

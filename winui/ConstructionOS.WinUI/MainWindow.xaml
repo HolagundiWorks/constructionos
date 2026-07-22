@@ -4,8 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Construction OS">
   <Grid>
+    <!-- Top ribbon: PaneDisplayMode="Top" renders the sections as a horizontal
+         bar; NavigationView natively auto-collapses items that don't fit into a
+         "More" (») overflow flyout as the window narrows. Section parents open
+         a dropdown of their tabs. Stock control, no custom chrome. -->
     <NavigationView x:Name="Nav"
-                    PaneDisplayMode="Left"
+                    PaneDisplayMode="Top"
                     IsSettingsVisible="True"
                     IsBackButtonVisible="Collapsed"
                     Loaded="Nav_Loaded"
@@ -13,7 +17,7 @@
       <NavigationView.PaneHeader>
         <TextBlock Text="Construction OS"
                    Style="{StaticResource SubtitleTextBlockStyle}"
-                   Margin="12,8"/>
+                   Margin="4,0,12,0" VerticalAlignment="Center"/>
       </NavigationView.PaneHeader>
       <NavigationView.AutoSuggestBox>
         <!-- U5 command palette: type to find any tab (GET /api/search), pick to
