@@ -17,15 +17,21 @@ import re
 import advisory
 import auth
 import dashboard
+import drift
 import event_hooks
 import evm
+import forecast
+import journal_post
 import lessons_store
 import menu
 import modules
 import opportunity_store
+import portfolio_store
 import review_assemble
 import risk_store
 import signal_feed
+import submittals as submittals_mod
+import web_docs
 import web_masters
 import webapp
 import workflow
@@ -36,11 +42,17 @@ _API_MASTERS = (
     'projects', 'milestones', 'thekedars', 'rate_book',
 )
 
+# Money documents: create + list/get (no edit — records of fact).
+_API_DOCS = tuple(web_docs.DOCS.keys())
+
 _RISK_ID = re.compile(r'^risks/(\d+)$')
 _OPP_ID = re.compile(r'^opportunities/(\d+)$')
 _LESSON_ID = re.compile(r'^lessons/(\d+)$')
+_SUBMITTAL_ID = re.compile(r'^submittals/(\d+)$')
 _MASTER_ID = re.compile(
     r'^(' + '|'.join(_API_MASTERS) + r')/(\d+)$')
+_DOC_ID = re.compile(
+    r'^(' + '|'.join(_API_DOCS) + r')/(\d+)$')
 _PROJECT_EVM = re.compile(r'^project/(\d+)/evm$')
 
 
@@ -50,7 +62,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.1'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -65,6 +77,9 @@ def handle(request, sess):
         # sess exists. Kept as a clear 405 so clients don't guess wrong.
         return _err('Already signed in', 405)
 
+    if path == 'contract' and method == 'GET':
+        return _api_contract()
+
     if path == 'dashboard' and method == 'GET':
         return _dashboard()
 
@@ -73,6 +88,9 @@ def handle(request, sess):
 
     if path == 'review' and method == 'GET':
         return _review()
+
+    if path == 'portfolio' and method == 'GET':
+        return _portfolio(request)
 
     if path == 'menu' and method == 'GET':
         return _menu(request)
@@ -87,6 +105,12 @@ def handle(request, sess):
     if m and method == 'GET':
         return _evm_project(int(m.group(1)))
 
+    if path == 'forecast' and method == 'POST':
+        return _post_forecast(request)
+
+    if path == 'drift' and method == 'POST':
+        return _post_drift(request)
+
     if path == 'events' and method == 'POST':
         return _post_event(request, sess)
 
@@ -95,6 +119,21 @@ def handle(request, sess):
 
     if path == 'audit' and method == 'GET':
         return _list_audit(request)
+
+    if path == 'submittals':
+        if method == 'GET':
+            return _list_submittals(request)
+        if method == 'POST':
+            return _create_submittal(request, sess)
+    m = _SUBMITTAL_ID.match(path)
+    if m:
+        sid = int(m.group(1))
+        if method == 'GET':
+            return _get_submittal(sid)
+        if method == 'PUT':
+            return _update_submittal(request, sess, sid)
+        if method == 'DELETE':
+            return _delete_submittal(request, sess, sid)
 
     if path == 'lessons':
         if method == 'GET':
@@ -140,6 +179,19 @@ def handle(request, sess):
             return _update_opp(request, sess, oid)
         if method == 'DELETE':
             return _delete_opp(request, sess, oid)
+
+    # Money documents (create + list/get only)
+    if path in _API_DOCS:
+        if method == 'GET':
+            return _list_doc(path)
+        if method == 'POST':
+            return _create_doc(request, sess, path)
+    m = _DOC_ID.match(path)
+    if m:
+        table, rid = m.group(1), int(m.group(2))
+        if method == 'GET':
+            return _get_doc(table, rid)
+        return _err('Money documents are create+view only', 405)
 
     if path in _API_MASTERS:
         if method == 'GET':
@@ -776,5 +828,299 @@ def _list_audit(request):
     try:
         rows = auth.recent_audit(conn, limit=limit, origin=origin)
         return _ok({'items': _rows(rows)})
+    finally:
+        conn.close()
+
+
+# ------------------------------------- contract / portfolio / forecast / drift
+def _api_contract():
+    """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
+    return _ok({
+        'api': 'u0.1',
+        'auth': {
+            'login': 'POST /api/login',
+            'session_cookie': 'cosid',
+            'csrf_header': 'X-CSRF-Token',
+            'me': 'GET /api/me',
+        },
+        'reads': [
+            'GET /api/health', 'GET /api/contract',
+            'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
+            'GET /api/portfolio', 'GET /api/menu?persona=',
+            'GET /api/workflow', 'GET /api/evm', 'GET /api/project/{id}/evm',
+            'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
+            'GET /api/submittals', 'GET /api/audit?origin=',
+            'GET /api/{master}', 'GET /api/{doc}',
+        ],
+        'writes': [
+            'POST/PUT/DELETE /api/risks[/{id}]',
+            'POST/PUT/DELETE /api/opportunities[/{id}]',
+            'POST/PUT/DELETE /api/lessons[/{id}]',
+            'POST/PUT/DELETE /api/submittals[/{id}]',
+            'POST/PUT/DELETE /api/{master}[/{id}]',
+            'POST /api/{doc}  (create only: payments, tax_invoices, …)',
+            'POST /api/events', 'POST /api/signals/feed',
+            'POST /api/forecast', 'POST /api/drift',
+        ],
+        'masters': list(_API_MASTERS),
+        'docs': list(_API_DOCS),
+        'personas': list(menu.PERSONAS),
+    })
+
+
+def _portfolio(request):
+    """Current-file portfolio roll-up; optional ``?paths=a.db,b.db`` federates."""
+    raw = (request.query.get('paths') or '').strip()
+    if raw:
+        paths = [p.strip() for p in raw.split(',') if p.strip()]
+        return _ok(portfolio_store.roll_up(paths))
+    conn = _conn()
+    try:
+        return _ok({'current': portfolio_store.file_rollup(conn, name='current'),
+                    'federated': False})
+    finally:
+        conn.close()
+
+
+def _post_forecast(request):
+    """POST /api/forecast — {series, periods_ahead?} or {baseline_duration, spi}."""
+    body = _payload(request)
+    if 'baseline_duration' in body or 'spi' in body:
+        result = forecast.schedule_forecast(
+            body.get('baseline_duration'), body.get('spi'))
+        if result is None:
+            return _err('Schedule forecast undefined (need baseline + SPI)', 400)
+        return _ok({'kind': 'schedule', 'result': result})
+    series = body.get('series') or []
+    try:
+        ahead = int(body.get('periods_ahead') or 1)
+    except (TypeError, ValueError):
+        ahead = 1
+    result = forecast.project(series, periods_ahead=ahead)
+    if result is None:
+        return _err('Trend undefined (need ≥2 numeric points)', 400)
+    return _ok({'kind': 'trend', 'result': result,
+                'direction': forecast.direction(series)})
+
+
+def _post_drift(request):
+    """POST /api/drift — soft-signal dict → drift assessment."""
+    body = _payload(request)
+    signals = body.get('signals') if isinstance(body.get('signals'), dict) else body
+    # Strip non-signal keys if a wrapper was sent
+    clean = {k: signals.get(k) for k in (
+        'ppc_series', 'slip_series', 'rfi_age_series', 'low_conf_measurements')
+        if k in signals}
+    return _ok(drift.assess_drift(clean))
+
+
+# -------------------------------------------------------------- submittals
+_SUBMITTAL_FIELDS = (
+    'submittal_no', 'site_id', 'contract_id', 'spec_ref', 'title',
+    'submittal_type', 'submitted_date', 'submitted_by', 'required_by',
+    'status', 'reviewer', 'reviewed_date', 'review_remarks',
+    'supersedes_id', 'remarks',
+)
+
+
+def _list_submittals(request):
+    conn = _conn()
+    try:
+        status = request.query.get('status')
+        sql = 'SELECT * FROM submittals'
+        params = []
+        if status:
+            sql += ' WHERE status = ?'
+            params.append(status)
+        sql += ' ORDER BY id DESC LIMIT 500'
+        rows = conn.execute(sql, params).fetchall()
+        items = []
+        for r in rows:
+            d = _row(r)
+            d['is_open'] = submittals_mod.is_open(r['status'])
+            d['is_overdue'] = submittals_mod.is_overdue(
+                r['required_by'], r['status'])
+            items.append(d)
+        return _ok({'items': items, 'statuses': list(submittals_mod.STATUSES)})
+    finally:
+        conn.close()
+
+
+def _get_submittal(sid):
+    conn = _conn()
+    try:
+        row = conn.execute('SELECT * FROM submittals WHERE id = ?',
+                           (sid,)).fetchone()
+        if row is None:
+            return _err('Submittal not found', 404)
+        d = _row(row)
+        d['is_open'] = submittals_mod.is_open(row['status'])
+        d['is_overdue'] = submittals_mod.is_overdue(
+            row['required_by'], row['status'])
+        return _ok(d)
+    finally:
+        conn.close()
+
+
+def _create_submittal(request, sess):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    fields = _payload(request)
+    fields.pop('csrf', None)
+    row = {k: fields[k] for k in _SUBMITTAL_FIELDS if k in fields}
+    row.setdefault('status', 'Submitted')
+    if row.get('status') and row['status'] not in submittals_mod.STATUSES:
+        return _err('Invalid status', 400)
+    conn = _conn()
+    try:
+        cols = list(row.keys())
+        cur = conn.execute(
+            'INSERT INTO submittals ({}) VALUES ({})'.format(
+                ', '.join(cols), ', '.join('?' for _ in cols)),
+            [row[c] for c in cols])
+        new_id = cur.lastrowid
+        auth.audit(conn, sess['username'], 'api_create', 'submittals', new_id,
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        row = conn.execute('SELECT * FROM submittals WHERE id = ?',
+                           (new_id,)).fetchone()
+        d = _row(row)
+        d['is_open'] = submittals_mod.is_open(row['status'])
+        d['is_overdue'] = submittals_mod.is_overdue(
+            row['required_by'], row['status'])
+        return _ok(d, status=201)
+    finally:
+        conn.close()
+
+
+def _update_submittal(request, sess, sid):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    fields = _payload(request)
+    fields.pop('csrf', None)
+    conn = _conn()
+    try:
+        existing = conn.execute('SELECT * FROM submittals WHERE id = ?',
+                                (sid,)).fetchone()
+        if existing is None:
+            return _err('Submittal not found', 404)
+        updates = {k: fields[k] for k in _SUBMITTAL_FIELDS if k in fields}
+        if updates.get('status') and updates['status'] not in submittals_mod.STATUSES:
+            return _err('Invalid status', 400)
+        if not updates:
+            return _ok(_row(existing))
+        cols = list(updates.keys())
+        conn.execute(
+            'UPDATE submittals SET {} WHERE id = ?'.format(
+                ', '.join('{} = ?'.format(c) for c in cols)),
+            [updates[c] for c in cols] + [sid])
+        auth.audit(conn, sess['username'], 'api_update', 'submittals', sid,
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+    finally:
+        conn.close()
+    return _get_submittal(sid)
+
+
+def _delete_submittal(request, sess, sid):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        row = conn.execute('SELECT id FROM submittals WHERE id = ?',
+                           (sid,)).fetchone()
+        if row is None:
+            return _err('Submittal not found', 404)
+        conn.execute('DELETE FROM submittals WHERE id = ?', (sid,))
+        auth.audit(conn, sess['username'], 'api_delete', 'submittals', sid,
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'deleted': sid})
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------- money documents
+def _list_doc(table):
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            'SELECT * FROM "{}" ORDER BY id DESC LIMIT 500'.format(table)
+        ).fetchall()
+        return _ok({
+            'table': table,
+            'label': web_docs.label(table),
+            'note': web_docs.note(table),
+            'fields': web_docs.fields(table),
+            'items': _rows(rows),
+            'create_only': True,
+        })
+    finally:
+        conn.close()
+
+
+def _get_doc(table, rid):
+    conn = _conn()
+    try:
+        row = conn.execute(
+            'SELECT * FROM "{}" WHERE id = ?'.format(table), (rid,)
+        ).fetchone()
+        if row is None:
+            return _err('Not found', 404)
+        return _ok(_row(row))
+    finally:
+        conn.close()
+
+
+def _create_doc(request, sess, table):
+    """Create a money document via web_docs.compute + journal_post.post_all."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    payload = _payload(request)
+    payload.pop('csrf', None)
+    values = {}
+    errs = []
+    for f in web_docs.fields(table):
+        key = f['key']
+        if key in payload:
+            raw = payload[key]
+        else:
+            raw = web_docs.resolve_default(f.get('default', ''))
+        if raw is None:
+            raw = ''
+        elif not isinstance(raw, str):
+            raw = str(raw)
+        ok, val, err = web_masters.coerce(f, raw)
+        if ok:
+            values[key] = val
+        else:
+            errs.append(err)
+    if errs:
+        return _err('; '.join(errs), 400)
+    columns = web_docs.compute(table, values)
+    conn = _conn()
+    try:
+        keys = list(columns.keys())
+        cur = conn.execute(
+            'INSERT INTO "{}" ({}) VALUES ({})'.format(
+                table, ', '.join('"{}"'.format(k) for k in keys),
+                ', '.join('?' for _ in keys)),
+            [columns[k] for k in keys])
+        new_id = cur.lastrowid
+        auth.audit(conn, sess['username'], 'api_create', table, new_id,
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        try:
+            journal_post.post_all(conn)
+        except Exception:  # noqa: BLE001 — document saved; post later
+            pass
+        row = conn.execute(
+            'SELECT * FROM "{}" WHERE id = ?'.format(table), (new_id,)
+        ).fetchone()
+        return _ok(_row(row), status=201)
     finally:
         conn.close()

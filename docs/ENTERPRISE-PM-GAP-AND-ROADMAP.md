@@ -251,7 +251,7 @@ What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 | **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
 | **E6** | — | Mobile capture app | Local (separate) |
 | **E7** | `menu.py`, `workflow.py` (models + tests) | Controls section, Lessons Learned tab, Process view, persona rail, search | Local (UI) — models Cloud-done |
-| **U** | `webapi.py` `/api/*` (**U0 done**) | WinUI 3 C# client (U1–U7) | **U1–U7 Local** |
+| **U** | `webapi.py` `/api/*` (**U0.1**) + **WinUI U1 scaffold** under `winui/` | U2–U7 pages, MSIX, charts (Windows) | **U1 scaffolded** · **U2–U7 Local** |
 
 **What this environment can still produce:** pure Python domain, SQLite stores,
 stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
@@ -276,7 +276,8 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ✅ **built** — `/api/*` (C1/C2) |
+| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, forecast/drift, portfolio, contract map | ✅ **u0.1** |
+| WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient) | ✅ scaffolded (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
 | Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
@@ -304,9 +305,9 @@ display.
 | **C5** | Event hooks (`event_hooks`) | ✅ |
 | **C6** | Lessons API `/api/lessons` | ✅ |
 | **C7** | Docs/counts hygiene after each merge | ongoing |
+| **C8** | U0.1 API widen (money docs, submittals, forecast/drift, portfolio, `/api/contract`) + WinUI U1 scaffold | ✅ |
 
-**Cloud non-goals:** WinUI XAML, MSIX, tkinter smoke screenshots, shipping OCR/STT
-weights, mobile app UI.
+**Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
 
 ### 5B. Local development track (Windows + display + .NET)
 
@@ -334,7 +335,7 @@ sidecars** are built and verified.
 | **L2** | **E7.3 persona rail** — filter `RailStage` via `menu.resolve` | E7.1 done | Persona sees scoped sections | P1 |
 | **L3** | **E7.4 Process view + search** — "What's next" over `workflow.py`; command palette | E7.2 done | Smoke + manual nav | P1 |
 | **L4** | **E4 GUI event wiring** — on GRN/save/etc. call Cloud C5 hooks; show gated drafts | C5 | Manual: save → draft follow-up appears, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — `NavigationView` from `GET /api/menu`, Mica, Segoe icons | **C1/C2 (U0)** | Windows build runs against local `web_main.py` | P0 (after U0) |
+| **L5** | **U1 WinUI shell** — scaffold is in `winui/`; open on Windows, point at `web_main.py` | **U0** | VS 2022 build against local API | P0 |
 | **L6** | **U2–U5 WinUI pages** — DataGrid CRUD → Money/Billing → Dashboard/charts → Controls + Process | U1 | xUnit ViewModels + WinAppDriver smoke | P1 |
 | **L7** | **U6–U7 packaging + parity** — PyInstaller sidecar in MSIX; persona menus; retire tkinter-on-Windows decision | U2–U5 | Signed MSIX install; localhost-only backend | P1 |
 | **L8** | **E1 model sidecars** — OCR / STT / VLM per [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md); feed `capture.py` | capture scaffold done | Offline draft from photo/voice; human confirm | P2 |

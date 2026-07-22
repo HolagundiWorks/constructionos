@@ -1,0 +1,21 @@
+<Window
+    x:Class="ConstructionOS.WinUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Construction OS">
+  <Grid>
+    <NavigationView x:Name="Nav"
+                    PaneDisplayMode="Left"
+                    IsSettingsVisible="True"
+                    IsBackButtonVisible="Collapsed"
+                    Loaded="Nav_Loaded"
+                    SelectionChanged="Nav_SelectionChanged">
+      <NavigationView.PaneHeader>
+        <TextBlock Text="Construction OS"
+                   Style="{StaticResource SubtitleTextBlockStyle}"
+                   Margin="12,8"/>
+      </NavigationView.PaneHeader>
+      <Frame x:Name="ContentFrame" Margin="12"/>
+    </NavigationView>
+  </Grid>
+</Window>
