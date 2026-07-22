@@ -45,10 +45,17 @@ if (-not $NoBuild) {
 
 if (-not (Test-Path $exe)) { throw "Executable not found: $exe. Run without -NoBuild first." }
 
-# Warn (do not block) if the backend is not up -- the app shows a friendly offline page.
+# Warn (do not block) if the backend is not up -- the app shows a friendly offline
+# page. Test the TCP port, not /api/health: health returns 401 without a session,
+# which would look like "down" even when the server is answering.
+$backendUp = $false
 try {
-    $null = Invoke-WebRequest 'http://127.0.0.1:8080/api/health' -TimeoutSec 2 -UseBasicParsing
-} catch {
+    $c = New-Object System.Net.Sockets.TcpClient
+    $c.Connect('127.0.0.1', 8080)
+    $backendUp = $c.Connected
+    $c.Close()
+} catch { }
+if (-not $backendUp) {
     Write-Host "Note: backend not answering on http://127.0.0.1:8080 -- start it with:" -ForegroundColor Yellow
     Write-Host "  cd ..\construction_app; python web_main.py --host 127.0.0.1 --port 8080" -ForegroundColor Yellow
 }
