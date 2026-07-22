@@ -529,7 +529,8 @@ the leverage is in making the SOP step impossible to skip.
   since waiting on the client's walk-round is scheduling rather than a defect.
   This matters beyond tidiness: handover starts the DLP clock, and the DLP is
   what releases retention — a drifting punch list is retention left
-  uncollected. _(Lessons-learned feeding the rate library remains.)_
+  uncollected. _(Lessons-learned feeding the rate library now shipped — see
+  Rate Realisation under Billing › Rate Book.)_
 - ✅ **Vendor depth** — Purchases > Sourcing (`sourcing.py`). Quotes recorded
   against a requisition and compared, showing the **saving against the highest
   quote** (what justifies bothering) and the spread. The cheapest is a
@@ -670,6 +671,36 @@ predictive analytics beyond the local assistant, heavy multi-user cloud sync,
 corporate multi-level approval chains. These are Level-4 features that add cost
 and friction without helping a solo contractor bill, get paid, and stay in
 control.
+
+### Remaining open items (tracked, low urgency)
+
+The SOP gap analysis (`docs/REPORT-sop-gap-analysis.md`) is otherwise closed;
+these three are what is left, none of them a money leak:
+
+- ✅ **Submittals register** — the last document-control artefact, now built
+  (Purchases › Sourcing › Submittals; `submittals.py`, `submittals` table). A
+  submittal — "here is the material / make I intend to use, approve it" — is
+  logged with submitted/required-by dates and a Submitted / Approved / Approved
+  as noted / Revise & resubmit / Rejected status; a resubmittal is a new row
+  citing the prior. Kept **separate** from the RFI and drawing tables (folding
+  them together is the scope-creep confusion the research warns about). An
+  overdue open submittal raises a dashboard advisory, mirroring the RFI one.
+- ✅ **Lessons-learned → rate library feedback** — **Rate Realisation** (Billing
+  › Rate Book, `lessons.py`, `tab_lessons.py`). For each material it sets the
+  **achieved** purchase rate — quantity-weighted from the goods-received ledger,
+  so a big order at the real price outweighs a small panic-buy — beside the
+  standard rate, and one click writes the achieved rate back as the new standard
+  (feeding estimates, rate analysis and the material budget). Scope is a single
+  finished site or all sites. Nothing auto-applies: the count of purchases
+  behind each figure is shown so a one-off spike doesn't silently reset a good
+  rate, and a Viewer cannot apply.
+- ⏳ **Real-display GUI render check** — a validation task, not a code gap. The
+  headless test environment has no Tk, so two GUI **smoke** tests
+  (`test_smoke_tabs`: floating dock, both-theme build) can only be exercised on
+  a machine with a display (or Xvfb). Every failure traced to a stubbed widget
+  method (`PhotoImage.width`, `IntVar.trace_add`, `tk.Frame`), never to business
+  logic; the pure-logic suite (500+ cases) passes headlessly. Run `python
+  main.py` once on a real display to confirm the rail/stage redesign renders.
 
 ---
 

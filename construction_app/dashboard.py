@@ -23,6 +23,7 @@ import allocation
 import money as m
 import planning
 import procurement
+import submittals
 import projectcost
 import quality
 import retention
@@ -292,6 +293,20 @@ def collect(conn):
         conn, "SELECT COUNT(*) FROM material_requisitions "
         "WHERE status IN ('Open','Ordered')"))
 
+    # ----------------------------------------------------- submittals (approvals)
+    s['submittals_open'] = 0
+    s['submittals_overdue'] = 0
+    try:
+        sub_rows = conn.execute(
+            "SELECT required_by, status FROM submittals "
+            "WHERE status = 'Submitted'").fetchall()
+        s['submittals_open'] = len(sub_rows)
+        s['submittals_overdue'] = sum(
+            1 for r in sub_rows
+            if submittals.is_overdue(r['required_by'], r['status'], today))
+    except Exception:                                   # noqa: BLE001
+        pass
+
     # ------------------------------------------- decisions waiting on sign-off
     s['approvals_count'] = 0
     s['approvals_amount'] = 0.0
@@ -369,6 +384,12 @@ def _bottlenecks(s):
     add(s.get('rfis_open', 0) > 0, 'RFIs awaiting an answer',
         str(s['rfis_open']), 'watch', 'Purchases › Sourcing',
         'oldest {} day(s)'.format(s.get('rfis_oldest_days', 0)))
+    add(s.get('submittals_open', 0) > 0, 'Submittals awaiting approval',
+        str(s['submittals_open']),
+        'act' if s.get('submittals_overdue', 0) > 0 else 'watch',
+        'Purchases › Sourcing',
+        '{} overdue'.format(s['submittals_overdue'])
+        if s.get('submittals_overdue', 0) > 0 else 'material / make approvals')
     add(s.get('requisitions_open', 0) > 0, 'Material requisitions open',
         str(s['requisitions_open']), 'watch', 'Purchases › Sourcing',
         'not yet ordered/closed')

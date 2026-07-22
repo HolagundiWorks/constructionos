@@ -22,7 +22,8 @@ from tkinter import ttk, messagebox
 import bill_export
 import report_open
 import sourcing
-from crud_frame import CrudFrame, Field
+import submittals
+from crud_frame import CrudFrame, Field, TODAY
 from tab_masters import site_options, vendor_options
 from tab_boq_ra import contract_options
 from ui_guard import can_write
@@ -292,6 +293,40 @@ class VendorRating(ttk.Frame):
                              tags=('approved',) if v.get('approved') else ())
 
 
+def build_submittals(parent, db_getter):
+    """Register of proposed materials / makes / shop drawings awaiting approval.
+
+    Kept separate from RFIs and drawing revisions on purpose (see the module
+    docstring): a submittal asks *"is the make I propose acceptable?"*, which is
+    a different question from an RFI and a different thing from a drawing copy.
+    A resubmittal is entered as a new row; set its "Supersedes ID" to the prior
+    submittal's id so the history is traceable.
+    """
+    fields = [
+        Field('submittal_no', 'Submittal No'),
+        Field('site_id', 'Site', kind='fk', options_func=site_options),
+        Field('contract_id', 'Contract', kind='fk', options_func=contract_options),
+        Field('title', 'Title / make'),
+        Field('submittal_type', 'Type', kind='combo',
+              options=['Material', 'Make', 'Shop Drawing', 'Sample'],
+              default='Material'),
+        Field('spec_ref', 'Spec / BOQ ref'),
+        Field('submitted_date', 'Submitted', default=TODAY),
+        Field('submitted_by', 'Submitted by'),
+        Field('required_by', 'Approval needed by'),
+        Field('status', 'Status', kind='combo', options=list(submittals.STATUSES),
+              default='Submitted'),
+        Field('reviewer', 'Reviewer'),
+        Field('reviewed_date', 'Reviewed on'),
+        Field('review_remarks', 'Reviewer remarks'),
+        Field('supersedes_id', 'Supersedes ID', kind='number', default=''),
+        Field('remarks', 'Remarks'),
+    ]
+    return CrudFrame(parent, db_getter, 'submittals', fields,
+                     'Submittals — material / make approvals',
+                     order_by="status, required_by, id DESC")
+
+
 def build_sourcing_tab(parent, db_getter):
     nb = ttk.Notebook(parent)
     nb.add(QuoteCompare(nb, db_getter), text='Compare Quotes')
@@ -299,4 +334,5 @@ def build_sourcing_tab(parent, db_getter):
     nb.add(VendorRating(nb, db_getter), text='Vendor Rating')
     nb.add(build_rfis(nb, db_getter), text='RFIs')
     nb.add(build_drawings(nb, db_getter), text='Drawings')
+    nb.add(build_submittals(nb, db_getter), text='Submittals')
     return nb

@@ -50,6 +50,7 @@ import estimate
 import finance
 import hse
 import isodate
+import lessons
 import mb
 import money
 import muster
@@ -69,8 +70,25 @@ import retention
 import sourcing
 import statutory
 import subcontract
+import submittals
 import variation
 import wages
+import earnedvalue
+import risk
+import risk_store
+import forecast
+import risk_detect
+import narrative
+import review_pack
+import opportunity
+import opportunity_store
+import productivity
+import lessons_register
+import lessons_store
+import capture
+import portfolio_store
+import followups
+import drift
 
 
 class TestFinance(unittest.TestCase):
@@ -323,6 +341,771 @@ class TestAnalytics(unittest.TestCase):
 
     def test_progress_handles_zero_boq(self):
         self.assertIsNotNone(analytics.contract_progress(0, 100))
+
+
+class TestEarnedValue(unittest.TestCase):
+    """EVM indices and forecast. The zero-denominator guards earn the module —
+    a project with no cost booked yet must not divide by zero."""
+
+    def test_over_budget_and_behind_schedule_reads(self):
+        # BAC 100, planned 50 by now, earned only 40, cost already 50:
+        # behind schedule (EV<PV) and over budget (AC>EV).
+        e = earnedvalue.earned_value(bac=100, pv=50, ac=50, ev=40)
+        self.assertEqual(e['sv'], -10.0)          # EV - PV
+        self.assertEqual(e['cv'], -10.0)          # EV - AC
+        self.assertEqual(e['spi'], 0.8)           # 40/50
+        self.assertEqual(e['cpi'], 0.8)           # 40/50
+        self.assertFalse(e['on_budget'])
+        self.assertFalse(e['on_schedule'])
+
+    def test_eac_by_cpi_projects_the_overrun(self):
+        # CPI 0.8 → EAC = BAC/CPI = 125, so VAC = -25 (a forecast overspend).
+        e = earnedvalue.earned_value(bac=100, pv=50, ac=50, ev=40)
+        self.assertEqual(e['eac']['cpi'], 125.0)
+        self.assertEqual(e['eac']['default'], 125.0)
+        self.assertEqual(e['vac'], -25.0)
+        self.assertEqual(e['etc'], 75.0)          # EAC - AC
+
+    def test_indices_are_none_not_infinity_when_denominator_zero(self):
+        e = earnedvalue.earned_value(bac=100, pv=0, ac=0, ev=0)
+        self.assertIsNone(e['spi'])               # PV = 0
+        self.assertIsNone(e['cpi'])               # AC = 0
+        self.assertIsNone(e['on_budget'])
+        # EAC still degrades gracefully to the budget method (BAC - EV added).
+        self.assertEqual(e['eac']['default'], e['eac']['budget'])
+
+    def test_percent_complete_is_value_over_budget(self):
+        e = earnedvalue.earned_value(bac=200, pv=100, ac=90, ev=100)
+        self.assertEqual(e['percent_complete'], 50.0)   # 100/200
+        self.assertEqual(e['percent_spent'], 45.0)      # 90/200
+
+    def test_ev_and_pv_derivations(self):
+        self.assertEqual(earnedvalue.ev_from_progress(1000, 25), 250.0)
+        self.assertEqual(earnedvalue.pv_from_planned(1000, 40), 400.0)
+
+    def test_tcpi_flags_when_remaining_work_must_beat_budget(self):
+        # BAC 100, EV 40, AC 50 → TCPI = (100-40)/(100-50) = 1.2 > 1: hard.
+        self.assertEqual(earnedvalue.tcpi(100, 40, 50), 1.2)
+
+    def test_portfolio_cpi_is_value_weighted(self):
+        a = earnedvalue.earned_value(bac=100, pv=90, ac=100, ev=90)   # cpi 0.9
+        b = earnedvalue.earned_value(bac=10, pv=10, ac=5, ev=10)      # cpi 2.0
+        p = earnedvalue.portfolio([('A', a), ('B', b)])
+        # Value-weighted: (90+10)/(100+5) ≈ 0.952, not the naive mean 1.45.
+        self.assertEqual(p['cpi'], round(100 / 105, 3))
+        self.assertEqual(p['worst_cpi'], 'A')
+        self.assertIn('A', p['over_cost_names'])
+
+
+class TestRisk(unittest.TestCase):
+    """Likelihood x impact scoring, clamping, exposure and ranking."""
+
+    def test_score_is_the_product(self):
+        self.assertEqual(risk.score(4, 5), 20)
+
+    def test_out_of_range_levels_are_clamped_not_trusted(self):
+        # A mistyped 9 must not invent a score of 45.
+        self.assertEqual(risk.score(9, 9), 25)
+        self.assertEqual(risk.score(0, 3), 3)     # 0 floors to 1
+        self.assertEqual(risk.score('x', 4), 4)   # garbage floors to 1
+
+    def test_bands_cover_the_whole_range(self):
+        self.assertEqual(risk.band(3), risk.LOW)
+        self.assertEqual(risk.band(6), risk.MEDIUM)
+        self.assertEqual(risk.band(12), risk.HIGH)
+        self.assertEqual(risk.band(20), risk.CRITICAL)
+
+    def test_a_severe_top_row_risk_is_never_merely_low(self):
+        self.assertEqual(risk.assess(1, 5)['band'], risk.MEDIUM)  # 1x5 = 5
+        self.assertEqual(risk.assess(5, 5)['band'], risk.CRITICAL)
+
+    def test_expected_exposure_is_probability_weighted(self):
+        # likelihood 5 → p 0.9; 0.9 x 200000 = 180000.
+        self.assertEqual(risk.expected_exposure(5, 200000), 180000.0)
+
+    def test_mitigation_benefit_is_never_negative(self):
+        a = risk.assess(5, 5, residual_likelihood=2, residual_impact=3)
+        self.assertEqual(a['residual']['score'], 6)
+        self.assertEqual(a['mitigation_benefit'], 25 - 6)
+        # A control that 'raises' the score is a data error, floored to 0.
+        worse = risk.assess(2, 2, residual_likelihood=5, residual_impact=5)
+        self.assertEqual(worse['mitigation_benefit'], 0)
+
+    def test_rank_puts_the_worst_first(self):
+        rs = [risk.assess(1, 2), risk.assess(5, 5), risk.assess(3, 3)]
+        ranked = risk.rank(rs)
+        self.assertEqual(ranked[0]['score'], 25)
+        self.assertEqual(ranked[-1]['score'], 2)
+
+    def test_register_summary_counts_and_sizes(self):
+        rs = [risk.assess(5, 5, value=100000),   # critical
+              risk.assess(4, 3, value=50000),    # high (12)
+              risk.assess(1, 2)]                  # low
+        s = risk.register_summary(rs, top_n=2)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['by_band'][risk.CRITICAL], 1)
+        self.assertEqual(s['needs_action'], 2)    # critical + high
+        self.assertEqual(len(s['top']), 2)
+        self.assertGreater(s['total_expected_exposure'], 0)
+
+
+class TestRiskStore(unittest.TestCase):
+    """The risk register persistence, against a real temporary SQLite database
+    (the same harness the posting engine uses). Proves the derive-on-save rule
+    and that a project delete cascades to its risks."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('Ward-7 Road')")
+        self.conn.commit()
+        self.project_id = 1
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_add_derives_score_band_and_exposure_on_save(self):
+        rid = risk_store.add(
+            self.conn, project_id=self.project_id, category='cost',
+            title='Steel price spike', likelihood=4, impact=5,
+            impact_value=200000)
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['score'], 20)              # 4 x 5
+        self.assertEqual(row['band'], risk.CRITICAL)
+        self.assertEqual(row['expected_exposure'], 140000.0)  # 0.7 x 200000
+        self.assertEqual(row['source'], 'manual')       # defaulted
+        self.assertTrue(row['created_date'])            # stamped today
+
+    def test_update_re_derives_from_the_merged_row(self):
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=2, impact=2)
+        self.assertEqual(risk_store.get(self.conn, rid)['band'], risk.LOW)
+        risk_store.update(self.conn, rid, impact=5)     # only impact changes
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['score'], 10)              # 2 x 5, re-derived
+        self.assertEqual(row['band'], risk.HIGH)
+
+    def test_set_status_stamps_who_decided(self):
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=3, impact=3)
+        risk_store.set_status(self.conn, rid, 'Accepted', decided_by='PM')
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['status'], 'Accepted')
+        self.assertEqual(row['decided_by'], 'PM')
+        self.assertTrue(row['decided_date'])
+
+    def test_list_is_worst_first_and_filters(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       title='small', likelihood=1, impact=2)
+        risk_store.add(self.conn, project_id=self.project_id,
+                       title='big', likelihood=5, impact=5)
+        rows = risk_store.list_risks(self.conn, project_id=self.project_id)
+        self.assertEqual(rows[0]['title'], 'big')       # highest score first
+        opens = risk_store.list_risks(self.conn, status='Open')
+        self.assertEqual(len(opens), 2)
+
+    def test_summary_rolls_up_from_stored_rows(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=5, impact=5, impact_value=100000)  # critical
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=4, impact=3, impact_value=50000)   # high (12)
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=1, impact=2)                        # low
+        s = risk_store.summary(self.conn, project_id=self.project_id)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['needs_action'], 2)          # critical + high
+        self.assertGreater(s['total_expected_exposure'], 0)
+
+    def test_summary_ignores_a_hand_edited_score(self):
+        # Even if someone tampers with the stored derived score, the roll-up
+        # re-assesses from the raw levels — so it stays honest.
+        rid = risk_store.add(self.conn, project_id=self.project_id,
+                             likelihood=5, impact=5)
+        self.conn.execute("UPDATE risks SET score = 1, band = 'Low' "
+                          "WHERE id = ?", (rid,))
+        self.conn.commit()
+        s = risk_store.summary(self.conn, project_id=self.project_id)
+        self.assertEqual(s['by_band'][risk.CRITICAL], 1)  # re-derived, not 'Low'
+
+    def test_deleting_a_project_cascades_to_its_risks(self):
+        risk_store.add(self.conn, project_id=self.project_id,
+                       likelihood=3, impact=3)
+        self.conn.execute("DELETE FROM projects WHERE id = ?",
+                          (self.project_id,))
+        self.conn.commit()
+        self.assertEqual(len(risk_store.list_risks(self.conn)), 0)
+
+
+class TestRiskUrgencyAndResponse(unittest.TestCase):
+    """Part 2 additions to risk scoring: urgency-driven priority + responses."""
+
+    def test_urgency_drives_priority_not_band(self):
+        low_urg = risk.assess(3, 3, urgency=1)
+        high_urg = risk.assess(3, 3, urgency=5)
+        self.assertEqual(low_urg['band'], high_urg['band'])       # band unchanged
+        self.assertEqual(low_urg['score'], high_urg['score'])
+        self.assertLess(low_urg['priority'], high_urg['priority'])  # 9 vs 45
+
+    def test_priority_falls_back_to_score_without_urgency(self):
+        a = risk.assess(4, 4)
+        self.assertIsNone(a['urgency'])
+        self.assertEqual(a['priority'], a['score'])              # 16
+
+    def test_response_is_validated_and_dropped_if_unknown(self):
+        self.assertEqual(risk.assess(2, 2, response='transfer')['response'],
+                         risk.TRANSFER)
+        self.assertIsNone(risk.assess(2, 2, response='wing it')['response'])
+
+    def test_urgency_sequences_same_band_risks_in_rank(self):
+        urgent = risk.assess(3, 3, urgency=5)      # band High-ish, priority 45
+        calm = risk.assess(3, 3, urgency=1)        # same band, priority 9
+        self.assertIs(risk.rank([calm, urgent])[0], urgent)
+
+
+class TestOpportunity(unittest.TestCase):
+    """The upside twin of risk — same matrix, opposite meaning."""
+
+    def test_scores_like_risk_but_values_the_upside(self):
+        o = opportunity.assess(4, 4, value=300000)
+        self.assertEqual(o['score'], 16)
+        self.assertEqual(o['kind'], 'opportunity')
+        self.assertEqual(o['expected_value'], round(0.7 * 300000, 2))  # 210000
+
+    def test_response_vocabulary_is_the_positive_set(self):
+        self.assertEqual(opportunity.assess(3, 3, response='exploit')['response'],
+                         opportunity.EXPLOIT)
+        self.assertIsNone(opportunity.assess(3, 3, response='transfer')['response'])
+
+    def test_rank_and_summary(self):
+        os = [opportunity.assess(1, 2, value=1000),
+              opportunity.assess(5, 5, value=500000),
+              opportunity.assess(3, 3, value=20000)]
+        self.assertEqual(opportunity.rank(os)[0]['score'], 25)
+        s = opportunity.register_summary(os, top_n=2)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['pursue_now'], 1)             # the 5x5 critical
+        self.assertGreater(s['total_expected_value'], 0)
+        self.assertEqual(len(s['top']), 2)
+
+
+class TestOpportunityStore(unittest.TestCase):
+    """Opportunity register persistence against a temporary SQLite database."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('Metro Depot')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_add_derives_and_validates_response(self):
+        oid = opportunity_store.add(
+            self.conn, project_id=1, category='procurement',
+            title='Local sand supplier', likelihood=4, impact=3,
+            value=150000, response='enhance')
+        row = opportunity_store.get(self.conn, oid)
+        self.assertEqual(row['score'], 12)
+        self.assertEqual(row['response'], opportunity.ENHANCE)
+        self.assertGreater(row['expected_value'], 0)
+
+    def test_urgency_orders_the_list(self):
+        opportunity_store.add(self.conn, project_id=1, title='slow burn',
+                              likelihood=3, impact=3, urgency=1)
+        opportunity_store.add(self.conn, project_id=1, title='act now',
+                              likelihood=3, impact=3, urgency=5)
+        rows = opportunity_store.list_opportunities(self.conn, project_id=1)
+        self.assertEqual(rows[0]['title'], 'act now')     # higher priority first
+
+    def test_summary_and_cascade(self):
+        opportunity_store.add(self.conn, project_id=1, likelihood=5, impact=5,
+                              value=400000)
+        s = opportunity_store.summary(self.conn, project_id=1)
+        self.assertEqual(s['count'], 1)
+        self.conn.execute("DELETE FROM projects WHERE id = 1")
+        self.conn.commit()
+        self.assertEqual(len(opportunity_store.list_opportunities(self.conn)), 0)
+
+
+class TestRiskStoreUrgency(unittest.TestCase):
+    """The risk store persists urgency/priority/response added in Part 2."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('P')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_urgency_and_response_persist_and_derive_priority(self):
+        rid = risk_store.add(self.conn, project_id=1, likelihood=3, impact=3,
+                             urgency=5, response='reduce',
+                             action_plan='daily coordination huddle',
+                             target_date='2026-08-01')
+        row = risk_store.get(self.conn, rid)
+        self.assertEqual(row['score'], 9)
+        self.assertEqual(row['priority'], 45)             # score x urgency
+        self.assertEqual(row['response'], risk.REDUCE)
+        self.assertEqual(row['action_plan'], 'daily coordination huddle')
+
+
+class TestProductivity(unittest.TestCase):
+    """Execution productivity KPIs — plain ratios, honest None."""
+
+    def test_labour_productivity_both_ways(self):
+        p = productivity.labour_productivity(output_qty=100, labour_hours=25)
+        self.assertEqual(p['units_per_hour'], 4.0)
+        self.assertEqual(p['hours_per_unit'], 0.25)
+
+    def test_performance_factor_is_earned_over_actual(self):
+        self.assertEqual(productivity.performance_factor(120, 100), 1.2)
+        self.assertIsNone(productivity.performance_factor(120, 0))
+
+    def test_equipment_utilisation_is_capped_at_100(self):
+        self.assertEqual(productivity.equipment_utilisation(6, 8), 75.0)
+        # A machine cannot run more than it is available — clamp, not fiction.
+        self.assertEqual(productivity.equipment_utilisation(9, 8), 100.0)
+        self.assertIsNone(productivity.equipment_utilisation(6, 0))
+
+    def test_material_waste_pct_and_saving(self):
+        w = productivity.material_waste(theoretical_qty=100, actual_qty=115)
+        self.assertEqual(w['waste'], 15.0)
+        self.assertEqual(w['waste_pct'], 15.0)
+        saving = productivity.material_waste(100, 95)
+        self.assertEqual(saving['waste'], -5.0)           # negative = a saving
+        self.assertIsNone(productivity.material_waste(0, 5)['waste_pct'])
+
+
+class TestLessonsRegister(unittest.TestCase):
+    """Lessons-learned taxonomy + roll-up (pure)."""
+
+    def test_outcome_and_source_normalise(self):
+        self.assertEqual(lessons_register.normalize_outcome('POSITIVE'), lessons_register.POSITIVE)
+        self.assertEqual(lessons_register.normalize_outcome('whatever'), lessons_register.NEUTRAL)
+        self.assertEqual(lessons_register.normalize_source('Risk'), lessons_register.RISK)
+        self.assertEqual(lessons_register.normalize_source('junk'), lessons_register.OBSERVATION)
+
+    def test_feed_forward_is_recommendation_not_yet_applied(self):
+        self.assertTrue(lessons_register.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons_register.OPEN}))
+        self.assertFalse(lessons_register.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons_register.APPLIED}))
+        self.assertFalse(lessons_register.is_feed_forward(
+            {'recommendation': '', 'status': lessons_register.OPEN}))
+
+    def test_summary_counts_outcomes_and_feed_forward(self):
+        rows = [
+            {'category': 'cost', 'outcome': 'negative',
+             'recommendation': 'update rate', 'status': lessons_register.OPEN},
+            {'category': 'cost', 'outcome': 'positive',
+             'recommendation': '', 'status': lessons_register.APPLIED},
+            {'category': 'safety', 'outcome': 'neutral',
+             'recommendation': 'toolbox talk', 'status': lessons_register.REVIEWED},
+        ]
+        s = lessons_register.summary(rows)
+        self.assertEqual(s['count'], 3)
+        self.assertEqual(s['by_category']['cost'], 2)
+        self.assertEqual(s['by_outcome'][lessons_register.NEGATIVE], 1)
+        self.assertEqual(s['applied'], 1)
+        self.assertEqual(s['feed_forward_count'], 2)   # the two with a rec, not applied
+
+
+class TestLessonsStore(unittest.TestCase):
+    """Lessons register persistence against a temporary SQLite database,
+    including capture straight from a risk/opportunity row."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO projects (name) VALUES ('Bypass Road')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_add_normalises_and_defaults(self):
+        lid = lessons_store.add(
+            self.conn, project_id=1, category='procurement',
+            title='JIT sand delivery worked', outcome='POSITIVE',
+            source='Observation', recommendation='repeat on next job')
+        row = lessons_store.get(self.conn, lid)
+        self.assertEqual(row['outcome'], lessons_register.POSITIVE)   # lowercased
+        self.assertEqual(row['status'], lessons_register.OPEN)        # defaulted
+        self.assertTrue(row['created_date'])
+
+    def test_capture_from_a_risk_links_the_source(self):
+        rid = risk_store.add(self.conn, project_id=1, category='schedule',
+                             title='Monsoon delay', description='rain days',
+                             likelihood=4, impact=4)
+        risk_row = risk_store.get(self.conn, rid)
+        lid = lessons_store.from_risk(self.conn, risk_row,
+                                      recommendation='add monsoon float')
+        lesson = lessons_store.get(self.conn, lid)
+        self.assertEqual(lesson['source'], lessons_register.RISK)
+        self.assertEqual(lesson['source_id'], rid)
+        self.assertEqual(lesson['outcome'], lessons_register.NEGATIVE)
+        self.assertEqual(lesson['category'], 'schedule')
+
+    def test_capture_from_an_opportunity_is_positive(self):
+        oid = opportunity_store.add(self.conn, project_id=1, category='cost',
+                                    title='Bulk cement discount',
+                                    likelihood=4, impact=3, value=80000)
+        opp_row = opportunity_store.get(self.conn, oid)
+        lid = lessons_store.from_opportunity(self.conn, opp_row,
+                                             recommendation='negotiate early')
+        lesson = lessons_store.get(self.conn, lid)
+        self.assertEqual(lesson['source'], lessons_register.OPPORTUNITY)
+        self.assertEqual(lesson['outcome'], lessons_register.POSITIVE)
+
+    def test_feed_forward_and_applied(self):
+        lid = lessons_store.add(self.conn, project_id=1, title='X',
+                                recommendation='do Y next time')
+        self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 1)
+        lessons_store.set_status(self.conn, lid, lessons_register.APPLIED)
+        self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 0)
+        self.assertEqual(lessons_store.summary(self.conn, 1)['applied'], 1)
+
+    def test_deleting_a_project_cascades_to_its_lessons(self):
+        lessons_store.add(self.conn, project_id=1, title='keep', outcome='neutral')
+        self.conn.execute("DELETE FROM projects WHERE id = 1")
+        self.conn.commit()
+        self.assertEqual(len(lessons_store.list_lessons(self.conn)), 0)
+
+
+class TestForecast(unittest.TestCase):
+    """Trend projection — honest bands and sample-driven confidence."""
+
+    def test_falling_series_projects_downward(self):
+        # A noisy downward series: still trends down, and the scatter gives a
+        # real (non-zero) band — unlike a perfect line, which collapses it.
+        p = forecast.project([70, 64, 62, 55, 49], periods_ahead=1)
+        self.assertLess(p['value'], 49)           # trend continues down
+        self.assertLess(p['slope'], 0)
+        self.assertLess(p['low'], p['high'])      # a real band from the scatter
+
+    def test_perfect_line_has_a_tight_band(self):
+        p = forecast.project([10, 20, 30, 40], 1)
+        self.assertAlmostEqual(p['value'], 50, places=6)
+        self.assertAlmostEqual(p['low'], p['high'], places=6)  # RMSE ~ 0
+
+    def test_confidence_grows_with_history(self):
+        self.assertEqual(forecast.confidence_for(3), forecast.LOW)
+        self.assertEqual(forecast.confidence_for(6), forecast.MEDIUM)
+        self.assertEqual(forecast.confidence_for(10), forecast.HIGH)
+
+    def test_too_few_points_is_none_not_a_guess(self):
+        self.assertIsNone(forecast.project([42], 1))
+        self.assertIsNone(forecast.linear_trend([]))
+
+    def test_direction_words(self):
+        self.assertEqual(forecast.direction([1, 2, 3]), 'rising')
+        self.assertEqual(forecast.direction([3, 2, 1]), 'falling')
+        self.assertEqual(forecast.direction([5, 5, 5]), 'flat')
+
+    def test_schedule_forecast_stretches_when_behind(self):
+        f = forecast.schedule_forecast(baseline_duration=100, spi=0.8)
+        self.assertEqual(f['forecast_duration'], 125.0)
+        self.assertEqual(f['slip'], 25.0)
+        self.assertIsNone(forecast.schedule_forecast(100, None))
+
+
+class TestRiskDetect(unittest.TestCase):
+    """Snapshot → scored, ranked, register-ready risks."""
+
+    def test_detects_a_loss_making_project_as_a_critical_cost_risk(self):
+        rs = risk_detect.detect({'projects_at_loss': 1,
+                                 'projects_worst_margin': -800000})
+        self.assertTrue(rs)
+        top = rs[0]
+        self.assertEqual(top['category'], risk_detect.COST)
+        self.assertEqual(top['source'], 'ai')
+        self.assertEqual(top['band'], risk.CRITICAL)   # likelihood 5, big value
+        self.assertIn('basis', top)                    # never a bare flag
+
+    def test_quiet_snapshot_flags_nothing(self):
+        self.assertEqual(risk_detect.detect({'cash': 50000}), [])
+
+    def test_worst_is_ranked_first(self):
+        rs = risk_detect.detect({
+            'rfis_open': 2, 'rfis_oldest_days': 10,          # small external
+            'projects_at_loss': 1, 'projects_worst_margin': -900000,  # critical
+        })
+        self.assertEqual(rs[0]['category'], risk_detect.COST)
+
+    def test_programme_delay_uses_ld_for_impact(self):
+        rs = risk_detect.detect({'programme_delay_days': 30,
+                                 'programme_ld': 600000})
+        sched = [r for r in rs if r['category'] == risk_detect.SCHEDULE]
+        self.assertTrue(sched)
+        self.assertEqual(sched[0]['value'], 600000)
+
+    def test_summary_matches_the_register_shape(self):
+        s = risk_detect.summary({'projects_at_loss': 1,
+                                 'projects_worst_margin': -600000,
+                                 'compliance_overdue': 2})
+        self.assertGreaterEqual(s['count'], 2)
+        self.assertIn('by_band', s)
+        self.assertGreaterEqual(s['needs_action'], 1)
+
+
+class TestNarrative(unittest.TestCase):
+    """Deterministic narration — every sentence over a real number."""
+
+    def test_kpi_briefing_leads_with_cash(self):
+        lines = narrative.kpi_briefing({'cash': 125000, 'receivable': 300000})
+        self.assertTrue(any('1,25,000' in ln or '125,000' in ln
+                            for ln in lines))
+
+    def test_negative_cash_is_called_out(self):
+        lines = narrative.kpi_briefing({'cash': -5000})
+        self.assertTrue(any('negative' in ln.lower() for ln in lines))
+
+    def test_risk_briefing_is_empty_message_when_clean(self):
+        txt = narrative.risk_briefing({'cash': 10000})
+        self.assertIn('No risks', txt)
+
+    def test_risk_briefing_lists_the_top_risks(self):
+        txt = narrative.risk_briefing({'projects_at_loss': 1,
+                                       'projects_worst_margin': -700000})
+        self.assertIn('exposure', txt.lower())
+        self.assertIn('•', txt)
+
+
+class TestReviewPack(unittest.TestCase):
+    """The assembled review pack and portfolio roll-up."""
+
+    def test_build_assembles_every_section(self):
+        snap = {'cash': 200000, 'receivable_90plus': 150000,
+                'projects_at_loss': 1, 'projects_worst_margin': -400000}
+        pack = review_pack.build(snap, generated='2026-07-21')
+        self.assertEqual(pack['generated'], '2026-07-21')
+        for key in ('kpis', 'advisories', 'risks', 'narrative'):
+            self.assertIn(key, pack)
+        self.assertIn('cards', pack['advisories'])
+        self.assertGreaterEqual(pack['risks']['count'], 1)
+
+    def test_build_includes_optional_evm_and_forecast(self):
+        evm = earnedvalue.earned_value(bac=100, pv=60, ac=55, ev=50)
+        pack = review_pack.build({'cash': 1000}, evm=evm,
+                                 ppc_series=[80, 75, 70, 65])
+        self.assertIn('evm', pack)
+        self.assertIn('ppc_forecast', pack)
+        self.assertIsNotNone(pack['ppc_forecast'])
+
+    def test_build_includes_opportunity_summary_when_given(self):
+        opps = [opportunity.assess(5, 5, value=300000),
+                opportunity.assess(2, 2, value=10000)]
+        pack = review_pack.build({'cash': 1000}, opportunities=opps)
+        self.assertIn('opportunities', pack)
+        self.assertEqual(pack['opportunities']['count'], 2)
+        self.assertGreater(pack['opportunities']['total_expected_value'], 0)
+
+    def test_portfolio_pools_risk_and_points_at_the_worst(self):
+        a = {'name': 'A', 'snapshot': {'projects_at_loss': 1,
+                                       'projects_worst_margin': -900000},
+             'evm': earnedvalue.earned_value(bac=100, pv=90, ac=100, ev=90)}
+        b = {'name': 'B', 'snapshot': {'cash': 50000},
+             'evm': earnedvalue.earned_value(bac=10, pv=10, ac=5, ev=10)}
+        roll = review_pack.portfolio([a, b])
+        self.assertEqual(roll['projects'], 2)
+        self.assertGreaterEqual(roll['risk_summary']['count'], 1)
+        self.assertEqual(roll['evm']['worst_cpi'], 'A')
+
+
+class TestCapture(unittest.TestCase):
+    """Draft-and-confirm: AI proposes, a human disposes."""
+
+    def test_build_draft_carries_per_field_confidence(self):
+        d = capture.build_draft({'qty': 40, 'vendor': 'ACME'},
+                                confidence={'qty': 0.55, 'vendor': 0.95})
+        low = capture.low_confidence_fields(d)
+        self.assertEqual([f['name'] for f in low], ['qty'])   # only the shaky one
+        self.assertTrue(capture.needs_review(d))
+
+    def test_apply_overrides_makes_a_field_manual_and_certain(self):
+        d = capture.build_draft({'qty': 40}, confidence={'qty': 0.5})
+        d2 = capture.apply_overrides(d, {'qty': 42, 'note': 'added by hand'})
+        rec = capture.to_record(d2)
+        self.assertEqual(rec['qty'], 42)
+        self.assertEqual(rec['note'], 'added by hand')        # new manual field
+        qty = [f for f in d2['fields'] if f['name'] == 'qty'][0]
+        self.assertEqual(qty['source'], capture.MANUAL)
+        self.assertEqual(qty['confidence'], 1.0)
+        self.assertFalse(capture.needs_review(d2))            # nothing shaky left
+
+    def test_confidence_summary(self):
+        d = capture.build_draft({'a': 1, 'b': 2}, confidence={'a': 0.4, 'b': 1.0})
+        s = capture.confidence_summary(d)
+        self.assertEqual(s['fields'], 2)
+        self.assertEqual(s['min'], 0.4)
+        self.assertEqual(s['to_review'], 1)
+
+
+class TestPortfolioStore(unittest.TestCase):
+    """Federated roll-up across separate firm/year SQLite files (read-only)."""
+
+    def _make_db(self, project_names, risks):
+        import db
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        db.init_db()
+        conn = db.get_conn()
+        for name in project_names:
+            conn.execute("INSERT INTO projects (name) VALUES (?)", (name,))
+        conn.commit()
+        for (pid, lk, im, val) in risks:
+            risk_store.add(conn, project_id=pid, likelihood=lk, impact=im,
+                           impact_value=val)
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")   # so a ro open sees it
+        conn.close()
+        db.DB_PATH = orig
+        self._paths.append(path)
+        return path
+
+    def setUp(self):
+        self._paths = []
+
+    def tearDown(self):
+        for p in self._paths:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+    def test_rolls_up_projects_and_risk_exposure_across_files(self):
+        a = self._make_db(['A1', 'A2'], [(1, 5, 5, 200000)])   # 2 projects, 1 risk
+        b = self._make_db(['B1'], [(1, 4, 4, 100000)])         # 1 project, 1 risk
+        roll = portfolio_store.roll_up([('Firm A', a), ('Firm B', b)])
+        self.assertEqual(roll['files'], 2)
+        self.assertEqual(roll['totals']['projects'], 3)
+        self.assertEqual(roll['totals']['risk_count'], 2)
+        self.assertGreater(roll['totals']['risk_exposure'], 0)
+        self.assertEqual(roll['unreadable'], [])
+
+    def test_unreadable_file_is_skipped_not_fatal(self):
+        a = self._make_db(['A1'], [])
+        roll = portfolio_store.roll_up([a, '/no/such/file.db'])
+        self.assertEqual(roll['files'], 1)
+        self.assertIn('/no/such/file.db', roll['unreadable'])
+
+    def test_read_only_open_cannot_write(self):
+        a = self._make_db(['A1'], [])
+        conn = portfolio_store.open_readonly(a)
+        try:
+            with self.assertRaises(Exception):
+                conn.execute("INSERT INTO projects (name) VALUES ('X')")
+                conn.commit()
+        finally:
+            conn.close()
+
+
+class TestRiskMitigation(unittest.TestCase):
+    """E3.3 mitigation drafts — a starting point a human owns, per category."""
+
+    def test_suggests_a_response_and_action_for_a_cost_risk(self):
+        rs = risk_detect.detect({'projects_at_loss': 1,
+                                 'projects_worst_margin': -500000})
+        m = risk_detect.suggest_mitigation(rs[0])
+        self.assertEqual(m['suggested_response'], risk.REDUCE)
+        self.assertTrue(m['suggested_action'])
+
+    def test_with_mitigations_annotates_each_risk(self):
+        rs = risk_detect.detect({'compliance_overdue': 2})
+        annotated = risk_detect.with_mitigations(rs)
+        self.assertIn('suggested_response', annotated[0])
+        self.assertEqual(annotated[0]['suggested_response'], risk.AVOID)  # statutory
+
+
+class TestFollowups(unittest.TestCase):
+    """E4.1 event → follow-on decision logic, with the money/date gate."""
+
+    def test_grn_suggests_the_three_way_match(self):
+        fs = followups.for_event(followups.GRN_SAVED)
+        self.assertTrue(any('3-way match' in f['action'] for f in fs))
+        self.assertTrue(all(not f['gated'] for f in fs))   # none consequential
+
+    def test_consequential_follow_ups_are_gated(self):
+        self.assertTrue(followups.for_event(followups.PAYMENT_DUE)[0]['gated'])
+        gated = followups.gated_actions(followups.FILING_DUE)
+        self.assertTrue(gated and all(f['gated'] for f in gated))
+
+    def test_unknown_event_gives_no_suggestions_not_an_error(self):
+        self.assertEqual(followups.for_event('meteor_strike'), [])
+
+
+class TestDrift(unittest.TestCase):
+    """E5.2 weak-signal correlation — an early, explainable, low-confidence flag."""
+
+    def test_several_weak_signals_together_raise_drift(self):
+        d = drift.assess_drift({
+            'ppc_series': [80, 72, 65, 58],          # falling reliability (+2)
+            'slip_series': [1, 2, 1, 3],             # repeated small slips (+2)
+        })
+        self.assertTrue(d['drifting'])
+        self.assertEqual(d['confidence'], drift.LOW)
+        self.assertTrue(d['signals'])                # each named with a basis
+        self.assertIn('basis', d['signals'][0])
+
+    def test_one_signal_alone_does_not_trip_it(self):
+        d = drift.assess_drift({'rfi_age_series': [5, 8, 12]})  # +1 only
+        self.assertFalse(d['drifting'])
+
+    def test_quiet_project_is_not_drifting(self):
+        self.assertFalse(drift.assess_drift({})['drifting'])
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):
@@ -1001,6 +1784,175 @@ class TestPlanning(unittest.TestCase):
         self.assertEqual(result['margin'], -100000)
 
 
+class TestSubmittals(unittest.TestCase):
+    """A submittal is the pre-execution approval of a proposed material/make.
+    Only an undecided one is 'open', and only an open one can be overdue."""
+
+    def test_only_submitted_is_open(self):
+        self.assertTrue(submittals.is_open('Submitted'))
+        for st in ('Approved', 'Approved as noted', 'Revise & resubmit',
+                   'Rejected'):
+            self.assertFalse(submittals.is_open(st))
+
+    def test_approved_as_noted_counts_as_approved(self):
+        self.assertTrue(submittals.is_approved('Approved'))
+        self.assertTrue(submittals.is_approved('Approved as noted'))
+        self.assertFalse(submittals.is_approved('Revise & resubmit'))
+        self.assertFalse(submittals.is_approved('Rejected'))
+
+    def test_open_and_past_required_by_is_overdue(self):
+        self.assertTrue(
+            submittals.is_overdue('2026-01-01', 'Submitted', '2026-07-21'))
+
+    def test_future_required_by_is_not_overdue(self):
+        self.assertFalse(
+            submittals.is_overdue('2026-12-01', 'Submitted', '2026-07-21'))
+
+    def test_a_decided_submittal_is_never_overdue(self):
+        """Once answered the ball is out of the reviewer's court."""
+        self.assertFalse(
+            submittals.is_overdue('2026-01-01', 'Approved', '2026-07-21'))
+
+    def test_no_deadline_is_not_overdue(self):
+        self.assertFalse(submittals.is_overdue('', 'Submitted', '2026-07-21'))
+
+
+class TestSubmittalsDashboard(unittest.TestCase):
+    """The dashboard counts open submittals and flags the overdue ones."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _add(self, no, status, required_by):
+        self.conn.execute(
+            "INSERT INTO submittals (submittal_no, site_id, title, "
+            "submitted_date, required_by, status) VALUES (?, 1, ?, "
+            "'2026-06-01', ?, ?)", (no, no, required_by, status))
+        self.conn.commit()
+
+    def test_open_count_and_overdue_flag(self):
+        import dashboard
+        self._add('SUB-1', 'Submitted', '2026-06-10')   # overdue
+        self._add('SUB-2', 'Submitted', '2026-12-01')   # open, not overdue
+        self._add('SUB-3', 'Approved', '2026-05-01')    # decided, not counted
+        s = dashboard.collect(self.conn)
+        self.assertEqual(s['submittals_open'], 2)
+        self.assertEqual(s['submittals_overdue'], 1)
+        rows = [r for r in dashboard._bottlenecks(s)
+                if r['label'] == 'Submittals awaiting approval']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['severity'], 'act')     # because one is overdue
+
+
+class TestLessons(unittest.TestCase):
+    """Achieved rate = what was actually paid, quantity-weighted, fed back into
+    the standard rate so the next estimate is priced on reality."""
+
+    def test_weighted_not_plain_average(self):
+        # 500 bags @ 402 and 5 @ 450 -> near 402, not the midpoint 426
+        r = lessons.weighted_rate(505, 500 * 402 + 5 * 450)
+        self.assertAlmostEqual(r, 402.48, places=2)
+        self.assertLess(r, 410)
+
+    def test_no_purchases_is_no_data_not_zero(self):
+        self.assertIsNone(lessons.weighted_rate(0, 0))
+        self.assertEqual(lessons.realise(380, 0, 0)['direction'], 'no-data')
+        self.assertIsNone(lessons.realise(380, 0, 0)['achieved'])
+
+    def test_paid_more_than_standard_reads_over(self):
+        r = lessons.realise(380, 100, 40200, 3)   # achieved 402
+        self.assertEqual(r['achieved'], 402.0)
+        self.assertEqual(r['delta'], 22.0)
+        self.assertEqual(r['pct'], 5.8)
+        self.assertEqual(r['direction'], 'over')
+
+    def test_paid_less_reads_under(self):
+        r = lessons.realise(400, 50, 18000)        # achieved 360
+        self.assertEqual(r['direction'], 'under')
+        self.assertEqual(r['delta'], -40.0)
+
+    def test_zero_standard_has_no_percentage(self):
+        r = lessons.realise(0, 10, 1000)
+        self.assertEqual(r['achieved'], 100.0)
+        self.assertIsNone(r['pct'])
+
+
+class TestRateRealisationApply(unittest.TestCase):
+    """Applying the achieved rate rewrites the material's standard rate — the
+    closeout lessons-learned loop — and a Viewer cannot."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        self.conn.execute(
+            "INSERT INTO materials (name, unit, rate) VALUES ('Cement','bag',380)")
+        self.conn.execute(
+            "INSERT INTO material_ledger (txn_date, site_id, material_id, "
+            "txn_type, qty, rate) VALUES ('2026-07-01', 1, 1, 'IN', 100, 402)")
+        self.conn.commit()
+
+    def tearDown(self):
+        import session
+        session.logout()
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _rate(self):
+        return self.conn.execute(
+            "SELECT rate FROM materials WHERE id = 1").fetchone()[0]
+
+    def test_admin_apply_updates_standard_rate(self):
+        import session
+        from tab_lessons import RateRealisation
+        session.login('admin', 'Admin')
+        rr = RateRealisation.__new__(RateRealisation)      # no Tk
+        rr.db_getter = self.db.get_conn
+        rr._rows = [(1, 402.0, 22.0)]
+        n = rr._apply([(1, 402.0)])
+        self.assertEqual(n, 1)
+        self.assertEqual(self._rate(), 402.0)
+
+    def test_viewer_cannot_apply(self):
+        import session
+        from tab_lessons import RateRealisation
+        session.login('viewer', 'Viewer')
+        rr = RateRealisation.__new__(RateRealisation)
+        rr.db_getter = self.db.get_conn
+        n = rr._apply([(1, 402.0)])
+        self.assertEqual(n, 0)
+        self.assertEqual(self._rate(), 380.0)              # unchanged
+
+
 class TestApproval(unittest.TestCase):
     """An approval is a status PLUS who and when; the status alone is not
     evidence, which is the gap this closes."""
@@ -1269,6 +2221,14 @@ class TestHSE(unittest.TestCase):
                      {'severity': hse.NEAR_MISS}]
         # 2 lost-time events in exactly 200,000 hours = 2.0
         self.assertEqual(hse.ltifr(incidents, 200000), 2.0)
+
+    def test_trir_counts_recordables_per_200000_hours(self):
+        incidents = [{'severity': hse.LOST_TIME}, {'severity': hse.REPORTABLE},
+                     {'severity': hse.NEAR_MISS},        # not recordable
+                     {'severity': hse.FIRST_AID}]        # not recordable
+        # 2 recordable events in exactly 200,000 hours = 2.0
+        self.assertEqual(hse.trir(incidents, 200000), 2.0)
+        self.assertIsNone(hse.trir(incidents, 500))     # too few hours
 
     def test_near_miss_ratio_and_lost_days(self):
         incidents = [{'severity': hse.NEAR_MISS}, {'severity': hse.NEAR_MISS},

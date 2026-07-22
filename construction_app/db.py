@@ -660,6 +660,31 @@ CREATE TABLE IF NOT EXISTS drawings (
     remarks TEXT
 );
 
+-- Submittals: the pre-execution approval of a proposed material / make / shop
+-- drawing. Distinct from an RFI (a question about the documents) and a drawing
+-- revision (which copy is current) — conflating them causes scope-creep
+-- confusion. A resubmittal is a NEW row whose supersedes_id points at the prior.
+CREATE TABLE IF NOT EXISTS submittals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submittal_no TEXT,
+    site_id INTEGER REFERENCES sites(id),
+    contract_id INTEGER REFERENCES contracts(id),
+    spec_ref TEXT,                       -- BOQ item / spec clause it satisfies
+    title TEXT,                          -- e.g. "M30 admixture — make X"
+    submittal_type TEXT DEFAULT 'Material',  -- Material / Make / Shop Drawing / Sample
+    submitted_date TEXT,
+    submitted_by TEXT,
+    required_by TEXT,                    -- approval needed by, to hold programme
+    status TEXT DEFAULT 'Submitted',
+        -- Submitted / Approved / Approved as noted / Revise & resubmit / Rejected
+    reviewer TEXT,                       -- architect / EIC / PMC
+    reviewed_date TEXT,
+    review_remarks TEXT,
+    supersedes_id INTEGER,               -- prior submittal id on a resubmit
+                                         -- (informational/traceability; 0 = none)
+    remarks TEXT
+);
+
 -- ------------------------------- health & safety (Phase 8, Wave 4)
 -- Deliberately small. Safety at this scale is mostly informal, and a heavy
 -- module would simply go unfilled. These cover the jobs that actually kill
@@ -950,6 +975,105 @@ CREATE TABLE IF NOT EXISTS variations (
     remarks TEXT
 );
 
+-- ------------------------------------ risk register (E0 — enterprise PM)
+-- One row per identified project risk, scored on a 5x5 likelihood x impact
+-- matrix (the maths lives in risk.py). The derived columns (score, band,
+-- expected_exposure) are recomputed from likelihood / impact / impact_value on
+-- every save by risk_store, so a stored score can never drift from the scoring
+-- module — the same "derive on save" discipline the variations amount uses.
+-- residual_* capture the post-mitigation position; source flags whether a row
+-- was raised by a person or drafted by AI (E3); decided_by/date record who owns
+-- the accept/dismiss, the audit trail the roadmap calls for. reference is the
+-- basis — the rule or the letter the risk rests on — so no flag is ever bare.
+CREATE TABLE IF NOT EXISTS risks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- schedule/cost/commercial/quality/safety/statutory/external
+    title TEXT,
+    description TEXT,
+    likelihood INTEGER DEFAULT 1,     -- 1..5 (probability)
+    impact INTEGER DEFAULT 1,         -- 1..5
+    urgency INTEGER,                  -- 1..5, nullable — the 'when', sequences same-band items
+    score REAL DEFAULT 0,             -- derived: likelihood x impact
+    priority REAL DEFAULT 0,          -- derived: score x urgency (or score if no urgency)
+    band TEXT DEFAULT 'Low',          -- derived: Low / Medium / High / Critical
+    impact_value REAL DEFAULT 0,      -- rupees (or days) at stake if it happens
+    expected_exposure REAL DEFAULT 0, -- derived: probability(likelihood) x impact_value
+    response TEXT,                    -- Avoid / Reduce / Transfer / Accept
+    owner TEXT,
+    mitigation TEXT,                  -- the action plan / control
+    action_plan TEXT,                 -- explicit action steps (Part 2 execution)
+    target_date TEXT,                 -- target completion of the response
+    residual_likelihood INTEGER,      -- post-mitigation, nullable
+    residual_impact INTEGER,
+    status TEXT DEFAULT 'Open',       -- Open / Mitigating / Closed / Accepted
+    reference TEXT,                   -- the basis / paper trail (a rule, a letter)
+    source TEXT DEFAULT 'manual',     -- manual / ai
+    decided_by TEXT,
+    decided_date TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
+-- ------------------------------------ opportunity register (Part 2 — execution)
+-- The upside twin of risks: what could go right (a saving, a local-sourcing win,
+-- a resequencing that buys float). Scored the same way (probability x impact via
+-- opportunity.py, which reuses the risk matrix); value is an upside to capture
+-- and response is Exploit / Enhance / Share / Accept. Kept a separate table from
+-- risks so each stays simple, mirroring the variations/bid_assessments pattern.
+CREATE TABLE IF NOT EXISTS opportunities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- site/cost/schedule/procurement/quality/...
+    title TEXT,
+    description TEXT,
+    likelihood INTEGER DEFAULT 1,     -- 1..5
+    impact INTEGER DEFAULT 1,         -- 1..5
+    urgency INTEGER,                  -- 1..5, nullable
+    score REAL DEFAULT 0,             -- derived: likelihood x impact
+    priority REAL DEFAULT 0,          -- derived: score x urgency
+    band TEXT DEFAULT 'Low',          -- derived
+    value REAL DEFAULT 0,             -- the upside if captured (rupees or days)
+    expected_value REAL DEFAULT 0,    -- derived: probability(likelihood) x value
+    response TEXT,                    -- Exploit / Enhance / Share / Accept
+    owner TEXT,
+    action_plan TEXT,
+    target_date TEXT,
+    status TEXT DEFAULT 'Open',       -- Open / Pursuing / Realized / Declined
+    reference TEXT,
+    source TEXT DEFAULT 'manual',     -- manual / ai
+    decided_by TEXT,
+    decided_date TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
+-- ------------------------------------ lessons-learned register (Part 2 — CI)
+-- Continuous improvement: what went well or badly, and — the part that matters —
+-- the recommendation to feed into the next project (an updated rate, a tuned
+-- detection rule, a changed checklist). A lesson can be born from a risk that
+-- materialised, an opportunity realised, a site observation, or an AI pattern
+-- (source + source_id link back). 'Applied' status means the insight has
+-- actually been carried forward, not just written down. Maths in lessons.py.
+CREATE TABLE IF NOT EXISTS lessons_learned (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT,                    -- schedule/cost/quality/safety/procurement/...
+    title TEXT,
+    description TEXT,
+    outcome TEXT DEFAULT 'neutral',   -- positive / negative / neutral
+    root_cause TEXT,
+    recommendation TEXT,              -- the feed-forward action for next time
+    source TEXT DEFAULT 'observation',-- risk / opportunity / observation / ai
+    source_id INTEGER,                -- optional link to the risk/opportunity row
+    impact_value REAL DEFAULT 0,      -- rupees or days, optional
+    tags TEXT,                        -- comma-separated (e.g. 'rate-library')
+    status TEXT DEFAULT 'Open',       -- Open / Reviewed / Applied
+    owner TEXT,
+    created_date TEXT,
+    remarks TEXT
+);
+
 -- Bid / no-bid assessments. Records the judgement scores, the advisory
 -- verdict, what was actually decided, and how it turned out — the last two
 -- are what let the scoring be checked against reality later instead of being
@@ -1103,6 +1227,7 @@ CREATE INDEX IF NOT EXISTS idx_snags_site ON snags(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_quotes_req ON quotes(requisition_id);
 CREATE INDEX IF NOT EXISTS idx_rfis_status ON rfis(status);
 CREATE INDEX IF NOT EXISTS idx_drawings_no ON drawings(drawing_no, revision);
+CREATE INDEX IF NOT EXISTS idx_submittals_status ON submittals(status);
 CREATE INDEX IF NOT EXISTS idx_permits_site ON work_permits(site_id, status);
 CREATE INDEX IF NOT EXISTS idx_incidents_site ON incidents(site_id, severity);
 CREATE INDEX IF NOT EXISTS idx_approvals_doc ON approvals(doc_type, doc_id);
@@ -1277,6 +1402,15 @@ _ADD_COLUMNS = [
     ('timeline_tasks', 'parent_id', 'INTEGER'),
     ('projects', 'work_week', "TEXT DEFAULT '1111110'"),
     ('projects', 'holidays', 'TEXT'),
+    # Part 2 (execution) risk-register fields: urgency (the 'when'), the derived
+    # priority (score x urgency), the response strategy, and an explicit action
+    # plan + target date. Additive so a risks table from an earlier build gains
+    # them without losing rows.
+    ('risks', 'urgency', 'INTEGER'),
+    ('risks', 'priority', 'REAL DEFAULT 0'),
+    ('risks', 'response', 'TEXT'),
+    ('risks', 'action_plan', 'TEXT'),
+    ('risks', 'target_date', 'TEXT'),
 ]
 
 
