@@ -176,7 +176,7 @@ class KPIDashboard(ttk.Frame):
 
         # --- project margin: a job running at a loss is the thing you most
         # want to know before the final account, not after.
-        from tab_projects import project_cost_rollup
+        from project_rollup import project_cost_rollup
         rolls = []
         for r in conn.execute("SELECT id, name FROM projects "
                               "WHERE status != 'Cancelled'"):

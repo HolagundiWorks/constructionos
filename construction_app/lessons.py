@@ -54,3 +54,20 @@ def realise(reference_rate, total_qty, total_value, n_purchases=0):
     direction = 'on' if delta == 0 else ('over' if delta > 0 else 'under')
     return {'reference': ref, 'achieved': achieved, 'delta': delta,
             'pct': pct, 'n': int(n_purchases or 0), 'direction': direction}
+
+
+def apply_rates(conn, pairs):
+    """Write achieved rates back to ``materials.rate`` for ``(id, rate)`` pairs.
+
+    Returns how many rows were updated. Does **not** check roles — the GUI /
+    API caller gates writes (``can_write``) before calling this. Empty ``pairs``
+    is a no-op that returns 0.
+    """
+    if not pairs:
+        return 0
+    for mid, achieved in pairs:
+        conn.execute('UPDATE materials SET rate = ? WHERE id = ?',
+                     (achieved, mid))
+    conn.commit()
+    return len(pairs)
+

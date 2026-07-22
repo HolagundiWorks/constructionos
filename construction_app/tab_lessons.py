@@ -139,13 +139,9 @@ class RateRealisation(ttk.Frame):
             return 0
         conn = self.db_getter()
         try:
-            for mid, achieved in pairs:
-                conn.execute('UPDATE materials SET rate = ? WHERE id = ?',
-                             (achieved, mid))
-            conn.commit()
+            return lessons.apply_rates(conn, pairs)
         finally:
             conn.close()
-        return len(pairs)
 
     def apply_selected(self):
         sel = self.tree.selection()

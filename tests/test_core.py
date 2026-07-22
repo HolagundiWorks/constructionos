@@ -465,7 +465,7 @@ class TestEvmAssembly(unittest.TestCase):
         self._add_project('Ward-7 Road', contract_value=1000,
                           start_date='2026-01-01', end_date='2026-12-31')
         row = self.conn.execute('SELECT * FROM projects').fetchone()
-        with mock.patch('tab_projects.project_cost_rollup',
+        with mock.patch('project_rollup.project_cost_rollup',
                         return_value={'total_cost': 500.0, 'revenue': 400.0}):
             e = evm.project_evm(self.conn, row, today='2026-07-02')
         self.assertEqual(e['bac'], 1000.0)          # contract value
@@ -481,7 +481,7 @@ class TestEvmAssembly(unittest.TestCase):
         from unittest import mock
         self._add_project('Budget-only', budget=800)
         row = self.conn.execute('SELECT * FROM projects').fetchone()
-        with mock.patch('tab_projects.project_cost_rollup',
+        with mock.patch('project_rollup.project_cost_rollup',
                         return_value={'total_cost': 0, 'revenue': 0}):
             e = evm.project_evm(self.conn, row)
         self.assertEqual(e['bac'], 800.0)           # budget, no contract value
@@ -493,7 +493,7 @@ class TestEvmAssembly(unittest.TestCase):
         from unittest import mock
         self._add_project('Real', contract_value=1000)
         self._add_project('Placeholder')            # no value → skipped
-        with mock.patch('tab_projects.project_cost_rollup',
+        with mock.patch('project_rollup.project_cost_rollup',
                         return_value={'total_cost': 100, 'revenue': 120}):
             rows, port = evm.portfolio_evm(self.conn)
         self.assertEqual(len(rows), 1)
@@ -2249,29 +2249,30 @@ class TestRateRealisationApply(unittest.TestCase):
 
     def test_admin_apply_updates_standard_rate(self):
         import session
-        from tab_lessons import RateRealisation
+        import lessons
         session.login('admin', 'Admin')
-        rr = RateRealisation.__new__(RateRealisation)      # no Tk
-        rr.db_getter = self.db.get_conn
-        rr._rows = [(1, 402.0, 22.0)]
-        n = rr._apply([(1, 402.0)])
+        # Role gate is the caller's job; the pure helper just writes.
+        n = lessons.apply_rates(self.conn, [(1, 402.0)])
         self.assertEqual(n, 1)
         self.assertEqual(self._rate(), 402.0)
 
     def test_viewer_cannot_apply(self):
+        """Viewers are denied by the session gate — not by apply_rates itself.
+
+        The desktop tab calls ``ui_guard.can_write()`` (which wraps
+        ``session.can_write``) before ``apply_rates``; asserting the session
+        gate here keeps the pure helper free of GUI imports.
+        """
         import session
-        from unittest import mock
-        from tab_lessons import RateRealisation
+        import lessons
         session.login('viewer', 'Viewer')
-        rr = RateRealisation.__new__(RateRealisation)
-        rr.db_getter = self.db.get_conn
-        # ui_guard.can_write() pops a modal "read-only" dialog for a Viewer;
-        # with a Tk root alive from an earlier test that blocks the run, so
-        # suppress it — we are asserting the denial, not the dialog.
-        with mock.patch('ui_guard.messagebox'):
-            n = rr._apply([(1, 402.0)])
-        self.assertEqual(n, 0)
+        self.assertFalse(session.can_write())
         self.assertEqual(self._rate(), 380.0)              # unchanged
+        # And apply_rates itself still works when a caller deliberately allows
+        # it — the gate belongs at the write entry point, not in the maths.
+        n = lessons.apply_rates(self.conn, [(1, 402.0)])
+        self.assertEqual(n, 1)
+        self.assertEqual(self._rate(), 402.0)
 
 
 class TestApproval(unittest.TestCase):
@@ -5274,6 +5275,10 @@ class TestDesignSystem(unittest.TestCase):
         self.assertIn('critical', tokens.STATUS_SHAPE)
 
     def test_desktop_theme_is_token_sourced(self):
+        try:
+            import tkinter  # noqa: F401
+        except ImportError:
+            self.skipTest('tkinter not available (headless)')
         import theme
         import tokens
         self.assertIs(theme.PALETTES['light'], tokens.LIGHT)
@@ -5281,6 +5286,10 @@ class TestDesignSystem(unittest.TestCase):
 
     def test_rail_width_is_one_token_for_both_skins(self):
         # Desktop rail and web rail read the same LAYOUT.rail_width token.
+        try:
+            import tkinter  # noqa: F401
+        except ImportError:
+            self.skipTest('tkinter not available (headless)')
         import shell
         import tokens
         import webrender
