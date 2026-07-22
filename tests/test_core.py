@@ -92,6 +92,9 @@ import capture
 import portfolio_store
 import followups
 import drift
+import menu
+import workflow
+import modules as modules_cat
 
 
 class TestFinance(unittest.TestCase):
@@ -1318,6 +1321,107 @@ class TestDrift(unittest.TestCase):
 
     def test_quiet_project_is_not_drifting(self):
         self.assertFalse(drift.assess_drift({})['drifting'])
+
+
+class TestMenuModel(unittest.TestCase):
+    """E7.1 — persona-scoped sections + a grouping overlay that can't drift."""
+
+    def _catalog_map(self):
+        return {title: tabs for title, tabs in modules_cat.SECTIONS_CATALOG}
+
+    def test_owner_sees_every_section(self):
+        titles = [t for t, _ in modules_cat.SECTIONS_CATALOG]
+        self.assertEqual(menu.visible_sections(menu.OWNER), titles)
+
+    def test_persona_scopes_the_menu(self):
+        site = menu.visible_sections(menu.SITE)
+        self.assertIn('Operations', site)
+        self.assertNotIn('Accounts', site)          # a site engineer isn't shown accounts
+        acct = menu.visible_sections(menu.ACCOUNTS)
+        self.assertIn('Accounts', acct)
+        self.assertNotIn('Operations', acct)
+
+    def test_unknown_persona_defaults_to_showing_all(self):
+        titles = [t for t, _ in modules_cat.SECTIONS_CATALOG]
+        self.assertEqual(menu.visible_sections('nobody'), titles)
+
+    def test_resolve_drops_disabled_tabs_and_empty_sections(self):
+        # Disable every Operations tab → the Operations section disappears.
+        ops = set(self._catalog_map()['Operations'])
+        resolved = menu.resolve(menu.SITE, is_enabled=lambda t: t not in ops)
+        titles = [t for t, _ in resolved]
+        self.assertNotIn('Operations', titles)
+        self.assertIn('Project Management', titles)   # its tabs still enabled
+
+    def test_persona_section_titles_are_all_real(self):
+        valid = {t for t, _ in menu.proposed_catalog()}
+        for persona, sections in menu._PERSONA_SECTIONS.items():
+            if sections is None:
+                continue
+            for title in sections:
+                self.assertIn(title, valid,
+                              '{} grants unknown section {}'.format(persona, title))
+
+    def test_grouping_is_a_pure_overlay_against_the_live_catalog(self):
+        cat = self._catalog_map()
+        for title in menu.GROUPS:
+            self.assertIn(title, cat, 'grouping references unknown section')
+            grouped = menu.groups_for(title, cat[title])
+            # Flattened groups must exactly equal the section's real tabs, in order.
+            self.assertEqual(menu.flatten(grouped), cat[title])
+
+    def test_ungrouped_section_is_one_implicit_group(self):
+        tabs = self._catalog_map()['Money']
+        g = menu.groups_for('Money', tabs)
+        self.assertEqual(len(g), 1)
+        self.assertIsNone(g[0][0])                    # implicit group label
+        self.assertEqual(menu.flatten(g), tabs)
+
+    def test_controls_section_is_available_to_grant(self):
+        self.assertIn(('Controls', menu.CONTROLS_SECTION[1]),
+                      [(t, tabs) for t, tabs in menu.proposed_catalog()])
+        self.assertIn('Controls', menu.visible_sections(menu.SITE,
+                                                        menu.proposed_catalog()))
+
+
+class TestWorkflow(unittest.TestCase):
+    """E7.2 — operational flows: next-step, progress, and no dangling menu links."""
+
+    def test_next_step_is_the_first_incomplete(self):
+        wf = workflow.CONTRACT_TO_CASH
+        state = {'contract': True, 'boq': True}       # measurement is next
+        self.assertEqual(workflow.next_step(wf, state)['key'], 'measurement')
+
+    def test_a_later_done_step_does_not_skip_an_earlier_open_one(self):
+        wf = workflow.PROCURE_TO_PAY
+        state = {'requisition': True, 'payment': True}  # po still open → po is next
+        self.assertEqual(workflow.next_step(wf, state)['key'], 'po')
+
+    def test_progress_counts_and_completes(self):
+        wf = workflow.PROCURE_TO_PAY
+        p = workflow.progress(wf, {'requisition': True, 'po': True})
+        self.assertEqual(p['total'], len(wf))
+        self.assertEqual(p['done'], 2)
+        self.assertFalse(p['complete'])
+        self.assertEqual(p['next']['key'], 'grn')
+        full = {s['key']: True for s in wf}
+        done = workflow.progress(wf, full)
+        self.assertTrue(done['complete'])
+        self.assertIsNone(done['next'])
+        self.assertEqual(done['pct'], 100.0)
+
+    def test_all_progress_covers_every_flow(self):
+        allp = workflow.all_progress({})
+        self.assertEqual(set(allp), set(workflow.WORKFLOWS))
+        for p in allp.values():
+            self.assertEqual(p['done'], 0)            # empty state → nothing done
+
+    def test_every_step_points_at_a_real_menu_location(self):
+        # The key drift-guard: no flow may send a user to a non-existent tab.
+        self.assertEqual(workflow.unknown_locations(), [])
+
+    def test_empty_workflow_has_no_fake_percent(self):
+        self.assertIsNone(workflow.progress([], {})['pct'])
 
 
 class TestEstimateAndSubcontract(unittest.TestCase):

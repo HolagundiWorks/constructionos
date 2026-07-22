@@ -152,6 +152,48 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 **Guardrail:** no risk flag without a stated basis; AI *detects & ranks*, a human
 *owns* the mitigation and the accept/dismiss decision (logged).
 
+### 3.6 Navigation, menu structure & operational-workflow gaps
+
+The application's menu is a two-level Rail → Stage hierarchy driven by
+`modules.SECTIONS_CATALOG`, organised **by function** (Masters / Operations /
+Billing / …), not by workflow. See
+[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) §5 for the full hierarchy and the
+operational-flow mapping. The gaps:
+
+| # | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
+|---|---|---|---|---|---|---|
+| **N1** | Menu home for the new registers | ❌ | Risk / Opportunity / Lessons registers are built (data+logic) but unreachable in the UI | Part 2 deliverables can't be used by an operator | A "Controls / Risk & Governance" section + tabs over the stores | P1 · M · UI |
+| **N2** | Guided operational workflow | 🟡 | Flow graph built (`workflow.py` — next-step/progress, drift-guarded); Process view (UI) pending | New users can't yet *see* the operating sequence | Process view over `workflow`/`advisory`/`followups` (E7.4) | P1 · M · UI |
+| **N3** | Role/persona-scoped menu | 🟡 | Persona→sections model built (`menu.py`, composes with feature-flags); rail filtering (UI) pending | Model ready; menu not yet rendered per persona | Rail filtering over `menu.resolve` (E7.3) | P1 · S · UI |
+| **N4** | Global search / command palette / breadcrumbs | ❌ | 47+ tabs, findability by memory; no deep-linking | Slow navigation; no jump-to-record | Search index over tabs+records; align with web URL routing | P2 · M · UI |
+| **N5** | Sub-section grouping (3rd level) | 🟡 | Grouping overlay built (`menu.GROUPS`/`groups_for`/`flatten`, drift-guarded); render pending | Model ready; 3rd level not yet rendered | Render grouped tabs in the section notebook (E7.3) | P2 · S · UI |
+| **N6** | Workflow-menu alignment | 🟡 | Steps of one process sit in different sections (Sourcing↔Bid/No-Bid; Measurement↔DPR) | Functional grouping fights the flow | Resolved by N2's Process view (overlay, not a re-org) | P2 · S · UX |
+
+**Guardrail:** the menu *model* — the role→section map, the workflow step graph,
+the catalog grouping — is **pure config/data and unit-testable headless**; only
+the on-screen rendering is display-dependent. This is the same build/verify
+boundary as the rest of the roadmap: the model can be built and tested now, the
+rail/overlay rendering follows on a display.
+
+### 3.7 UI replatform to WinUI 3 (owner-approved, separate track)
+
+An owner decision moves the desktop UI from the tkinter "HCW UX" shell to
+**native WinUI 3** (Windows-only, C#/.NET, stock Fluent components only). This is
+a **separate "U" track**, not part of the E-phases, because it is a *front-end
+replatform* rather than a capability gap — and it **deliberately breaks** the
+stdlib / cross-platform / no-pip constraints (accepted). Full spec:
+[`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+
+| # | Target | Status | Approach | Verifiable |
+|---|---|---|---|---|
+| **U0** | Backend JSON API over the domain (`webapi.py`) | ❌ | Reuse the tested Python core as a localhost service; add JSON endpoints (stdlib, testable) | **Here (Python)** |
+| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
+
+**Key decision (already made):** reuse the domain as a backend, **do not** rewrite
+the 619-tested business modules in C#. The client renders; the Python core still
+computes. **U0 is the only piece buildable/verifiable in this environment**, and
+is the correct API-first first step.
+
 ---
 
 ## 4. Gap prioritisation (the short list)
@@ -204,10 +246,12 @@ a model, or a pip dependency:
 | **E4** | `review_pack.py` (pack + portfolio); `followups.py` (event → follow-on logic) | GUI event wiring |
 | **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
 | **E6** | — | mobile capture app (separate front-end) |
+| **E7** Navigation & Workflow | `menu.py` (personas + grouping), `workflow.py` (flow graph) | Controls/register tabs, Process view, search (GUI) — see §3.6 |
+| **U** UI Replatform → WinUI 3 | — | Backend JSON API (U0, Python — buildable here) + WinUI 3 C# client (U1–U7, Windows) — see §3.7 & [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) |
 
 **The deterministic roadmap is complete.** Every piece that can be written and
-unit-tested without a display, a model, or a pip dependency is built (591-test
-suite). The irreducible residual is exactly three things this environment cannot
+unit-tested without a display, a model, or a pip dependency is built (619-test
+suite; the menu/workflow models of E7.1/E7.2 included). The irreducible residual is exactly three things this environment cannot
 produce or verify — and none is application logic:
 
 1. **tkinter tabs** — the on-screen registers and KPI/EVM surfacing. Need a
@@ -219,8 +263,41 @@ produce or verify — and none is application logic:
    code in this repo; `capture.py` is the deterministic scaffold they feed.
 3. **The E6 mobile app** — a separate front-end project.
 
-The full-run's single error is the pre-existing missing-`tkinter` GUI theme test,
-unrelated to this work.
+### 5A. Cloud development track (headless Python agent environment)
+
+Work that is **built and verified in the cloud agent environment** — Linux,
+**no display, no .NET, no ML models**. Everything here is pure/DB-only,
+tkinter-free, no-pip, and unit-tested headless (`python -m unittest discover -s
+tests`). This is where the *engine* is built.
+
+| Area | Modules / deliverables | Status |
+|---|---|---|
+| Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
+| Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
+| Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
+| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ⬜ **next — buildable here** |
+| Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
+
+**Cannot be done in the cloud env:** anything needing a **display** (tkinter/GUI
+smoke tests), the **.NET/Windows App SDK** (WinUI 3), or **ML model weights**
+(OCR/voice/VLM). Those are the local track.
+
+### 5B. Local development track (Windows + display + .NET)
+
+Work that needs a **local machine** — a display for GUI, and Windows/.NET for the
+replatform. Developed and verified locally (the team already builds here — e.g.
+the EVM, Risk Register and Opportunity/Weekly-Review tabs shipped on `main`).
+
+| Area | Deliverable | Verified by |
+|---|---|---|
+| tkinter GUI tabs | Register/KPI/EVM/opportunity tabs; Controls section; Process view (E7.3/E7.4) over `menu`/`workflow` | `tests/test_smoke_tabs.py` (needs a display) |
+| **WinUI 3 client (U1–U7)** | NavigationView shell, DataGrid CRUD, Fluent pages, Segoe icons, charts, MSIX + backend sidecar — [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | Windows/.NET build + WinAppDriver/xUnit |
+| AI model sidecars (E1) | OCR / speech-to-text / VLM local models (see [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)) | on a machine that can run the models |
+| Field mobile (E6) | Mobile capture app | separate front-end project |
+
+**The contract between the two tracks is the JSON API (U0):** the cloud track
+builds and tests it in Python; the local track (WinUI 3 client, mobile) consumes
+it. Build U0 first so local work has a stable, tested contract to render against.
 
 ### Phase E0 — Foundation _(P0 · deterministic core first)_
 
@@ -388,6 +465,47 @@ feeding a forecast/drift flag into the register as a suggestion (tab).
 records sync to the authoritative file; offline capture queues and reconciles on
 reconnect.
 
+### Phase E7 — Navigation & Workflow _(P1 · make it usable and discoverable)_
+
+**Goal:** turn the built capability into a coherent, role-aware, workflow-guided
+application — give the new registers a menu home and present work as a flow, not
+a flat 47-tab grid. Addresses the §3.6 gaps (N1–N6). Reference:
+[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) §5.
+
+- **E7.1 Menu model ✅ (built)** — `menu.py` (target `config/menu.py`): personas
+  (Owner / Commercial-QS / Site Engineer / Accountant / Storekeeper) → visible
+  sections via `visible_sections`/`resolve` (composes with the module
+  feature-flags), a backward-compatible **grouping** overlay (`GROUPS` /
+  `groups_for` / `flatten` — a 3rd hierarchy level for crowded sections), and the
+  proposed **Controls** section for the Part 2 registers. 8 unit tests
+  (`TestMenuModel`), including a drift-guard that flattens the grouping against
+  the live `SECTIONS_CATALOG`. (N3, N5)
+- **E7.2 Workflow graph ✅ (built)** — `workflow.py`: the four operational flows
+  (bid→contract, contract→cash, procure→pay, plan→execute) as ordered
+  **step → section → tab** graphs; `next_step`/`progress`/`all_progress` compute
+  the "what's next" and completion from a state dict. 6 unit tests
+  (`TestWorkflow`), including `unknown_locations() == []` — a drift-guard that
+  every step points at a real menu location. (N2, N6)
+- **E7.3 "Controls" section + register tabs (GUI)** — a menu home for
+  **Risk Register · Opportunity Register · Lessons Learned · Submittals**, tabs
+  over the built stores. (N1)
+- **E7.4 Process view + search (GUI)** — a "What's next" overlay that renders the
+  E7.2 graph, plus a global search / command palette and breadcrumbs aligned with
+  the web layer's URL routing. (N2, N4)
+
+**Depends on:** E0–E5 stores/logic (built); `modules.SECTIONS_CATALOG`,
+`shell.RailStage`, `advisory`, `followups` (built).
+**Acceptance:** the menu model and workflow graph are unit-tested headless
+(role→sections resolves correctly; a flow's next-incomplete step is computed from
+state); the Part 2 registers are reachable from a menu; a persona sees a menu
+scoped to their job. _Rendering (rail filtering, Process overlay, search UI) is
+display-dependent and verified on a display, per the standing boundary._
+**Built so far:** E7.1 (`menu.py`) and E7.2 (`workflow.py`) — the pure menu and
+workflow models — are **built and unit-tested** (14 tests, drift-guarded against
+the live catalog), on top of the existing `advisory` (ranking) and `followups`
+(next-step) logic. _Remaining:_ E7.3/E7.4 — the Controls/register tabs, the
+Process view, and search — are display-dependent GUI and follow on a display.
+
 ---
 
 ## 6. Cross-cutting decisions the roadmap forces
@@ -438,6 +556,11 @@ E0 Foundation ──┬──> E2 KPI reach ──┐
 - **Wave B (visible value, parallel tracks):** E1 capture ‖ E2 KPI reach ‖ E3 risk.
 - **Wave C (leverage):** E4 automation.
 - **Wave D (frontier):** E5 prediction, E6 mobile.
+- **Wave E (usability):** E7 navigation & workflow — E7.1/E7.2 (pure menu +
+  workflow models) run any time after E0–E5 have the stores/logic to point at;
+  E7.3/E7.4 (register tabs, Process view, search) land with the other GUI tabs
+  when a display is available. E7 is what turns the built engine into an
+  application an operator can navigate.
 
 ---
 
