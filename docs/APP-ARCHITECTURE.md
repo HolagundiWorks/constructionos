@@ -294,9 +294,106 @@ the wiring can no longer drift, and adding a tab no longer edits a monolith.
 
 ---
 
-## 5. Application configuration (where settings live)
+## 5. Menu structure, navigation hierarchy & operational workflow
 
-### 5.1 Current configuration surface (**Implemented**, but scattered — **C3**)
+This section documents the **menu hierarchy** (what the user sees and clicks),
+the **operational workflow** (how work actually flows across those menus), and
+the gap between the two — the enterprise navigation questions.
+
+### 5.1 Current menu hierarchy (**Implemented**)
+
+The app uses one spatial model (`shell.RailStage`): a fixed **left Rail** of
+top-level entries, each opening a **Stage** that holds a Notebook of that
+section's tabs. It is a **two-level hierarchy**, driven by
+`modules.SECTIONS_CATALOG` (the single source of truth), with `Home`,
+`Assistant`, and `Tools` always-on at the ends:
+
+```
+Rail (top level)                Stage (tabs within the section)
+─────────────────────────────────────────────────────────────────────────────
+🏠 Home            (always on)  intelligent dashboard (KPIs, advisories, bottlenecks)
+💬 Assistant       (always on)  Ask-your-data · AI Engine
+🗂  Masters                     Sites · Clients · Vendors · Materials · Labour · Equipment
+🏗  Project Management          Projects · Timeline (Gantt/CPM) · Look-ahead (PPC)
+🛠  Operations                  Warehouse · Muster & Wages · Labour Ops · Equipment Hire ·
+                                Plant · Consumption · Site Reports · Quality · Safety · Closeout
+🧾 Billing                      Rate Book · Rate Analysis · Takeoff · Bid/No-Bid · Quotations ·
+                                Estimates · Contracts · BOQ/RA Bills · Variations · Running Bills · Tax Invoice
+🛒 Purchases                    Sourcing · Purchase Orders · Goods Receipt · Vendor Invoices · Subcontractors
+💰 Money                        Key Numbers · Approvals · Cash & Parties · Cash Flow · Retention · Insight
+📊 Accounts                     GST & TDS · Compliance · Accounting
+⚙  Tools           (always on)  Backup & Settings · Company Files · Modules · Users & Security · Audit Log
+```
+
+**Properties:** sections are built **lazily** (on first open, so startup is
+instant); every section and its tabs can be **toggled off** per firm
+(`module:<label>` feature flags — a `Viewer` sees the same menu as an `Admin`,
+minus the write buttons); the rail uses a **pictogram per row** so a section is
+found by shape before the word. The menu is organised **by function**
+(Masters / Operations / Billing / …), not by workflow.
+
+### 5.2 Operational workflow — how work flows across the menus (**Implemented** logic; **not surfaced as guided flows**)
+
+The business processes are end-to-end sequences that **cross several
+functional sections** — the menu does not signpost the order, the user must know
+it. The core operational flows, with the menu each step lives in:
+
+| Workflow | Step sequence (→) and where it lives |
+|---|---|
+| **Bid → Contract** (pre-construction) | Sourcing *(Purchases)* → Rate Analysis / Takeoff *(Billing)* → Estimate *(Billing)* → Bid/No-Bid *(Billing)* → Quotation *(Billing)* → **Contract** *(Billing)* |
+| **Contract → Cash** (commercial) | Contract → BOQ *(Billing)* → Measurement Book / Takeoff *(Billing)* → RA / Running Bill *(Billing)* → Variations *(Billing)* → Tax Invoice *(Billing)* → Receipt + allocation *(Money)* → Retention release *(Money)* |
+| **Procure → Pay** (supply) | Requisition / Sourcing *(Purchases)* → Purchase Order *(Purchases)* → **Goods Receipt / 3-way match** *(Purchases)* → Vendor Invoice *(Purchases)* → Payment *(Money)* |
+| **Plan → Execute** (delivery) | Project *(Project Mgmt)* → Timeline/CPM/baseline *(Project Mgmt)* → Look-ahead/PPC *(Project Mgmt)* → DPR / Site Reports *(Operations)* → Consumption reconcile *(Operations)* → Quality ITP/NCR *(Operations)* → Safety *(Operations)* → Closeout / snags *(Operations)* |
+| **Labour cycle** | Muster *(Operations)* → Weekly payout *(Operations)* → Advances *(Operations)* → Payroll *(Operations)* → Payment *(Money)* |
+| **Record → Report** (finance) | auto-posting *(engine)* → Journal → Trial Balance → P&L / Balance Sheet *(Accounts)* ; GST & TDS registers, Compliance calendar *(Accounts)* |
+| **Risk & Opportunity** (Part 2) | Identify/detect → Assess → Prioritize → Respond → Monitor — **logic built (`risk*`, `opportunity*`), but no menu home yet** |
+| **Continuous improvement** | Closeout → Lessons / Rate Realisation → feed the Rate Book *(Billing)* |
+
+The **guardrail engine already knows the flow**: `advisory.py` ranks "what to do
+next", and `followups.py` maps an event to its rote next steps (both built). The
+menu simply doesn't yet *present* work as a guided flow.
+
+### 5.3 Menu & workflow gaps (**Change**)
+
+| # | Gap | Impact |
+|---|---|---|
+| **N1** | **New registers have no menu home** — Risk, Opportunity, Lessons-learned registers exist as data+logic (Part 2) but are unreachable in the UI | The Part 2 deliverables can't be used by an operator |
+| **N2** | **Menu is functional, not workflow-guided** — no "what's next" / process view threading bid→contract→bill→collect | A new user can't discover the operating sequence; steps are hunted across sections |
+| **N3** | **No role/persona-scoped menu** — every enabled section shows for every role (Viewer = Admin menu minus buttons) | A site clerk, a QS, and an accountant see one undifferentiated 47-tab surface |
+| **N4** | **No global search / command palette / breadcrumbs** — with 47+ tabs, findability is by memory | Slow navigation; no deep-linking to a record |
+| **N5** | **Crowded sections don't sub-group** — Billing already holds 11 tabs; new registers will worsen it | The two-level hierarchy doesn't scale as capability grows |
+| **N6** | **Workflow-menu mismatch** — steps of one process sit in different sections (Sourcing in Purchases, Bid/No-Bid in Billing; measurement in Billing, DPR in Operations) | The functional grouping fights the operational flow |
+
+### 5.4 Target enterprise menu & workflow model (**Change**)
+
+- **A "Controls" (or "Risk & Governance") section** — a menu home for the Part 2
+  registers: **Risk Register · Opportunity Register · Lessons Learned ·
+  Submittals**, so the built logic becomes reachable (closes **N1**).
+- **Role/persona-scoped menus** — extend the feature-flag model with a
+  **role → visible-sections** map (Owner, QS/Commercial, Site Engineer,
+  Accountant, Storekeeper), so each persona lands on a menu shaped to their job
+  (**N3**). Keep it data-driven (a `config/menu.py` mapping), unit-testable.
+- **A guided-workflow layer over the functional menu** — a "Process / What's
+  next" view that threads the §5.2 flows as ordered steps with completion state,
+  built on the **already-present** `advisory.py` (ranking) and `followups.py`
+  (next-step logic). The functional menu stays; the workflow view is an overlay
+  that *sequences* it (**N2**, **N6**). The step→section→tab graph is a
+  deterministic, testable model (`workflow.py`).
+- **Global search / command palette** — one keystroke to jump to any tab or
+  record; the web layer already routes by URL, so deep-links/breadcrumbs align
+  the two front-ends (**N4**).
+- **Sub-section grouping** — allow a section's catalog entry to hold *grouped*
+  tabs (e.g. Billing → *Pre-construction* / *Contract billing* / *Invoicing*), so
+  the hierarchy can deepen from two levels to three where a section is crowded
+  (**N5**). This is a `SECTIONS_CATALOG` schema extension, backward-compatible.
+
+The menu **model** (role map, workflow graph, catalog grouping) is pure config +
+data and **unit-testable headless**; only the on-screen rendering is
+display-dependent — the same build/verify boundary as the rest of the roadmap.
+
+## 6. Application configuration (where settings live)
+
+### 6.1 Current configuration surface (**Implemented**, but scattered — **C3**)
 
 | Mechanism | Holds | Where |
 |---|---|---|
@@ -309,7 +406,7 @@ This is coherent but **spread across three places**, with no typed accessor and
 no environment-override path — awkward for per-tenant/per-environment enterprise
 deployments.
 
-### 5.2 Target configuration (**Change**)
+### 6.2 Target configuration (**Change**)
 
 - **A `config/settings.py` façade** — typed getters/setters over `app_settings`
   (`get_bool`, `get_decimal`, `feature_enabled(label)`), so call-sites stop
@@ -327,9 +424,9 @@ deployments.
 
 ---
 
-## 6. What's implemented vs what needs to change (summary)
+## 7. What's implemented vs what needs to change (summary)
 
-### 6.1 Implemented (keep — these are strengths)
+### 7.1 Implemented (keep — these are strengths)
 
 - Pure domain core with 605 tests; maths/UI separation; `CrudFrame`/`DocumentFrame`.
 - Feature-flag module catalog; opt-in security with roles + audit + write-gating.
@@ -337,7 +434,7 @@ deployments.
 - Two front-ends (desktop + web) over one core; local read-only AI sidecar.
 - Offline, single-file, no-pip, single-folder distributable.
 
-### 6.2 Change (proposed), by priority
+### 7.2 Change (proposed), by priority
 
 | Pri | Change | Addresses | Effort | Risk |
 |---|---|---|---|---|
@@ -348,7 +445,7 @@ deployments.
 | **P2** | **Extract schema + versioned migrations** from `db.py` | C5 | M | medium |
 | **P2** | **Group `tab_*` under `ui/tabs/<section>/`** to mirror the catalog | C1, C6 | M | low |
 
-### 6.3 Migration path (low-risk, phased — respects the constraints)
+### 7.3 Migration path (low-risk, phased — respects the constraints)
 
 The tension: package boundaries want `from domain.finance import finance`, but
 flat imports (`import finance`) are what keep the single-folder/PyInstaller story
@@ -372,7 +469,7 @@ order of **value-per-risk**, not big-bang:
 Each phase is independently shippable and independently valuable, and the test
 suite gates every step — the same discipline the rest of the roadmap uses.
 
-### 6.4 The trade-off, stated plainly
+### 7.4 The trade-off, stated plainly
 
 A full package refactor (Phases B–D) has real cost: it touches every file's
 imports, the AST/layering tests, the PyInstaller spec, and contributors' muscle
@@ -386,7 +483,7 @@ at which flat-namespace collisions (like `lessons.py`) stop being rare.
 
 ---
 
-## 7. Summary
+## 8. Summary
 
 Construction OS already has the *hard* half of an enterprise architecture: a
 pure, deeply-tested domain core cleanly separated from its two front-ends, with
@@ -407,7 +504,7 @@ offline, no-pip, single-folder qualities that are the product's real moat.**
 ---
 
 _Architecture research & target design. Describes and proposes; changes no code.
-The per-module mapping (§3.2), workflow (§4), configuration surface (§5), and the
-phased migration (§6.3) are the actionable core. Read with
+The per-module mapping (§3.2), menu & workflow model (§5), configuration surface
+(§6), and the phased migration (§7.3) are the actionable core. Read with
 [`../AGENTS.md`](../AGENTS.md) (current file map & conventions) and
 [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._

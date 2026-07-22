@@ -152,6 +152,29 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 **Guardrail:** no risk flag without a stated basis; AI *detects & ranks*, a human
 *owns* the mitigation and the accept/dismiss decision (logged).
 
+### 3.6 Navigation, menu structure & operational-workflow gaps
+
+The application's menu is a two-level Rail → Stage hierarchy driven by
+`modules.SECTIONS_CATALOG`, organised **by function** (Masters / Operations /
+Billing / …), not by workflow. See
+[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) §5 for the full hierarchy and the
+operational-flow mapping. The gaps:
+
+| # | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
+|---|---|---|---|---|---|---|
+| **N1** | Menu home for the new registers | ❌ | Risk / Opportunity / Lessons registers are built (data+logic) but unreachable in the UI | Part 2 deliverables can't be used by an operator | A "Controls / Risk & Governance" section + tabs over the stores | P1 · M · UI |
+| **N2** | Guided operational workflow | ❌ | Menu is functional; no "what's next" threading bid→contract→bill→collect | New users can't discover the operating sequence | A `workflow.py` step→section→tab graph (pure, testable) + a Process view over `advisory`/`followups` | P1 · M · Core+UI |
+| **N3** | Role/persona-scoped menu | ❌ | Every enabled section shows for every role (Viewer = Admin menu minus buttons) | Site clerk, QS, accountant all face one 47-tab surface | A `config/menu.py` role→visible-sections map (pure, testable) + rail filtering | P1 · M · Config+UI |
+| **N4** | Global search / command palette / breadcrumbs | ❌ | 47+ tabs, findability by memory; no deep-linking | Slow navigation; no jump-to-record | Search index over tabs+records; align with web URL routing | P2 · M · UI |
+| **N5** | Sub-section grouping (3rd level) | ❌ | Two-level hierarchy; Billing already holds 11 tabs | Doesn't scale as capability grows | Backward-compatible `SECTIONS_CATALOG` grouping schema | P2 · S · Config |
+| **N6** | Workflow-menu alignment | 🟡 | Steps of one process sit in different sections (Sourcing↔Bid/No-Bid; Measurement↔DPR) | Functional grouping fights the flow | Resolved by N2's Process view (overlay, not a re-org) | P2 · S · UX |
+
+**Guardrail:** the menu *model* — the role→section map, the workflow step graph,
+the catalog grouping — is **pure config/data and unit-testable headless**; only
+the on-screen rendering is display-dependent. This is the same build/verify
+boundary as the rest of the roadmap: the model can be built and tested now, the
+rail/overlay rendering follows on a display.
+
 ---
 
 ## 4. Gap prioritisation (the short list)
@@ -204,6 +227,7 @@ a model, or a pip dependency:
 | **E4** | `review_pack.py` (pack + portfolio); `followups.py` (event → follow-on logic) | GUI event wiring |
 | **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
 | **E6** | — | mobile capture app (separate front-end) |
+| **E7** Navigation & Workflow | — | menu model (roles, workflow graph, grouping) + register/Process tabs — see §3.6 |
 
 **The deterministic roadmap is complete.** Every piece that can be written and
 unit-tested without a display, a model, or a pip dependency is built (591-test
@@ -388,6 +412,40 @@ feeding a forecast/drift flag into the register as a suggestion (tab).
 records sync to the authoritative file; offline capture queues and reconciles on
 reconnect.
 
+### Phase E7 — Navigation & Workflow _(P1 · make it usable and discoverable)_
+
+**Goal:** turn the built capability into a coherent, role-aware, workflow-guided
+application — give the new registers a menu home and present work as a flow, not
+a flat 47-tab grid. Addresses the §3.6 gaps (N1–N6). Reference:
+[`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) §5.
+
+- **E7.1 Menu model (pure/config, testable)** — a `config/menu.py`:
+  a **role → visible-sections** map (Owner / QS-Commercial / Site Engineer /
+  Accountant / Storekeeper) and a backward-compatible **grouping** extension to
+  `SECTIONS_CATALOG` (a section may hold grouped tabs → a 3rd hierarchy level).
+  (N3, N5)
+- **E7.2 Workflow graph (pure, testable)** — a `workflow.py` modelling each
+  operational flow (bid→contract→bill→collect; procure→pay; plan→execute) as an
+  ordered **step → section → tab** graph with completion state, over the existing
+  `advisory` (ranking) and `followups` (next-step) logic. (N2, N6)
+- **E7.3 "Controls" section + register tabs (GUI)** — a menu home for
+  **Risk Register · Opportunity Register · Lessons Learned · Submittals**, tabs
+  over the built stores. (N1)
+- **E7.4 Process view + search (GUI)** — a "What's next" overlay that renders the
+  E7.2 graph, plus a global search / command palette and breadcrumbs aligned with
+  the web layer's URL routing. (N2, N4)
+
+**Depends on:** E0–E5 stores/logic (built); `modules.SECTIONS_CATALOG`,
+`shell.RailStage`, `advisory`, `followups` (built).
+**Acceptance:** the menu model and workflow graph are unit-tested headless
+(role→sections resolves correctly; a flow's next-incomplete step is computed from
+state); the Part 2 registers are reachable from a menu; a persona sees a menu
+scoped to their job. _Rendering (rail filtering, Process overlay, search UI) is
+display-dependent and verified on a display, per the standing boundary._
+**Built so far:** the underlying ranking (`advisory.py`) and next-step logic
+(`followups.py`) already exist; E7.1/E7.2 (the pure menu + workflow models) are
+the next headless-testable step, E7.3/E7.4 the display-dependent UI.
+
 ---
 
 ## 6. Cross-cutting decisions the roadmap forces
@@ -438,6 +496,11 @@ E0 Foundation ──┬──> E2 KPI reach ──┐
 - **Wave B (visible value, parallel tracks):** E1 capture ‖ E2 KPI reach ‖ E3 risk.
 - **Wave C (leverage):** E4 automation.
 - **Wave D (frontier):** E5 prediction, E6 mobile.
+- **Wave E (usability):** E7 navigation & workflow — E7.1/E7.2 (pure menu +
+  workflow models) run any time after E0–E5 have the stores/logic to point at;
+  E7.3/E7.4 (register tabs, Process view, search) land with the other GUI tabs
+  when a display is available. E7 is what turns the built engine into an
+  application an operator can navigate.
 
 ---
 
