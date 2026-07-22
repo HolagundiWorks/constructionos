@@ -18,7 +18,7 @@ SECTIONS_CATALOG = [
     # daily site execution (Operations): "how is the project doing?" — the
     # portfolio, the programme (Gantt/CPM/baseline/LD) and the weekly plan —
     # rather than "what happened on site today".
-    ('Project Management', ['Projects', 'Timeline', 'Look-ahead']),
+    ('Project Management', ['Projects', 'Timeline', 'Look-ahead', 'Risks']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
                     'Equipment Hire', 'Plant', 'Consumption', 'Site Reports',
                     'Quality', 'Safety', 'Closeout']),

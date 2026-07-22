@@ -44,6 +44,7 @@ from tab_bidding import build_bidding_tab
 from tab_rateanalysis import build_rate_analysis_tab
 from tab_takeoff import build_takeoff_tab
 from tab_projects import build_projects_tab
+from tab_risk import build_risk_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -82,6 +83,7 @@ BUILDERS = {
     'Labour': build_labor_tab,
     'Equipment': build_equipment_tab,
     'Projects': build_projects_tab,
+    'Risks': build_risk_tab,
     'Warehouse': build_warehouse_tab,
     'Muster & Wages': build_muster_tab,
     'Labour Ops': build_labor_ops_tab,
@@ -129,7 +131,7 @@ MODULE_ICONS = {
     'Sites': '\U0001F4CD', 'Clients': '\U0001F91D', 'Vendors': '\U0001F3ED',
     'Materials': '\U0001F9F1', 'Labour': '\U0001F477', 'Equipment': '\U0001F69C',
     # Projects
-    'Projects': '\U0001F3D7',
+    'Projects': '\U0001F3D7', 'Risks': '⚠',
     # Operations
     'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
     'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',

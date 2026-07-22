@@ -18,6 +18,23 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Risk Register (Enterprise PM: E0.2 / E3 surfaced)
+
+- **The risk register is now on screen** — Project Management › Risks
+  (`tab_risk.py`), over the already-built `risk_store` / `risk.py` scoring. A
+  worst-first list (likelihood × impact → score / band / expected exposure),
+  a form whose **score/band/exposure are computed live, never typed**
+  (derive-on-save, so a stored band can't disagree with the maths), owner /
+  response / mitigation / status, and per-project + status filters.
+- **Auto-detect** raises risks from the current figures — it reads the same
+  dashboard snapshot the advisories use (`risk_detect`, 11 rules), skips ones
+  already on the register, and adds the rest each with a **drafted response**
+  the owner can edit. Verified against the sample book: 10 risks detected
+  (receivables ageing, thin cash, critical NCR, programme slip…), stored
+  worst-first with a portfolio exposure roll-up. Writes gated for Viewers.
+
+---
+
 ## 2026-07-22 — Internalise the AI: one built-in model, Start/Stop only
 
 - **The AI is now internal.** The app ships **one hardcoded model**

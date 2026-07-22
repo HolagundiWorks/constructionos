@@ -52,6 +52,7 @@ with minimal typing?_
 ### Project management
 - Projects + milestones, per-project **overview** (budget vs cost vs billed, margin), project ↔ transaction links.
 - **Critical-path / dependency scheduling** (CPM) and an **MS-Project-grade scheduler** (working calendar, typed deps FS/SS/FF/SF + lag, WBS); **baseline-vs-actual** with LD / EOT exposure; per-project Gantt.
+- **Risk register** (Project Management › Risks) — likelihood × impact → score / band / expected exposure (derive-on-save via `risk.py`/`risk_store.py`), owner, response, mitigation, and **Auto-detect** that raises risks from the current figures (`risk_detect`) each with a drafted response.
 - **Bid / no-bid** scorecard (ledger-evidenced, vetoes override the score).
 
 ### AI
@@ -75,7 +76,7 @@ with minimal typing?_
 
 ## 🚧 In progress · ⏳ Next
 
-- 🚧 **Enterprise PM backbone** — deterministic EVM, risk register + detection, forecast, opportunity register, execution KPIs, narration / review-pack. Pure modules have landed; **lessons-learned** and the **submittals** register are shipped (above); broader UI surfacing is in progress. Tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
+- 🚧 **Enterprise PM backbone** — deterministic EVM, risk, forecast, opportunity, execution KPIs, narration / review-pack. The pure modules have landed; **lessons-learned**, **submittals**, and now the **risk register** tab are shipped (above). Still to surface in the UI: **EVM** (SPI/CPI/EAC in Insight/KPI), the **opportunity** register, and the **review-pack / narrative** report. Tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
 - ⏳ **Browser / LAN — remaining parity.** The RA-bill **measurement-book detail** (per-item measurements, part-rates, printed Form 23/26) and the **GST / compliance** registers stay desktop / view-only for now; everything else is browser-editable.
 - ⏳ **Real-display GUI render check.** A validation task, not a code gap: the headless CI has no Tk, so the two GUI smoke tests run only on a machine with a display (or Xvfb). The 600+ pure-logic tests pass headlessly.
 
