@@ -1,0 +1,23 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer Padding="8">
+    <StackPanel Spacing="12" MaxWidth="520">
+      <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock TextWrapping="Wrap"
+                 Text="Localhost API connection. Saved under LocalApplicationData\Construction OS\winui-settings.json."/>
+      <TextBox x:Name="BaseUrlBox" Header="API base URL" PlaceholderText="http://127.0.0.1:8080"/>
+      <TextBox x:Name="UserBox" Header="Username"/>
+      <PasswordBox x:Name="PasswordBox" Header="Password"/>
+      <ComboBox x:Name="PersonaBox" Header="Persona" HorizontalAlignment="Stretch"/>
+      <NumberBox x:Name="TimeoutBox" Header="Timeout (seconds)" Minimum="5" Maximum="120"
+                 SpinButtonPlacementMode="Inline"/>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Save &amp; reconnect" Click="Save_Click" Style="{StaticResource AccentButtonStyle}"/>
+        <Button Content="Test health" Click="Health_Click"/>
+      </StackPanel>
+      <TextBlock x:Name="Status" TextWrapping="Wrap"/>
+    </StackPanel>
+  </ScrollViewer>
+</Page>

@@ -189,7 +189,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 | # | Target | Status | Approach | Verifiable |
 |---|---|---|---|---|
 | **U0** | Backend JSON API over the domain (`webapi.py`) | ✅ | Reuse the tested Python core as a localhost service; JSON endpoints under `/api/*` (stdlib, testable) | **Here (Python)** |
-| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | 🟡 | U1–U5 page scaffolds + packaging notes in `winui/`; build/MSIX on Windows | Windows/.NET only |
+| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | 🟡 | U1–U5 hardened client (ApiClient/Settings/NavRoute/PageLoad) + packaging notes; build/MSIX on Windows | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
 the ~642-tested business modules in C#. The client renders; the Python core still
@@ -277,7 +277,7 @@ display.
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
 | **Backend JSON API (U0)** | `webapi.py` — full capture/confirm floors through u0.6 | ✅ **u0.6** |
-| WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient + pages) | ✅ scaffolded (Windows to build) |
+| WinUI U1 client | `winui/ConstructionOS.WinUI/` (hardened ApiClient, Settings, NavRoute, pages) | ✅ hardened source (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
 | Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
@@ -353,9 +353,9 @@ sidecars** are built and verified.
 | **L2** | **E7.3 persona rail** via `menu.resolve` | E7.1 | ✅ Tools › Persona + rail filter | P1 |
 | **L3** | **E7.4 Process view + search** | E7.2 | ✅ Process rail + `workflow_state` | P1 |
 | **L4** | **E4 GUI event wiring** (GRN + payment API follow-ups) | C5 | ✅ drafts surfaced, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | VS 2022 build (env-blocked in cloud) | P0 |
-| **L6** | **U2–U5 WinUI pages** | U1 | ✅ page scaffolds in `winui/`; bind/run on Windows | P1 |
-| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` scaffold; signed MSIX on Windows | P1 |
+| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | Source hardened; VS 2022 build (env-blocked in cloud) | P0 |
+| **L6** | **U2–U5 WinUI pages** | U1 | ✅ pages hardened (status/errors/helpers); bind LiveCharts / run on Windows | P1 |
+| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` + settings path notes; signed MSIX on Windows | P1 |
 | **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | `sidecars/` stubs; install weights locally | P2 |
 | **L9** | **E6 mobile capture** | U0 | ✅ `/m/capture` + API; native app optional later | P2 |
 

@@ -1,13 +1,14 @@
 <Page
     x:Class="ConstructionOS.WinUI.Views.ChartsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI">
-  <!-- U4 scaffold: wire LiveCharts to GET /api/kpi + /api/dashboard on Windows. -->
-  <Grid RowDefinitions="Auto,*" Padding="8">
-    <TextBlock Text="Charts (U4 scaffold)" Style="{StaticResource TitleTextBlockStyle}"/>
-    <TextBlock x:Name="Status" Grid.Row="1" Margin="0,12,0,0"
-               TextWrapping="Wrap"
-               Text="Open on Windows against a running web_main.py backend. Bind LiveCharts series to KPI / cash / SPI-CPI series from the JSON API."/>
-  </Grid>
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- U4: LiveCharts series bind on Windows; this page always shows API keys. -->
+  <ScrollViewer Padding="8">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Charts / Key Numbers" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock TextWrapping="Wrap"
+                 Text="Numbers come from GET /api/kpi and /api/dashboard. Bind LiveCharts2 series locally — no maths in C#."/>
+      <TextBlock x:Name="Status" TextWrapping="Wrap" FontFamily="Consolas"/>
+    </StackPanel>
+  </ScrollViewer>
 </Page>

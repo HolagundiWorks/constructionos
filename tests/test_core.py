@@ -1482,6 +1482,57 @@ class TestSidecarBridge(unittest.TestCase):
         self.assertFalse(r['ok'])
 
 
+class TestSidecarStubServer(unittest.TestCase):
+    """Local stub_server soft-fail floor (no model weights)."""
+
+    def test_extract_response_empty_and_preview(self):
+        # Import by path so tests don't need sidecars/ on PYTHONPATH.
+        import importlib.util
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'sidecars', 'stub_server.py')
+        spec = importlib.util.spec_from_file_location('stub_server', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        empty = mod.extract_response('ocr', {})
+        self.assertTrue(empty['stub'])
+        self.assertEqual(empty['fields'], {})
+        preview = mod.extract_response(
+            'stt', {'fields': {'site_name': 'Plot A'}})
+        self.assertEqual(preview['fields']['site_name'], 'Plot A')
+        self.assertEqual(preview['confidence']['site_name'], 0.0)
+
+    def test_stub_against_live_server(self):
+        import importlib.util
+        import threading
+        from http.server import HTTPServer
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'sidecars', 'stub_server.py')
+        spec = importlib.util.spec_from_file_location('stub_server_live', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Ephemeral port on loopback.
+        server = HTTPServer(('127.0.0.1', 0), mod.make_handler('ocr'))
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            host = 'http://127.0.0.1:{}'.format(port)
+            self.assertTrue(
+                sidecar_bridge.available('ocr', host=host, timeout=2.0))
+            r = sidecar_bridge.extract(
+                'ocr', payload={'path': 'probe'}, host=host, timeout=2.0)
+            self.assertTrue(r['ok'])
+            self.assertEqual(capture.to_record(r['draft']), {})
+            # Empty stub draft has no low-confidence fields; human still confirms
+            # before any write (API / capture.confirm gate).
+            self.assertFalse(r['needs_review'])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
 class TestLaborMatchAndMusterDraft(unittest.TestCase):
     def setUp(self):
         self.labor = [

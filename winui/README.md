@@ -1,4 +1,4 @@
-# Construction OS — WinUI 3 client (U1 scaffold)
+# Construction OS — WinUI 3 client (hardened U1 scaffold)
 
 Windows-only Fluent UI over the Python localhost JSON API (`webapi.py`).
 
@@ -17,29 +17,40 @@ box with Visual Studio 2022 + Windows App SDK. Spec:
    cd construction_app
    python web_main.py --host 127.0.0.1 --port 8080
    ```
-2. Verify contract: `GET http://127.0.0.1:8080/api/contract` (after login) or
-   run `python -m unittest discover -s tests`.
-3. Open `winui/ConstructionOS.WinUI/ConstructionOS.WinUI.csproj` in VS 2022,
+2. Optional sidecar soft-fail stubs (no model weights):
+   ```bash
+   python sidecars/stub_server.py --kind ocr
+   python sidecars/health_check.py
+   ```
+3. Verify contract: `GET http://127.0.0.1:8080/api/health` or
+   `python -m unittest discover -s tests`.
+4. Open `winui/ConstructionOS.WinUI/ConstructionOS.WinUI.csproj` in VS 2022,
    restore NuGet, build (x64), run.
-4. On first launch the client calls `POST /api/login` (default `admin` /
-   `BuildSite#2026` — change for real deployments) and builds the
-   `NavigationView` from `GET /api/menu?persona=Owner`.
+5. On first launch the client loads
+   `%LOCALAPPDATA%\Construction OS\winui-settings.json` (defaults if missing),
+   calls `POST /api/login`, builds the `NavigationView` from
+   `GET /api/menu?persona=…`, and probes `GET /api/health`. Use the **Settings**
+   gear to change URL / user / persona and reconnect.
 
 ## Layout
 | Path | Role |
 |---|---|
-| `MainWindow.*` | NavigationView shell (U1) |
-| `Services/ApiClient.cs` | Cookie + CSRF HttpClient over `/api/*` |
+| `MainWindow.*` | NavigationView shell + typed `NavRoute` |
+| `Services/ApiClient.cs` | Cookie + CSRF client; Put/Delete; `ApiException` |
+| `Services/AppSettings.cs` | Persisted base URL / login / persona / timeout |
+| `Helpers/` | `JsonRows`, `PageLoad`, `NavRoute` |
+| `Views/SettingsPage.*` | Connection settings (gear) |
 | `Views/HomePage.*` | Dashboard / advisories |
-| `Views/RisksPage.*` | Risk register DataGrid |
-| `Views/OpportunitiesPage.*` | Opportunity register |
-| `Views/LessonsPage.*` | Lessons Learned register |
-| `Views/SubmittalsPage.*` | Submittals |
-| `Views/MoneyPage.*` | Payments list (U3) |
-| `Views/EvmPage.*` | Earned Value |
-| `Views/ChartsPage.*` | LiveCharts KPI scaffold (U4) |
-| `Views/ProcessPage.*` | Workflow "what's next" |
+| `Views/*Page.*` | Registers, money, EVM, portfolio, process, charts, capture, import |
 | [`PACKAGING.md`](PACKAGING.md) | MSIX + PyInstaller sidecar notes (U6) |
 
+## Hardened client behaviour
+- Timeouts + status/body on API errors (plain-language, no stack dumps).
+- List pages share `PageLoad` / `JsonRows` (status line + empty/error states).
+- Settings gear works offline enough to edit the base URL and Test health.
+- Capture page probes OCR/STT/VLM kinds against `/api/sidecar/*`.
+
 ## Next (local Windows)
-Build/run against `web_main.py` · bind LiveCharts · packaging project · retire tkinter-on-Windows decision when parity is enough.
+Build/run against `web_main.py` · bind LiveCharts series · packaging project ·
+retire tkinter-on-Windows when parity is enough. **Cannot be compiled in this
+cloud environment.**

@@ -12,7 +12,8 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Scaffold only — open on Windows with VS 2022 + Windows App SDK to build. -->
+    <!-- Hardened U1 scaffold — open on Windows with VS 2022 + Windows App SDK to build.
+         Cannot compile on Linux cloud agents. -->
   </PropertyGroup>
 
   <ItemGroup>

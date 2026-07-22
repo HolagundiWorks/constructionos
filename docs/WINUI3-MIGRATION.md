@@ -127,18 +127,21 @@ ConstructionOS.WinUI/               # WinUI 3 app (Windows App SDK)
 │   ├── Masters/…  Billing/…  Money/…  Controls/…   (Risk/Opportunity/Lessons)
 │   └── ProcessPage.xaml            # the "what's next" workflow view (workflow.py)
 ├── ViewModels/                     # MVVM (CommunityToolkit.Mvvm) — bind to API DTOs
-├── Services/ApiClient.cs           # typed HttpClient over the localhost JSON API
-├── Models/                         # DTOs matching the JSON contract
+├── Services/ApiClient.cs           # HttpClient + CSRF; Put/Delete; ApiException
+├── Services/AppSettings.cs         # %LOCALAPPDATA%\Construction OS\winui-settings.json
+├── Helpers/                        # JsonRows, PageLoad, NavRoute
+├── Models/                         # DTOs matching the JSON contract (as needed)
 ├── Assets/                         # MSIX assets only (no custom iconography — §6)
 └── ConstructionOS.WinUI.csproj     # Windows App SDK + CommunityToolkit refs
 ```
 
 - **Pattern:** MVVM with the **Windows Community Toolkit MVVM** — the standard,
-  Microsoft-backed toolkit (no custom framework).
+  Microsoft-backed toolkit (no custom framework). Pages today bind via code-
+  behind helpers (`PageLoad` / `JsonRows`); ViewModels grow as forms harden.
 - **Navigation:** the rail is a **`NavigationView`** whose items are generated
   from the backend `/api/menu?persona=…` (driven by the built `menu.py` personas
-  + grouping), and the stage is a **`Frame`** that navigates to the section's
-  `Page`. This reuses the E7.1 model directly.
+  + grouping), routed through **`NavRoute`**, and the stage is a **`Frame`**.
+  Settings gear opens connection settings. This reuses the E7.1 model directly.
 
 ---
 

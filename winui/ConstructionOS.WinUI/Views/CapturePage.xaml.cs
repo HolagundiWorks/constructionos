@@ -2,13 +2,14 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
 
 namespace ConstructionOS.WinUI.Views;
 
 /// <summary>
-/// Soft-fail capture surface: shows sidecar readiness and stages an empty
-/// draft when OCR/STT/VLM are not running (weights installed locally only).
+/// Soft-fail capture surface: sidecar readiness + extract probe. OCR/STT/VLM
+/// weights are local-only; stub_server.py answers without models.
 /// </summary>
 public sealed partial class CapturePage : Page
 {
@@ -23,41 +24,49 @@ public sealed partial class CapturePage : Page
 
     private async Task RefreshAsync()
     {
+        Status.Text = "Loading sidecar status…";
+        Detail.Text = "";
         try
         {
             var data = await ApiClient.Default.GetJsonAsync("api/sidecar/status");
             var sb = new StringBuilder();
-            if (data.TryGetProperty("sidecars", out var sides))
+            if (data.TryGetProperty("sidecars", out var sides)
+                && sides.ValueKind == JsonValueKind.Object)
             {
                 foreach (var p in sides.EnumerateObject())
                 {
                     var avail = p.Value.TryGetProperty("available", out var a)
-                                && a.GetBoolean();
+                                && a.ValueKind == JsonValueKind.True;
                     var stub = p.Value.TryGetProperty("stub", out var s)
-                               && s.GetBoolean();
-                    sb.AppendLine($"{p.Name}: stub={stub} live={avail}");
+                               && s.ValueKind == JsonValueKind.True;
+                    var url = JsonRows.Prop(p.Value, "url", "—");
+                    sb.AppendLine($"{p.Name}: stub={stub} live={avail} ({url})");
                 }
             }
-            Status.Text = sb.ToString().Trim();
+            Status.Text = sb.Length == 0
+                ? "No sidecar entries."
+                : sb.ToString().Trim();
         }
         catch (Exception ex)
         {
-            Status.Text = ex.Message;
+            Status.Text = ApiException.UserMessage(ex);
         }
     }
 
     private async void Extract_Click(object sender, RoutedEventArgs e)
     {
+        Detail.Text = "Probing…";
         try
         {
+            var kind = KindBox.SelectedItem as string ?? "ocr";
             var data = await ApiClient.Default.PostJsonAsync(
                 "api/sidecar/extract",
-                new { kind = "ocr", payload = new { path = "" } });
-            Detail.Text = data.ToString();
+                new { kind, payload = new { path = "", note = "winui-probe" } });
+            Detail.Text = JsonRows.Pretty(data);
         }
         catch (Exception ex)
         {
-            Detail.Text = ex.Message;
+            Detail.Text = ApiException.UserMessage(ex);
         }
     }
 }

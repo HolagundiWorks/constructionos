@@ -4,9 +4,9 @@ using ConstructionOS.WinUI.Services;
 namespace ConstructionOS.WinUI;
 
 /// <summary>
-/// WinUI 3 entry — launches the Python backend sidecar (dev: assume already
-/// running on 127.0.0.1:8080) then shows <see cref="MainWindow"/>.
-/// Scaffold for U1; build on Windows with VS 2022 + Windows App SDK.
+/// WinUI 3 entry — loads saved API settings, points <see cref="ApiClient.Default"/>
+/// at the Python localhost backend, then shows <see cref="MainWindow"/>.
+/// Packaging (U6) can launch the PyInstaller sidecar before Activate.
 /// </summary>
 public partial class App : Application
 {
@@ -19,9 +19,8 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // Dev default: point at a manually started `python web_main.py`.
-        // Packaging (U6) will launch the PyInstaller sidecar here.
-        ApiClient.Default = new ApiClient("http://127.0.0.1:8080");
+        var settings = AppSettings.Load();
+        ApiClient.Default = ApiClient.FromSettings(settings);
         _window = new MainWindow();
         _window.Activate();
     }

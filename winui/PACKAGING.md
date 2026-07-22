@@ -21,11 +21,16 @@ winui/
 3. Add a **Windows Application Packaging Project** that references the WinUI
    app; include the sidecar binaries under `Backend\`.
 4. App startup: launch sidecar if port 8080 is free, then open the WinUI shell
-   pointed at `http://127.0.0.1:8080`.
-5. Sign the MSIX with your cert; distribute via sideload or Store.
+   pointed at `http://127.0.0.1:8080` (overridable via Settings /
+   `winui-settings.json`).
+5. Optional model sidecars: ship `sidecars/stub_server.py` for soft-fail, or
+   real OCR/STT/VLM binaries under `sidecars/{ocr,stt,vlm}/` (weights local-only).
+6. Sign the MSIX with your cert; distribute via sideload or Store.
 
 ## Constraints
 
 - Backend listens on **localhost only** in packaged builds.
 - No business maths in C# — call `/api/*`.
 - Persona menus come from `GET /api/menu?persona=…`.
+- Client settings file:
+  `%LOCALAPPDATA%\Construction OS\winui-settings.json`.

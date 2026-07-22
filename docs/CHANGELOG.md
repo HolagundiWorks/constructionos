@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Harden local WinUI + sidecar scaffolds
+
+- **WinUI ApiClient.** Timeouts, Put/Delete, health probe, CSRF on writes,
+  `ApiException` with status/body, session reset; `AppSettings` persisted under
+  `%LOCALAPPDATA%\Construction OS\winui-settings.json`.
+- **Shell.** Typed `NavRoute`, Settings gear page (URL/user/persona/timeout +
+  Test health), menu persona from settings, offline fallback messaging.
+- **Pages.** Shared `JsonRows` / `PageLoad`; status lines and pretty JSON on
+  Home/Process/registers/Money/EVM/Portfolio/Productivity/Charts/Capture/Import.
+- **Sidecars.** Stdlib `sidecars/stub_server.py` (loopback `/health` + `/extract`)
+  and `health_check.py`; unit tests for stub extract + live probe.
+- **Docs.** `winui/README.md`, `PACKAGING.md`, roadmap L5–L7 notes. WinUI still
+  **not compiled** in this Linux cloud environment.
+
+---
+
 ## 2026-07-22 — Finish cloud track: U0.6 GRN confirm, vendor invoice, PDF text
 
 - **GRN confirm.** `POST /api/grn/confirm` writes Draft GRN + lines (no stock
