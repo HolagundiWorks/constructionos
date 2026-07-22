@@ -263,8 +263,41 @@ produce or verify — and none is application logic:
    code in this repo; `capture.py` is the deterministic scaffold they feed.
 3. **The E6 mobile app** — a separate front-end project.
 
-The full-run's single error is the pre-existing missing-`tkinter` GUI theme test,
-unrelated to this work.
+### 5A. Cloud development track (headless Python agent environment)
+
+Work that is **built and verified in the cloud agent environment** — Linux,
+**no display, no .NET, no ML models**. Everything here is pure/DB-only,
+tkinter-free, no-pip, and unit-tested headless (`python -m unittest discover -s
+tests`). This is where the *engine* is built.
+
+| Area | Modules / deliverables | Status |
+|---|---|---|
+| Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
+| Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
+| Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
+| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ⬜ **next — buildable here** |
+| Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
+
+**Cannot be done in the cloud env:** anything needing a **display** (tkinter/GUI
+smoke tests), the **.NET/Windows App SDK** (WinUI 3), or **ML model weights**
+(OCR/voice/VLM). Those are the local track.
+
+### 5B. Local development track (Windows + display + .NET)
+
+Work that needs a **local machine** — a display for GUI, and Windows/.NET for the
+replatform. Developed and verified locally (the team already builds here — e.g.
+the EVM, Risk Register and Opportunity/Weekly-Review tabs shipped on `main`).
+
+| Area | Deliverable | Verified by |
+|---|---|---|
+| tkinter GUI tabs | Register/KPI/EVM/opportunity tabs; Controls section; Process view (E7.3/E7.4) over `menu`/`workflow` | `tests/test_smoke_tabs.py` (needs a display) |
+| **WinUI 3 client (U1–U7)** | NavigationView shell, DataGrid CRUD, Fluent pages, Segoe icons, charts, MSIX + backend sidecar — [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | Windows/.NET build + WinAppDriver/xUnit |
+| AI model sidecars (E1) | OCR / speech-to-text / VLM local models (see [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)) | on a machine that can run the models |
+| Field mobile (E6) | Mobile capture app | separate front-end project |
+
+**The contract between the two tracks is the JSON API (U0):** the cloud track
+builds and tests it in Python; the local track (WinUI 3 client, mobile) consumes
+it. Build U0 first so local work has a stable, tested contract to render against.
 
 ### Phase E0 — Foundation _(P0 · deterministic core first)_
 
