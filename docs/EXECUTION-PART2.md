@@ -172,7 +172,7 @@ All pure/DB-only, tkinter-free, no pip, unit-tested headless:
 - **`productivity.py`** (new) — labour productivity + performance factor,
   equipment utilisation (capped at 100), material waste %.
 - **`review_pack.py`** (extended) — optional opportunity summary in the pack.
-- **`lessons.py` + `lessons_learned` table + `lessons_store.py`** (new) — the
+- **`lessons_register.py` + `lessons_learned` table + `lessons_store.py`** (new) — the
   Lessons Learned register (§6): outcome/root-cause/recommendation with a
   feed-forward queue, capture straight from a risk/opportunity, project-delete
   cascade.
@@ -196,7 +196,7 @@ document opportunity realisations, and feed insight into future projects.
 - **Opportunity realisation** — tracked by opportunity `status`
   (Pursuing → Realized) and `expected_value` vs actual.
 - **Lessons Learned Register (Built)** — `lessons_learned` table +
-  `lessons.py` (taxonomy + roll-up) + `lessons_store.py` (persistence). A lesson
+  `lessons_register.py` (taxonomy + roll-up) + `lessons_store.py` (persistence). A lesson
   records the **outcome** (positive/negative/neutral), a **root cause** and — the
   part that matters — a **recommendation** to feed forward, with a **status**
   whose `Applied` state means the insight was actually carried into future

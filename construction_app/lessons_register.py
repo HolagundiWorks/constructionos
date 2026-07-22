@@ -1,4 +1,7 @@
-"""Lessons-learned taxonomy + roll-up (Part 2 — continuous improvement).
+"""Lessons-learned register: taxonomy + roll-up (Part 2 — continuous improvement).
+
+(Named ``lessons_register`` to sit alongside the separate ``lessons`` module,
+which does material *rate realisation* — a different closeout loop.)
 
 No tkinter, no database. A lessons-learned register is only worth keeping if it
 **feeds forward** — a lesson nobody applies to the next job is a diary entry, not

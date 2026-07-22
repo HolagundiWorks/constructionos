@@ -10,7 +10,7 @@ the lesson is linked, not retyped.
 
 from datetime import date
 
-import lessons
+import lessons_register as lessons
 
 _WRITABLE = (
     'project_id', 'category', 'title', 'description', 'outcome',

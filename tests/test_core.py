@@ -81,7 +81,7 @@ import review_pack
 import opportunity
 import opportunity_store
 import productivity
-import lessons
+import lessons_register
 import lessons_store
 import capture
 import portfolio_store
@@ -713,36 +713,36 @@ class TestProductivity(unittest.TestCase):
         self.assertIsNone(productivity.material_waste(0, 5)['waste_pct'])
 
 
-class TestLessons(unittest.TestCase):
+class TestLessonsRegister(unittest.TestCase):
     """Lessons-learned taxonomy + roll-up (pure)."""
 
     def test_outcome_and_source_normalise(self):
-        self.assertEqual(lessons.normalize_outcome('POSITIVE'), lessons.POSITIVE)
-        self.assertEqual(lessons.normalize_outcome('whatever'), lessons.NEUTRAL)
-        self.assertEqual(lessons.normalize_source('Risk'), lessons.RISK)
-        self.assertEqual(lessons.normalize_source('junk'), lessons.OBSERVATION)
+        self.assertEqual(lessons_register.normalize_outcome('POSITIVE'), lessons_register.POSITIVE)
+        self.assertEqual(lessons_register.normalize_outcome('whatever'), lessons_register.NEUTRAL)
+        self.assertEqual(lessons_register.normalize_source('Risk'), lessons_register.RISK)
+        self.assertEqual(lessons_register.normalize_source('junk'), lessons_register.OBSERVATION)
 
     def test_feed_forward_is_recommendation_not_yet_applied(self):
-        self.assertTrue(lessons.is_feed_forward(
-            {'recommendation': 'raise the rate', 'status': lessons.OPEN}))
-        self.assertFalse(lessons.is_feed_forward(
-            {'recommendation': 'raise the rate', 'status': lessons.APPLIED}))
-        self.assertFalse(lessons.is_feed_forward(
-            {'recommendation': '', 'status': lessons.OPEN}))
+        self.assertTrue(lessons_register.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons_register.OPEN}))
+        self.assertFalse(lessons_register.is_feed_forward(
+            {'recommendation': 'raise the rate', 'status': lessons_register.APPLIED}))
+        self.assertFalse(lessons_register.is_feed_forward(
+            {'recommendation': '', 'status': lessons_register.OPEN}))
 
     def test_summary_counts_outcomes_and_feed_forward(self):
         rows = [
             {'category': 'cost', 'outcome': 'negative',
-             'recommendation': 'update rate', 'status': lessons.OPEN},
+             'recommendation': 'update rate', 'status': lessons_register.OPEN},
             {'category': 'cost', 'outcome': 'positive',
-             'recommendation': '', 'status': lessons.APPLIED},
+             'recommendation': '', 'status': lessons_register.APPLIED},
             {'category': 'safety', 'outcome': 'neutral',
-             'recommendation': 'toolbox talk', 'status': lessons.REVIEWED},
+             'recommendation': 'toolbox talk', 'status': lessons_register.REVIEWED},
         ]
-        s = lessons.summary(rows)
+        s = lessons_register.summary(rows)
         self.assertEqual(s['count'], 3)
         self.assertEqual(s['by_category']['cost'], 2)
-        self.assertEqual(s['by_outcome'][lessons.NEGATIVE], 1)
+        self.assertEqual(s['by_outcome'][lessons_register.NEGATIVE], 1)
         self.assertEqual(s['applied'], 1)
         self.assertEqual(s['feed_forward_count'], 2)   # the two with a rec, not applied
 
@@ -778,8 +778,8 @@ class TestLessonsStore(unittest.TestCase):
             title='JIT sand delivery worked', outcome='POSITIVE',
             source='Observation', recommendation='repeat on next job')
         row = lessons_store.get(self.conn, lid)
-        self.assertEqual(row['outcome'], lessons.POSITIVE)   # lowercased
-        self.assertEqual(row['status'], lessons.OPEN)        # defaulted
+        self.assertEqual(row['outcome'], lessons_register.POSITIVE)   # lowercased
+        self.assertEqual(row['status'], lessons_register.OPEN)        # defaulted
         self.assertTrue(row['created_date'])
 
     def test_capture_from_a_risk_links_the_source(self):
@@ -790,9 +790,9 @@ class TestLessonsStore(unittest.TestCase):
         lid = lessons_store.from_risk(self.conn, risk_row,
                                       recommendation='add monsoon float')
         lesson = lessons_store.get(self.conn, lid)
-        self.assertEqual(lesson['source'], lessons.RISK)
+        self.assertEqual(lesson['source'], lessons_register.RISK)
         self.assertEqual(lesson['source_id'], rid)
-        self.assertEqual(lesson['outcome'], lessons.NEGATIVE)
+        self.assertEqual(lesson['outcome'], lessons_register.NEGATIVE)
         self.assertEqual(lesson['category'], 'schedule')
 
     def test_capture_from_an_opportunity_is_positive(self):
@@ -803,14 +803,14 @@ class TestLessonsStore(unittest.TestCase):
         lid = lessons_store.from_opportunity(self.conn, opp_row,
                                              recommendation='negotiate early')
         lesson = lessons_store.get(self.conn, lid)
-        self.assertEqual(lesson['source'], lessons.OPPORTUNITY)
-        self.assertEqual(lesson['outcome'], lessons.POSITIVE)
+        self.assertEqual(lesson['source'], lessons_register.OPPORTUNITY)
+        self.assertEqual(lesson['outcome'], lessons_register.POSITIVE)
 
     def test_feed_forward_and_applied(self):
         lid = lessons_store.add(self.conn, project_id=1, title='X',
                                 recommendation='do Y next time')
         self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 1)
-        lessons_store.set_status(self.conn, lid, lessons.APPLIED)
+        lessons_store.set_status(self.conn, lid, lessons_register.APPLIED)
         self.assertEqual(len(lessons_store.feed_forward(self.conn, 1)), 0)
         self.assertEqual(lessons_store.summary(self.conn, 1)['applied'], 1)
 
