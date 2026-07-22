@@ -29,9 +29,12 @@ from tkinter import ttk
 import assets
 import branding
 import theme
+import tokens
 from widgets import Switch, FloatingDock
 
-RAIL_WIDTH = 208
+# One rail width for both skins — the kit's LAYOUT.railWidth (the web rail reads
+# the same token), so desktop and browser match.
+RAIL_WIDTH = tokens.LAYOUT['rail_width']
 
 
 class RailStage(ttk.Frame):

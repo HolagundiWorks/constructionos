@@ -47,8 +47,9 @@ def _vars(scheme):
     return ''.join('--{}:{};'.format(css, scheme[key]) for css, key in _VARMAP)
 
 
-_SHAPE = ('--r-btn:{}px;--r-dialog:{}px;'.format(
-    tokens.BUTTON_RADIUS, tokens.DIALOG_RADIUS))
+_SHAPE = ('--r-btn:{}px;--r-dialog:{}px;--rail-w:{}px;--content-max:{}px;'.format(
+    tokens.BUTTON_RADIUS, tokens.DIALOG_RADIUS,
+    tokens.LAYOUT['rail_width'], tokens.LAYOUT['content_max_width']))
 
 # Static rules reference the vars above. Square by default (radius 0); only
 # buttons (--r-btn) and dialog cards (--r-dialog) round.
@@ -57,9 +58,9 @@ _STATIC = """
 body{margin:0;font:14px/1.55 __FONTSTACK__;background:var(--bg);color:var(--ink)}
 a{color:inherit;text-decoration:none}
 .layout{display:flex;min-height:100vh}
-.rail{width:230px;flex:0 0 230px;background:var(--rail);color:var(--ink);
-  padding:16px 0;position:sticky;top:0;height:100vh;overflow:auto;
-  border-right:1px solid var(--line)}
+.rail{width:var(--rail-w);flex:0 0 var(--rail-w);background:var(--rail);
+  color:var(--ink);padding:16px 0;position:sticky;top:0;height:100vh;
+  overflow:auto;border-right:1px solid var(--line)}
 .brand{font-weight:650;font-size:16px;padding:0 20px 14px;display:flex;
   align-items:center;gap:9px;color:var(--ink)}
 .brand .dot{width:11px;height:11px;background:var(--accent);display:inline-block}
@@ -75,7 +76,7 @@ a{color:inherit;text-decoration:none}
   padding:12px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
 .topbar .who{color:var(--muted);font-size:13px}
 .topbar a{color:var(--info)}
-.content{padding:24px;max-width:1200px;width:100%}
+.content{padding:24px;max-width:var(--content-max);width:100%}
 h1{font-size:20px;line-height:1.3;margin:0 0 4px;font-weight:650;
   letter-spacing:-.005em}
 h2{font-size:11px;margin:24px 0 10px;color:var(--helper);font-weight:600;

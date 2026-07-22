@@ -4941,11 +4941,31 @@ class TestDesignSystem(unittest.TestCase):
         self.assertEqual(tokens.DIALOG_RADIUS, 8)
         self.assertEqual(tokens.TAB_ALERT_WIDTH, 3)
 
+    def test_kit_v14_token_families(self):
+        # The newer (kit v1.4.0) cross-surface token families both skins share.
+        import tokens
+        self.assertTrue(tokens.FONT_STACK.startswith("'Urbanist'"))
+        self.assertEqual(tokens.LAYOUT['rail_width'], 240)
+        self.assertEqual(tokens.LAYOUT['content_max_width'], 1280)
+        self.assertEqual(tokens.SPACING['section'], 40)
+        self.assertTrue(tokens.DATA_VIZ_CATEGORICAL)       # chart/marker series
+        self.assertIn('body', tokens.TYPE)
+        self.assertIn('critical', tokens.STATUS_SHAPE)
+
     def test_desktop_theme_is_token_sourced(self):
         import theme
         import tokens
         self.assertIs(theme.PALETTES['light'], tokens.LIGHT)
         self.assertIs(theme.PALETTES['dark'], tokens.DARK)
+
+    def test_rail_width_is_one_token_for_both_skins(self):
+        # Desktop rail and web rail read the same LAYOUT.rail_width token.
+        import shell
+        import tokens
+        import webrender
+        self.assertEqual(shell.RAIL_WIDTH, tokens.LAYOUT['rail_width'])
+        self.assertIn('--rail-w:{}px'.format(tokens.LAYOUT['rail_width']),
+                      webrender._CSS)
 
     def test_web_css_is_token_sourced(self):
         import webrender
