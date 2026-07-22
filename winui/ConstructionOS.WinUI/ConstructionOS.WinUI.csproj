@@ -37,8 +37,15 @@
          Microsoft.UI.Xaml whose theme resources clash), and it was never ported
          to WinUI 3 (8.x). Registers use the stock WinUI 3 ListView instead,
          which also honours the roadmap's "stock controls only" rule. -->
-    <!-- LiveCharts for U4 charts (WinUI 3 build). -->
-    <PackageReference Include="LiveChartsCore.SkiaSharpView.WinUI" Version="2.0.0-rc2" />
+    <!-- LiveCharts for U4 charts (WinUI 3 build). Pinned to rc3.3, not rc2:
+         rc2's WinUI package references LiveChartsCore.Behaviours at runtime
+         (CartesianChart.OnLoaded) but neither declares it as a dependency nor
+         ships the assembly, so opening any chart threw FileNotFoundException and
+         crashed the app (0xc000027b). rc3.3 declares LiveChartsCore.Behaviours
+         as a proper NuGet dependency so it restores and deploys, while still
+         using SkiaSharp 2.88 and leaving the app's pinned WindowsAppSDK 1.5
+         alone (stable 2.0.x would force SkiaSharp 3.x + WindowsAppSDK 1.7). -->
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WinUI" Version="2.0.0-rc3.3" />
   </ItemGroup>
 
   <ItemGroup>

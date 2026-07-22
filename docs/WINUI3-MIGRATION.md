@@ -267,7 +267,7 @@ which bundles the .NET 8 + WindowsAppSDK runtimes so nothing extra need be
 installed) launches a **responsive "Construction OS" window** that logs into the
 Python backend and builds its rail from `/api/menu`.
 
-Getting there took four real fixes to the scaffold, all committed:
+Getting there took six real fixes to the scaffold, all committed:
 1. **`app.manifest`** had a malformed `<manifest>` root — a Win32 manifest's root
    must be `<assembly>`, or activation fails at start ("side-by-side
    configuration is incorrect").
@@ -281,12 +281,32 @@ Getting there took four real fixes to the scaffold, all committed:
 4. **`<WindowsPackageType>None</WindowsPackageType>`** so it runs unpackaged via
    the bootstrapper (U6 will add a separate MSIX packaging project rather than
    flip this back).
+5. **Build output redirected out of OneDrive** (`winui/Directory.Build.props`
+   points `BaseOutputPath`/`BaseIntermediateOutputPath` at `%LOCALAPPDATA%`).
+   This repo lives under OneDrive, which dehydrates / re-syncs / briefly locks
+   files under `bin\`; when the running app COM-activated a WinRT type whose
+   backing file (a `.winmd`/`.pri`/proxy-stub DLL) was mid-sync, activation
+   fail-fasted in **`combase.dll` with `0x80070002` (`ERROR_FILE_NOT_FOUND`)** —
+   an intermittent, ~30s-after-launch **native** crash the managed handler never
+   saw. Running from a non-synced path removes it. (The delete-and-rebuild also
+   clears stale OneDrive `obj\` whose generated `XamlTypeInfo.g.cs` would
+   otherwise get globbed twice → CS0111 duplicate-member errors.)
+6. **LiveCharts `rc2` → `rc3.3`.** The `rc2` WinUI package references
+   `LiveChartsCore.Behaviours` at runtime (`CartesianChart.OnLoaded`) but neither
+   declares it as a dependency nor ships the assembly, so opening any chart threw
+   `FileNotFoundException` → **`0xc000027b`** and closed the app. `rc3.3` declares
+   `LiveChartsCore.Behaviours` as a proper NuGet dependency (restored + deployed)
+   while keeping SkiaSharp 2.88 and the app's pinned WindowsAppSDK 1.5 (stable
+   2.0.x would force SkiaSharp 3.x + WindowsAppSDK 1.7). Belt-and-braces:
+   `App.UnhandledException` now sets `e.Handled = true` after logging, so a single
+   page's load failure degrades gracefully instead of killing the process.
 
 Run it: start the backend (`cd construction_app && python web_main.py --host
-127.0.0.1 --port 8080`), then launch the built `ConstructionOS.WinUI.exe` (or F5
-in VS 2022). Note: launching it from an automation/CI shell that then exits tears
-the window down — start it from an interactive session (double-click / VS / your
-own terminal) to keep it open.
+127.0.0.1 --port 8080`), then **`winui/run.ps1`** (builds into `%LOCALAPPDATA%`
+and launches) — or F5 in VS 2022. **Never run the app straight from the OneDrive
+`bin\`** (fix 5). Note: launching it from an automation/CI shell that then exits
+tears the window down — start it from an interactive session (double-click / VS /
+your own terminal) to keep it open.
 
 ---
 

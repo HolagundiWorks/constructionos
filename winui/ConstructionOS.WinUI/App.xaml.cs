@@ -21,7 +21,17 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        UnhandledException += (_, e) => Log("UI", e.Exception);
+        // A single page's load failure must never take down the whole app.
+        // Log the exception, then mark it handled so WinUI keeps the process
+        // alive — the user stays on a usable window and can navigate elsewhere
+        // instead of the app vanishing. (Native COM/XAML fail-fasts bypass this
+        // handler entirely; those are addressed at their source, e.g. keeping
+        // build output out of OneDrive — see winui/Directory.Build.props.)
+        UnhandledException += (_, e) =>
+        {
+            Log("UI", e.Exception);
+            e.Handled = true;
+        };
         AppDomain.CurrentDomain.UnhandledException +=
             (_, e) => Log("CLR", e.ExceptionObject as Exception);
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException +=

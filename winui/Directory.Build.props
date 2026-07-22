@@ -1,0 +1,24 @@
+<Project>
+  <!--
+    Keep every build artifact OUT of OneDrive.
+
+    This repo lives under %USERPROFILE%\OneDrive\…, and OneDrive dehydrates,
+    re-syncs and briefly locks files under bin\ at unpredictable times. When the
+    running WinUI 3 app COM-activates a WinRT type whose backing file (a .winmd,
+    resources.pri or proxy-stub DLL) happens to be mid-sync, the activation fails
+    with 0x80070002 (ERROR_FILE_NOT_FOUND) and the process fail-fasts in
+    combase.dll — an intermittent, ~30s-after-launch native crash that the
+    managed unhandled-exception handler never sees.
+
+    Redirecting bin\ and obj\ to %LOCALAPPDATA% (which OneDrive never touches)
+    removes the interference for good. `dotnet run` / `dotnet build` / Visual
+    Studio all pick this up automatically and run the app from the local path.
+    Machine-independent: it keys off the LOCALAPPDATA environment variable, so it
+    works for any user on any Windows box without a hard-coded path.
+  -->
+  <PropertyGroup>
+    <_CosBuildRoot>$(LOCALAPPDATA)\ConstructionOS-build\$(MSBuildProjectName)</_CosBuildRoot>
+    <BaseOutputPath>$(_CosBuildRoot)\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(_CosBuildRoot)\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>
