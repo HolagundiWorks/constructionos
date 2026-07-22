@@ -1520,6 +1520,73 @@ class TestMenuModel(unittest.TestCase):
         self.assertIn('Controls', menu.visible_sections(menu.SITE,
                                                         menu.proposed_catalog()))
 
+    def test_controls_is_in_the_live_catalog(self):
+        cat = self._catalog_map()
+        self.assertIn('Controls', cat)
+        self.assertEqual(cat['Controls'], list(menu.CONTROLS_SECTION[1]))
+        self.assertNotIn('Risks', cat['Project Management'])
+        self.assertNotIn('Opportunities', cat['Project Management'])
+        self.assertEqual(menu.proposed_catalog(), list(modules_cat.SECTIONS_CATALOG))
+
+    def test_search_tabs_matches_section_and_tab(self):
+        hits = menu.search_tabs('risk')
+        labels = [h['label'] for h in hits]
+        self.assertTrue(any('Risk Register' in L for L in labels))
+        self.assertEqual(menu.search_tabs('zzznomatch'), [])
+
+
+class TestWorkflowState(unittest.TestCase):
+    """E7.4 — book-derived completion for the Process view."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_infer_empty_book_is_all_false(self):
+        import workflow_state
+        conn = self.db.get_conn()
+        try:
+            state = workflow_state.infer(conn)
+            for flow, steps in state.items():
+                self.assertTrue(steps)
+                self.assertTrue(all(v is False for v in steps.values()), flow)
+            report = workflow_state.progress_report(conn)
+            self.assertEqual(set(report), set(workflow.WORKFLOWS))
+            for p in report.values():
+                self.assertEqual(p['done'], 0)
+        finally:
+            conn.close()
+
+    def test_infer_sees_a_contract(self):
+        import workflow_state
+        conn = self.db.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO clients (name) VALUES ('C')")
+            cid = conn.execute('SELECT id FROM clients').fetchone()[0]
+            conn.execute(
+                "INSERT INTO contracts (client_id, contract_no, status) "
+                "VALUES (?, 'C-1', 'Active')", (cid,))
+            conn.commit()
+            state = workflow_state.infer(conn)
+            self.assertTrue(state['bid_to_contract']['contract'])
+            self.assertTrue(state['contract_to_cash']['contract'])
+        finally:
+            conn.close()
+
 
 class TestWorkflow(unittest.TestCase):
     """E7.2 — operational flows: next-step, progress, and no dangling menu links."""

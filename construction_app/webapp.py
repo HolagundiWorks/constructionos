@@ -228,7 +228,8 @@ def _nav(conn):
     have = _viewable_tables(conn)
     nav = [('', [('/', 'Dashboard', 'dashboard'),
                  ('/evm', 'Earned Value', 'evm'),
-                 ('/review', 'Weekly Review', 'review')])]
+                 ('/review', 'Weekly Review', 'review'),
+                 ('/m/capture', 'Field capture', 'capture')])]
     placed = set()
     for group, keys in _GROUPS:
         items = []
@@ -276,6 +277,8 @@ def handle(request):
         return _evm(request, sess)
     if path == '/review':
         return _review(request, sess)
+    if path in ('/m', '/m/', '/m/capture'):
+        return _mobile_capture(request, sess)
     if path == '/t' or path == '/t/':
         return _redirect('/')
     if path.startswith('/t/'):
@@ -555,6 +558,89 @@ def _review(request, sess):
         pack = review_assemble.assemble(conn)
         return _shell('Weekly Review', _review_body(pack), sess, conn,
                       active='review')
+    finally:
+        conn.close()
+
+
+def _mobile_capture(request, sess):
+    """E6-lite field capture — mobile-friendly work-done entry via ``capture``.
+
+    Stages as a draft (human can override), then confirms into
+    ``work_done_entries``. No model weights required; OCR/STT/VLM sidecars
+    (local L8) can pre-fill the same form later.
+    """
+    import capture
+    from datetime import date
+
+    flash = ''
+    conn = db.get_conn()
+    try:
+        sites = [(r['id'], r['name'] or 'Site {}'.format(r['id']))
+                 for r in conn.execute(
+                     'SELECT id, name FROM sites ORDER BY name')]
+        if request.method == 'POST':
+            if not can_write(sess['role']):
+                return _forbidden(sess, conn)
+            if not _csrf_ok(request, sess):
+                return _forbidden(sess, conn, 'Invalid form token — try again.')
+            fields = {
+                'site_id': request.form.get('site_id', ''),
+                'activity': request.form.get('activity', ''),
+                'unit': request.form.get('unit', ''),
+                'qty': request.form.get('qty', ''),
+                'entry_date': request.form.get('entry_date', '')
+                              or date.today().isoformat(),
+                'remarks': request.form.get('remarks', ''),
+            }
+            draft = capture.build_draft(fields, source=capture.MANUAL)
+            record = capture.to_record(draft)
+            activity = str(record.get('activity') or '').strip()
+            if not activity:
+                flash = 'Activity is required.'
+            else:
+                try:
+                    site_id = int(record.get('site_id') or 0) or None
+                except (TypeError, ValueError):
+                    site_id = None
+                try:
+                    qty = float(record.get('qty') or 0)
+                except (TypeError, ValueError):
+                    qty = 0.0
+                cur = conn.execute(
+                    'INSERT INTO work_done_entries '
+                    '(site_id, activity, unit, qty, entry_date, remarks) '
+                    'VALUES (?, ?, ?, ?, ?, ?)',
+                    (site_id, activity,
+                     str(record.get('unit') or '').strip(), qty,
+                     str(record.get('entry_date') or '').strip(),
+                     str(record.get('remarks') or '').strip()))
+                new_id = cur.lastrowid
+                auth.audit(conn, sess['username'], 'mobile_capture',
+                           'work_done_entries', new_id,
+                           origin=auth.ORIGIN_MANUAL)
+                conn.commit()
+                flash = 'Saved work-done #{} — {}'.format(new_id, activity)
+
+        site_opts = [(str(i), n) for i, n in sites]
+        rows = [
+            R.field_row('Site', R.control('fk', 'site_id', '', site_opts)),
+            R.field_row('Activity', R.control('text', 'activity', '')),
+            R.field_row('Unit', R.control('text', 'unit', 'cum')),
+            R.field_row('Qty', R.control('number', 'qty', '')),
+            R.field_row('Date', R.control(
+                'text', 'entry_date', date.today().isoformat())),
+            R.field_row('Remarks', R.control('textarea', 'remarks', '')),
+        ]
+        form_html = R.form('/m/capture', ''.join(rows), sess['csrf'],
+                           submit='Confirm & save')
+        note = ('<p class="muted">Phone-friendly field capture. Confirm writes '
+                'work done into the same SQLite file. AI photo/voice fill is a '
+                'local sidecar (L8) — this page always needs your confirm.</p>')
+        body = '<h1>Field capture</h1>' + note
+        if flash:
+            body += '<p><strong>{}</strong></p>'.format(R.esc(flash))
+        body += form_html
+        return _shell('Field capture', body, sess, conn, active='capture')
     finally:
         conn.close()
 

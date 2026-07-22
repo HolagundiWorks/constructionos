@@ -55,9 +55,9 @@ double-clicking one folder.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**152 Python modules** (~93 of them tkinter-free), **85 tables**, **61
-indexes**, and **~642 tests** runnable headless (GUI smoke needs a display /
-`tkinter`). Rather than a feature checklist that
+**159 Python modules** (~98 of them tkinter-free), **85 tables**, **61
+indexes**, and **667 passing tests** (5 skipped without display). Rather than a
+feature checklist that
 rots, the honest summary is:
 
 - **Operations**: sites, warehouses, vendors, clients, materials, labour,
@@ -104,7 +104,7 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — ~93 of them. This is
+- **Business maths lives in pure, tkinter-free modules** — ~98 of them. This is
   the testable core; extend it there rather than burying new maths inside GUI
   callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
@@ -144,7 +144,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The ~93 tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The ~98 tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
@@ -856,13 +856,13 @@ Rules for extending:
 **The app is not a top-level `ttk.Notebook`.** `main.py` builds a
 `shell.RailStage`: a left **rail** of sections, each opening a **stage** holding
 that section's sub-notebook, built **lazily** the first time the row is opened.
-Rail entries are Home, Assistant, AI Engine, one row per enabled section from
-`modules.SECTIONS_CATALOG`, then Tools. A status footer carries a live AI
-indicator.
+Rail entries are Home, Assistant, Process, AI Engine, one row per enabled
+section from `modules.SECTIONS_CATALOG` (persona-filtered via `menu.resolve`),
+then Tools. A status footer carries a live AI indicator.
 
-The catalog is **7 sections over 49 toggleable modules**: Masters, Project
-Management, Operations, Billing, Purchases, Money, Accounts. Home, Assistant, AI
-Engine and Tools are always on and not in the catalog.
+The catalog is **8 sections over 50 toggleable modules**: Masters, Project
+Management, Controls, Operations, Billing, Purchases, Money, Accounts. Home,
+Assistant, Process, AI Engine and Tools are always on and not in the catalog.
 
 - **`tokens.py`** — HCW-UI design tokens, the single source of truth for **both**
   the tkinter theme and the web CSS. Change a colour here, not in a widget.

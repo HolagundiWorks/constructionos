@@ -320,10 +320,13 @@ sidecars** are built and verified.
 | Surface | Where |
 |---|---|
 | Earned Value tab + browser | Project Management › Earned Value; `/evm` |
-| Risk Register tab | Project Management › Risks |
-| Opportunity Register tab | Project Management › Opportunities |
+| Risk Register tab | **Controls › Risk Register** |
+| Opportunity Register tab | **Controls › Opportunity Register** |
+| Lessons Learned register | **Controls › Lessons Learned** (`tab_lessons_learned`) |
+| Submittals | **Controls › Submittals** (also Purchases › Sourcing) |
+| Process view + search | Always-on **Process** rail |
 | Weekly Review tab + browser | Money › Review; `/review` |
-| Submittals (inside Sourcing) | Purchases › Sourcing › Submittals |
+| Field capture (E6-lite) | Browser `/m/capture` + `/api/capture/*` |
 | Rate Realisation (`tab_lessons`) | distinct from Lessons *Learned* register |
 
 #### Ordered action plan — local next
@@ -331,15 +334,15 @@ sidecars** are built and verified.
 | # | Action | Depends on | Verified by | Pri |
 |---|---|---|---|---|
 | **L0** | Run full suite **with tkinter** + `tests/test_smoke_tabs.py` light+dark after pulls | — | Discover green locally | P0 |
-| **L1** | **E7.3 Controls section** — rail section for Risk / Opportunity / **Lessons Learned** / Submittals (or deep-links); Lessons Learned **new tab** over `lessons_store` | Cloud C6 helpful | Smoke tabs; catalog ↔ `BUILDERS` agree | P1 |
-| **L2** | **E7.3 persona rail** — filter `RailStage` via `menu.resolve` | E7.1 done | Persona sees scoped sections | P1 |
-| **L3** | **E7.4 Process view + search** — "What's next" over `workflow.py`; command palette | E7.2 done | Smoke + manual nav | P1 |
-| **L4** | **E4 GUI event wiring** — on GRN/save/etc. call Cloud C5 hooks; show gated drafts | C5 | Manual: save → draft follow-up appears, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — scaffold is in `winui/`; open on Windows, point at `web_main.py` | **U0** | VS 2022 build against local API | P0 |
-| **L6** | **U2–U5 WinUI pages** — DataGrid CRUD → Money/Billing → Dashboard/charts → Controls + Process | U1 | xUnit ViewModels + WinAppDriver smoke | P1 |
-| **L7** | **U6–U7 packaging + parity** — PyInstaller sidecar in MSIX; persona menus; retire tkinter-on-Windows decision | U2–U5 | Signed MSIX install; localhost-only backend | P1 |
-| **L8** | **E1 model sidecars** — OCR / STT / VLM per [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md); feed `capture.py` | capture scaffold done | Offline draft from photo/voice; human confirm | P2 |
-| **L9** | **E6 mobile capture** — separate front-end consuming U0 API | U0 | Field capture syncs to SQLite file | P2 |
+| **L1** | **E7.3 Controls section** + Lessons Learned tab | — | ✅ catalog + tabs shipped (smoke on display) | P1 |
+| **L2** | **E7.3 persona rail** via `menu.resolve` | E7.1 | ✅ Tools › Persona + rail filter | P1 |
+| **L3** | **E7.4 Process view + search** | E7.2 | ✅ Process rail + `workflow_state` | P1 |
+| **L4** | **E4 GUI event wiring** (GRN + payment API follow-ups) | C5 | ✅ drafts surfaced, not auto-posted | P1 |
+| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | VS 2022 build (env-blocked in cloud) | P0 |
+| **L6** | **U2–U5 WinUI pages** | U1 | ✅ page scaffolds in `winui/`; bind/run on Windows | P1 |
+| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` scaffold; signed MSIX on Windows | P1 |
+| **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | `sidecars/` stubs; install weights locally | P2 |
+| **L9** | **E6 mobile capture** | U0 | ✅ `/m/capture` + API; native app optional later | P2 |
 
 **Local setup (WinUI)** — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §11.
 

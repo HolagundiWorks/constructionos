@@ -18,7 +18,7 @@ Two ideas, both data-driven and testable:
 
 The one new register home this phase introduces — a **Controls** section for the
 Part 2 registers — is modelled here (``CONTROLS_SECTION`` / ``proposed_catalog``)
-so personas can already grant it, ahead of the tab being wired (E7.3).
+so personas can already grant it once the tabs are wired (E7.3).
 
 Exercised with ``python -c``.
 """
@@ -34,11 +34,12 @@ STORE = 'Storekeeper'
 PERSONAS = (OWNER, COMMERCIAL, SITE, ACCOUNTS, STORE)
 
 # Rail entries shown to every persona, outside SECTIONS_CATALOG.
-ALWAYS_ON = ('Home', 'Assistant', 'Tools')
+ALWAYS_ON = ('Home', 'Assistant', 'Process', 'Tools')
 
-# The proposed menu home for the Part 2 registers (E7.3 wires the tabs).
+# Controls section for the Part 2 registers (wired in SECTIONS_CATALOG / E7.3).
 CONTROLS_SECTION = ('Controls', ['Risk Register', 'Opportunity Register',
                                  'Lessons Learned', 'Submittals'])
+
 
 # Persona → the set of section titles they see. ``None`` = every section (Owner).
 # Titles must match SECTIONS_CATALOG (+ 'Controls'); a test guards that.
@@ -76,9 +77,32 @@ def _catalog(catalog=None):
 
 
 def proposed_catalog():
-    """SECTIONS_CATALOG plus the proposed Controls section — the full menu once
-    the Part 2 registers have a home (E7.3)."""
+    """Full menu including Controls. Once Controls ships in ``SECTIONS_CATALOG``
+    this is the live catalog (no duplicate append)."""
+    titles = {t for t, _ in modules.SECTIONS_CATALOG}
+    if 'Controls' in titles:
+        return list(modules.SECTIONS_CATALOG)
     return list(modules.SECTIONS_CATALOG) + [CONTROLS_SECTION]
+
+
+def search_tabs(query, catalog=None):
+    """Command-palette hits: sections/tabs whose names match ``query``.
+
+    Empty query returns every tab. Matching is case-insensitive substring on
+    ``section``, ``tab``, or ``section › tab``. Returns
+    ``[{section, tab, label}, ...]`` in catalog order.
+    """
+    catalog = _catalog(catalog)
+    q = (query or '').strip().lower()
+    hits = []
+    for title, tabs in catalog:
+        for tab in tabs:
+            label = '{} › {}'.format(title, tab)
+            hay = (title + ' ' + tab + ' ' + label).lower()
+            if not q or q in hay:
+                hits.append({'section': title, 'tab': tab, 'label': label})
+    return hits
+
 
 
 def visible_sections(persona, catalog=None):

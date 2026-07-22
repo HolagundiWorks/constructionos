@@ -16,6 +16,7 @@ from tkinter import ttk
 
 import db
 import modules
+import menu
 import assets
 import auth
 import session
@@ -47,6 +48,9 @@ from tab_projects import build_projects_tab
 from tab_evm import build_evm_tab
 from tab_risk import build_risk_tab
 from tab_opportunity import build_opportunity_tab
+from tab_lessons_learned import build_lessons_learned_tab
+from tab_process import build_process_tab
+from tab_sourcing import build_sourcing_tab, build_submittals
 from tab_review import build_review_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
@@ -61,7 +65,6 @@ from tab_kpi import build_kpi_tab
 from tab_approvals import build_approvals_tab
 from tab_closeout import build_closeout_tab
 from tab_hse import build_hse_tab
-from tab_sourcing import build_sourcing_tab
 from tab_consumption import build_consumption_tab
 from tab_site_reports import build_site_reports_tab
 from tab_vendor_invoice import build_vendor_invoices_tab
@@ -87,6 +90,11 @@ BUILDERS = {
     'Equipment': build_equipment_tab,
     'Projects': build_projects_tab,
     'Earned Value': build_evm_tab,
+    'Risk Register': build_risk_tab,
+    'Opportunity Register': build_opportunity_tab,
+    'Lessons Learned': build_lessons_learned_tab,
+    'Submittals': build_submittals,
+    # Legacy aliases (pre-Controls rename) — keep callable for old bookmarks.
     'Risks': build_risk_tab,
     'Opportunities': build_opportunity_tab,
     'Warehouse': build_warehouse_tab,
@@ -136,9 +144,11 @@ MODULE_ICONS = {
     # Masters
     'Sites': '\U0001F4CD', 'Clients': '\U0001F91D', 'Vendors': '\U0001F3ED',
     'Materials': '\U0001F9F1', 'Labour': '\U0001F477', 'Equipment': '\U0001F69C',
-    # Projects
-    'Projects': '\U0001F3D7', 'Earned Value': '\U0001F4C8', 'Risks': '⚠',
-    'Opportunities': '\U0001F31F',
+    # Projects + Controls
+    'Projects': '\U0001F3D7', 'Earned Value': '\U0001F4C8',
+    'Risk Register': '⚠', 'Opportunity Register': '\U0001F31F',
+    'Lessons Learned': '\U0001F4D3', 'Submittals': '\U0001F4E4',
+    'Risks': '⚠', 'Opportunities': '\U0001F31F',
     # Operations
     'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
     'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',
@@ -232,6 +242,9 @@ def main():
     try:
         enabled = modules.enabled_map(conn)
         i18n.load(conn)                    # active language for tab/section labels
+        persona = modules.get_persona(conn)
+        if persona not in menu.PERSONAS:
+            persona = menu.OWNER
     finally:
         conn.close()
 
@@ -249,16 +262,46 @@ def main():
     icons = {
         'home': '\U0001F3E0',        # house
         'assistant': '\U0001F4AC',   # speech balloon
+        'process': '\U0001F9ED',     # compass — guided what's-next
         'aiengine': '\U0001F916',    # robot — the local LLM / Ollama manager
         'tools': '⚙',           # gear
         'Masters': '\U0001F5C2',            # card index dividers
         'Project Management': '\U0001F3D7',  # building construction
+        'Controls': '\U0001F6E1',           # shield — registers
         'Operations': '\U0001F6E0',         # hammer and wrench
         'Billing': '\U0001F9FE',     # receipt
         'Purchases': '\U0001F6D2',   # shopping trolley
         'Money': '\U0001F4B0',       # money bag
         'Accounts': '\U0001F4CA',    # bar chart
     }
+
+    # Persona-scoped sections (E7.3) compose with module feature-flags.
+    resolved = menu.resolve(
+        persona, is_enabled=lambda label: enabled.get(label, True))
+
+    # shell is filled after entries are built; goto closes over it.
+    shell_holder = {'shell': None}
+
+    def goto(section, tab):
+        sh = shell_holder['shell']
+        if sh is None:
+            return
+        key = 'sec:' + section
+        if key not in {e['key'] for e in sh.entries}:
+            return
+        sh.select(key)
+        nb = sh._built.get(key)
+        if not isinstance(nb, ttk.Notebook):
+            return
+        try:
+            end = nb.index('end')
+        except Exception:
+            return
+        for i in range(end):
+            text = nb.tab(i, 'text') or ''
+            if tab in text or text.strip().endswith(tab):
+                nb.select(i)
+                break
 
     # One rail entry per always-on screen and per enabled section; each section
     # keeps its sub-notebook, built lazily the first time the row is opened.
@@ -268,17 +311,18 @@ def main():
         {'key': 'assistant', 'label': i18n.t('Assistant'),
          'icon': icons['assistant'],
          'build': lambda p: build_assistant_tab(p, get)},
+        {'key': 'process', 'label': 'Process', 'icon': icons['process'],
+         'build': lambda p: build_process_tab(p, get, on_goto=goto)},
         # The local LLM / Ollama manager as its own rail row — start/stop the
         # server, install Ollama, pull or set up the model — so it is found at a
         # glance rather than buried as a sub-tab.
         {'key': 'aiengine', 'label': 'AI Engine', 'icon': icons['aiengine'],
          'build': lambda p: build_ollama_tab(p, get)},
     ]
-    for title, labels in modules.SECTIONS_CATALOG:
-        items = [(label, BUILDERS[label]) for label in labels
-                 if enabled.get(label, True)]
+    for title, labels in resolved:
+        items = [(label, BUILDERS[label]) for label in labels]
         if not items:
-            continue   # whole section switched off
+            continue
         entries.append({'key': 'sec:' + title, 'label': i18n.t(title),
                         'icon': icons.get(title, '◆'),
                         'build': (lambda p, it=items: _section(p, get, it))})
@@ -286,15 +330,17 @@ def main():
                     'icon': icons['tools'],
                     'build': lambda p: build_tools_tab(p, get)})
 
-    subtitle = ''
+    subtitle = persona
     try:
         if session.username():
-            subtitle = '{} · {}'.format(session.username(), session.role())
+            subtitle = '{} · {} · {}'.format(
+                session.username(), session.role(), persona)
     except Exception:
-        subtitle = ''
+        pass
 
     shell = RailStage(root, entries, subtitle=subtitle,
                       on_toggle_theme=toggle_theme)
+    shell_holder['shell'] = shell
     shell.pack(fill='both', expand=True)
 
     root.mainloop()

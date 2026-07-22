@@ -32,7 +32,14 @@ box with Visual Studio 2022 + Windows App SDK. Spec:
 | `Services/ApiClient.cs` | Cookie + CSRF HttpClient over `/api/*` |
 | `Views/HomePage.*` | Dashboard / advisories |
 | `Views/RisksPage.*` | Risk register DataGrid |
+| `Views/OpportunitiesPage.*` | Opportunity register |
+| `Views/LessonsPage.*` | Lessons Learned register |
+| `Views/SubmittalsPage.*` | Submittals |
+| `Views/MoneyPage.*` | Payments list (U3) |
+| `Views/EvmPage.*` | Earned Value |
+| `Views/ChartsPage.*` | LiveCharts KPI scaffold (U4) |
 | `Views/ProcessPage.*` | Workflow "what's next" |
+| [`PACKAGING.md`](PACKAGING.md) | MSIX + PyInstaller sidecar notes (U6) |
 
-## Next (local)
-U2 DataGrid CRUD masters · U3 Money/Billing · U4 charts · U5 Controls · U6 MSIX + PyInstaller sidecar · U7 parity.
+## Next (local Windows)
+Build/run against `web_main.py` · bind LiveCharts · packaging project · retire tkinter-on-Windows decision when parity is enough.

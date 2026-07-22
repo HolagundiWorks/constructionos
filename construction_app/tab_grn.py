@@ -24,11 +24,31 @@ from datetime import date
 from tkinter import ttk, messagebox
 
 import bill_export
+import event_hooks
+import followups
 import procurement
 import report_open
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options, material_options, vendor_options
 from ui_guard import can_write
+
+
+def _show_followups(event_type, payload=None):
+    """Surface gated drafts after a save — never auto-posts money or dates."""
+    result = event_hooks.react(event_type, payload=payload or {})
+    steps = result.get('followups') or []
+    if not steps:
+        return
+    lines = []
+    for f in steps:
+        tag = '  [needs your approval]' if f.get('gated') else ''
+        lines.append('• {} — {}{}'.format(
+            f.get('action', ''), f.get('where', ''), tag))
+    messagebox.showinfo(
+        'Suggested next steps',
+        'Saved. Draft follow-ups (nothing was auto-posted):\n\n'
+        + '\n'.join(lines))
+
 
 
 def _po_options(conn):
@@ -269,6 +289,9 @@ class GRNFrame(ttk.Frame):
             conn.commit()
         finally:
             conn.close()
+        _show_followups(followups.GRN_SAVED, {
+            'grn_no': v.get('grn_no'), 'po_id': v.get('purchase_order_id'),
+        })
         self.refresh()
 
     def _guard_posted(self):
@@ -528,6 +551,10 @@ class GRNFrame(ttk.Frame):
             conn.commit()
         finally:
             conn.close()
+        _show_followups(followups.GRN_SAVED, {
+            'grn_id': self.selected_id,
+            'grn_no': g['grn_no'] if g else None,
+        })
         self.status_var.set(
             'Posted GRN {} — {} line(s) added to stock.'.format(
                 g['grn_no'] or self.selected_id, len(with_material)))
