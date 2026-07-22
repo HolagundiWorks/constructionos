@@ -5,7 +5,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 `tests/test_web.py` (`TestWebApi`).
 
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.3` (`GET /api/health` → `{"api":"u0.3"}`)  
+**Version:** `u0.4` (`GET /api/health` → `{"api":"u0.4"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -18,7 +18,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.3` |
+| GET | `/api/health` | Auth except login; reports `api: u0.4` |
 | GET | `/api/contract` | Endpoint catalogue for clients |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
@@ -45,7 +45,14 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters |
 | POST | `/api/{doc}` | Money docs — **create only**; payments may return gated `followups` |
 | POST | `/api/capture/draft` | Stage extraction for human review |
-| POST | `/api/capture/confirm` | Confirm → `work_done_entries` + ACTIVITY_COMPLETE follow-ups |
+| POST | `/api/capture/confirm` | Confirm → `work_done` / `daily_progress` / `ncr` / `snag` |
+| POST | `/api/text/extract` | Free-text → draft fields (`text_extract`) |
+| POST | `/api/muster/draft` | Name list → labour match drafts |
+| POST | `/api/muster/confirm` | Write attendance marks |
+| POST | `/api/boq/import/draft` | CSV/TSV/plain → BOQ line drafts |
+| POST | `/api/boq/import/confirm` | Write `boq_items` for a contract |
+| POST | `/api/patterns/learn` | Preview/apply cross-lesson AI drafts |
+| POST | `/api/signals/preview` | Forecast/drift drafts without writing |
 | POST | `/api/sidecar/extract` | `{kind: ocr\|stt\|vlm, payload?}` → capture draft (soft-fail `ok:false`) |
 | POST | `/api/intent` | `{text}` → gated follow-up / workflow drafts (`nl_intent`) |
 | POST | `/api/reconcile` | `{po_subtotal, invoice_subtotal, tolerance?}` + narration |

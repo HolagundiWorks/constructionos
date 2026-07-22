@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: U0.4 capture floors, pattern learn, more events
+
+- **Text extract.** `text_extract.py` + `POST /api/text/extract` — WhatsApp/site
+  notes → DPR / work-done / NCR / snag drafts; confirm targets expanded.
+- **Muster match.** `labor_match` + `muster_draft` + `/api/muster/draft|confirm`
+  (difflib name match → attendance).
+- **BOQ import.** `boq_import.py` + `/api/boq/import/draft|confirm` (CSV/TSV/plain).
+- **Pattern learn.** `pattern_learn.py` + `POST /api/patterns/learn` (opt-in AI
+  lesson drafts from recurring negatives / high risks).
+- **Signals preview.** `POST /api/signals/preview` (no write).
+- **Events.** `RA_BILL_APPROVED`, `NCR_RAISED`, `ATTENDANCE_SAVED` + GUI wiring
+  on RA status, Critical NCR save, muster save, inspection→NCR raise.
+- **API u0.4.**
+
+---
+
 ## 2026-07-22 — Continue: U0.3 intent/sidecar/narrative, Productivity, concurrency notes
 
 - **NL intent floor.** `nl_intent.py` maps free text → gated `followups` /

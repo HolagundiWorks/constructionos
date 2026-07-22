@@ -814,7 +814,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.3')
+        self.assertEqual(c['api'], 'u0.4')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -986,6 +986,87 @@ class TestWebApi(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertEqual(self._json(resp)['kind'], 'kpi')
         self.assertTrue(self._json(resp)['text'])
+
+    def test_u04_text_muster_boq_patterns(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+
+        resp = self.webapp.handle(self._req(
+            '/api/text/extract', 'POST', cookies=cookies,
+            json_body={'text': 'Poured 8 cum M25 slab 2026-07-22'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertIn(body['target'], ('work_done', 'daily_progress'))
+
+        # Seed labour + site for muster
+        self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies=cookies,
+            json_body={'name': 'Site A'},
+            headers={'X-CSRF-Token': csrf}))
+        self.webapp.handle(self._req(
+            '/api/labor', 'POST', cookies=cookies,
+            json_body={'name': 'Ram Singh', 'status': 'Active', 'site_id': 1},
+            headers={'X-CSRF-Token': csrf}))
+
+        resp = self.webapp.handle(self._req(
+            '/api/muster/draft', 'POST', cookies=cookies,
+            json_body={'text': '1. Ram Singh\n2. Ghost Worker',
+                       'att_date': '2026-07-22'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        md = self._json(resp)
+        self.assertEqual(md['matched'], 1)
+
+        matched = [r for r in md['rows'] if r.get('labor_id')]
+        resp = self.webapp.handle(self._req(
+            '/api/muster/confirm', 'POST', cookies=cookies,
+            json_body={'att_date': '2026-07-22', 'rows': matched},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/boq/import/draft', 'POST', cookies=cookies,
+            json_body={'text': 'item_no,description,unit,qty,rate\n'
+                               '1,Excavation,cum,10,100'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['lines']), 1)
+
+        # Contract for BOQ confirm
+        self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=cookies,
+            json_body={'name': 'Client A'},
+            headers={'X-CSRF-Token': csrf}))
+        # contracts may be via masters or docs — try projects path if needed
+        # Use raw SQL via a known writable: skip confirm if no contract endpoint
+        resp = self.webapp.handle(self._req(
+            '/api/patterns/learn', 'POST', cookies=cookies,
+            json_body={'min_count': 2, 'apply': False},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn('drafts', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/preview', 'POST', cookies=cookies,
+            json_body={'drift': {
+                'drifting': True,
+                'score': 4,
+                'signals': [{'signal': 'ppc', 'basis': 'falling PPC'}],
+            }},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('drafts', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/confirm', 'POST', cookies=cookies,
+            json_body={'target': 'ncr', 'source': 'ai',
+                       'fields': {'description': 'Honeycomb at C3',
+                                  'severity': 'Major',
+                                  'raised_date': '2026-07-22'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertEqual(self._json(resp)['target'], 'ncr')
 
 
 if __name__ == '__main__':

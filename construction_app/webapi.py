@@ -16,6 +16,7 @@ import re
 
 import advisory
 import auth
+import boq_import
 import capture
 import dashboard
 import drift
@@ -27,15 +28,18 @@ import journal_post
 import lessons_store
 import menu
 import modules
+import muster_draft
 import narrative
 import nl_intent
 import opportunity_store
+import pattern_learn
 import portfolio_store
 import review_assemble
 import risk_store
 import sidecar_bridge
 import signal_feed
 import submittals as submittals_mod
+import text_extract
 import web_docs
 import web_masters
 import webapp
@@ -68,7 +72,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.3'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.4'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -139,6 +143,27 @@ def handle(request, sess):
 
     if path == 'narrative' and method == 'GET':
         return _narrative(request)
+
+    if path == 'text/extract' and method == 'POST':
+        return _text_extract(request)
+
+    if path == 'muster/draft' and method == 'POST':
+        return _muster_draft(request)
+
+    if path == 'muster/confirm' and method == 'POST':
+        return _muster_confirm(request, sess)
+
+    if path == 'boq/import/draft' and method == 'POST':
+        return _boq_import_draft(request)
+
+    if path == 'boq/import/confirm' and method == 'POST':
+        return _boq_import_confirm(request, sess)
+
+    if path == 'patterns/learn' and method == 'POST':
+        return _patterns_learn(request, sess)
+
+    if path == 'signals/preview' and method == 'POST':
+        return _signals_preview(request)
 
     if path == 'capture/draft' and method == 'POST':
         return _capture_draft(request, sess)
@@ -893,7 +918,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.3',
+        'api': 'u0.4',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -921,6 +946,10 @@ def _api_contract():
             'POST/PUT/DELETE /api/lessons[/{id}]',
             'POST/PUT/DELETE /api/submittals[/{id}]',
             'POST /api/capture/draft', 'POST /api/capture/confirm',
+            'POST /api/text/extract',
+            'POST /api/muster/draft', 'POST /api/muster/confirm',
+            'POST /api/boq/import/draft', 'POST /api/boq/import/confirm',
+            'POST /api/patterns/learn', 'POST /api/signals/preview',
             'POST /api/reconcile', 'POST /api/intent',
             'POST /api/sidecar/extract',
             'POST/PUT/DELETE /api/{master}[/{id}]',
@@ -1395,6 +1424,206 @@ def _narrative(request):
     return _ok({'kind': kind, 'text': text})
 
 
+def _text_extract(request):
+    """POST /api/text/extract — {text, target?} → capture draft fields."""
+    body = _payload(request)
+    text = body.get('text') or ''
+    target = body.get('target')
+    return _ok(text_extract.extract(text, target=target))
+
+
+def _muster_draft(request):
+    """POST /api/muster/draft — {text|names, att_date, site_id?} → match drafts."""
+    body = _payload(request)
+    att_date = (body.get('att_date') or '').strip()
+    names = body.get('names') if isinstance(body.get('names'), list) else None
+    text = body.get('text') or ''
+    conn = _conn()
+    try:
+        sql = 'SELECT id, name, father_name FROM labor WHERE status = ?'
+        params = ['Active']
+        site_id = body.get('site_id')
+        if site_id not in (None, ''):
+            try:
+                sql += ' AND site_id = ?'
+                params.append(int(site_id))
+            except (TypeError, ValueError):
+                pass
+        labor_rows = conn.execute(sql, params).fetchall()
+    finally:
+        conn.close()
+    if names is not None:
+        draft = muster_draft.draft_from_names(
+            [str(n) for n in names], labor_rows, att_date,
+            default_status=body.get('status') or 'Present',
+            hours=body.get('hours', 8.0))
+    else:
+        draft = muster_draft.draft_from_text(
+            text, labor_rows, att_date,
+            default_status=body.get('status') or 'Present',
+            hours=body.get('hours', 8.0))
+    return _ok(draft)
+
+
+def _muster_confirm(request, sess):
+    """POST /api/muster/confirm — {att_date, rows:[{labor_id,status,hours}]}."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    att_date = (body.get('att_date') or '').strip()
+    rows = body.get('rows') if isinstance(body.get('rows'), list) else []
+    if not att_date:
+        return _err('att_date is required', 400)
+    if not rows:
+        return _err('rows required', 400)
+    written = []
+    conn = _conn()
+    try:
+        for row in rows:
+            try:
+                lid = int(row.get('labor_id'))
+            except (TypeError, ValueError):
+                continue
+            status = row.get('status') or 'Present'
+            try:
+                hours = float(row.get('hours') if row.get('hours') is not None else 8)
+            except (TypeError, ValueError):
+                hours = 8.0
+            conn.execute(
+                'DELETE FROM attendance WHERE labor_id = ? AND att_date = ?',
+                (lid, att_date))
+            cur = conn.execute(
+                'INSERT INTO attendance (labor_id, att_date, status, hours) '
+                'VALUES (?, ?, ?, ?)', (lid, att_date, status, hours))
+            written.append(cur.lastrowid)
+        auth.audit(conn, sess['username'], 'muster_confirm', 'attendance',
+                   None, detail='{} marks on {}'.format(len(written), att_date),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        reacted = event_hooks.react(
+            followups.ATTENDANCE_SAVED,
+            payload={'att_date': att_date, 'rows': len(written)})
+        return _ok({
+            'att_date': att_date,
+            'written': len(written),
+            'ids': written,
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _boq_import_draft(request):
+    """POST /api/boq/import/draft — {text} → parsed BOQ line drafts."""
+    body = _payload(request)
+    parsed = boq_import.parse_text(body.get('text') or '',
+                                   default_unit=body.get('unit') or 'Nos')
+    parsed['drafts'] = boq_import.to_capture_drafts(parsed.get('lines') or [])
+    return _ok(parsed)
+
+
+def _boq_import_confirm(request, sess):
+    """POST /api/boq/import/confirm — {contract_id, lines:[...]} writes boq_items."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    try:
+        contract_id = int(body.get('contract_id'))
+    except (TypeError, ValueError):
+        return _err('contract_id is required', 400)
+    lines = body.get('lines') if isinstance(body.get('lines'), list) else []
+    if not lines:
+        return _err('lines required', 400)
+    ids = []
+    conn = _conn()
+    try:
+        for line in lines:
+            try:
+                qty = float(line.get('qty') or 0)
+                rate = float(line.get('rate') or 0)
+            except (TypeError, ValueError):
+                qty, rate = 0.0, 0.0
+            amount = round(qty * rate, 2)
+            desc = str(line.get('description') or '').strip()
+            if not desc:
+                continue
+            cur = conn.execute(
+                'INSERT INTO boq_items '
+                '(contract_id, item_no, description, unit, qty, rate, amount) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (contract_id, str(line.get('item_no') or ''),
+                 desc, str(line.get('unit') or 'Nos'), qty, rate, amount))
+            ids.append(cur.lastrowid)
+        auth.audit(conn, sess['username'], 'boq_import', 'boq_items',
+                   None, detail='{} lines on contract {}'.format(
+                       len(ids), contract_id),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'contract_id': contract_id, 'ids': ids,
+                    'written': len(ids)}, status=201)
+    finally:
+        conn.close()
+
+
+def _patterns_learn(request, sess):
+    """POST /api/patterns/learn — {apply?:bool, min_count?} → AI lesson drafts.
+
+    Default is preview only. ``apply=true`` writes via lessons_store (source=ai).
+    """
+    body = _payload(request)
+    try:
+        min_count = int(body.get('min_count') or 2)
+    except (TypeError, ValueError):
+        min_count = 2
+    apply = bool(body.get('apply'))
+    conn = _conn()
+    try:
+        lessons = conn.execute('SELECT * FROM lessons_learned').fetchall()
+        risks = conn.execute('SELECT * FROM risks').fetchall()
+        drafts = pattern_learn.collect(lessons, risks, min_count=min_count)
+        applied_ids = []
+        if apply and drafts:
+            denied = _require_write(request, sess)
+            if denied:
+                return denied
+            for d in drafts:
+                lid = lessons_store.add(
+                    conn, category=d.get('category'), title=d.get('title'),
+                    description=d.get('description'),
+                    outcome=d.get('outcome'),
+                    recommendation=d.get('recommendation'),
+                    source=d.get('source'), status=d.get('status'),
+                    impact_value=d.get('impact_value') or 0)
+                applied_ids.append(lid)
+                auth.audit(conn, sess['username'], 'pattern_learn',
+                           'lessons_learned', lid, detail=d.get('title'),
+                           origin=auth.ORIGIN_AI)
+            conn.commit()
+        return _ok({
+            'drafts': drafts,
+            'applied_ids': applied_ids,
+            'applied': bool(applied_ids),
+        })
+    finally:
+        conn.close()
+
+
+def _signals_preview(request):
+    """POST /api/signals/preview — collect forecast/drift drafts without writing."""
+    body = _payload(request)
+    drafts = signal_feed.collect(
+        drift=body.get('drift'),
+        schedule_forecast=body.get('schedule_forecast'),
+        cost_trend=body.get('cost_trend') or body.get('trend'),
+        project_id=body.get('project_id'),
+        ld_exposure=body.get('ld_exposure') or 0,
+    )
+    return _ok({'drafts': drafts, 'count': len(drafts)})
+
+
 def _capture_draft(request, sess):
     """POST /api/capture/draft — stage extracted fields for human review."""
     body = _payload(request)
@@ -1414,11 +1643,11 @@ def _capture_draft(request, sess):
 
 
 def _capture_confirm(request, sess):
-    """POST /api/capture/confirm — apply overrides and write work_done_entries.
+    """POST /api/capture/confirm — apply overrides and write a target record.
 
     Body: {fields?, overrides?, confidence?, source?, target?}
-    ``target`` defaults to ``work_done``. Nothing is written without this
-    explicit confirm — AI proposes, human disposes.
+    ``target`` ∈ work_done | daily_progress | ncr | snag (default work_done).
+    Nothing is written without this explicit confirm.
     """
     denied = _require_write(request, sess)
     if denied:
@@ -1432,12 +1661,28 @@ def _capture_confirm(request, sess):
     draft = capture.apply_overrides(draft, overrides)
     record = capture.to_record(draft)
     target = (body.get('target') or 'work_done').strip()
-    if target != 'work_done':
-        return _err('Unsupported target {!r}'.format(target), 400)
+    origin = (auth.ORIGIN_AI if capture.origin_of(draft) == capture.AI
+              else auth.ORIGIN_MANUAL)
+
+    if target == 'work_done':
+        return _confirm_work_done(sess, record, draft, origin)
+    if target == 'daily_progress':
+        return _confirm_daily_progress(sess, record, draft, origin)
+    if target == 'ncr':
+        return _confirm_ncr(sess, record, draft, origin)
+    if target == 'snag':
+        return _confirm_snag(sess, record, draft, origin)
+    return _err('Unsupported target {!r}'.format(target), 400)
+
+
+def _site_id(record):
     try:
-        site_id = int(record.get('site_id') or 0) or None
+        return int(record.get('site_id') or 0) or None
     except (TypeError, ValueError):
-        site_id = None
+        return None
+
+
+def _confirm_work_done(sess, record, draft, origin):
     try:
         qty = float(record.get('qty') or 0)
     except (TypeError, ValueError):
@@ -1445,6 +1690,7 @@ def _capture_confirm(request, sess):
     activity = str(record.get('activity') or '').strip()
     if not activity:
         return _err('activity is required', 400)
+    site_id = _site_id(record)
     unit = str(record.get('unit') or '').strip()
     entry_date = str(record.get('entry_date') or '').strip()
     remarks = str(record.get('remarks') or '').strip()
@@ -1456,8 +1702,6 @@ def _capture_confirm(request, sess):
             'VALUES (?, ?, ?, ?, ?, ?)',
             (site_id, activity, unit, qty, entry_date, remarks))
         new_id = cur.lastrowid
-        origin = (auth.ORIGIN_AI if capture.origin_of(draft) == capture.AI
-                  else auth.ORIGIN_MANUAL)
         auth.audit(conn, sess['username'], 'capture_confirm',
                    'work_done_entries', new_id, origin=origin)
         conn.commit()
@@ -1469,11 +1713,128 @@ def _capture_confirm(request, sess):
             payload={'work_done_id': new_id, 'activity': activity,
                      'site_id': site_id, 'qty': qty})
         return _ok({
-            'id': new_id,
+            'id': new_id, 'target': 'work_done',
             'record': _row(row),
             'origin': capture.origin_of(draft),
             'followups': reacted.get('followups') or [],
             'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _confirm_daily_progress(sess, record, draft, origin):
+    site_id = _site_id(record)
+    try:
+        labour = float(record.get('labour_count') or 0)
+    except (TypeError, ValueError):
+        labour = 0.0
+    try:
+        plant = float(record.get('plant_count') or 0)
+    except (TypeError, ValueError):
+        plant = 0.0
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO daily_progress '
+            '(site_id, report_date, weather, labour_count, plant_count, '
+            'work_summary, remarks) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (site_id, str(record.get('report_date') or ''),
+             str(record.get('weather') or ''), labour, plant,
+             str(record.get('work_summary') or ''),
+             str(record.get('remarks') or '')))
+        new_id = cur.lastrowid
+        auth.audit(conn, sess['username'], 'capture_confirm',
+                   'daily_progress', new_id, origin=origin)
+        conn.commit()
+        row = conn.execute(
+            'SELECT * FROM daily_progress WHERE id = ?', (new_id,)
+        ).fetchone()
+        reacted = event_hooks.react(
+            followups.ACTIVITY_COMPLETE,
+            payload={'daily_progress_id': new_id, 'site_id': site_id})
+        return _ok({
+            'id': new_id, 'target': 'daily_progress',
+            'record': _row(row),
+            'origin': capture.origin_of(draft),
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _confirm_ncr(sess, record, draft, origin):
+    desc = str(record.get('description') or '').strip()
+    if not desc:
+        return _err('description is required', 400)
+    site_id = _site_id(record)
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO ncrs (ncr_no, site_id, raised_date, raised_by, '
+            'description, severity, status, remarks) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (str(record.get('ncr_no') or ''),
+             site_id,
+             str(record.get('raised_date') or ''),
+             str(record.get('raised_by') or ''),
+             desc,
+             str(record.get('severity') or 'Major'),
+             str(record.get('status') or 'Open'),
+             str(record.get('remarks') or '')))
+        new_id = cur.lastrowid
+        auth.audit(conn, sess['username'], 'capture_confirm',
+                   'ncrs', new_id, origin=origin)
+        conn.commit()
+        row = conn.execute(
+            'SELECT * FROM ncrs WHERE id = ?', (new_id,)
+        ).fetchone()
+        reacted = event_hooks.react(
+            followups.NCR_RAISED, payload={'ncr_id': new_id})
+        return _ok({
+            'id': new_id, 'target': 'ncr',
+            'record': _row(row),
+            'origin': capture.origin_of(draft),
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _confirm_snag(sess, record, draft, origin):
+    desc = str(record.get('description') or '').strip()
+    if not desc:
+        return _err('description is required', 400)
+    site_id = _site_id(record)
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO snags (site_id, snag_no, raised_date, location, '
+            'description, severity, status, remarks) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (site_id,
+             str(record.get('snag_no') or ''),
+             str(record.get('raised_date') or ''),
+             str(record.get('location') or ''),
+             desc,
+             str(record.get('severity') or 'Minor'),
+             str(record.get('status') or 'Open'),
+             str(record.get('remarks') or '')))
+        new_id = cur.lastrowid
+        auth.audit(conn, sess['username'], 'capture_confirm',
+                   'snags', new_id, origin=origin)
+        conn.commit()
+        row = conn.execute(
+            'SELECT * FROM snags WHERE id = ?', (new_id,)
+        ).fetchone()
+        return _ok({
+            'id': new_id, 'target': 'snag',
+            'record': _row(row),
+            'origin': capture.origin_of(draft),
+            'followups': [],
+            'gated_count': 0,
         }, status=201)
     finally:
         conn.close()

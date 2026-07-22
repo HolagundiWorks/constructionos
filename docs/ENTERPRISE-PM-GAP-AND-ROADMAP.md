@@ -103,9 +103,9 @@ gap, its impact, and the required work.
 |---|---|---|---|---|---|
 | Photo → GRN / vendor-invoice draft (OCR) | 🟡 | `capture` + `sidecar_bridge` soft-fail; no weights in-repo | Largest source of typing + transcription error | Install OCR sidecar weights locally (L8) | P1 · L · AI |
 | Voice → DPR / measurement draft | 🟡 | Same bridge (`stt` kind); no weights | Field notes captured hours late at a desk | Install STT weights locally (L8) | P1 · M · AI |
-| Photo of muster → attendance draft | ❌ | Manual grid entry | Repetitive daily typing; name errors | OCR + match to labour master → draft grid | P2 · M · AI |
-| BOQ / tender PDF → import draft | ❌ | Manual BOQ entry | Slow, error-prone tender onboarding | Document parse → line items + rates → draft | P2 · M · AI |
-| Free-text (WhatsApp) → structured record | ❌ | Manual re-keying | Updates live in chat, never in the system | NL extraction → typed draft (site report / issue) | P2 · M · AI |
+| Photo of muster → attendance draft | 🟡 | `labor_match` + `muster_draft` + API; no OCR weights | Repetitive daily typing; name errors | Pair with OCR sidecar (L8) | P2 · M · AI |
+| BOQ / tender PDF → import draft | 🟡 | `boq_import` CSV/TSV/plain + API; PDF still open | Slow tender onboarding | PDF/VLM sidecar later | P2 · M · AI |
+| Free-text (WhatsApp) → structured record | 🟡 | `text_extract` + capture confirm targets | Updates live in chat, never in the system | Optional model extractor over same drafts | P2 · M · AI |
 
 **Cross-cutting design (must hold for all capture):** AI produces a *draft* into
 the existing `CrudFrame`/`DocumentFrame`; every field editable; per-field
@@ -117,7 +117,7 @@ true).
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/measurement/variation/payment/capture/filings wired | — | Maintain; more save paths optional | — |
+| Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/MB/VO/payment/capture/filings/RA/NCR/muster wired | — | Maintain | — |
 | Recurring project-review pack generation | ✅ | `review_pack` + `review_assemble` + Weekly Review tab + `/review` | — | Maintain | — |
 | Mismatch / exception narration | ✅ | `procurement.narrate_*` + `finance.narrate_reconcile` + `/api/match` `/api/reconcile` | — | Maintain | — |
 | NL-triggered workflows | 🟡 | `nl_intent` + `POST /api/intent` (keyword → gated drafts) | Richer NL still model-side | Optional model classifier over the same drafts | P2 · M · AI |
@@ -149,7 +149,7 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 | Rule-based risk detection taxonomy | ✅ | `risk_detect.py` (11 rules + mitigation drafts) | Detection not yet auto-wired from every save event | Optional: event hook → draft into register (E4) | P1 · M · Core |
 | Risk narrative (top-N by exposure) | ✅ | `narrative.risk_briefing` in Weekly Review | — | Maintain | — |
 | Predictive / early-weak-signal risk | ❌ | Threshold rules only | Drift caught late, after a threshold trips | Correlate soft signals; trend projection (range+basis) | P2 · L · AI |
-| Cross-project learning | ❌ | None | Past overruns don't inform new jobs | Opt-in, local-first pattern learning | P2 · L · AI |
+| Cross-project learning | 🟡 | `pattern_learn` → AI lesson drafts (opt-in apply) | Past overruns don't auto-inform new jobs | Human still applies; richer learning later | P2 · L · AI |
 
 **Guardrail:** no risk flag without a stated basis; AI *detects & ranks*, a human
 *owns* the mitigation and the accept/dismiss decision (logged).
@@ -251,7 +251,7 @@ What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 | **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
 | **E6** | Browser `/m/capture` + `/api/capture/*` (E6-lite) | Native mobile app (optional) | Local (optional) |
 | **E7** | `menu.py`, `workflow.py`, Controls, Lessons Learned, persona, Process, search, N5 groups | Display smoke (L0) | Cloud models+UI shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.3**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.3** · scaffolds Local |
+| **U** | `webapi.py` `/api/*` (**U0.4**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.4** · scaffolds Local |
 
 **What this environment can still produce:** pure Python domain, SQLite stores,
 stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
@@ -276,7 +276,7 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, forecast/drift, portfolio, intent, sidecar, narrative | ✅ **u0.3** |
+| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, capture floors, patterns | ✅ **u0.4** |
 | WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient + pages) | ✅ scaffolded (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
@@ -311,6 +311,7 @@ display.
 | **C8** | U0.1 API widen + WinUI U1 scaffold | ✅ |
 | **C9** | U0.2 (search records, match/reconcile/ageing/filings, portfolio advisories) | ✅ |
 | **C10** | U0.3 (NL intent, sidecar bridge API, narrative, Productivity tab) | ✅ |
+| **C11** | U0.4 (text/muster/BOQ capture floors, pattern learn, more events) | ✅ |
 
 **Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
 

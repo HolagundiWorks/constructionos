@@ -99,6 +99,11 @@ import workflow
 import modules as modules_cat
 import nl_intent
 import sidecar_bridge
+import labor_match
+import muster_draft
+import boq_import
+import text_extract
+import pattern_learn
 
 
 class TestFinance(unittest.TestCase):
@@ -1470,6 +1475,87 @@ class TestSidecarBridge(unittest.TestCase):
     def test_unknown_kind(self):
         r = sidecar_bridge.extract('nope')
         self.assertFalse(r['ok'])
+
+
+class TestLaborMatchAndMusterDraft(unittest.TestCase):
+    def setUp(self):
+        self.labor = [
+            {'id': 1, 'name': 'Ram Singh', 'father_name': 'Suresh'},
+            {'id': 2, 'name': 'Amit Kumar', 'father_name': ''},
+            {'id': 3, 'name': 'Sita Devi', 'father_name': 'Ram'},
+        ]
+
+    def test_exact_and_fuzzy(self):
+        m = labor_match.match_one('Ram Singh', self.labor)
+        self.assertEqual(m['labor_id'], 1)
+        self.assertGreaterEqual(m['confidence'], 0.99)
+        m2 = labor_match.match_one('ram sin', self.labor)
+        self.assertEqual(m2['labor_id'], 1)
+
+    def test_muster_draft_counts(self):
+        d = muster_draft.draft_from_text(
+            '1. Ram Singh\n2. Nobody Here', self.labor, '2026-07-22')
+        self.assertEqual(d['matched'], 1)
+        self.assertEqual(d['unmatched'], 1)
+        self.assertTrue(d['rows'][1]['needs_review'])
+
+
+class TestBoqImport(unittest.TestCase):
+    def test_csv_with_header(self):
+        text = ('item_no,description,unit,qty,rate\n'
+                '1.1,Excavation in ordinary soil,cum,10,250\n'
+                '1.2,PCC M15,cum,5,4500')
+        p = boq_import.parse_text(text)
+        self.assertEqual(len(p['lines']), 2)
+        self.assertEqual(p['lines'][0]['amount'], 2500.0)
+        self.assertEqual(p['lines'][1]['amount'], 22500.0)
+        drafts = boq_import.to_capture_drafts(p['lines'])
+        self.assertEqual(len(drafts), 2)
+
+    def test_positional_tsv(self):
+        text = 'A\tBrick work\tcum\t2\t1000'
+        p = boq_import.parse_text(text)
+        self.assertEqual(len(p['lines']), 1)
+        self.assertEqual(p['lines'][0]['description'], 'Brick work')
+
+
+class TestTextExtract(unittest.TestCase):
+    def test_work_done_qty(self):
+        e = text_extract.extract('Poured 12.5 cum M20 footing', target='work_done')
+        self.assertEqual(e['target'], 'work_done')
+        self.assertEqual(e['fields']['qty'], 12.5)
+        self.assertEqual(e['fields']['unit'], 'cum')
+
+    def test_ncr_detect(self):
+        e = text_extract.extract('Critical NCR: honeycombing in column C3')
+        self.assertEqual(e['target'], 'ncr')
+        self.assertEqual(e['fields']['severity'], 'Critical')
+
+
+class TestPatternLearn(unittest.TestCase):
+    def test_recurring_negative_category(self):
+        rows = [
+            {'category': 'cost', 'outcome': 'negative', 'title': 'A',
+             'recommendation': 'Lock steel early'},
+            {'category': 'cost', 'outcome': 'negative', 'title': 'B',
+             'recommendation': 'Weigh cement'},
+            {'category': 'schedule', 'outcome': 'negative', 'title': 'C',
+             'recommendation': ''},
+        ]
+        drafts = pattern_learn.from_lessons(rows, min_count=2)
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(drafts[0]['category'], 'cost')
+        self.assertEqual(drafts[0]['source'], 'ai')
+
+
+class TestFollowupsNewEvents(unittest.TestCase):
+    def test_ra_and_ncr_events(self):
+        ra = followups.for_event(followups.RA_BILL_APPROVED)
+        self.assertTrue(any(f['gated'] for f in ra))
+        ncr = followups.for_event(followups.NCR_RAISED)
+        self.assertTrue(ncr)
+        att = followups.for_event(followups.ATTENDANCE_SAVED)
+        self.assertTrue(att)
 
 
 class TestAuditOrigin(unittest.TestCase):

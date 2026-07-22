@@ -992,14 +992,29 @@ class RABillFrame(ttk.Frame):
         if self.selected_id is None:
             messagebox.showinfo('No selection', 'Select an RA bill.')
             return
+        new_status = self.status_var.get()
         conn = self.db_getter()
         try:
             conn.execute('UPDATE ra_bills SET status = ? WHERE id = ?',
-                         (self.status_var.get(), self.selected_id))
+                         (new_status, self.selected_id))
             conn.commit()
         finally:
             conn.close()
         self.refresh_bills()
+        if new_status in ('Approved', 'Paid'):
+            result = event_hooks.react(followups.RA_BILL_APPROVED, {
+                'ra_bill_id': self.selected_id, 'status': new_status})
+            steps = result.get('followups') or []
+            if steps:
+                lines = []
+                for f in steps:
+                    tag = '  [needs your approval]' if f.get('gated') else ''
+                    lines.append('• {} — {}{}'.format(
+                        f.get('action', ''), f.get('where', ''), tag))
+                messagebox.showinfo(
+                    'Suggested next steps',
+                    'Status updated. Draft follow-ups (nothing was auto-posted):\n\n'
+                    + '\n'.join(lines))
 
     def delete_bill(self):
         if not can_write():

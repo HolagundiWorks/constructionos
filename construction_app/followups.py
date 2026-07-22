@@ -21,9 +21,13 @@ FILING_DUE = 'filing_due'
 MEASUREMENT_ENTERED = 'measurement_entered'
 VARIATION_APPROVED = 'variation_approved'
 PAYMENT_DUE = 'payment_due'
+RA_BILL_APPROVED = 'ra_bill_approved'
+NCR_RAISED = 'ncr_raised'
+ATTENDANCE_SAVED = 'attendance_saved'
 
 EVENTS = (GRN_SAVED, ACTIVITY_COMPLETE, FILING_DUE, MEASUREMENT_ENTERED,
-          VARIATION_APPROVED, PAYMENT_DUE)
+          VARIATION_APPROVED, PAYMENT_DUE, RA_BILL_APPROVED, NCR_RAISED,
+          ATTENDANCE_SAVED)
 
 
 def _f(action, where, gated=False):
@@ -75,6 +79,25 @@ def for_event(event_type, payload=None):
         return [
             _f('Draft the payment batch respecting TDS and ageing priority.',
                'Money › Approvals', gated=True),
+        ]
+    if event_type == RA_BILL_APPROVED:
+        return [
+            _f('Issue / update the tax invoice for the approved RA amount.',
+               'Billing › Tax Invoice', gated=True),
+            _f('Refresh retention and cash-flow against the new certified value.',
+               'Money › Retention'),
+        ]
+    if event_type == NCR_RAISED:
+        return [
+            _f('Assign root cause and corrective action; hold related work if Critical.',
+               'Operations › Quality'),
+            _f('Log a risk draft if the NCR threatens programme or cost.',
+               'Controls › Risk Register', gated=True),
+        ]
+    if event_type == ATTENDANCE_SAVED:
+        return [
+            _f('Recompute weekly payout / muster totals for the site.',
+               'Operations › Muster & Wages'),
         ]
     return []
 

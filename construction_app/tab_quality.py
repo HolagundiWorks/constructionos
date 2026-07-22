@@ -22,12 +22,30 @@ from datetime import date
 from tkinter import ttk, messagebox
 
 import bill_export
+import event_hooks
+import followups
 import quality
 import report_open
 import session
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options
 from ui_guard import can_write
+
+
+def _show_followups(event_type, payload=None):
+    result = event_hooks.react(event_type, payload=payload or {})
+    steps = result.get('followups') or []
+    if not steps:
+        return
+    lines = []
+    for f in steps:
+        tag = '  [needs your approval]' if f.get('gated') else ''
+        lines.append('• {} — {}{}'.format(
+            f.get('action', ''), f.get('where', ''), tag))
+    messagebox.showinfo(
+        'Suggested next steps',
+        'Saved. Draft follow-ups (nothing was auto-posted):\n\n'
+        + '\n'.join(lines))
 
 
 def build_itp_template(parent, db_getter):
@@ -62,8 +80,23 @@ def build_ncr_log(parent, db_getter):
         Field('closed_date', 'Closed on'),
         Field('closed_by', 'Closed by'),
     ]
+
+    def _on_ncr_save(conn, row_id, values):
+        # Only nudge on Critical opens — avoid spam on every edit.
+        if (values.get('status') or quality.OPEN) != quality.OPEN:
+            return
+        if (values.get('severity') or '') != 'Critical':
+            return
+        try:
+            _show_followups(followups.NCR_RAISED, {
+                'ncr_id': row_id,
+                'severity': values.get('severity'),
+            })
+        except Exception:
+            pass
+
     return CrudFrame(parent, db_getter, 'ncrs', fields,
-                     'Non-conformance log')
+                     'Non-conformance log', on_save=_on_ncr_save)
 
 
 class InspectionFrame(ttk.Frame):
@@ -417,6 +450,7 @@ class InspectionFrame(ttk.Frame):
         messagebox.showinfo('NCR raised',
                             '{} created. Complete the root cause and corrective '
                             'action in the NCR Log.'.format(ncr_no))
+        _show_followups(followups.NCR_RAISED, {'ncr_no': ncr_no})
 
     def export(self):
         if self.selected_id is None:

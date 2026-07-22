@@ -43,8 +43,17 @@ def from_drift(drift_result, project_id=None):
     if not drift_result.get('drifting'):
         return None
     signals = drift_result.get('signals') or []
-    names = ', '.join(s.get('signal', '?') for s in signals) or 'weak signals'
-    bases = '; '.join(s.get('basis', '') for s in signals if s.get('basis'))
+    names_list = []
+    bases_list = []
+    for s in signals:
+        if isinstance(s, dict):
+            names_list.append(s.get('signal') or s.get('name') or '?')
+            if s.get('basis'):
+                bases_list.append(s['basis'])
+        else:
+            names_list.append(str(s))
+    names = ', '.join(names_list) or 'weak signals'
+    bases = '; '.join(bases_list)
     score = int(drift_result.get('score') or 0)
     # Soft call → moderate likelihood; more agreeing signals → higher.
     likelihood = 2 if score < 4 else (3 if score < 5 else 4)
