@@ -247,17 +247,21 @@ the tree for non-Windows use or delete per a later call.
 | Phase | Deliverable | Where verifiable |
 |---|---|---|
 | **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.1** |
-| **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | **✅ Scaffolded** in `winui/` (compile on Windows) |
-| **U2** | Masters + generic **DataGrid** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Scaffolded** — `Views/MastersPage.*` (one metadata-driven page for all masters; compile on Windows) |
-| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **🚧 Partial** — `Views/MoneyPage.*` scaffolded; billing/purchases pending |
-| **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | **🚧 Partial** — `Views/EvmPage.*` + `Views/ChartsPage.*` (LiveCharts) scaffolded |
-| **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | **🚧 Partial** — Risks/Opportunities/Lessons/Submittals/Portfolio + Process pages scaffolded; `AutoSuggestBox` search pending |
+| **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | **✅ Built + runs** — shell over `/api/menu`, Settings gear, offline fallback, `NavRoute` |
+| **U2** | Masters + generic **ListView** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Built** — `Views/MastersPage.*`, one metadata-driven page (list + add/edit/delete form) for every master |
+| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **🚧 Partial** — Money + Capture + Import pages built; billing/purchases forms pending |
+| **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | **🚧 Partial** — EVM + Charts (LiveCharts) + Productivity pages built; chart series-binding pending |
+| **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | **🚧 Partial** — Risks/Opportunities/Lessons/Submittals/Portfolio + Process pages built; `AutoSuggestBox` search pending |
 | **U6** | Packaging: PyInstaller backend sidecar inside **MSIX**; launch/停 lifecycle; signing | Windows — notes in [`winui/PACKAGING.md`](../winui/PACKAGING.md) |
 | **U7** | Parity pass, persona menus (menu.py), accessibility, retire tkinter on Windows | Windows |
 
 **Build status:** U0 is built and proven headless (the tested Python API). The
-U1–U5 WinUI client now **compiles *and runs*** on the Windows dev box (.NET 10 SDK
-+ Windows App SDK 1.5): `dotnet build -c Debug -p:Platform=x64` is **0 errors**, and
+`cursor/complete-remaining-roadmap-32b0` branch (finished **cloud track U0.2–U0.6**
++ **hardened WinUI client** — `ApiClient`/`AppSettings`/`NavRoute`/`PageLoad`,
+Settings gear, Capture/Import/Productivity pages) is **merged to main**; Python
+**706 tests green**. The U1–U5 WinUI client now **compiles *and runs*** on the
+Windows dev box (.NET 10 SDK + Windows App SDK 1.5): `dotnet build -c Debug
+-p:Platform=x64` is **0 errors**, and
 the self-contained exe (`-r win-x64 --self-contained -p:WindowsAppSDKSelfContained=true`,
 which bundles the .NET 8 + WindowsAppSDK runtimes so nothing extra need be
 installed) launches a **responsive "Construction OS" window** that logs into the
