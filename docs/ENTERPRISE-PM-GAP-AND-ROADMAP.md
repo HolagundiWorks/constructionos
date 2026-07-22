@@ -2,12 +2,13 @@
 
 **From today's solo-contractor product to the enterprise PM + AI target**
 
-_Document type: Gap analysis + Implementation roadmap (documentation only — no code changes)_
-_Version: 1.1 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
+_Document type: Gap analysis + Implementation roadmap (living status — update with the tree)_
+_Version: 1.2 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
 _Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target
 architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
-Baseline: `main` — ~152 Python modules (~93 tkinter-free), 85 tables, 61 indexes,
-~642 headless-runnable tests (GUI smoke skips / errors without `tkinter`)._
+Baseline (this branch, 2026-07-22): **176** Python modules (**113** tkinter-free
+by AST), **85** tables, **61** indexes, **705** headless-runnable tests
+(**5** GUI smoke skips without display)._
 
 ---
 
@@ -22,10 +23,9 @@ This document does two things:
    gaps, with per-phase deliverables, acceptance criteria, and the architectural
    rules each phase must respect.
 
-It is a **planning document only.** Nothing here has been coded, and it commits
-no team to a date. It reuses the conventions of the existing
+It is a **status + planning** document. It reuses the conventions of the existing
 [`REPORT-sop-gap-analysis.md`](REPORT-sop-gap-analysis.md) so the two read as a
-set.
+set. When implementation lands, update the status columns in the same change.
 
 **Legends used throughout:**
 
@@ -192,7 +192,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 | **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | 🟡 | U1–U5 hardened client (ApiClient/Settings/NavRoute/PageLoad) + packaging notes; build/MSIX on Windows | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
-the ~642-tested business modules in C#. The client renders; the Python core still
+the tested business modules in C#. The client renders; the Python core still
 computes. **U0 is the only piece buildable/verifiable in this environment**, and
 is the correct API-first first step.
 
@@ -200,30 +200,28 @@ is the correct API-first first step.
 
 ## 4. Gap prioritisation (the short list)
 
-Reading across §3, the highest-leverage gaps — those that either **unblock other
-work** or **deliver the most value per unit effort**:
+Reading across §3, most P0/P1 cloud items are **done**. What still moves the
+needle:
 
-**P0 — foundational (do first; everything else leans on these):**
+**Done (do not rebuild):** C0 purity · U0.6 API · portfolio UX/API · E7
+Controls/Process/persona · event hooks (C5) + L4 wiring · capture **floors**
+(text/GRN/muster/BOQ) · prediction feeds (C4).
 
-1. **Headless purity / cost roll-up extraction (cloud C0)** — unblock the suite
-   in display-free environments and keep the EVM bridge honest. _(S · Core)_
-2. **Backend JSON API U0 (cloud C1/C2)** — the contract for WinUI 3 and mobile.
-   _(M · Platform)_
-3. **Portfolio UX over the federated read model** — roll-up maths exists;
-   needs a durable shell + API. _(M · Core/UI)_
+**P0 — local gates still open:**
 
-**P1 — high value (the visible payoff):**
+1. **L0 display smoke** — full suite + `test_smoke_tabs` light/dark on a box
+   with tkinter. _(S · Platform)_
+2. **L5 WinUI build/run** against `web_main.py` (source hardened). _(M · Platform)_
 
-4. **E7 Controls / Lessons Learned / Process / persona rail (local L1–L3)** —
-   finish discoverability over built stores. _(M · UI)_
-5. **Capture pipeline** (photo→GRN/invoice, voice→DPR) — biggest cut to manual
-   entry; models are local-track. _(L · AI)_
-6. **Event auto-wire** detect/followups into drafts (C5 + L4). _(M · AI/Core)_
-7. **WinUI 3 client U1–U7 (local L5–L7)** after U0. _(L · Platform)_
+**P1 — high value remaining:**
 
-**P2 — completeness:** predictive register feed (C4), NL-triggered workflows,
-mobile field app (L9), cross-project learning, SSO/project roles, muster OCR,
-BOQ import.
+3. **L6–L7** LiveCharts bind + signed MSIX. _(L · Platform)_
+4. **Capture models (L8)** — OCR/STT/VLM **weights** over `stub_server` /
+   `sidecar_bridge`. _(L · AI)_
+
+**P2 — completeness / owner decisions:** richer NL classifier, native mobile
+(L9), cross-project learning depth, SSO/project roles, concurrency redesign,
+muster photo OCR (needs L8).
 
 ---
 
@@ -235,27 +233,27 @@ deliverables, dependencies, and acceptance criteria. Each phase is
 **independently shippable and independently useful** — matching the phase
 discipline already in [`ROADMAP.md`](ROADMAP.md).
 
-**Implementation status at a glance** (verified against `main`, 2026-07-22). The
+**Implementation status at a glance** (verified this branch, 2026-07-22). The
 **deterministic backbone of E0–E5 and the E7 models are built.** Most enterprise
-registers now also have a **desktop + browser surface**. Cloud C0–C6 (purity,
-JSON API, audit origin, signal feed, event hooks, lessons API) is **built**.
-What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
+registers now also have a **desktop + browser surface**. Cloud **C0–C13**
+(purity through U0.6) is **complete**. What remains is mostly **local**: WinUI
+build/MSIX, display smoke, ML weights.
 
 | Phase | Built (module / surface) | Remaining | Track |
 |---|---|---|---|
 | **E0** | `earnedvalue` + `evm` + **Earned Value tab** + `/evm`; `risk` + `risk_store` + **Risks tab**; detection; **AI-origin audit** | — | Cloud done |
-| **E1** | `capture.py` + `sidecar_bridge.py` (soft-fail OCR/STT/VLM) | Model **weights** + live sidecar processes | Local (models) |
+| **E1** | `capture.py` + `sidecar_bridge.py` + `sidecars/stub_server.py` | Model **weights** + real extractors | Local (models) |
 | **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** + **Portfolio** + `/review` + `/api/narrative` | — | Cloud done |
 | **E3** | `risk_detect`, `narrative.risk_briefing`, Risks tab; event detect hook | More save-path auto-wire (optional) | Local (handlers) |
 | **E4** | `review_pack`, `followups`, `event_hooks` + GRN/MB/VO/payment/RA/NCR/muster/snag/bill wiring | — | Cloud done |
 | **E5** | `forecast`, `drift`, `signal_feed`, `signal_suggest` | Tab polish optional | Cloud done |
 | **E6** | Browser `/m/capture` modes (work-done / note / muster) | Native mobile optional | Local (optional) |
 | **E7** | `menu.py`, `workflow.py`, Controls, Lessons, persona, Process, search, N5 | L0 display smoke | Cloud shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.6**) + WinUI page scaffolds | Bind/run/MSIX on Windows | **U0.6** · scaffolds Local |
+| **U** | `webapi.py` `/api/*` (**U0.6**) + **hardened** WinUI source (ApiClient/Settings/NavRoute/PageLoad) | VS build, LiveCharts bind, signed MSIX | **U0.6** · WinUI Local |
 
 **What this environment can still produce:** optional doc polish and bugfixes
 only — the cloud track’s deterministic floors and JSON API (**u0.6**) are
-complete. Display smoke, .NET/WinUI, and ML weights remain **local**.
+complete. Display smoke, **WinUI compile/run**, and ML **weights** remain **local**.
 
 ### 5A. Cloud development track (headless Python agent)
 
@@ -283,7 +281,7 @@ display.
 | Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
 | Lessons API (C6) | `/api/lessons` + store | ✅ built + tested |
 | Headless purity (C0) | `project_rollup.py` | ✅ built + tested |
-| Sidecar bridge (E1 floor) | `sidecar_bridge.py` + `/api/sidecar/*` | ✅ soft-fail (no weights) |
+| Sidecar bridge (E1 floor) | `sidecar_bridge.py` + `/api/sidecar/*` + `sidecars/stub_server.py` | ✅ soft-fail (no weights) |
 | NL intent floor | `nl_intent.py` + `POST /api/intent` | ✅ gated drafts only |
 | Concurrency notes | `docs/CONCURRENCY.md` | ✅ documented (no redesign) |
 | Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
@@ -353,10 +351,10 @@ sidecars** are built and verified.
 | **L2** | **E7.3 persona rail** via `menu.resolve` | E7.1 | ✅ Tools › Persona + rail filter | P1 |
 | **L3** | **E7.4 Process view + search** | E7.2 | ✅ Process rail + `workflow_state` | P1 |
 | **L4** | **E4 GUI event wiring** (GRN + payment API follow-ups) | C5 | ✅ drafts surfaced, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | Source hardened; VS 2022 build (env-blocked in cloud) | P0 |
-| **L6** | **U2–U5 WinUI pages** | U1 | ✅ pages hardened (status/errors/helpers); bind LiveCharts / run on Windows | P1 |
-| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` + settings path notes; signed MSIX on Windows | P1 |
-| **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | `sidecars/` stubs; install weights locally | P2 |
+| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | Source hardened; **VS 2022 build still required** (env-blocked in cloud) | P0 |
+| **L6** | **U2–U5 WinUI pages** | U1 | ✅ pages hardened (status/errors/helpers); **bind LiveCharts + run on Windows** | P1 |
+| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` + settings path notes; **signed MSIX on Windows** | P1 |
+| **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | Soft-fail `stub_server.py` + `health_check.py` ✅; **install weights locally** | P2 |
 | **L9** | **E6 mobile capture** | U0 | ✅ `/m/capture` + API; native app optional later | P2 |
 
 **Local setup (WinUI)** — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §11.
@@ -384,10 +382,10 @@ EVM/risk maths in C#.
   CV, EAC (three methods), ETC, VAC, TCPI, percent-complete/spent, and a
   value-weighted `portfolio` roll-up. Pure, tkinter/DB-free, unit-tested
   (`TestEarnedValue`). DB bridge `evm.py` + **desktop tab + browser `/evm`**
-  shipped. _Remaining (cloud C0): keep the cost roll-up import tkinter-free._
+  shipped. Cost roll-up is headless via `project_rollup.py` (C0 ✅).
 - **E0.2 Risk scoring ✅ + register ✅ + tab ✅** —
-  `risk.py` / `risk_store.py` / **Project Management › Risks**. Detection via
-  `risk_detect.py`. _Remaining: optional Controls-section home (local L1)._
+  `risk.py` / `risk_store.py` / **Controls › Risk Register** (also PM surface).
+  Detection via `risk_detect.py`. Controls home shipped (L1 ✅).
 - **E0.3 AI-origin audit tagging ✅** — `audit_log.origin` (`manual`/`ai`) via
   `auth.audit(..., origin=)` (default manual); capture and signal-feed tag AI
   drafts. Risks still carry their own `source` column.
@@ -475,7 +473,8 @@ schedule/cost/commercial/quality/statutory/external, each scored via
 (`risk_detect.suggest_mitigation` / `with_mitigations` — a suggested response +
 first action per category, a draft the owner edits) ✅. Detected risks are
 register-ready (`risk_store.add(..., source='ai')`). **Risks tab shipped.**
-_Remaining:_ auto-wire detect on events (cloud C5 + local L4).
+_Remaining:_ optional deeper per-save detect hooks (most high-value paths already
+wired via `event_hooks` + L4).
 
 ### Phase E4 — Automation _(P1 · remove rote assembly)_
 
@@ -495,8 +494,8 @@ are logged with AI-origin (E0.3).
 advisories + risks + narrative + optional EVM/forecast/opportunities into one
 draft dict; `review_pack.portfolio` across projects) ✅; E4.1 event → follow-on
 **decision logic** (`followups.py` — maps each event to its rote follow-ups, every
-consequential one flagged `gated` so it stays a human-approved draft) ✅.
-_Remaining:_ the GUI wiring that fires an event from a save handler.
+consequential one flagged `gated` so it stays a human-approved draft) ✅;
+save-path wiring via `event_hooks` + GUI/API surfaces (C5 / L4) ✅.
 
 ### Phase E5 — Prediction _(P2 · forward view)_
 
@@ -615,14 +614,16 @@ E0 Foundation ──┬──> E2 KPI reach ──┐
 
 **Suggested waves** (each independently shippable), tagged by track:
 
-- **Wave A (foundation):** E0 — ✅ mostly done; residual **C0** (headless purity),
-  **C3** (audit tagging).
-- **Wave B (visible value):** E1 ‖ E2 ‖ E3 — engine ✅; surfaces mostly ✅;
-  residual capture models (**L8**), event auto-wire (**C5**/**L4**).
-- **Wave C (leverage):** E4 automation — logic ✅ (`followups`); GUI wiring **L4**.
-- **Wave D (frontier):** E5 prediction (**C4** + tab), E6 mobile (**L9**).
-- **Wave E (usability):** E7 — models ✅; Controls/Process/search **L1–L3**.
-- **Wave U (replatform):** **C1/C2 (U0 API)** → **L5–L7 (WinUI U1–U7)**.
+- **Wave A (foundation):** E0 — ✅ done (incl. **C0** purity, **C3** audit origin).
+- **Wave B (visible value):** E1 ‖ E2 ‖ E3 — engines + surfaces ✅; residual =
+  capture **weights** (**L8**); optional deeper save-path detect wire.
+- **Wave C (leverage):** E4 automation — ✅ (`followups` + GUI/API wiring **L4**).
+- **Wave D (frontier):** E5 prediction ✅ (`signal_feed` / `signal_suggest`);
+  E6 mobile — browser ✅; native app optional (**L9**).
+- **Wave E (usability):** E7 — models + Controls/Process/persona/search ✅;
+  residual = **L0** display smoke.
+- **Wave U (replatform):** **U0 API ✅ (C1–C13)** → **L5–L7** WinUI build/MSIX
+  (source hardened; compile still Windows-only).
 
 ---
 
@@ -684,18 +685,20 @@ Outcome metrics to baseline and track (from the solution doc §11):
 
 The distance from today's Construction OS to an enterprise PM + AI platform is
 **short on domain logic** — EVM, risk, opportunity, forecast, drift, narrative,
-review-pack, menu/workflow models are **built and mostly surfaced**. What remains
-is concentrated in three places: (1) the **JSON API + WinUI 3 replatform** (U0
-cloud → U1–U7 local), (2) **navigation/usability** leftovers (Controls, Lessons
-Learned tab, Process view, persona rail), and (3) the **AI capture / mobile**
-frontier (model sidecars + field app).
+review-pack, menu/workflow, and the **U0.6 JSON API** are **built and tested**.
+Navigation (Controls / Lessons / Process / persona / N5) is **shipped**. What
+remains is concentrated in three places: (1) **WinUI 3 compile/run + MSIX** on
+Windows (source hardened; L5–L7), (2) **display smoke** for tkinter tabs (L0),
+and (3) the **AI capture frontier** — install OCR/STT/VLM **weights** over the
+soft-fail stub (L8); native mobile optional (L9). Owner decisions still open:
+SSO / project roles, concurrency redesign beyond `CONCURRENCY.md`.
 
 Work is split deliberately:
 
 | Track | Owns | Next |
 |---|---|---|
-| **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | **C0** purity fix → **C1/C2 U0 API** |
-| **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → **L1–L3** E7 UI; after U0 → **L5–L7** WinUI |
+| **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | ✅ **C0–C13 complete** — maintain / bugfix only |
+| **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → **L5** WinUI build → **L6–L7** charts/MSIX → **L8** weights |
 
 Throughout, the discipline stays: **deterministic maths underneath, explainable
 AI on top, a human on anything that moves money or a date, and the offline solo
@@ -703,7 +706,8 @@ experience never degraded.**
 
 ---
 
-_Planning document only — changes no code, commits no dates. Read alongside
+_Living status document — re-check counts against the tree when updating.
+Commits no calendar dates. Read alongside
 [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target & AI
 strategy), [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) (UI replatform),
 [`REPORT-sop-gap-analysis.md`](REPORT-sop-gap-analysis.md) (the SOP gap set),

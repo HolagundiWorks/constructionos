@@ -82,8 +82,10 @@ with minimal typing?_
 ## 🚧 In progress · ⏳ Next
 
 - ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
-- ⏳ **Browser / LAN — remaining parity.** RA-bill statutory documents are now viewable and printable in the browser (measured items, Form 23 MB, Form 26 abstract — above); the one piece still desktop-only is **per-item measurement *entry*** (the on-drawing / dimension grid). The **GST / compliance** registers also stay desktop / view-only for now; everything else is browser-editable.
-- ⏳ **Real-display GUI render check.** A validation task, not a code gap: the headless CI has no Tk, so the two GUI smoke tests run only on a machine with a display (or Xvfb). The 600+ pure-logic tests pass headlessly.
+- ✅ **Cloud track (C0–C13 / U0.6)** — JSON API, capture floors, event/signal hooks, WinUI **source** hardened. See gap roadmap §5A.
+- ⏳ **Local track** — **L0** tkinter display smoke; **L5–L7** WinUI build/LiveCharts/MSIX on Windows; **L8** OCR/STT/VLM weights over `sidecars/stub_server.py`.
+- ⏳ **Browser / LAN — remaining parity.** RA-bill statutory documents are viewable and printable in the browser; the one piece still desktop-only is **per-item measurement *entry***. GST / compliance registers stay desktop / view-only for now.
+- ⏳ **Real-display GUI render check.** Headless CI has no Tk, so GUI smoke tests run only on a machine with a display (or Xvfb). **705** pure-logic tests pass headlessly (5 skipped).
 
 ---
 

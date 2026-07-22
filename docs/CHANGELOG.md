@@ -6,6 +6,15 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Roadmap honesty pass (post WinUI harden)
+
+- Reconciled [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)
+  v1.2: counts (176 modules / 113 tkinter-free / 705 tests), §4 priority short
+  list, glance/waves/summary “Next” columns, E0–E4 leftover notes, L8 stub
+  server. [`ROADMAP.md`](ROADMAP.md) next-steps aligned.
+
+---
+
 ## 2026-07-22 — Harden local WinUI + sidecar scaffolds
 
 - **WinUI ApiClient.** Timeouts, Put/Delete, health probe, CSRF on writes,
