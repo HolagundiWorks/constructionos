@@ -88,6 +88,64 @@ internal static class Ui
         return root;
     }
 
+    /// <summary>
+    /// A columnar table from explicit <paramref name="headers"/> + positional
+    /// string rows (for report endpoints that return arrays-of-arrays, e.g. GST).
+    /// </summary>
+    public static FrameworkElement TableFrom(
+        IReadOnlyList<string> headers,
+        IReadOnlyList<IReadOnlyList<string>> rows)
+    {
+        if (rows.Count == 0) return Empty("No records for this period.");
+
+        Grid Row(Func<int, string> cell, bool head)
+        {
+            var g = new Grid
+            {
+                ColumnSpacing = 12,
+                Padding = new Thickness(12, head ? 6 : 2, 12, head ? 6 : 2),
+            };
+            for (var i = 0; i < headers.Count; i++)
+                g.ColumnDefinitions.Add(new ColumnDefinition
+                { Width = new GridLength(1, GridUnitType.Star) });
+            for (var i = 0; i < headers.Count; i++)
+            {
+                var tb = new TextBlock
+                {
+                    Text = cell(i),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.NoWrap,
+                };
+                if (head)
+                {
+                    tb.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
+                    tb.FontWeight = FontWeights.SemiBold;
+                    tb.Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                        Application.Current.Resources["TextFillColorSecondaryBrush"];
+                }
+                Grid.SetColumn(tb, i);
+                g.Children.Add(tb);
+            }
+            return g;
+        }
+
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var header = Row(i => headers[i], head: true);
+        header.BorderThickness = new Thickness(0, 0, 0, 1);
+        header.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)
+            Application.Current.Resources["CardStrokeColorDefaultBrush"];
+        Grid.SetRow(header, 0);
+        root.Children.Add(header);
+        var list = new ListView { SelectionMode = ListViewSelectionMode.None };
+        foreach (var r in rows)
+            list.Items.Add(Row(i => i < r.Count ? r[i] : "", head: false));
+        Grid.SetRow(list, 1);
+        root.Children.Add(list);
+        return root;
+    }
+
     /// <summary>Header row (bold, prettified column titles) for a columnar list
     /// whose data rows are built with <see cref="DataRow"/> using the same
     /// <paramref name="cols"/> — so columns align.</summary>
