@@ -222,10 +222,12 @@ class TestWebRouter(unittest.TestCase):
             form={'csrf': csrf, 'name': 'Nope'}, cookies={'cosid': tok}))
         self.assertEqual(r.status, 403)
 
-    def test_non_master_has_no_write_route(self):
+    def test_non_writable_register_has_no_create_route(self):
+        # contracts is viewable but not a Master / estimate / money document,
+        # so it has no browser create form (yet).
         import webapp
         sid = self._login_admin()
-        r = webapp.handle(self._req('/t/payments/new', cookies={'cosid': sid}))
+        r = webapp.handle(self._req('/t/contracts/new', cookies={'cosid': sid}))
         self.assertEqual(r.status, 404)
 
     # ---- Stage 3a: Estimates (header + line items, computed total) ------
@@ -305,6 +307,86 @@ class TestWebRouter(unittest.TestCase):
         r = webapp.handle(self._req(
             '/t/estimates/new', 'POST',
             form={'csrf': self._scsrf(tok), 'title': 'x'},
+            cookies={'cosid': tok}))
+        self.assertEqual(r.status, 403)
+
+    # ---- Stage 3b: money documents that post to the ledger --------------
+    def _journal(self):
+        conn = self.db.get_conn()
+        try:
+            return conn.execute('SELECT source, source_id, total_debit, '
+                                'total_credit FROM journal_entries '
+                                'ORDER BY id').fetchall()
+        finally:
+            conn.close()
+
+    def _post_doc(self, sid, table, form):
+        import webapp
+        form = dict(form); form['csrf'] = self._scsrf(sid)
+        return webapp.handle(self._req('/t/{}/new'.format(table), 'POST',
+                                       form=form, cookies={'cosid': sid}))
+
+    def test_money_documents_post_balanced_entries(self):
+        import webapp
+        sid = self._login_admin()
+        # a receipt, an outward invoice, an inward invoice, an approved bill
+        self.assertEqual(self._post_doc(sid, 'payments', {
+            'pay_date': '2026-07-21', 'direction': 'Receipt',
+            'party_type': 'Client', 'party_name': 'C', 'mode': 'Cash',
+            'amount': '5000'}).status, 303)
+        self.assertEqual(self._post_doc(sid, 'tax_invoices', {
+            'invoice_no': 'INV-1', 'invoice_date': '2026-07-21',
+            'subtotal': '100000', 'gst_pct': '18', 'status': 'Issued'}).status,
+            303)
+        self.assertEqual(self._post_doc(sid, 'vendor_invoices', {
+            'invoice_no': 'VI-1', 'invoice_date': '2026-07-21',
+            'subtotal': '50000', 'gst_pct': '18', 'tds_pct': '2',
+            'status': 'Approved'}).status, 303)
+        self.assertEqual(self._post_doc(sid, 'bills', {
+            'bill_no': 'RB-1', 'bill_date': '2026-07-21',
+            'work_done_value': '200000', 'previous_billed': '50000',
+            'retention_pct': '5', 'other_deductions': '0',
+            'status': 'Approved'}).status, 303)
+
+        entries = self._journal()
+        self.assertEqual(len(entries), 4)
+        for e in entries:                      # double entry must balance
+            self.assertAlmostEqual(e['total_debit'], e['total_credit'], places=2)
+        by = {e['source']: e['total_debit'] for e in entries}
+        self.assertAlmostEqual(by['Payment'], 5000.0, places=2)
+        self.assertAlmostEqual(by['TaxInvoice'], 118000.0, places=2)   # +18% GST
+        self.assertAlmostEqual(by['VendorInvoice'], 59000.0, places=2)
+        self.assertAlmostEqual(by['Bill'], 150000.0, places=2)         # 200k-50k
+
+        # derived amounts stored on the documents
+        conn = self.db.get_conn()
+        try:
+            vi = conn.execute('SELECT tax_amount, tds_amount, net_payable FROM '
+                              'vendor_invoices').fetchone()
+            b = conn.execute('SELECT retention_amt, net_payable FROM '
+                             'bills').fetchone()
+        finally:
+            conn.close()
+        self.assertAlmostEqual(vi['net_payable'], 58000.0, places=2)
+        self.assertAlmostEqual(b['retention_amt'], 7500.0, places=2)
+        self.assertAlmostEqual(b['net_payable'], 142500.0, places=2)
+
+    def test_draft_bill_saves_but_does_not_post(self):
+        import webapp
+        sid = self._login_admin()
+        r = self._post_doc(sid, 'bills', {
+            'bill_no': 'RB-D', 'bill_date': '2026-07-21',
+            'work_done_value': '10000', 'previous_billed': '0',
+            'retention_pct': '5', 'status': 'Draft'})
+        self.assertEqual(r.status, 303)
+        self.assertEqual(self._journal(), [])     # nothing posted for a draft
+
+    def test_money_document_write_gated_for_viewer(self):
+        import webapp
+        tok = webapp._new_session('v', 'Viewer')
+        r = webapp.handle(self._req(
+            '/t/payments/new', 'POST',
+            form={'csrf': self._scsrf(tok), 'amount': '1'},
             cookies={'cosid': tok}))
         self.assertEqual(r.status, 403)
 

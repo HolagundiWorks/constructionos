@@ -30,6 +30,8 @@ import urllib.parse
 import db
 import auth
 import estimate
+import journal_post
+import web_docs
 import web_masters
 import webrender as R
 
@@ -42,6 +44,8 @@ _WRITABLE_EXTRA = {'estimates': 'Estimate'}
 
 
 def _is_writable(table):
+    """Editable/deletable in the browser (Masters + estimates). Posting money
+    documents are create-only and handled separately."""
     return web_masters.is_master(table) or table in _WRITABLE_EXTRA
 
 
@@ -49,6 +53,18 @@ def _writable_label(table):
     if web_masters.is_master(table):
         return web_masters.label(table)
     return _WRITABLE_EXTRA.get(table, _label(table))
+
+
+def _can_create(table):
+    """Anything the browser can add a new row to: Masters, estimates, and the
+    postable money documents (payments, invoices, running bills)."""
+    return _is_writable(table) or web_docs.is_doc(table)
+
+
+def _create_label(table):
+    if web_docs.is_doc(table):
+        return web_docs.label(table)
+    return _writable_label(table)
 
 # Tables never exposed over the network: the password hashes, app config, and
 # SQLite's own bookkeeping.
@@ -381,6 +397,8 @@ def _table_route(request, sess, rest):
                          status=404)
         cols = _columns(conn, table)
         if len(segs) == 2 and segs[1] == 'new':
+            if web_docs.is_doc(table):
+                return _doc_create(request, sess, conn, table)
             if table == 'estimates':
                 return _estimate_editor(request, sess, conn, None)
             return _master_create(request, sess, conn, table, cols)
@@ -433,9 +451,9 @@ def _register_list(request, conn, sess, table, cols):
         link = lambda i: '/t/{}/{}'.format(table, ids[i])
 
     add_btn = ''
-    if _is_writable(table) and can_write(sess['role']):
+    if _can_create(table) and can_write(sess['role']):
         add_btn = '<a class="btn" href="/t/{tbl}/new">+ New {lbl}</a>'.format(
-            tbl=R.esc(table), lbl=R.esc(_writable_label(table)))
+            tbl=R.esc(table), lbl=R.esc(_create_label(table)))
     search = (
         '<div class="toolbar"><form method="get" action="/t/{tbl}">'
         '<input type="search" name="q" placeholder="Search {lbl}…" value="{q}">'
@@ -858,3 +876,71 @@ def _estimate_form(conn, sess, rid, row, lines, errs, submitted):
     ).format(title=R.esc(title), errs=R.errors(errs), action=R.esc(action),
              csrf=R.esc(sess['csrf']), header=header, rows=rows_html, blank=blank)
     return _shell(title, body, sess, conn, active='estimates')
+
+
+# ------------------------------------------------ postable money documents
+# Payments, tax/vendor invoices and running bills: save the row with the same
+# derived amounts the desktop computes, then post via the shared, idempotent
+# journal_post.post_all — so the double entry is produced by posting.py, not
+# re-implemented here. Create + view only (records of fact).
+def _doc_create(request, sess, conn, table):
+    bail = _guard_write(request, sess, conn)
+    if bail:
+        return bail
+    specs = web_docs.fields(table)
+    if request.method != 'POST':
+        return _doc_form(conn, sess, table, None, None)
+
+    values, errs = {}, []
+    for f in specs:
+        ok, val, err = web_masters.coerce(f, request.form.get(f['key'], ''))
+        if ok:
+            values[f['key']] = val
+        else:
+            errs.append(err)
+    if errs:
+        return _doc_form(conn, sess, table, errs, request.form)
+
+    columns = web_docs.compute(table, values)
+    keys = list(columns.keys())
+    cur = conn.execute(
+        'INSERT INTO "{}" ({}) VALUES ({})'.format(
+            table, ', '.join('"{}"'.format(k) for k in keys),
+            ', '.join('?' * len(keys))), [columns[k] for k in keys])
+    new_id = cur.lastrowid
+    auth.audit(conn, sess['username'], 'web_create', table, new_id)
+    conn.commit()
+    # Post to the ledger with the shared engine. Idempotent + state-gated, so a
+    # Draft posts nothing. A posting hiccup must not lose the saved document —
+    # post_all will pick it up next time — so failure here is swallowed.
+    try:
+        journal_post.post_all(conn)
+    except Exception:                                        # noqa: BLE001
+        pass
+    return _redirect('/t/{}/{}'.format(table, new_id))
+
+
+def _doc_form(conn, sess, table, errs, submitted):
+    specs = web_docs.fields(table)
+    lbl = web_docs.label(table)
+    note = web_docs.note(table)
+    rows_html = [R.errors(errs)] if errs else []
+    if note:
+        rows_html.append('<p class="muted">{}</p>'.format(R.esc(note)))
+    for f in specs:
+        if submitted is not None:
+            val = submitted.get(f['key'], '')
+        else:
+            val = web_docs.resolve_default(f['default'])
+        options = None
+        if f['kind'] == 'fk':
+            options = web_masters.fk_options(conn, f['fk_sql'])
+        elif f['kind'] == 'combo':
+            options = [(o, o) for o in f['options']]
+        rows_html.append(R.field_row(
+            f['label'], R.control(f['kind'], f['key'], val, options)))
+    title = 'New {}'.format(lbl)
+    body = '<h1>{}</h1>{}'.format(R.esc(title), R.form(
+        '/t/{}/new'.format(table), ''.join(rows_html), sess['csrf'],
+        submit='Save', cancel_href='/t/' + table))
+    return _shell(title, body, sess, conn, active=table)
