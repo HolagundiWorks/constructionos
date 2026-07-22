@@ -5,7 +5,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 `tests/test_web.py` (`TestWebApi`).
 
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.5` (`GET /api/health` → `{"api":"u0.5"}`)  
+**Version:** `u0.6` (`GET /api/health` → `{"api":"u0.6"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -18,7 +18,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.5` |
+| GET | `/api/health` | Auth except login; reports `api: u0.6` |
 | GET | `/api/contract` | Endpoint catalogue for clients |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
@@ -52,6 +52,10 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | POST | `/api/boq/import/draft` | CSV/TSV/plain → BOQ line drafts |
 | POST | `/api/boq/import/confirm` | Write `boq_items` for a contract |
 | POST | `/api/grn/draft` | Challan paste → matched GRN line drafts |
+| POST | `/api/grn/confirm` | Write Draft GRN + lines (no stock post) |
+| POST | `/api/vendor_invoice/draft` | Pasted invoice → lines + totals |
+| POST | `/api/vendor_invoice/confirm` | Write vendor invoice + items |
+| POST | `/api/pdf/extract` | `{path}` → text via local `pdftotext` (soft-fail) |
 | POST | `/api/patterns/learn` | Preview/apply cross-lesson AI drafts |
 | POST | `/api/signals/preview` | Forecast/drift drafts without writing |
 | POST | `/api/signals/suggest` | Soft signals from live book → drafts (`apply?`) |

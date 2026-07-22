@@ -54,4 +54,15 @@ public sealed partial class ImportPage : Page
         }
         catch (Exception ex) { Result.Text = ex.Message; }
     }
+
+    private async void VendorInvoice_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var data = await ApiClient.Default.PostJsonAsync(
+                "api/vendor_invoice/draft", new { text = PasteBox.Text });
+            Result.Text = data.ToString();
+        }
+        catch (Exception ex) { Result.Text = ex.Message; }
+    }
 }

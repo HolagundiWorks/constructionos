@@ -10,6 +10,7 @@
       <TextBox x:Name="PasteBox" AcceptsReturn="True" Height="160" TextWrapping="Wrap"/>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="GRN draft" Click="Grn_Click"/>
+        <Button Content="Vendor invoice" Click="VendorInvoice_Click"/>
         <Button Content="BOQ draft" Click="Boq_Click"/>
         <Button Content="Text extract" Click="Text_Click"/>
         <Button Content="Signals suggest" Click="Signals_Click"/>

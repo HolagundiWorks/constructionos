@@ -814,7 +814,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.5')
+        self.assertEqual(c['api'], 'u0.6')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -1102,6 +1102,57 @@ class TestWebApi(unittest.TestCase):
             headers={'X-CSRF-Token': csrf}))
         self.assertEqual(resp.status, 200)
         self.assertEqual(self._json(resp)['fields']['quantity'], 10.0)
+
+    def test_u06_grn_confirm_vendor_invoice_pdf(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.webapp.handle(self._req(
+            '/api/materials', 'POST', cookies=cookies,
+            json_body={'name': 'OPC 53 Cement', 'unit': 'bags'},
+            headers={'X-CSRF-Token': csrf}))
+
+        draft = self._json(self.webapp.handle(self._req(
+            '/api/grn/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Challan DC-2\n1. OPC 53 Cement 5 bags'},
+            headers={'X-CSRF-Token': csrf})))
+        resp = self.webapp.handle(self._req(
+            '/api/grn/confirm', 'POST', cookies=cookies,
+            json_body={'header': draft['header'], 'lines': draft['lines'],
+                       'source': 'ai'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body['status'], 'Draft')
+        self.assertTrue(body.get('followups'))
+
+        resp = self.webapp.handle(self._req(
+            '/api/vendor_invoice/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Invoice VI-1 2026-07-22\nCement 10 100'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        vd = self._json(resp)
+        resp = self.webapp.handle(self._req(
+            '/api/vendor_invoice/confirm', 'POST', cookies=cookies,
+            json_body={'header': vd['header'], 'lines': vd['lines']},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertIn('totals', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/pdf/extract', 'POST', cookies=cookies,
+            json_body={'path': '/tmp/nope.pdf'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertFalse(self._json(resp)['ok'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/confirm', 'POST', cookies=cookies,
+            json_body={'target': 'snag', 'source': 'ai',
+                       'fields': {'description': 'Lobby tile chip',
+                                  'severity': 'Minor'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertTrue(self._json(resp).get('followups') is not None)
 
 
 if __name__ == '__main__':

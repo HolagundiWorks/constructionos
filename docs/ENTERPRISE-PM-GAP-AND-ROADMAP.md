@@ -101,10 +101,10 @@ gap, its impact, and the required work.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Photo → GRN / vendor-invoice draft (OCR) | 🟡 | `grn_draft` + `material_match` + API; OCR weights still local | Largest source of typing error | Pair with OCR sidecar (L8) | P1 · L · AI |
+| Photo → GRN / vendor-invoice draft (OCR) | 🟡 | GRN+vendor-invoice text floors + confirm APIs; OCR weights local | Typing/transcription error | Pair with OCR sidecar (L8) | P1 · L · AI |
 | Voice → DPR / measurement draft | 🟡 | `text_extract` (DPR + measurement) + STT bridge; no weights | Field notes captured late | Install STT weights (L8) | P1 · M · AI |
 | Photo of muster → attendance draft | 🟡 | `labor_match` + `muster_draft` + API; no OCR weights | Repetitive daily typing; name errors | Pair with OCR sidecar (L8) | P2 · M · AI |
-| BOQ / tender PDF → import draft | 🟡 | `boq_import` CSV/TSV/plain + API; PDF still open | Slow tender onboarding | PDF/VLM sidecar later | P2 · M · AI |
+| BOQ / tender PDF → import draft | 🟡 | CSV/TSV + optional `pdftotext` extract; VLM still open | Slow tender onboarding | PDF/VLM sidecar later | P2 · M · AI |
 | Free-text (WhatsApp) → structured record | 🟡 | `text_extract` + capture confirm targets | Updates live in chat, never in the system | Optional model extractor over same drafts | P2 · M · AI |
 
 **Cross-cutting design (must hold for all capture):** AI produces a *draft* into
@@ -117,7 +117,7 @@ true).
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/MB/VO/payment/capture/filings/RA/NCR/muster wired | — | Maintain | — |
+| Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/MB/VO/payment/capture/filings/RA/NCR/muster/snag/running-bill wired | — | Maintain | — |
 | Recurring project-review pack generation | ✅ | `review_pack` + `review_assemble` + Weekly Review tab + `/review` | — | Maintain | — |
 | Mismatch / exception narration | ✅ | `procurement.narrate_*` + `finance.narrate_reconcile` + `/api/match` `/api/reconcile` | — | Maintain | — |
 | NL-triggered workflows | 🟡 | `nl_intent` + `POST /api/intent` (keyword → gated drafts) | Richer NL still model-side | Optional model classifier over the same drafts | P2 · M · AI |
@@ -247,15 +247,15 @@ What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 | **E1** | `capture.py` + `sidecar_bridge.py` (soft-fail OCR/STT/VLM) | Model **weights** + live sidecar processes | Local (models) |
 | **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** + **Portfolio** + `/review` + `/api/narrative` | — | Cloud done |
 | **E3** | `risk_detect`, `narrative.risk_briefing`, Risks tab; event detect hook | More save-path auto-wire (optional) | Local (handlers) |
-| **E4** | `review_pack`, `followups`, `event_hooks` + GRN/measurement/variation/payment wiring | Remaining save handlers | Local (GUI) |
-| **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
-| **E6** | Browser `/m/capture` + `/api/capture/*` (E6-lite) | Native mobile app (optional) | Local (optional) |
-| **E7** | `menu.py`, `workflow.py`, Controls, Lessons Learned, persona, Process, search, N5 groups | Display smoke (L0) | Cloud models+UI shipped · L0 local |
-| **U** | `webapi.py` `/api/*` (**U0.5**) + WinUI page scaffolds | U2–U7 bind/run/MSIX on Windows | **U0.5** · scaffolds Local |
+| **E4** | `review_pack`, `followups`, `event_hooks` + GRN/MB/VO/payment/RA/NCR/muster/snag/bill wiring | — | Cloud done |
+| **E5** | `forecast`, `drift`, `signal_feed`, `signal_suggest` | Tab polish optional | Cloud done |
+| **E6** | Browser `/m/capture` modes (work-done / note / muster) | Native mobile optional | Local (optional) |
+| **E7** | `menu.py`, `workflow.py`, Controls, Lessons, persona, Process, search, N5 | L0 display smoke | Cloud shipped · L0 local |
+| **U** | `webapi.py` `/api/*` (**U0.6**) + WinUI page scaffolds | Bind/run/MSIX on Windows | **U0.6** · scaffolds Local |
 
-**What this environment can still produce:** pure Python domain, SQLite stores,
-stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
-ML model weights.
+**What this environment can still produce:** optional doc polish and bugfixes
+only — the cloud track’s deterministic floors and JSON API (**u0.6**) are
+complete. Display smoke, .NET/WinUI, and ML weights remain **local**.
 
 ### 5A. Cloud development track (headless Python agent)
 
@@ -276,7 +276,7 @@ display.
 | Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
 | Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
 | Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` — masters, docs, registers, capture floors, GRN/signals | ✅ **u0.5** |
+| **Backend JSON API (U0)** | `webapi.py` — full capture/confirm floors through u0.6 | ✅ **u0.6** |
 | WinUI U1 scaffold | `winui/ConstructionOS.WinUI/` (NavigationView + ApiClient + pages) | ✅ scaffolded (Windows to build) |
 | AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
 | Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
@@ -313,8 +313,15 @@ display.
 | **C10** | U0.3 (NL intent, sidecar bridge API, narrative, Productivity tab) | ✅ |
 | **C11** | U0.4 (text/muster/BOQ capture floors, pattern learn, more events) | ✅ |
 | **C12** | U0.5 (GRN draft, signal suggest, mobile modes, measurement extract) | ✅ |
+| **C13** | U0.6 (GRN confirm, vendor-invoice floor, pdftotext, snag/bill events) | ✅ — **cloud track complete** |
 
-**Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
+**Cloud non-goals (unchanged):** compiling WinUI on Linux, MSIX signing, tkinter
+smoke screenshots, shipping OCR/STT weights, native mobile UI, SSO.
+
+**Cloud track status:** deterministic PM core, navigation/workflow models,
+event/signal floors, and JSON API **u0.6** are built and tested headless. Further
+enterprise items that remain 🟡/❌ need **local** (display/.NET/weights) or an
+**owner decision** (SSO, concurrency redesign).
 
 ### 5B. Local development track (Windows + display + .NET)
 

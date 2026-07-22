@@ -24,6 +24,7 @@ import event_hooks
 import evm
 import followups
 import forecast
+import finance
 import grn_draft
 import journal_post
 import lessons_store
@@ -34,6 +35,7 @@ import narrative
 import nl_intent
 import opportunity_store
 import pattern_learn
+import pdf_text
 import portfolio_store
 import review_assemble
 import risk_store
@@ -42,6 +44,7 @@ import signal_feed
 import signal_suggest
 import submittals as submittals_mod
 import text_extract
+import vendor_invoice_draft
 import web_docs
 import web_masters
 import webapp
@@ -74,7 +77,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.5'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.6'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -172,6 +175,18 @@ def handle(request, sess):
 
     if path == 'grn/draft' and method == 'POST':
         return _grn_draft(request)
+
+    if path == 'grn/confirm' and method == 'POST':
+        return _grn_confirm(request, sess)
+
+    if path == 'vendor_invoice/draft' and method == 'POST':
+        return _vendor_invoice_draft(request)
+
+    if path == 'vendor_invoice/confirm' and method == 'POST':
+        return _vendor_invoice_confirm(request, sess)
+
+    if path == 'pdf/extract' and method == 'POST':
+        return _pdf_extract(request)
 
     if path == 'capture/draft' and method == 'POST':
         return _capture_draft(request, sess)
@@ -926,7 +941,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.5',
+        'api': 'u0.6',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -957,7 +972,9 @@ def _api_contract():
             'POST /api/text/extract',
             'POST /api/muster/draft', 'POST /api/muster/confirm',
             'POST /api/boq/import/draft', 'POST /api/boq/import/confirm',
-            'POST /api/grn/draft',
+            'POST /api/grn/draft', 'POST /api/grn/confirm',
+            'POST /api/vendor_invoice/draft', 'POST /api/vendor_invoice/confirm',
+            'POST /api/pdf/extract',
             'POST /api/patterns/learn',
             'POST /api/signals/preview', 'POST /api/signals/suggest',
             'POST /api/reconcile', 'POST /api/intent',
@@ -1370,6 +1387,12 @@ def _create_doc(request, sess, table):
                 followups.PAYMENT_DUE, payload={'payment_id': new_id})
             out['followups'] = reacted.get('followups') or []
             out['gated_count'] = reacted.get('gated_count', 0)
+        elif table == 'bills' and (out.get('status') or '') in ('Approved', 'Paid'):
+            reacted = event_hooks.react(
+                followups.RUNNING_BILL_APPROVED,
+                payload={'bill_id': new_id})
+            out['followups'] = reacted.get('followups') or []
+            out['gated_count'] = reacted.get('gated_count', 0)
         return _ok(out, status=201)
     finally:
         conn.close()
@@ -1673,6 +1696,195 @@ def _grn_draft(request):
     return _ok(grn_draft.draft_from_text(text, mats))
 
 
+def _grn_confirm(request, sess):
+    """POST /api/grn/confirm — write a Draft GRN + lines (no stock post).
+
+    Body: {header?, lines:[{material_id, description, unit, qty_received,
+    qty_rejected?}], purchase_order_id?, vendor_id?, site_id?, source?}
+    """
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    header = body.get('header') if isinstance(body.get('header'), dict) else {}
+    lines = body.get('lines') if isinstance(body.get('lines'), list) else []
+    if not lines:
+        return _err('lines required', 400)
+    source = body.get('source') or 'manual'
+    origin = auth.ORIGIN_AI if source == 'ai' else auth.ORIGIN_MANUAL
+
+    def _id(key):
+        raw = body.get(key)
+        if raw in (None, ''):
+            raw = header.get(key)
+        try:
+            return int(raw) if raw not in (None, '') else None
+        except (TypeError, ValueError):
+            return None
+
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO goods_receipts '
+            '(grn_no, purchase_order_id, vendor_id, site_id, grn_date, '
+            'challan_no, vehicle_no, received_by, status, remarks) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (str(header.get('grn_no') or body.get('grn_no') or ''),
+             _id('purchase_order_id'), _id('vendor_id'), _id('site_id'),
+             str(header.get('grn_date') or ''),
+             str(header.get('challan_no') or ''),
+             str(header.get('vehicle_no') or ''),
+             str(header.get('received_by') or ''),
+             'Draft',
+             str(header.get('remarks') or '')))
+        grn_id = cur.lastrowid
+        item_ids = []
+        for line in lines:
+            try:
+                mid = int(line['material_id']) if line.get('material_id') not in (None, '') else None
+            except (TypeError, ValueError):
+                mid = None
+            try:
+                recv = float(line.get('qty_received') or 0)
+            except (TypeError, ValueError):
+                recv = 0.0
+            try:
+                rej = float(line.get('qty_rejected') or 0)
+            except (TypeError, ValueError):
+                rej = 0.0
+            accepted = max(0.0, recv - rej)
+            try:
+                rate = float(line.get('rate') or 0)
+            except (TypeError, ValueError):
+                rate = 0.0
+            cur = conn.execute(
+                'INSERT INTO grn_items '
+                '(grn_id, material_id, description, unit, qty_received, '
+                'qty_rejected, qty_accepted, rate, amount, remarks) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (grn_id, mid,
+                 str(line.get('description') or line.get('matched_name') or ''),
+                 str(line.get('unit') or ''),
+                 recv, rej, accepted, rate, round(accepted * rate, 2),
+                 str(line.get('remarks') or '')))
+            item_ids.append(cur.lastrowid)
+        auth.audit(conn, sess['username'], 'grn_confirm', 'goods_receipts',
+                   grn_id, detail='{} lines'.format(len(item_ids)),
+                   origin=origin)
+        conn.commit()
+        reacted = event_hooks.react(
+            followups.GRN_SAVED, payload={'grn_id': grn_id})
+        return _ok({
+            'id': grn_id, 'status': 'Draft', 'item_ids': item_ids,
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _vendor_invoice_draft(request):
+    """POST /api/vendor_invoice/draft — pasted invoice → draft + totals."""
+    body = _payload(request)
+    return _ok(vendor_invoice_draft.draft_from_text(body.get('text') or ''))
+
+
+def _vendor_invoice_confirm(request, sess):
+    """POST /api/vendor_invoice/confirm — write vendor invoice + items."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    header = body.get('header') if isinstance(body.get('header'), dict) else {}
+    lines = body.get('lines') if isinstance(body.get('lines'), list) else []
+    if not lines:
+        return _err('lines required', 400)
+    source = body.get('source') or 'manual'
+    origin = auth.ORIGIN_AI if source == 'ai' else auth.ORIGIN_MANUAL
+    subtotal = 0.0
+    parsed_lines = []
+    for line in lines:
+        try:
+            qty = float(line.get('qty') or 0)
+            rate = float(line.get('rate') or 0)
+        except (TypeError, ValueError):
+            qty, rate = 0.0, 0.0
+        amount = round(qty * rate, 2)
+        subtotal += amount
+        parsed_lines.append({
+            'description': str(line.get('description') or '').strip(),
+            'unit': str(line.get('unit') or 'Nos'),
+            'qty': qty, 'rate': rate, 'amount': amount,
+        })
+    subtotal = round(subtotal, 2)
+    try:
+        gst_pct = float(header.get('gst_pct') if header.get('gst_pct') is not None else 18)
+    except (TypeError, ValueError):
+        gst_pct = 18.0
+    try:
+        tds_pct = float(header.get('tds_pct') or 0)
+    except (TypeError, ValueError):
+        tds_pct = 0.0
+    interstate = bool(int(header.get('interstate') or 0))
+    totals = finance.invoice_totals(subtotal, gst_pct, tds_pct, interstate)
+
+    def _id(key):
+        raw = body.get(key, header.get(key))
+        try:
+            return int(raw) if raw not in (None, '') else None
+        except (TypeError, ValueError):
+            return None
+
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO vendor_invoices '
+            '(invoice_no, vendor_id, purchase_order_id, invoice_date, '
+            'received_date, interstate, gst_pct, tds_pct, subtotal, '
+            'tax_amount, tds_amount, total_amount, net_payable, status, notes) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (str(header.get('invoice_no') or ''),
+             _id('vendor_id'), _id('purchase_order_id'),
+             str(header.get('invoice_date') or ''),
+             str(header.get('received_date') or ''),
+             1 if interstate else 0, gst_pct, tds_pct, subtotal,
+             totals['tax_amount'], totals['tds_amount'],
+             totals['total_amount'], totals['net_payable'],
+             str(header.get('status') or 'Received'),
+             str(header.get('notes') or '')))
+        vid = cur.lastrowid
+        item_ids = []
+        for line in parsed_lines:
+            if not line['description']:
+                continue
+            cur = conn.execute(
+                'INSERT INTO vendor_invoice_items '
+                '(vendor_invoice_id, description, unit, qty, rate, amount) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                (vid, line['description'], line['unit'],
+                 line['qty'], line['rate'], line['amount']))
+            item_ids.append(cur.lastrowid)
+        auth.audit(conn, sess['username'], 'vendor_invoice_confirm',
+                   'vendor_invoices', vid,
+                   detail='{} lines'.format(len(item_ids)), origin=origin)
+        conn.commit()
+        return _ok({
+            'id': vid, 'item_ids': item_ids, 'totals': totals,
+            'subtotal': subtotal,
+        }, status=201)
+    finally:
+        conn.close()
+
+
+def _pdf_extract(request):
+    """POST /api/pdf/extract — {path} → text via local pdftotext (soft-fail)."""
+    body = _payload(request)
+    path = body.get('path') or ''
+    result = pdf_text.extract_text(path, max_pages=body.get('max_pages'))
+    result['available'] = pdf_text.available()
+    return _ok(result)
+
+
 def _capture_draft(request, sess):
     """POST /api/capture/draft — stage extracted fields for human review."""
     body = _payload(request)
@@ -1878,12 +2090,14 @@ def _confirm_snag(sess, record, draft, origin):
         row = conn.execute(
             'SELECT * FROM snags WHERE id = ?', (new_id,)
         ).fetchone()
+        reacted = event_hooks.react(
+            followups.SNAG_RAISED, payload={'snag_id': new_id})
         return _ok({
             'id': new_id, 'target': 'snag',
             'record': _row(row),
             'origin': capture.origin_of(draft),
-            'followups': [],
-            'gated_count': 0,
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
         }, status=201)
     finally:
         conn.close()

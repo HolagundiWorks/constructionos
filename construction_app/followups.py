@@ -24,10 +24,12 @@ PAYMENT_DUE = 'payment_due'
 RA_BILL_APPROVED = 'ra_bill_approved'
 NCR_RAISED = 'ncr_raised'
 ATTENDANCE_SAVED = 'attendance_saved'
+SNAG_RAISED = 'snag_raised'
+RUNNING_BILL_APPROVED = 'running_bill_approved'
 
 EVENTS = (GRN_SAVED, ACTIVITY_COMPLETE, FILING_DUE, MEASUREMENT_ENTERED,
           VARIATION_APPROVED, PAYMENT_DUE, RA_BILL_APPROVED, NCR_RAISED,
-          ATTENDANCE_SAVED)
+          ATTENDANCE_SAVED, SNAG_RAISED, RUNNING_BILL_APPROVED)
 
 
 def _f(action, where, gated=False):
@@ -98,6 +100,20 @@ def for_event(event_type, payload=None):
         return [
             _f('Recompute weekly payout / muster totals for the site.',
                'Operations › Muster & Wages'),
+        ]
+    if event_type == SNAG_RAISED:
+        return [
+            _f('Assign trade owner and target date; block handover if Blocker.',
+               'Operations › Closeout'),
+            _f('Add to weekly look-ahead if the fix is on the critical path.',
+               'Project Management › Look-ahead'),
+        ]
+    if event_type == RUNNING_BILL_APPROVED:
+        return [
+            _f('Issue / update the tax invoice for the approved running bill.',
+               'Billing › Tax Invoice', gated=True),
+            _f('Refresh retention and party balances.',
+               'Money › Retention'),
         ]
     return []
 

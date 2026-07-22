@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Finish cloud track: U0.6 GRN confirm, vendor invoice, PDF text
+
+- **GRN confirm.** `POST /api/grn/confirm` writes Draft GRN + lines (no stock
+  post) and returns `GRN_SAVED` follow-ups.
+- **Vendor invoice floor.** `vendor_invoice_draft` + `/api/vendor_invoice/draft|confirm`
+  with `finance.invoice_totals`.
+- **PDF text.** `pdf_text.py` + `POST /api/pdf/extract` via local `pdftotext`
+  (soft-fail).
+- **Events.** `SNAG_RAISED`, `RUNNING_BILL_APPROVED` + API/GUI wiring
+  (snag confirm, bills create, Blocker snag save, running-bill approve).
+- **Cloud track closed** for deterministic floors; remaining work is local
+  (display smoke, WinUI build/MSIX, model weights, SSO).
+
+---
+
 ## 2026-07-22 — Continue: U0.5 GRN draft, signal suggest, mobile modes
 
 - **GRN draft floor.** `material_match` + `grn_draft` + `POST /api/grn/draft`

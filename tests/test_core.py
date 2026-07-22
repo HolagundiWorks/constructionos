@@ -107,6 +107,8 @@ import pattern_learn
 import material_match
 import grn_draft
 import signal_suggest
+import pdf_text
+import vendor_invoice_draft
 
 
 class TestFinance(unittest.TestCase):
@@ -1610,6 +1612,32 @@ class TestSignalSuggest(unittest.TestCase):
                     os.remove(path + ext)
                 except OSError:
                     pass
+
+
+class TestPdfText(unittest.TestCase):
+    def test_missing_file_soft_fails(self):
+        r = pdf_text.extract_text('/no/such/file.pdf')
+        self.assertFalse(r['ok'])
+        self.assertEqual(r['text'], '')
+
+
+class TestVendorInvoiceDraft(unittest.TestCase):
+    def test_parse_lines_and_totals(self):
+        text = ('Invoice INV-9 2026-07-22 GST 18%\n'
+                '1. Cement bags 10 350\n'
+                '2. Sand cum 5 1200')
+        d = vendor_invoice_draft.draft_from_text(text)
+        self.assertEqual(d['header']['invoice_no'], 'INV-9')
+        self.assertEqual(len(d['lines']), 2)
+        self.assertEqual(d['subtotal'], 10 * 350 + 5 * 1200)
+        self.assertIn('net_payable', d['totals'])
+
+
+class TestFollowupsSnagAndBill(unittest.TestCase):
+    def test_new_events(self):
+        self.assertTrue(followups.for_event(followups.SNAG_RAISED))
+        self.assertTrue(any(
+            f['gated'] for f in followups.for_event(followups.RUNNING_BILL_APPROVED)))
 
 
 class TestAuditOrigin(unittest.TestCase):

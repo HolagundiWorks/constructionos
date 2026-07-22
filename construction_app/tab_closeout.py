@@ -21,6 +21,8 @@ from tkinter import ttk, messagebox
 
 import bill_export
 import closeout
+import event_hooks
+import followups
 import report_open
 import retention
 from crud_frame import CrudFrame, Field
@@ -49,9 +51,31 @@ def build_snag_list(parent, db_getter):
         Field('verified_by', 'Verified by'),
         Field('remarks', 'Remarks'),
     ]
+
+    def _on_snag_save(conn, row_id, values):
+        # Only nudge on Blocker opens — avoid spam on every punch-list edit.
+        if (values.get('status') or closeout.OPEN) != closeout.OPEN:
+            return
+        if (values.get('severity') or '') != closeout.BLOCKER:
+            return
+        try:
+            result = event_hooks.react(followups.SNAG_RAISED, {
+                'snag_id': row_id, 'severity': values.get('severity')})
+            steps = result.get('followups') or []
+            if not steps:
+                return
+            lines = ['• {} — {}'.format(f.get('action', ''), f.get('where', ''))
+                     for f in steps]
+            messagebox.showinfo(
+                'Suggested next steps',
+                'Blocker snag saved. Draft follow-ups:\n\n' + '\n'.join(lines))
+        except Exception:
+            pass
+
     return CrudFrame(parent, db_getter, 'snags', fields,
                      'Snag / punch list — Verified is the client agreeing, '
-                     'not you claiming', order_by='status, severity DESC, id DESC')
+                     'not you claiming', order_by='status, severity DESC, id DESC',
+                     on_save=_on_snag_save)
 
 
 class HandoverView(ttk.Frame):
