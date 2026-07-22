@@ -89,6 +89,16 @@ def to_record(draft):
     return {f['name']: f['value'] for f in draft.get('fields', [])}
 
 
+def origin_of(draft):
+    """Audit-origin tag for a confirmed capture draft: ``'ai'`` if any field
+    still carries an AI source, else ``'manual'``. A human override flips that
+    field to manual; a fully overridden draft is therefore manual."""
+    fields = draft.get('fields') or []
+    if any(f.get('source') == AI for f in fields):
+        return AI
+    return MANUAL
+
+
 def confidence_summary(draft):
     """A quick read on how much to trust a draft: lowest and average confidence,
     and how many fields need review — so a UI can say 'looks clean' or 'check

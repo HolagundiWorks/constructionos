@@ -753,6 +753,61 @@ class TestWebApi(unittest.TestCase):
             '/api/project/999/evm', cookies={'cosid': sid}))
         self.assertEqual(resp.status, 404)
 
+    def test_lessons_crud(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        resp = self.webapp.handle(self._req(
+            '/api/lessons', 'POST', cookies=cookies,
+            json_body={'title': 'Tag costs early', 'outcome': 'positive',
+                       'recommendation': 'Always tag project_id on issues'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        lesson = self._json(resp)
+        self.assertEqual(lesson['title'], 'Tag costs early')
+        lid = lesson['id']
+        resp = self.webapp.handle(self._req('/api/lessons', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['items']), 1)
+        resp = self.webapp.handle(self._req(
+            '/api/lessons/{}'.format(lid), 'PUT', cookies=cookies,
+            json_body={'status': 'Applied'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['status'], 'Applied')
+
+    def test_events_and_signal_feed(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        resp = self.webapp.handle(self._req(
+            '/api/events', 'POST', cookies=cookies,
+            json_body={'event': 'grn_saved', 'payload': {'grn_id': 1}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertTrue(body['followups'])
+        self.assertEqual(body['gated_count'], 0)
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/feed', 'POST', cookies=cookies,
+            json_body={
+                'drift': {
+                    'drifting': True, 'score': 4, 'confidence': 'Low',
+                    'signals': [{'signal': 'plan reliability falling',
+                                 'basis': '4 periods'}],
+                },
+                'apply': True,
+            },
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertEqual(len(body['drafts']), 1)
+        self.assertEqual(len(body['applied_ids']), 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/audit', cookies=cookies, query={'origin': 'ai'}))
+        self.assertEqual(resp.status, 200)
+        self.assertTrue(self._json(resp)['items'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

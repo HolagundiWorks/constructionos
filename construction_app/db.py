@@ -476,7 +476,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     action TEXT,
     entity TEXT,
     entity_id TEXT,
-    detail TEXT
+    detail TEXT,
+    origin TEXT
 );
 
 -- --------------------------------------------- GST tax invoices (outward)
@@ -1411,6 +1412,9 @@ _ADD_COLUMNS = [
     ('risks', 'response', 'TEXT'),
     ('risks', 'action_plan', 'TEXT'),
     ('risks', 'target_date', 'TEXT'),
+    # AI-origin tagging (E0.3 / cloud C3): distinguish AI-drafted actions from
+    # human ones in the audit trail. NULL on older rows = untagged/legacy.
+    ('audit_log', 'origin', 'TEXT'),
 ]
 
 

@@ -17,12 +17,15 @@ import re
 import advisory
 import auth
 import dashboard
+import event_hooks
 import evm
+import lessons_store
 import menu
 import modules
 import opportunity_store
 import review_assemble
 import risk_store
+import signal_feed
 import web_masters
 import webapp
 import workflow
@@ -35,6 +38,7 @@ _API_MASTERS = (
 
 _RISK_ID = re.compile(r'^risks/(\d+)$')
 _OPP_ID = re.compile(r'^opportunities/(\d+)$')
+_LESSON_ID = re.compile(r'^lessons/(\d+)$')
 _MASTER_ID = re.compile(
     r'^(' + '|'.join(_API_MASTERS) + r')/(\d+)$')
 _PROJECT_EVM = re.compile(r'^project/(\d+)/evm$')
@@ -82,6 +86,30 @@ def handle(request, sess):
     m = _PROJECT_EVM.match(path)
     if m and method == 'GET':
         return _evm_project(int(m.group(1)))
+
+    if path == 'events' and method == 'POST':
+        return _post_event(request, sess)
+
+    if path == 'signals/feed' and method == 'POST':
+        return _post_signal_feed(request, sess)
+
+    if path == 'audit' and method == 'GET':
+        return _list_audit(request)
+
+    if path == 'lessons':
+        if method == 'GET':
+            return _list_lessons(request)
+        if method == 'POST':
+            return _create_lesson(request, sess)
+    m = _LESSON_ID.match(path)
+    if m:
+        lid = int(m.group(1))
+        if method == 'GET':
+            return _get_lesson(lid)
+        if method == 'PUT':
+            return _update_lesson(request, sess, lid)
+        if method == 'DELETE':
+            return _delete_lesson(request, sess, lid)
 
     if path == 'risks':
         if method == 'GET':
@@ -332,10 +360,13 @@ def _create_risk(request, sess):
         return denied
     fields = _payload(request)
     fields.pop('csrf', None)
+    origin = auth.ORIGIN_AI if fields.get('source') == 'ai' else auth.ORIGIN_MANUAL
     conn = _conn()
     try:
         new_id = risk_store.add(conn, **fields)
-        auth.audit(conn, sess['username'], 'api_create', 'risks', new_id)
+        auth.audit(conn, sess['username'], 'api_create', 'risks', new_id,
+                   origin=origin)
+        conn.commit()
         return _ok(_row(risk_store.get(conn, new_id)), status=201)
     finally:
         conn.close()
@@ -581,5 +612,169 @@ def _delete_master(request, sess, table, rid):
                         .format(exc), 409)
         auth.audit(conn, sess['username'], 'api_delete', table, rid)
         return _ok({'deleted': rid})
+    finally:
+        conn.close()
+
+
+# ------------------------------------------------------- lessons / events / feed
+def _list_lessons(request):
+    conn = _conn()
+    try:
+        project_id = request.query.get('project_id')
+        status = request.query.get('status')
+        category = request.query.get('category')
+        pid = int(project_id) if project_id not in (None, '') else None
+        rows = lessons_store.list_lessons(
+            conn, project_id=pid, category=category or None,
+            status=status or None)
+        return _ok({
+            'items': _rows(rows),
+            'summary': lessons_store.summary(conn, project_id=pid),
+            'feed_forward': _rows(lessons_store.feed_forward(conn, project_id=pid)),
+        })
+    finally:
+        conn.close()
+
+
+def _get_lesson(lid):
+    conn = _conn()
+    try:
+        row = lessons_store.get(conn, lid)
+        if row is None:
+            return _err('Lesson not found', 404)
+        return _ok(_row(row))
+    finally:
+        conn.close()
+
+
+def _create_lesson(request, sess):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    fields = _payload(request)
+    fields.pop('csrf', None)
+    conn = _conn()
+    try:
+        new_id = lessons_store.add(conn, **fields)
+        auth.audit(conn, sess['username'], 'api_create', 'lessons_learned',
+                   new_id, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(_row(lessons_store.get(conn, new_id)), status=201)
+    finally:
+        conn.close()
+
+
+def _update_lesson(request, sess, lid):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    fields = _payload(request)
+    fields.pop('csrf', None)
+    conn = _conn()
+    try:
+        if lessons_store.get(conn, lid) is None:
+            return _err('Lesson not found', 404)
+        lessons_store.update(conn, lid, **fields)
+        auth.audit(conn, sess['username'], 'api_update', 'lessons_learned',
+                   lid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(_row(lessons_store.get(conn, lid)))
+    finally:
+        conn.close()
+
+
+def _delete_lesson(request, sess, lid):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        if lessons_store.get(conn, lid) is None:
+            return _err('Lesson not found', 404)
+        lessons_store.delete(conn, lid)
+        auth.audit(conn, sess['username'], 'api_delete', 'lessons_learned',
+                   lid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'deleted': lid})
+    finally:
+        conn.close()
+
+
+def _post_event(request, sess):
+    """POST /api/events — {event, payload?, apply_risks?, snapshot?}
+
+    Returns follow-ups + optional detected risks. When ``apply_risks`` is true
+    and the caller can write, detected risks are persisted as AI drafts.
+    """
+    body = _payload(request)
+    event = (body.get('event') or '').strip()
+    if not event:
+        return _err('event is required', 400)
+    payload = body.get('payload') if isinstance(body.get('payload'), dict) else {}
+    snapshot = body.get('snapshot')
+    if snapshot is None and body.get('include_detect'):
+        # Collect a live snapshot when asked — keeps the client thin.
+        conn = _conn()
+        try:
+            snapshot = dashboard.collect(conn)
+        finally:
+            conn.close()
+    result = event_hooks.react(event, payload=payload, snapshot=snapshot)
+    applied = []
+    if body.get('apply_risks') and result['risks']:
+        denied = _require_write(request, sess)
+        if denied:
+            return denied
+        conn = _conn()
+        try:
+            applied = event_hooks.apply_risk_drafts(
+                conn, result['risks'], username=sess['username'])
+        finally:
+            conn.close()
+    result['applied_risk_ids'] = applied
+    return _ok(result)
+
+
+def _post_signal_feed(request, sess):
+    """POST /api/signals/feed — prediction signals → draft risks.
+
+    Body keys (all optional): ``drift``, ``schedule_forecast``, ``cost_trend``,
+    ``project_id``, ``ld_exposure``, ``apply`` (default true).
+    """
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    drafts = signal_feed.collect(
+        drift=body.get('drift'),
+        schedule_forecast=body.get('schedule_forecast'),
+        cost_trend=body.get('cost_trend'),
+        project_id=body.get('project_id'),
+        ld_exposure=body.get('ld_exposure') or 0,
+    )
+    apply = body.get('apply', True)
+    ids = []
+    if apply and drafts:
+        conn = _conn()
+        try:
+            ids = signal_feed.apply_drafts(
+                conn, drafts, username=sess['username'])
+        finally:
+            conn.close()
+    return _ok({'drafts': drafts, 'applied_ids': ids,
+                'applied': bool(apply and ids)})
+
+
+def _list_audit(request):
+    origin = request.query.get('origin') or None
+    try:
+        limit = int(request.query.get('limit') or 100)
+    except ValueError:
+        limit = 100
+    limit = max(1, min(limit, 500))
+    conn = _conn()
+    try:
+        rows = auth.recent_audit(conn, limit=limit, origin=origin)
+        return _ok({'items': _rows(rows)})
     finally:
         conn.close()

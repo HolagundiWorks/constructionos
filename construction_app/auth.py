@@ -163,23 +163,42 @@ def authenticate(conn, username, password):
 
 
 # ------------------------------------------------------------------- audit
-def audit(conn, username, action, entity=None, entity_id=None, detail=None):
-    """Append an audit-log row. Best-effort — never raises into the caller."""
+# Origin tags for "what did the AI touch?" — E0.3 / cloud C3. MANUAL is the
+# default for human actions; AI marks drafts/detections a model or rule raised;
+# None leaves the column NULL (legacy / unknown).
+ORIGIN_MANUAL = 'manual'
+ORIGIN_AI = 'ai'
+
+
+def audit(conn, username, action, entity=None, entity_id=None, detail=None,
+          origin=None):
+    """Append an audit-log row. Best-effort — never raises into the caller.
+
+    ``origin`` is ``'manual'``, ``'ai'``, or None (untagged). AI-drafted writes
+    and detections should pass ``origin='ai'`` so the trail can answer "what
+    did the AI touch and who confirmed it".
+    """
     try:
         conn.execute(
             'INSERT INTO audit_log (ts, username, action, entity, entity_id, '
-            'detail) VALUES (?, ?, ?, ?, ?, ?)',
+            'detail, origin) VALUES (?, ?, ?, ?, ?, ?, ?)',
             (datetime.now().isoformat(timespec='seconds'), username or '-',
              action, entity, str(entity_id) if entity_id is not None else None,
-             detail))
+             detail, origin))
     except Exception:
         pass
 
 
-def recent_audit(conn, limit=200):
+def recent_audit(conn, limit=200, origin=None):
+    """Recent audit rows, newest first. Optional ``origin`` filter ('ai'/'manual')."""
+    if origin:
+        return conn.execute(
+            'SELECT ts, username, action, entity, entity_id, detail, origin '
+            'FROM audit_log WHERE origin = ? ORDER BY id DESC LIMIT ?',
+            (origin, limit)).fetchall()
     return conn.execute(
-        'SELECT ts, username, action, entity, entity_id, detail FROM audit_log '
-        'ORDER BY id DESC LIMIT ?', (limit,)).fetchall()
+        'SELECT ts, username, action, entity, entity_id, detail, origin '
+        'FROM audit_log ORDER BY id DESC LIMIT ?', (limit,)).fetchall()
 
 
 def session_roles():
