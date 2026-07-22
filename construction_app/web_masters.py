@@ -19,6 +19,9 @@ A field is a plain dict:
 """
 
 
+from datetime import date
+
+
 def _f(key, label, kind='text', options=None, fk_sql=None, default='',
        required=False):
     return {'key': key, 'label': label, 'kind': kind, 'options': options or [],
@@ -26,6 +29,9 @@ def _f(key, label, kind='text', options=None, fk_sql=None, default='',
 
 
 _SITES = 'SELECT id, name FROM sites ORDER BY name'
+_CLIENTS = 'SELECT id, name FROM clients ORDER BY name'
+_PROJECTS = 'SELECT id, name FROM projects ORDER BY name'
+_CONTRACTS = 'SELECT id, contract_no FROM contracts ORDER BY id DESC'
 
 # table -> {label, fields}. Order and wording follow the desktop tabs.
 MASTERS = {
@@ -84,7 +90,91 @@ MASTERS = {
            default='0'),
         _f('last_service_date', 'Last Serviced On'),
     ]},
+    'projects': {'label': 'Project', 'fields': [
+        _f('name', 'Project name', required=True),
+        _f('client_id', 'Client', 'fk', fk_sql=_CLIENTS),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('start_date', 'Start date'),
+        _f('end_date', 'End date'),
+        _f('budget', 'Budget', 'number', default='0'),
+        _f('status', 'Status', 'combo',
+           options=['Active', 'On Hold', 'Completed', 'Cancelled'],
+           default='Active'),
+        _f('contract_value', 'Contract value (for LDs)', 'number', default='0'),
+        _f('ld_pct_per_week', 'LD % per week', 'number', default='0.5'),
+        _f('ld_cap_pct', 'LD cap %', 'number', default='10'),
+        _f('eot_granted_days', 'Extension granted (days)', 'number',
+           default='0'),
+        _f('notes', 'Notes', 'textarea'),
+    ]},
+    'milestones': {'label': 'Milestone', 'fields': [
+        _f('project_id', 'Project', 'fk', fk_sql=_PROJECTS),
+        _f('name', 'Milestone', required=True),
+        _f('target_date', 'Target date'),
+        _f('actual_date', 'Actual date'),
+        _f('amount', 'Amount', 'number', default='0'),
+        _f('status', 'Status', 'combo', options=['Pending', 'Done'],
+           default='Pending'),
+        _f('notes', 'Notes', 'textarea'),
+    ]},
+    'rate_book': {'label': 'Rate Item', 'fields': [
+        _f('code', 'Code'),
+        _f('category', 'Category'),
+        _f('description', 'Description', 'textarea', required=True),
+        _f('unit', 'Unit'),
+        _f('rate', 'Rate', 'number', default='0'),
+        _f('specification', 'Specification', 'textarea'),
+    ]},
+    'thekedars': {'label': 'Thekedar', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('phone', 'Phone'),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('skill_type', 'Skill / trade'),
+        _f('status', 'Status', 'combo', options=['Active', 'Inactive'],
+           default='Active'),
+    ]},
+    'snags': {'label': 'Snag', 'fields': [
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('contract_id', 'Contract', 'fk', fk_sql=_CONTRACTS),
+        _f('snag_no', 'Snag no'),
+        _f('raised_date', 'Raised', default='@today'),
+        _f('location', 'Location / element'),
+        _f('description', 'Defect', 'textarea', required=True),
+        _f('trade', 'Trade'),
+        _f('severity', 'Severity', 'combo',
+           options=['Minor', 'Major', 'Blocker'], default='Minor'),
+        _f('assigned_to', 'Assigned to'),
+        _f('target_date', 'Fix by'),
+        _f('status', 'Status', 'combo',
+           options=['Open', 'Fixed', 'Verified'], default='Open'),
+        _f('fixed_date', 'Fixed on'),
+        _f('verified_date', 'Verified on'),
+        _f('verified_by', 'Verified by'),
+        _f('remarks', 'Remarks', 'textarea'),
+    ]},
+    'ncrs': {'label': 'NCR', 'fields': [
+        _f('ncr_no', 'NCR no'),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('raised_date', 'Raised', default='@today'),
+        _f('raised_by', 'Raised by'),
+        _f('description', 'Non-conformance', 'textarea', required=True),
+        _f('severity', 'Severity', 'combo',
+           options=['Minor', 'Major', 'Critical'], default='Minor'),
+        _f('root_cause', 'Root cause', 'textarea'),
+        _f('corrective_action', 'Corrective action', 'textarea'),
+        _f('preventive_action', 'Preventive action', 'textarea'),
+        _f('status', 'Status', 'combo', options=['Open', 'Closed'],
+           default='Open'),
+        _f('closed_date', 'Closed on'),
+        _f('closed_by', 'Closed by'),
+    ]},
 }
+
+
+def resolve_default(default):
+    """A form-field's starting value, resolving the ``@today`` sentinel to the
+    current date (parallels ``web_docs.resolve_default``)."""
+    return date.today().isoformat() if default == '@today' else default
 
 
 def is_master(table):

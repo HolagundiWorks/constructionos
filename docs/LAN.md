@@ -18,12 +18,27 @@ browser — the same fields as the desktop, built from one shared spec
 (`web_masters.py`, checked against the live schema by a test so the two can't
 drift):
 
-* **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**.
+* **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**,
+  **Thekedars**, **Projects**, **Milestones**, the **Rate Book**, and the
+  on-site logs — **Snags** (punch list) and **NCRs** (non-conformance), whose
+  *Raised* date defaults to today.
 * **Estimates** — header + line items (add/remove rows in the browser). The
   roll-up (subtotal → contingency → GST → grand total) is the same pure
   `estimate.estimate_totals` the desktop uses, and estimates never post to the
-  ledger, so this is safe. Bills / RA bills (which *do* post to the double-entry
-  ledger) stay desktop-only until that engine is wired in.
+  ledger. Each estimate has a **Print / Save as PDF** link that serves the fully
+  formatted document (`bill_export.build_estimate_html`, the same as the desktop)
+  for the browser to print or save.
+* **Money documents that post** — **payments, tax invoices, vendor invoices,
+  running bills and RA bills** (`web_docs.py`). The browser writes the document
+  with the same derived amounts the desktop computes (GST, TDS, net payable,
+  retention; RA bills reuse `civil.ra_bill_totals` for the CPWA Form-26 recovery
+  block — security deposit + income-tax TDS + labour cess), then posts through
+  the shared, idempotent `journal_post.post_all` — so the double entry comes from
+  the desktop's `posting.py` rules, never re-implemented here. **Create + view**
+  only (records of fact), and posting is state-gated: a *Draft* saves without
+  posting. For an RA bill the browser records the value + recoveries; the
+  detailed **Measurement Book** (per-item measurements, part-rates, the printed
+  Form 23/26) stays on the desktop.
 
 Writes are gated: a **Viewer** sees the data but no edit buttons and is refused
 (403) if it POSTs anyway; only **Operator**/**Admin** may change data. Every form

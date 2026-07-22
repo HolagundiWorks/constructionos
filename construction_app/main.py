@@ -44,6 +44,10 @@ from tab_bidding import build_bidding_tab
 from tab_rateanalysis import build_rate_analysis_tab
 from tab_takeoff import build_takeoff_tab
 from tab_projects import build_projects_tab
+from tab_evm import build_evm_tab
+from tab_risk import build_risk_tab
+from tab_opportunity import build_opportunity_tab
+from tab_review import build_review_tab
 from tab_billing import BillingTab
 from tab_tax_invoice import build_tax_invoice_tab
 from tab_boq_ra import build_boq_ra_tab
@@ -82,6 +86,9 @@ BUILDERS = {
     'Labour': build_labor_tab,
     'Equipment': build_equipment_tab,
     'Projects': build_projects_tab,
+    'Earned Value': build_evm_tab,
+    'Risks': build_risk_tab,
+    'Opportunities': build_opportunity_tab,
     'Warehouse': build_warehouse_tab,
     'Muster & Wages': build_muster_tab,
     'Labour Ops': build_labor_ops_tab,
@@ -116,6 +123,7 @@ BUILDERS = {
     'Cash Flow': build_cashflow_tab,
     'Retention': build_retention_tab,
     'Insight': build_insight_tab,
+    'Review': build_review_tab,
     'GST & TDS': build_gst_tab,
     'Compliance': build_compliance_tab,
     'Accounting': build_accounting_tab,
@@ -129,7 +137,8 @@ MODULE_ICONS = {
     'Sites': '\U0001F4CD', 'Clients': '\U0001F91D', 'Vendors': '\U0001F3ED',
     'Materials': '\U0001F9F1', 'Labour': '\U0001F477', 'Equipment': '\U0001F69C',
     # Projects
-    'Projects': '\U0001F3D7',
+    'Projects': '\U0001F3D7', 'Earned Value': '\U0001F4C8', 'Risks': '⚠',
+    'Opportunities': '\U0001F31F',
     # Operations
     'Warehouse': '\U0001F4E6', 'Muster & Wages': '\U0001F4CB',
     'Labour Ops': '\U0001F477', 'Equipment Hire': '\U0001F69C', 'Plant': '⚙',
@@ -149,6 +158,7 @@ MODULE_ICONS = {
     # Money
     'Key Numbers': '\U0001F511', 'Approvals': '✔', 'Cash & Parties': '\U0001F4B0',
     'Cash Flow': '\U0001F4B8', 'Retention': '\U0001F512', 'Insight': '\U0001F4A1',
+    'Review': '\U0001F5DE',
     # Accounts
     'GST & TDS': '\U0001F3DB', 'Compliance': '\U0001F5D3', 'Accounting': '\U0001F4CA',
 }
@@ -178,15 +188,6 @@ def _section(parent, get, items):
         text = '{}  {}'.format(icon, i18n.t(label)) if icon else i18n.t(label)
         sub.add(builder(sub, get), text=text)
     return sub
-
-
-def _ai_section(parent, get):
-    """The Assistant screen: Ask-your-data, plus the folded-in Ollama manager
-    (server + models) — one place for everything AI."""
-    nb = ttk.Notebook(parent)
-    nb.add(build_assistant_tab(nb, get), text='\U0001F4AC  ' + i18n.t('Assistant'))
-    nb.add(build_ollama_tab(nb, get), text='⚙  AI Engine')
-    return nb
 
 
 def main():
@@ -248,6 +249,7 @@ def main():
     icons = {
         'home': '\U0001F3E0',        # house
         'assistant': '\U0001F4AC',   # speech balloon
+        'aiengine': '\U0001F916',    # robot — the local LLM / Ollama manager
         'tools': '⚙',           # gear
         'Masters': '\U0001F5C2',            # card index dividers
         'Project Management': '\U0001F3D7',  # building construction
@@ -265,7 +267,12 @@ def main():
          'build': lambda p: build_home_tab(p, get)},
         {'key': 'assistant', 'label': i18n.t('Assistant'),
          'icon': icons['assistant'],
-         'build': lambda p: _ai_section(p, get)},
+         'build': lambda p: build_assistant_tab(p, get)},
+        # The local LLM / Ollama manager as its own rail row — start/stop the
+        # server, install Ollama, pull or set up the model — so it is found at a
+        # glance rather than buried as a sub-tab.
+        {'key': 'aiengine', 'label': 'AI Engine', 'icon': icons['aiengine'],
+         'build': lambda p: build_ollama_tab(p, get)},
     ]
     for title, labels in modules.SECTIONS_CATALOG:
         items = [(label, BUILDERS[label]) for label in labels

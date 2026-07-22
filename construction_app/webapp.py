@@ -29,11 +29,20 @@ import urllib.parse
 
 import db
 import auth
+import bill_export
 import estimate
+import evm
+import journal_post
+import mb_report
+import review_assemble
+import web_docs
 import web_masters
 import webrender as R
 
-PAGE_SIZE = 50
+# Register lists scroll (with a sticky header) rather than page; this caps how
+# many rows are loaded into one scroll view — beyond it, the count line says so
+# and the user narrows with search.
+MAX_ROWS = 500
 
 # Writable registers beyond the flat-CRUD Masters. Estimates have child line
 # items and a computed total, but (unlike bills) never post to the ledger, so
@@ -42,6 +51,8 @@ _WRITABLE_EXTRA = {'estimates': 'Estimate'}
 
 
 def _is_writable(table):
+    """Editable/deletable in the browser (Masters + estimates). Posting money
+    documents are create-only and handled separately."""
     return web_masters.is_master(table) or table in _WRITABLE_EXTRA
 
 
@@ -49,6 +60,18 @@ def _writable_label(table):
     if web_masters.is_master(table):
         return web_masters.label(table)
     return _WRITABLE_EXTRA.get(table, _label(table))
+
+
+def _can_create(table):
+    """Anything the browser can add a new row to: Masters, estimates, and the
+    postable money documents (payments, invoices, running bills)."""
+    return _is_writable(table) or web_docs.is_doc(table)
+
+
+def _create_label(table):
+    if web_docs.is_doc(table):
+        return web_docs.label(table)
+    return _writable_label(table)
 
 # Tables never exposed over the network: the password hashes, app config, and
 # SQLite's own bookkeeping.
@@ -66,14 +89,18 @@ _LABELS = {
     'bid_assessments': 'Bid / No-Bid', 'takeoffs': 'Takeoffs',
     'purchase_orders': 'Purchase Orders', 'grns': 'Goods Receipts',
     'vendor_invoices': 'Vendor Invoices', 'subcontracts': 'Subcontractors',
-    'payments': 'Payments', 'audit_log': 'Audit Log',
+    'payments': 'Payments', 'audit_log': 'Audit Log', 'rate_book': 'Rate Book',
+    'milestones': 'Milestones', 'thekedars': 'Thekedars', 'snags': 'Snags',
+    'ncrs': 'NCRs',
 }
 _GROUPS = [
-    ('Project Management', ['projects', 'timeline_tasks']),
+    ('Project Management', ['projects', 'milestones', 'timeline_tasks']),
     ('Masters', ['sites', 'clients', 'vendors', 'materials', 'labour',
-                 'equipment']),
-    ('Billing', ['estimates', 'quotations', 'contracts', 'bills', 'ra_bills',
-                 'variations', 'tax_invoices', 'takeoffs', 'bid_assessments']),
+                 'equipment', 'thekedars']),
+    ('Billing', ['rate_book', 'estimates', 'quotations', 'contracts', 'bills',
+                 'ra_bills', 'variations', 'tax_invoices', 'takeoffs',
+                 'bid_assessments']),
+    ('Operations', ['snags', 'ncrs']),
     ('Purchases', ['purchase_orders', 'grns', 'vendor_invoices',
                    'subcontracts']),
     ('Money', ['payments']),
@@ -195,7 +222,9 @@ def _pk(cols):
 def _nav(conn):
     """Rail groups, in a stable order, listing only tables that exist here."""
     have = _viewable_tables(conn)
-    nav = [('', [('/', 'Dashboard', 'dashboard')])]
+    nav = [('', [('/', 'Dashboard', 'dashboard'),
+                 ('/evm', 'Earned Value', 'evm'),
+                 ('/review', 'Weekly Review', 'review')])]
     placed = set()
     for group, keys in _GROUPS:
         items = []
@@ -228,6 +257,10 @@ def handle(request):
 
     if path == '/':
         return _dashboard(request, sess)
+    if path == '/evm':
+        return _evm(request, sess)
+    if path == '/review':
+        return _review(request, sess)
     if path == '/t' or path == '/t/':
         return _redirect('/')
     if path.startswith('/t/'):
@@ -366,6 +399,188 @@ def _dashboard_body(s, cards, advisory):
     return ''.join(parts)
 
 
+def _evm(request, sess):
+    """Earned Value, in the browser — the same figures as the desktop tab, read
+    only. Reuses ``evm.portfolio_evm`` so the two surfaces can never disagree."""
+    conn = db.get_conn()
+    try:
+        rows, port = evm.portfolio_evm(conn)
+        return _shell('Earned Value', _evm_body(rows, port), sess, conn,
+                      active='evm')
+    finally:
+        conn.close()
+
+
+def _evm_index(value):
+    return '—' if value is None else '{:.2f}'.format(value)
+
+
+def _evm_pct(value):
+    return '—' if value is None else '{:.0f}%'.format(value)
+
+
+def _evm_health(row):
+    on_budget, on_schedule = row.get('on_budget'), row.get('on_schedule')
+    if on_budget is None and on_schedule is None:
+        return '—'
+    bad = []
+    if on_budget is False:
+        bad.append('over cost')
+    if on_schedule is False:
+        bad.append('behind')
+    return 'On track' if not bad else ' & '.join(bad).capitalize()
+
+
+def _evm_body(rows, port):
+    if not port['projects']:
+        return ('<h1>Earned Value</h1><p class="muted">No projects with a '
+                'contract value or budget yet — add one to measure earned '
+                'value against it.</p>')
+
+    kpis = [
+        ('Projects measured', port['projects']),
+        ('Portfolio CPI', _evm_index(port['cpi'])),
+        ('Portfolio SPI', _evm_index(port['spi'])),
+        ('Over cost', port['over_cost']),
+        ('Behind schedule', port['behind_schedule']),
+        ('EV of BAC', '{} / {}'.format(R.money(port['ev']),
+                                       R.money(port['bac']))),
+    ]
+    kpi_html = ''.join(
+        '<div class="card"><div class="k">{}</div><div class="v">{}</div></div>'
+        .format(R.esc(k), R.esc(v)) for k, v in kpis)
+
+    # Worst cost performance first — the jobs needing attention on top.
+    ordered = sorted(rows, key=lambda r: (r['cpi'] is None, r.get('cpi') or 0))
+    trows = [[
+        r['name'], R.money(r['bac']), R.money(r['pv']), R.money(r['ev']),
+        R.money(r['ac']), _evm_index(r['spi']), _evm_index(r['cpi']),
+        _evm_pct(r['percent_complete']), R.money(r['eac']['default']),
+        R.money(r['vac']), _evm_health(r)] for r in ordered]
+    headers = ['Project', 'BAC', 'PV (planned)', 'EV (earned)', 'AC (actual)',
+               'SPI', 'CPI', '% complete', 'EAC (forecast)', 'VAC', 'Health']
+
+    worst = ''
+    if port['worst_cpi']:
+        worst = '<p class="muted">Worst CPI: {} ({}).</p>'.format(
+            R.esc(port['worst_cpi']), _evm_index(port['worst_cpi_value']))
+    note = ('EV is billed/certified value — work measured but not yet billed '
+            'reads low. PV is the elapsed fraction of each project’s start→end '
+            'window; a baseline programme would give a truer schedule.')
+    return ''.join([
+        '<h1>Earned Value</h1>',
+        '<div class="cards">{}</div>'.format(kpi_html),
+        worst,
+        R.table(headers, trows, scroll=True),
+        '<p class="muted">{}</p>'.format(R.esc(note)),
+    ])
+
+
+def _review(request, sess):
+    """Weekly Review, in the browser — the same assembled pack as the desktop
+    tab, read only. Reuses ``review_assemble.assemble`` so the two agree."""
+    conn = db.get_conn()
+    try:
+        pack = review_assemble.assemble(conn)
+        return _shell('Weekly Review', _review_body(pack), sess, conn,
+                      active='review')
+    finally:
+        conn.close()
+
+
+def _review_body(pack):
+    def li(items):
+        return '<ul>{}</ul>'.format(''.join(
+            '<li>{}</li>'.format(R.esc(x)) for x in items))
+
+    parts = ['<h1>Weekly Review</h1>',
+             '<p class="muted">Generated {} · a draft to read, not a decision '
+             '— nothing here books, files or pays.</p>'.format(
+                 R.esc(pack['generated']))]
+
+    # In plain words
+    parts.append('<h2>In plain words</h2>')
+    parts.append(li(pack['narrative']['kpi'] or ['Nothing notable to report.']))
+    if pack['narrative']['risk']:
+        parts.append('<p class="muted">{}</p>'.format(
+            R.esc(pack['narrative']['risk']).replace('\n', '<br>')))
+
+    # Money at a glance
+    k = pack['kpis']
+    money_cards = [
+        ('Cash in hand', R.money(k['cash'])),
+        ('Receivable', R.money(k['receivable'])),
+        ('Past 90 days', R.money(k['receivable_90plus'])),
+        ('Payable', R.money(k['payable'])),
+        ('Billed this month', R.money(k['billed_this_month'])),
+        ('Collected this month', R.money(k['collected_this_month'])),
+    ]
+    parts.append('<h2>Money at a glance</h2>')
+    parts.append('<div class="cards">{}</div>'.format(''.join(
+        '<div class="card"><div class="k">{}</div><div class="v">{}</div></div>'
+        .format(R.esc(a), R.esc(b)) for a, b in money_cards)))
+
+    # Earned value (portfolio)
+    e = pack.get('evm')
+    if e:
+        parts.append('<h2>Earned value (portfolio)</h2>')
+        parts.append(
+            '<p>{n} project(s) measured · CPI {cpi} · SPI {spi} · {oc} over '
+            'cost · {bh} behind.{worst}</p>'.format(
+                n=e['projects'], cpi=_evm_index(e['cpi']),
+                spi=_evm_index(e['spi']), oc=e['over_cost'],
+                bh=e['behind_schedule'],
+                worst=(' Worst: {} (CPI {}).'.format(
+                    R.esc(e['worst_cpi']), _evm_index(e['worst_cpi_value']))
+                    if e['worst_cpi'] else '')))
+
+    # Advisories
+    adv = pack['advisories']
+    c = adv['counts']
+    parts.append('<h2>Advisories</h2>')
+    parts.append('<p class="muted">{} to act on · {} to watch · {} good · {} '
+                 'info</p>'.format(c.get('act', 0), c.get('watch', 0),
+                                   c.get('good', 0), c.get('info', 0)))
+    for card in adv['cards']:
+        parts.append(
+            '<div class="adv {sev}"><div class="t">{title}</div>'
+            '<div class="m">{detail}</div>'
+            '<div class="m"><strong>Do:</strong> {action} '
+            '<span class="muted">· {where}</span></div></div>'.format(
+                sev=R.esc(card['severity']), title=R.esc(card['title']),
+                detail=R.esc(card['detail']), action=R.esc(card['action']),
+                where=R.esc(card.get('where', ''))))
+
+    # Risks
+    r = pack['risks']
+    parts.append('<h2>Risks</h2>')
+    if not r['count']:
+        parts.append('<p class="muted">No risks flagged on the numbers '
+                     'recorded so far.</p>')
+    else:
+        parts.append('<p class="muted">{} flagged · {} need action now · total '
+                     'expected exposure {}</p>'.format(
+                         r['count'], r['needs_action'],
+                         R.money(r['total_expected_exposure'])))
+        parts.append(li('[{}] {} — {}'.format(
+            t['band'], t.get('title', 'risk'), t.get('basis', ''))
+            for t in r['top']))
+
+    # Opportunities
+    o = pack.get('opportunities')
+    if o and o['count']:
+        parts.append('<h2>Opportunities</h2>')
+        parts.append('<p class="muted">{} logged · {} worth pursuing now · '
+                     'total expected upside {}</p>'.format(
+                         o['count'], o['pursue_now'],
+                         R.money(o['total_expected_value'])))
+        parts.append(li('[{}] {} — expected upside {}'.format(
+            t.get('band', 'Low'), t.get('title', 'opportunity'),
+            R.money(t.get('expected_value'))) for t in o['top']))
+
+    return ''.join(parts)
+
+
 def _table_route(request, sess, rest):
     """Route everything under /t/ — list, record view, and (for the writable
     Masters) new / edit / delete."""
@@ -381,9 +596,15 @@ def _table_route(request, sess, rest):
                          status=404)
         cols = _columns(conn, table)
         if len(segs) == 2 and segs[1] == 'new':
+            if web_docs.is_doc(table):
+                return _doc_create(request, sess, conn, table)
             if table == 'estimates':
                 return _estimate_editor(request, sess, conn, None)
             return _master_create(request, sess, conn, table, cols)
+        if len(segs) == 3 and segs[2] == 'print' and table == 'estimates':
+            return _print_estimate(conn, segs[1])
+        if len(segs) == 3 and table == 'ra_bills' and segs[2] in ('mb', 'ra'):
+            return _print_ra_document(conn, segs[1], segs[2])
         if len(segs) == 3 and segs[2] == 'edit':
             if table == 'estimates':
                 return _estimate_editor(request, sess, conn, segs[1])
@@ -402,10 +623,8 @@ def _register_list(request, conn, sess, table, cols):
     text_cols = [c[0] for c in cols if 'CHAR' in c[1] or 'TEXT' in c[1]
                  or 'CLOB' in c[1] or c[1] == '']
     q = (request.query.get('q') or '').strip()
-    try:
-        page = max(1, int(request.query.get('p') or 1))
-    except ValueError:
-        page = 1
+    show = colnames[:9]     # a manageable width; the record view has every field
+    pk = _pk(cols)
 
     where, params = '', []
     if q and text_cols:
@@ -416,49 +635,63 @@ def _register_list(request, conn, sess, table, cols):
     total = conn.execute(
         'SELECT COUNT(*) AS c FROM "{}"{}'.format(table, where),
         params).fetchone()['c']
-    offset = (page - 1) * PAGE_SIZE
-    # Show a manageable width in the list; the record view has every field.
-    show = colnames[:9]
-    order = ' ORDER BY "{}" DESC'.format(_pk(cols)) if _pk(cols) else ''
-    rows = conn.execute(
-        'SELECT {} FROM "{}"{}{} LIMIT ? OFFSET ?'.format(
-            ', '.join('"{}"'.format(c) for c in show), table, where, order),
-        params + [PAGE_SIZE, offset]).fetchall()
 
-    pk = _pk(cols)
+    # Sort: the column must be one on screen (identifiers come only from that
+    # trusted set, never the raw query value). Default is newest-first by pk.
+    sort = request.query.get('sort') or ''
+    if sort not in show:
+        sort = ''
+    direction = 'asc' if request.query.get('dir') == 'asc' else 'desc'
+    if sort:
+        order = ' ORDER BY "{}" {}'.format(sort, 'ASC' if direction == 'asc'
+                                           else 'DESC')
+    elif pk:
+        order = ' ORDER BY "{}" DESC'.format(pk)
+    else:
+        order = ''
+
+    # Scroll, not pages: fetch a generous window and let the table scroll; if
+    # there is more, say so (honest, not silently truncated).
+    rows = conn.execute(
+        'SELECT {} FROM "{}"{}{} LIMIT ?'.format(
+            ', '.join('"{}"'.format(c) for c in show), table, where, order),
+        params + [MAX_ROWS]).fetchall()
+
     data = [[r[c] for c in show] for r in rows]
     link = None
     if pk:
         ids = [r[pk] for r in rows]
         link = lambda i: '/t/{}/{}'.format(table, ids[i])
 
+    def sort_href(col):
+        # first click on a column sorts ascending; clicking it again flips
+        nd = 'desc' if (sort == col and direction == 'asc') else 'asc'
+        parts = (['q=' + urllib.parse.quote(q)] if q else []) + [
+            'sort=' + urllib.parse.quote(col), 'dir=' + nd]
+        return '/t/{}?{}'.format(table, '&'.join(parts))
+
+    header_links = [(sort_href(c),
+                     ('' if sort != c else (' ▲' if direction == 'asc' else ' ▼')))
+                    for c in show]
+
     add_btn = ''
-    if _is_writable(table) and can_write(sess['role']):
+    if _can_create(table) and can_write(sess['role']):
         add_btn = '<a class="btn" href="/t/{tbl}/new">+ New {lbl}</a>'.format(
-            tbl=R.esc(table), lbl=R.esc(_writable_label(table)))
+            tbl=R.esc(table), lbl=R.esc(_create_label(table)))
+    count_txt = ('{} record(s)'.format(total) if total <= MAX_ROWS else
+                 'showing first {} of {} — search to narrow'.format(len(data),
+                                                                    total))
     search = (
         '<div class="toolbar"><form method="get" action="/t/{tbl}">'
         '<input type="search" name="q" placeholder="Search {lbl}…" value="{q}">'
         '<button class="btn ghost" type="submit">Search</button></form>'
-        '<span class="muted">{total} record(s)</span>{add}</div>'
-    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q), total=total,
-             add=add_btn)
+        '<span class="muted">{count}</span>{add}</div>'
+    ).format(tbl=R.esc(table), lbl=R.esc(_label(table)), q=R.esc(q),
+             count=R.esc(count_txt), add=add_btn)
 
     body = ['<h1>{}</h1>'.format(R.esc(_label(table))), search,
-            R.table([_label(c) for c in show], data, link=link)]
-
-    pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    if pages > 1:
-        nav = ['<div class="pager">']
-        base = '/t/{}?{}p='.format(table, ('q=' + urllib.parse.quote(q) + '&') if q else '')
-        if page > 1:
-            nav.append('<a href="{}{}">‹ Prev</a>'.format(base, page - 1))
-        nav.append('<span>Page {} of {}</span>'.format(page, pages))
-        if page < pages:
-            nav.append('<a href="{}{}">Next ›</a>'.format(base, page + 1))
-        nav.append('</div>')
-        body.append(''.join(nav))
-
+            R.table([_label(c) for c in show], data, link=link,
+                    header_links=header_links, scroll=True)]
     return _shell(_label(table), ''.join(body), sess, conn, active=table)
 
 
@@ -484,7 +717,19 @@ def _record(conn, sess, table, cols, rid):
             delete=R.post_button(
                 '/t/{}/{}/delete'.format(table, rid), sess['csrf'], 'Delete',
                 confirm='Delete this {}?'.format(_writable_label(table))))
-    extra = _estimate_lines_html(conn, rid) if table == 'estimates' else ''
+    extra = ''
+    if table == 'estimates':
+        extra = ('<p><a class="btn ghost" href="/t/estimates/{rid}/print" '
+                 'target="_blank" rel="noopener">Print / Save as PDF</a></p>'
+                 '{lines}').format(rid=R.esc(rid),
+                                   lines=_estimate_lines_html(conn, rid))
+    elif table == 'ra_bills':
+        extra = ('<p><a class="btn ghost" href="/t/ra_bills/{rid}/mb" '
+                 'target="_blank" rel="noopener">Measurement Book (Form 23)</a> '
+                 '<a class="btn ghost" href="/t/ra_bills/{rid}/ra" '
+                 'target="_blank" rel="noopener">RA abstract (PWD Form 26)</a>'
+                 '</p>{items}').format(rid=R.esc(rid),
+                                       items=_ra_items_html(conn, rid))
     body = ('<h1>{lbl} #{rid}</h1><p><a class="btn ghost" href="/t/{tbl}">'
             '‹ Back to {lbl}</a></p>{actions}<dl class="dl">{items}</dl>'
             '{extra}').format(
@@ -519,7 +764,7 @@ def _master_form(conn, sess, table, row, errs=None, submitted=None):
         elif editing:
             val = row[f['key']]
         else:
-            val = f['default']
+            val = web_masters.resolve_default(f['default'])
         options = None
         if f['kind'] == 'fk':
             options = web_masters.fk_options(conn, f['fk_sql'])
@@ -858,3 +1103,138 @@ def _estimate_form(conn, sess, rid, row, lines, errs, submitted):
     ).format(title=R.esc(title), errs=R.errors(errs), action=R.esc(action),
              csrf=R.esc(sess['csrf']), header=header, rows=rows_html, blank=blank)
     return _shell(title, body, sess, conn, active='estimates')
+
+
+def _seller(conn):
+    """Firm identity for a printed document, from app_settings — the same three
+    fields the desktop's estimate/invoice export uses."""
+    rows = {r['key']: r['value'] for r in conn.execute(
+        "SELECT key, value FROM app_settings WHERE key IN "
+        "('company_name', 'seller_gstin', 'seller_address')")}
+    return {'name': rows.get('company_name') or 'Construction OS',
+            'gstin': rows.get('seller_gstin', ''),
+            'address': rows.get('seller_address', '')}
+
+
+def _print_estimate(conn, rid):
+    """Serve the printable estimate document (browser Print / Save-as-PDF),
+    generated by the same pure ``bill_export.build_estimate_html`` the desktop
+    uses. A standalone page — not wrapped in the app chrome."""
+    est = conn.execute('SELECT * FROM estimates WHERE id = ?', (rid,)).fetchone()
+    if not est:
+        return Response('Estimate not found', status=404)
+    items = conn.execute(
+        'SELECT item_code, description, unit, qty, rate, amount FROM '
+        'estimate_items WHERE estimate_id = ? ORDER BY id', (rid,)).fetchall()
+    seller = _seller(conn)
+    html = bill_export.build_estimate_html(
+        est, items, seller, company_name=seller.get('name') or 'Construction OS')
+    return Response(html)
+
+
+def _print_ra_document(conn, rid, kind):
+    """Serve a statutory RA document as a standalone printable page (not the app
+    chrome): ``mb`` = the contract's Measurement Book (Form 23 / CMB), ``ra`` =
+    the RA bill's PWD-style abstract (Form 26). Both come from the pure
+    ``bill_export`` builders via ``mb_report``, identical to the desktop."""
+    if kind == 'mb':
+        bill = conn.execute('SELECT contract_id FROM ra_bills WHERE id = ?',
+                            (rid,)).fetchone()
+        if not bill or bill['contract_id'] is None:
+            return Response('This bill has no contract to measure against.',
+                            status=404)
+        return Response(mb_report.measurement_book_html(conn,
+                                                        bill['contract_id']))
+    html = mb_report.ra_abstract_html(conn, rid)
+    if html is None:
+        return Response('RA bill not found', status=404)
+    return Response(html)
+
+
+def _ra_items_html(conn, rid):
+    """The measured items on an RA bill, for the browser record view."""
+    rows = conn.execute(
+        "SELECT b.item_no, b.description, b.unit, ri.upto_qty, ri.previous_qty, "
+        "ri.current_qty, ri.rate, ri.current_amount FROM ra_bill_items ri "
+        "LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
+        "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (rid,)).fetchall()
+    if not rows:
+        return ('<p class="muted">No measured items recorded on this bill yet — '
+                'enter measurements in the desktop BOQ / RA tab.</p>')
+
+    def q(value):
+        return '' if value is None else '%g' % value
+    headers = ['Item', 'Description', 'Unit', 'Upto qty', 'Prev qty',
+               'This qty', 'Rate', 'This amount']
+    trows = [[r['item_no'] or '', r['description'] or '', r['unit'] or '',
+              q(r['upto_qty']), q(r['previous_qty']), q(r['current_qty']),
+              R.money(r['rate']), R.money(r['current_amount'])] for r in rows]
+    return '<h2>Measured items</h2>' + R.table(headers, trows, scroll=True)
+
+
+# ------------------------------------------------ postable money documents
+# Payments, tax/vendor invoices and running bills: save the row with the same
+# derived amounts the desktop computes, then post via the shared, idempotent
+# journal_post.post_all — so the double entry is produced by posting.py, not
+# re-implemented here. Create + view only (records of fact).
+def _doc_create(request, sess, conn, table):
+    bail = _guard_write(request, sess, conn)
+    if bail:
+        return bail
+    specs = web_docs.fields(table)
+    if request.method != 'POST':
+        return _doc_form(conn, sess, table, None, None)
+
+    values, errs = {}, []
+    for f in specs:
+        ok, val, err = web_masters.coerce(f, request.form.get(f['key'], ''))
+        if ok:
+            values[f['key']] = val
+        else:
+            errs.append(err)
+    if errs:
+        return _doc_form(conn, sess, table, errs, request.form)
+
+    columns = web_docs.compute(table, values)
+    keys = list(columns.keys())
+    cur = conn.execute(
+        'INSERT INTO "{}" ({}) VALUES ({})'.format(
+            table, ', '.join('"{}"'.format(k) for k in keys),
+            ', '.join('?' * len(keys))), [columns[k] for k in keys])
+    new_id = cur.lastrowid
+    auth.audit(conn, sess['username'], 'web_create', table, new_id)
+    conn.commit()
+    # Post to the ledger with the shared engine. Idempotent + state-gated, so a
+    # Draft posts nothing. A posting hiccup must not lose the saved document —
+    # post_all will pick it up next time — so failure here is swallowed.
+    try:
+        journal_post.post_all(conn)
+    except Exception:                                        # noqa: BLE001
+        pass
+    return _redirect('/t/{}/{}'.format(table, new_id))
+
+
+def _doc_form(conn, sess, table, errs, submitted):
+    specs = web_docs.fields(table)
+    lbl = web_docs.label(table)
+    note = web_docs.note(table)
+    rows_html = [R.errors(errs)] if errs else []
+    if note:
+        rows_html.append('<p class="muted">{}</p>'.format(R.esc(note)))
+    for f in specs:
+        if submitted is not None:
+            val = submitted.get(f['key'], '')
+        else:
+            val = web_docs.resolve_default(f['default'])
+        options = None
+        if f['kind'] == 'fk':
+            options = web_masters.fk_options(conn, f['fk_sql'])
+        elif f['kind'] == 'combo':
+            options = [(o, o) for o in f['options']]
+        rows_html.append(R.field_row(
+            f['label'], R.control(f['kind'], f['key'], val, options)))
+    title = 'New {}'.format(lbl)
+    body = '<h1>{}</h1>{}'.format(R.esc(title), R.form(
+        '/t/{}/new'.format(table), ''.join(rows_html), sess['csrf'],
+        submit='Save', cancel_href='/t/' + table))
+    return _shell(title, body, sess, conn, active=table)

@@ -27,8 +27,11 @@ from tkinter import ttk
 
 import tokens
 
-# Brand font. The kit uses Urbanist (web-only); Segoe UI is the closest calm,
-# legible system face on Windows and needs no bundling.
+# Brand font. The kit's face is **Urbanist**; when the OS has it installed the
+# desktop uses it too, otherwise it falls back to **Segoe UI** — the same face
+# the web's FONT_STACK renders when Urbanist isn't present, so the two skins
+# match. ``_resolve_family(root)`` (called from ``apply``) picks the family and
+# rebuilds the FONT tuples once a Tk root exists.
 _FAMILY = 'Segoe UI'
 FONT = (_FAMILY, 10)
 FONT_SMALL = (_FAMILY, 9)
@@ -36,6 +39,27 @@ FONT_BOLD = (_FAMILY, 10, 'bold')
 FONT_H1 = (_FAMILY, 15, 'bold')
 FONT_KPI = (_FAMILY, 16, 'bold')
 FONT_MICRO = (_FAMILY, 8)
+
+
+def _resolve_family(root):
+    """Switch to Urbanist if the OS has it (the kit brand font), else keep Segoe
+    UI. Rebuilds the FONT tuples so widgets built after ``apply`` pick it up."""
+    global _FAMILY, FONT, FONT_SMALL, FONT_BOLD, FONT_H1, FONT_KPI, FONT_MICRO
+    try:
+        import tkinter.font as tkfont
+        available = {f.lower() for f in tkfont.families(root)}
+    except Exception:                                        # noqa: BLE001
+        available = set()
+    fam = 'Urbanist' if 'urbanist' in available else 'Segoe UI'
+    if fam == _FAMILY:
+        return
+    _FAMILY = fam
+    FONT = (fam, 10)
+    FONT_SMALL = (fam, 9)
+    FONT_BOLD = (fam, 10, 'bold')
+    FONT_H1 = (fam, 15, 'bold')
+    FONT_KPI = (fam, 16, 'bold')
+    FONT_MICRO = (fam, 8)
 
 # Tab / nav row heights. The primary navigation is the rail nav rows; the
 # secondary navigation is the section notebook tab strip inside the stage.
@@ -99,6 +123,7 @@ def apply(root, m=None):
     m = m if m in PALETTES else _state['mode']
     _state['mode'] = m
     pal = PALETTES[m]
+    _resolve_family(root)      # prefer Urbanist (kit brand font) if installed
 
     style = ttk.Style(root)
     try:

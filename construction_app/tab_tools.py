@@ -26,8 +26,6 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 import assets
 import db
 import modules
-import assistant
-import ollama_client
 import branding
 import firm as firm_module
 import company
@@ -36,7 +34,7 @@ import numbering
 import refdata
 import sampledata
 from ui_guard import can_write
-from widgets import Switch
+from widgets import Switch, ScrollFrame
 
 
 class ToolsTab(ttk.Frame):
@@ -67,6 +65,11 @@ class ToolsTab(ttk.Frame):
             .pack(side='left', padx=6)
         ttk.Button(actions, text='Refresh', command=self.refresh) \
             .pack(side='left', padx=6)
+
+        # --- Web / LAN access (open in a browser, no client install) ---
+        # Placed near the top so the LAN server is easy to find.
+        self._web = None
+        self._build_web_panel()
 
         # --- One-click backup to a remembered folder (e.g. a synced drive) ---
         # "Cloud backup" for an offline app: point this at the local folder of
@@ -143,24 +146,9 @@ class ToolsTab(ttk.Frame):
         ttk.Button(series, text='Save Series', command=self.save_series) \
             .grid(row=2, column=3, padx=6, pady=4, sticky='w')
 
-        # --- AI Assistant (local Ollama) ---
-        ai = ttk.LabelFrame(self, text='AI Assistant (local Ollama)')
-        ai.pack(fill='x', padx=12, pady=(6, 6))
-        ttk.Label(ai, text='Ask questions about your data in plain language. '
-                          'Needs Ollama running locally (ollama.com) with a model '
-                          'pulled, e.g.  ollama pull ' + ollama_client.DEFAULT_MODEL,
-                  wraplength=560,
-                  justify='left').pack(anchor='w', padx=8, pady=(6, 2))
-        self.ai = {'assistant_model': tk.StringVar(), 'assistant_host': tk.StringVar()}
-        row = ttk.Frame(ai); row.pack(fill='x', padx=8, pady=4)
-        ttk.Label(row, text='Model', width=8).pack(side='left')
-        ttk.Entry(row, textvariable=self.ai['assistant_model'], width=18).pack(side='left', padx=4)
-        ttk.Label(row, text='Host', width=6).pack(side='left')
-        ttk.Entry(row, textvariable=self.ai['assistant_host'], width=26).pack(side='left', padx=4)
-        aibtns = ttk.Frame(ai); aibtns.pack(fill='x', padx=8, pady=4)
-        ttk.Button(aibtns, text='Save', command=self.save_ai).pack(side='left')
-        ttk.Button(aibtns, text='Test Connection', command=self.test_ai).pack(side='left', padx=6)
-        ttk.Button(aibtns, text='Start Ollama', command=self.start_ollama).pack(side='left', padx=2)
+        # The AI is a built-in, hardcoded model — turn it on/off from the
+        # Assistant › AI Engine screen (its own rail row); nothing to configure
+        # here.
 
         # --- Language ---
         lang = ttk.LabelFrame(self, text='Language / भाषा')
@@ -221,10 +209,6 @@ class ToolsTab(ttk.Frame):
         ttk.Button(rbtn, text='Load CPWD Reference Data',
                    command=self.load_reference_data).pack(side='left')
 
-        # --- Web / LAN access (open in a browser, no client install) ---
-        self._web = None
-        self._build_web_panel()
-
         self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground=theme.palette()['success'],
                   wraplength=560, justify='left') \
@@ -273,59 +257,6 @@ class ToolsTab(ttk.Frame):
             conn.close()
         for label, var in self.module_vars.items():
             var.set(1 if states.get(label, True) else 0)
-        conn = self.db_getter()
-        try:
-            model, host = assistant.get_config(conn)
-        finally:
-            conn.close()
-        self.ai['assistant_model'].set(model)
-        self.ai['assistant_host'].set(host)
-
-    def save_ai(self):
-        if not can_write():
-            return
-        conn = self.db_getter()
-        try:
-            for key, var in self.ai.items():
-                conn.execute(
-                    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
-                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-                    (key, var.get().strip()))
-            conn.commit()
-        finally:
-            conn.close()
-        self.status_var.set('AI Assistant settings saved.')
-
-    def start_ollama(self):
-        host = self.ai['assistant_host'].get().strip() or ollama_client.DEFAULT_HOST
-        if ollama_client.available(host):
-            messagebox.showinfo('Already running', 'Ollama is already running.')
-            return
-        if not ollama_client.installed():
-            messagebox.showwarning(
-                'Ollama not installed',
-                'Ollama was not found on this PC.\n\nInstall it from ollama.com, '
-                'then use this button to start it. (Ollama is a separate free '
-                'program — it cannot be bundled inside the app.)')
-            return
-        ollama_client.start_server()
-        self.status_var.set('Starting Ollama… give it a few seconds, then '
-                            'Test Connection.')
-
-    def test_ai(self):
-        host = self.ai['assistant_host'].get().strip() or ollama_client.DEFAULT_HOST
-        if not ollama_client.available(host):
-            messagebox.showwarning(
-                'Not connected',
-                'No Ollama server at {}.\n\nInstall from ollama.com, run '
-                '"ollama serve", and pull a model, e.g. "ollama pull {}".'.format(
-                    host, ollama_client.DEFAULT_MODEL))
-            return
-        models = ollama_client.list_models(host)
-        messagebox.showinfo(
-            'Connected',
-            'Ollama is running at {}.\nInstalled models: {}'.format(
-                host, ', '.join(models) or '(none — pull one first)'))
 
     def _set_all_modules(self, value):
         for var in self.module_vars.values():
@@ -882,10 +813,16 @@ class ToolsTab(ttk.Frame):
 
 
 def build_tools_tab(parent, db_getter):
-    """Tools as an inner notebook: data/settings, security, and the audit log."""
+    """Tools as an inner notebook: data/settings, security, and the audit log.
+
+    Backup & Settings has many stacked panels (including Web / LAN access), so
+    it lives inside a ScrollFrame — otherwise the lower panels fall below the
+    window with no way to reach them."""
     from tab_security import SecurityTab, AuditTab
     nb = ttk.Notebook(parent)
-    nb.add(ToolsTab(nb, db_getter), text='Backup & Settings')
+    scroll = ScrollFrame(nb)
+    ToolsTab(scroll.body, db_getter).pack(fill='x', anchor='n')
+    nb.add(scroll, text='Backup & Settings')
     nb.add(SecurityTab(nb, db_getter), text='Users & Security')
     nb.add(AuditTab(nb, db_getter), text='Audit Log')
     return nb

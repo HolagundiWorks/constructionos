@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ui_guard import can_write
+from widgets import make_sortable
 
 # Sentinel default meaning "prefill with today's date" (low-typing entry).
 TODAY = '@today'
@@ -135,6 +136,9 @@ class CrudFrame(ttk.Frame):
         self.tree.pack(side='left', fill='both', expand=True)
         vsb.pack(side='right', fill='y')
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
+        # click-to-sort headers; _resort re-applies the chosen order after a
+        # data refresh so it sticks.
+        self._resort = make_sortable(self.tree)
 
         # --- form (3 fields per row) ---
         form = ttk.LabelFrame(self, text='Details')
@@ -225,6 +229,7 @@ class CrudFrame(ttk.Frame):
                 self.tree.insert('', 'end', iid=str(row['id']), values=values)
         finally:
             conn.close()
+        self._resort()      # keep the user's chosen column order after a reload
 
     def _on_select(self, _event=None):
         sel = self.tree.selection()

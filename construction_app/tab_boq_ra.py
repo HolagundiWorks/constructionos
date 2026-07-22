@@ -24,6 +24,7 @@ from ui_guard import can_write
 
 import civil
 import mb
+import mb_report
 import bill_export
 import ratebook_picker
 import report_open
@@ -344,24 +345,16 @@ class MeasurementFrame(ttk.Frame):
             return
         conn = self.db_getter()
         try:
-            contract, client, site = self._contract_context(conn, cid)
-            rows = conn.execute(
-                "SELECT m.*, b.item_no, b.unit FROM measurements m "
-                "LEFT JOIN boq_items b ON b.id = m.boq_item_id "
-                "WHERE m.contract_id = ? ORDER BY m.id", (cid,)).fetchall()
-            boq = conn.execute(
-                'SELECT id, item_no, description, unit, qty FROM boq_items '
-                'WHERE contract_id = ? ORDER BY id', (cid,)).fetchall()
-            company = _company_name(conn)
+            if not mb_report.has_measurements(conn, cid):
+                messagebox.showinfo(
+                    'Nothing to print',
+                    'No measurements recorded for this contract.')
+                return
+            contract, _client, _site = mb_report.contract_context(conn, cid)
+            # Same assembly as the browser's /t/ra_bills/<id>/mb, one source.
+            html = mb_report.measurement_book_html(conn, cid)
         finally:
             conn.close()
-        if not rows:
-            messagebox.showinfo('Nothing to print',
-                                'No measurements recorded for this contract.')
-            return
-        html = bill_export.build_mb_html(
-            contract, client, site, rows, boq_items=boq,
-            company_name=company, issues=mb.integrity_issues(rows))
         safe = (_col(contract, 'contract_no', '') or 'contract').replace(
             '/', '-').replace(' ', '_')
         self._save_html(html, '{}_measurement_book.html'.format(safe),
@@ -915,20 +908,14 @@ class RABillFrame(ttk.Frame):
             return
         conn = self.db_getter()
         try:
-            bill, contract, client, site = self._bill_context(conn)
-            items = conn.execute(
-                "SELECT b.item_no, b.description, b.unit, b.qty AS boq_qty, "
-                "b.rate AS boq_rate, ri.upto_qty, ri.previous_qty, "
-                "ri.current_qty, ri.rate, ri.current_amount "
-                "FROM ra_bill_items ri LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
-                "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (self.selected_id,)).fetchall()
-            company = _company_name(conn)
+            bill = conn.execute('SELECT * FROM ra_bills WHERE id = ?',
+                                (self.selected_id,)).fetchone()
+            # Same assembly as the browser's /t/ra_bills/<id>/ra, one source.
+            html = mb_report.ra_abstract_html(conn, self.selected_id)
         finally:
             conn.close()
-        if bill is None:
+        if bill is None or html is None:
             return
-        html = bill_export.build_ra_pwd_html(bill, contract, client, site,
-                                             items, company_name=company)
         safe = (bill['bill_no'] or 'ra_bill').replace('/', '-').replace(' ', '_')
         self._save_html(html, '{}_pwd_abstract.html'.format(safe),
                         'Save PWD-style abstract')

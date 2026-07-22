@@ -134,6 +134,74 @@ class TestWebRouter(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertIn(b'Cash in hand', resp.body)   # a KPI card rendered
 
+    def test_earned_value_page_renders(self):
+        import webapp
+        sid = self._login_admin()
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO projects (name, contract_value, start_date, "
+                     "end_date) VALUES ('Ward-7 Road', 1000000, '2026-01-01', "
+                     "'2026-12-31')")
+        conn.commit()
+        conn.close()
+        resp = webapp.handle(self._req('/evm', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Earned Value', resp.body)
+        self.assertIn(b'Ward-7 Road', resp.body)     # the project row
+        self.assertIn(b'Portfolio CPI', resp.body)    # a KPI card rendered
+
+    def test_earned_value_in_nav(self):
+        import webapp
+        sid = self._login_admin()
+        resp = webapp.handle(self._req('/', cookies={'cosid': sid}))
+        self.assertIn(b'/evm', resp.body)             # rail links to it
+
+    def test_weekly_review_page_renders(self):
+        import webapp
+        sid = self._login_admin()
+        resp = webapp.handle(self._req('/review', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Weekly Review', resp.body)
+        self.assertIn(b'Money at a glance', resp.body)
+        self.assertIn(b'/review', resp.body)          # rail links to it
+
+    def test_ra_bill_measurement_book_and_abstract_print(self):
+        import webapp
+        sid = self._login_admin()
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO contracts (contract_no, contract_value) "
+                     "VALUES ('C/9', 2000000)")
+        cid = conn.execute('SELECT id FROM contracts').fetchone()['id']
+        conn.execute("INSERT INTO boq_items (contract_id, item_no, description, "
+                     "unit, qty, rate) VALUES (?, '1', 'Earthwork in trench', "
+                     "'cum', 50, 300)", (cid,))
+        bid = conn.execute('SELECT id FROM boq_items').fetchone()['id']
+        conn.execute("INSERT INTO measurements (boq_item_id, contract_id, "
+                     "mb_ref, description, nos, length, breadth, depth, "
+                     "quantity) VALUES (?, ?, 'MB-1', 'Trench T1', 1, 10, 1, 1, "
+                     "10)", (bid, cid))
+        conn.execute("INSERT INTO ra_bills (contract_id, bill_no, "
+                     "this_bill_value) VALUES (?, 'RA-1', 3000)", (cid,))
+        rbid = conn.execute('SELECT id FROM ra_bills').fetchone()['id']
+        conn.execute("INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, "
+                     "upto_qty, current_qty, rate, current_amount) VALUES "
+                     "(?, ?, 10, 10, 300, 3000)", (rbid, bid))
+        conn.commit()
+        conn.close()
+
+        mbp = webapp.handle(self._req('/t/ra_bills/{}/mb'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertEqual(mbp.status, 200)
+        self.assertIn(b'Measurement Book', mbp.body)
+        self.assertIn(b'Trench T1', mbp.body)
+        rap = webapp.handle(self._req('/t/ra_bills/{}/ra'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertEqual(rap.status, 200)
+        self.assertIn(b'ABSTRACT OF WORK EXECUTED', rap.body)
+        rec = webapp.handle(self._req('/t/ra_bills/{}'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertIn(b'Measured items', rec.body)    # items table on the record
+        self.assertIn(b'/mb', rec.body)               # print links present
+
     def test_users_table_is_never_exposed(self):
         import webapp
         sid = self._login_admin()
@@ -222,10 +290,12 @@ class TestWebRouter(unittest.TestCase):
             form={'csrf': csrf, 'name': 'Nope'}, cookies={'cosid': tok}))
         self.assertEqual(r.status, 403)
 
-    def test_non_master_has_no_write_route(self):
+    def test_non_writable_register_has_no_create_route(self):
+        # contracts is viewable but not a Master / estimate / money document,
+        # so it has no browser create form (yet).
         import webapp
         sid = self._login_admin()
-        r = webapp.handle(self._req('/t/payments/new', cookies={'cosid': sid}))
+        r = webapp.handle(self._req('/t/contracts/new', cookies={'cosid': sid}))
         self.assertEqual(r.status, 404)
 
     # ---- Stage 3a: Estimates (header + line items, computed total) ------
@@ -288,6 +358,35 @@ class TestWebRouter(unittest.TestCase):
         self.assertAlmostEqual(total2, 3894.0, places=2)
         self.assertEqual(nlines2, 2)     # replaced, not duplicated
 
+    def test_estimate_print_serves_a_document(self):
+        import webapp
+        self._make_site()
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        ck = {'cosid': sid}
+        r = webapp.handle(self._req(
+            '/t/estimates/new', 'POST',
+            form={'csrf': csrf, 'title': 'Boundary Wall', 'contingency_pct': '0',
+                  'gst_pct': '18', 'status': 'Draft'},
+            multi={'li_desc': ['Excavation'], 'li_qty': ['10'],
+                   'li_rate': ['100']}, cookies=ck))
+        eid = r.headers['Location'].rsplit('/', 1)[1]
+        # record view offers the print link
+        rec = webapp.handle(self._req('/t/estimates/{}'.format(eid), cookies=ck))
+        self.assertIn('/t/estimates/{}/print'.format(eid).encode(), rec.body)
+        # the print route serves the generated document (not the app chrome)
+        doc = webapp.handle(self._req('/t/estimates/{}/print'.format(eid),
+                                      cookies=ck))
+        self.assertEqual(doc.status, 200)
+        self.assertIn(b'Boundary Wall', doc.body)
+        self.assertIn(b'Excavation', doc.body)
+
+    def test_estimate_print_requires_login(self):
+        import webapp
+        # no cookie -> the gate bounces to /login
+        r = webapp.handle(self._req('/t/estimates/1/print'))
+        self.assertEqual(r.status, 303)
+
     def test_estimate_requires_title_and_a_line(self):
         import webapp
         sid = self._login_admin()
@@ -305,6 +404,116 @@ class TestWebRouter(unittest.TestCase):
         r = webapp.handle(self._req(
             '/t/estimates/new', 'POST',
             form={'csrf': self._scsrf(tok), 'title': 'x'},
+            cookies={'cosid': tok}))
+        self.assertEqual(r.status, 403)
+
+    # ---- Stage 3b: money documents that post to the ledger --------------
+    def _journal(self):
+        conn = self.db.get_conn()
+        try:
+            return conn.execute('SELECT source, source_id, total_debit, '
+                                'total_credit FROM journal_entries '
+                                'ORDER BY id').fetchall()
+        finally:
+            conn.close()
+
+    def _post_doc(self, sid, table, form):
+        import webapp
+        form = dict(form); form['csrf'] = self._scsrf(sid)
+        return webapp.handle(self._req('/t/{}/new'.format(table), 'POST',
+                                       form=form, cookies={'cosid': sid}))
+
+    def test_money_documents_post_balanced_entries(self):
+        import webapp
+        sid = self._login_admin()
+        # a receipt, an outward invoice, an inward invoice, an approved bill
+        self.assertEqual(self._post_doc(sid, 'payments', {
+            'pay_date': '2026-07-21', 'direction': 'Receipt',
+            'party_type': 'Client', 'party_name': 'C', 'mode': 'Cash',
+            'amount': '5000'}).status, 303)
+        self.assertEqual(self._post_doc(sid, 'tax_invoices', {
+            'invoice_no': 'INV-1', 'invoice_date': '2026-07-21',
+            'subtotal': '100000', 'gst_pct': '18', 'status': 'Issued'}).status,
+            303)
+        self.assertEqual(self._post_doc(sid, 'vendor_invoices', {
+            'invoice_no': 'VI-1', 'invoice_date': '2026-07-21',
+            'subtotal': '50000', 'gst_pct': '18', 'tds_pct': '2',
+            'status': 'Approved'}).status, 303)
+        self.assertEqual(self._post_doc(sid, 'bills', {
+            'bill_no': 'RB-1', 'bill_date': '2026-07-21',
+            'work_done_value': '200000', 'previous_billed': '50000',
+            'retention_pct': '5', 'other_deductions': '0',
+            'status': 'Approved'}).status, 303)
+
+        entries = self._journal()
+        self.assertEqual(len(entries), 4)
+        for e in entries:                      # double entry must balance
+            self.assertAlmostEqual(e['total_debit'], e['total_credit'], places=2)
+        by = {e['source']: e['total_debit'] for e in entries}
+        self.assertAlmostEqual(by['Payment'], 5000.0, places=2)
+        self.assertAlmostEqual(by['TaxInvoice'], 118000.0, places=2)   # +18% GST
+        self.assertAlmostEqual(by['VendorInvoice'], 59000.0, places=2)
+        self.assertAlmostEqual(by['Bill'], 150000.0, places=2)         # 200k-50k
+
+        # derived amounts stored on the documents
+        conn = self.db.get_conn()
+        try:
+            vi = conn.execute('SELECT tax_amount, tds_amount, net_payable FROM '
+                              'vendor_invoices').fetchone()
+            b = conn.execute('SELECT retention_amt, net_payable FROM '
+                             'bills').fetchone()
+        finally:
+            conn.close()
+        self.assertAlmostEqual(vi['net_payable'], 58000.0, places=2)
+        self.assertAlmostEqual(b['retention_amt'], 7500.0, places=2)
+        self.assertAlmostEqual(b['net_payable'], 142500.0, places=2)
+
+    def test_ra_bill_posts_form26_recoveries(self):
+        import webapp
+        sid = self._login_admin()
+        # this=100000, prev=50000, SD 2.5%, TDS 2%, cess 1%
+        #  -> retention 2500, tds 2000, cess 1000, net 94500, cumulative 150000
+        r = self._post_doc(sid, 'ra_bills', {
+            'bill_no': 'RA-1', 'bill_date': '2026-07-21',
+            'this_bill_value': '100000', 'previous_value': '50000',
+            'retention_pct': '2.5', 'tds_pct': '2', 'cess_pct': '1',
+            'other_deductions': '0', 'status': 'Approved'})
+        self.assertEqual(r.status, 303)
+        conn = self.db.get_conn()
+        try:
+            row = conn.execute('SELECT retention_amt, tds_amt, cess_amt, '
+                               'net_payable, cumulative_value FROM '
+                               'ra_bills').fetchone()
+            je = conn.execute('SELECT source, total_debit, total_credit FROM '
+                              'journal_entries').fetchall()
+        finally:
+            conn.close()
+        self.assertAlmostEqual(row['retention_amt'], 2500.0, places=2)
+        self.assertAlmostEqual(row['tds_amt'], 2000.0, places=2)
+        self.assertAlmostEqual(row['cess_amt'], 1000.0, places=2)
+        self.assertAlmostEqual(row['net_payable'], 94500.0, places=2)
+        self.assertAlmostEqual(row['cumulative_value'], 150000.0, places=2)
+        self.assertEqual(len(je), 1)
+        self.assertEqual(je[0]['source'], 'RABill')
+        self.assertAlmostEqual(je[0]['total_debit'], je[0]['total_credit'],
+                               places=2)
+
+    def test_draft_bill_saves_but_does_not_post(self):
+        import webapp
+        sid = self._login_admin()
+        r = self._post_doc(sid, 'bills', {
+            'bill_no': 'RB-D', 'bill_date': '2026-07-21',
+            'work_done_value': '10000', 'previous_billed': '0',
+            'retention_pct': '5', 'status': 'Draft'})
+        self.assertEqual(r.status, 303)
+        self.assertEqual(self._journal(), [])     # nothing posted for a draft
+
+    def test_money_document_write_gated_for_viewer(self):
+        import webapp
+        tok = webapp._new_session('v', 'Viewer')
+        r = webapp.handle(self._req(
+            '/t/payments/new', 'POST',
+            form={'csrf': self._scsrf(tok), 'amount': '1'},
             cookies={'cosid': tok}))
         self.assertEqual(r.status, 403)
 

@@ -74,6 +74,9 @@ import submittals
 import variation
 import wages
 import earnedvalue
+import evm
+import mb_report
+import review_assemble
 import risk
 import risk_store
 import forecast
@@ -398,6 +401,215 @@ class TestEarnedValue(unittest.TestCase):
         self.assertEqual(p['cpi'], round(100 / 105, 3))
         self.assertEqual(p['worst_cpi'], 'A')
         self.assertIn('A', p['over_cost_names'])
+
+
+class TestEvmPlannedPct(unittest.TestCase):
+    """The time-scheduled PV fallback: the elapsed fraction of a project's
+    window, clamped 0..100, and None when there is no honest schedule."""
+
+    def test_midpoint_of_the_window_is_fifty_percent(self):
+        self.assertEqual(
+            evm.planned_pct('2026-01-01', '2026-12-31', today='2026-07-02'),
+            50.0)
+
+    def test_before_start_floors_to_zero_after_end_caps_at_hundred(self):
+        self.assertEqual(
+            evm.planned_pct('2026-06-01', '2026-12-01', today='2026-01-01'),
+            0.0)
+        self.assertEqual(
+            evm.planned_pct('2026-01-01', '2026-06-01', today='2026-12-01'),
+            100.0)
+
+    def test_missing_or_degenerate_dates_give_none(self):
+        self.assertIsNone(evm.planned_pct('', '2026-12-31', today='2026-06-01'))
+        self.assertIsNone(evm.planned_pct('2026-01-01', '', today='2026-06-01'))
+        # end on/before start is not a schedule to earn against.
+        self.assertIsNone(
+            evm.planned_pct('2026-06-01', '2026-01-01', today='2026-03-01'))
+
+
+class TestEvmAssembly(unittest.TestCase):
+    """evm.py's DB bridge — where BAC/EV/AC/PV come from and the skip rule. The
+    cost rollup is mocked (it has its own tests in TestProjectCost) so these
+    prove only evm.py's own wiring, not the rollup twice."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _add_project(self, name, **cols):
+        keys = ['name'] + list(cols)
+        self.conn.execute(
+            'INSERT INTO projects ({}) VALUES ({})'.format(
+                ', '.join(keys), ', '.join('?' * len(keys))),
+            [name] + list(cols.values()))
+        self.conn.commit()
+
+    def test_project_evm_pulls_bac_ev_ac_and_time_scheduled_pv(self):
+        from unittest import mock
+        self._add_project('Ward-7 Road', contract_value=1000,
+                          start_date='2026-01-01', end_date='2026-12-31')
+        row = self.conn.execute('SELECT * FROM projects').fetchone()
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 500.0, 'revenue': 400.0}):
+            e = evm.project_evm(self.conn, row, today='2026-07-02')
+        self.assertEqual(e['bac'], 1000.0)          # contract value
+        self.assertEqual(e['ac'], 500.0)            # rollup total_cost
+        self.assertEqual(e['ev'], 400.0)            # rollup revenue (billed)
+        self.assertEqual(e['planned_pct'], 50.0)    # half the window elapsed
+        self.assertEqual(e['pv'], 500.0)            # 1000 x 50%
+        self.assertEqual(e['cpi'], 0.8)             # 400/500
+        self.assertEqual(e['spi'], 0.8)             # 400/500
+        self.assertEqual(e['name'], 'Ward-7 Road')
+
+    def test_bac_falls_back_to_budget_and_no_dates_leaves_pv_zero(self):
+        from unittest import mock
+        self._add_project('Budget-only', budget=800)
+        row = self.conn.execute('SELECT * FROM projects').fetchone()
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 0, 'revenue': 0}):
+            e = evm.project_evm(self.conn, row)
+        self.assertEqual(e['bac'], 800.0)           # budget, no contract value
+        self.assertIsNone(e['planned_pct'])         # no dates → no schedule
+        self.assertEqual(e['pv'], 0.0)
+        self.assertIsNone(e['spi'])                 # PV 0 → undefined, not faked
+
+    def test_portfolio_skips_projects_with_no_value_to_measure(self):
+        from unittest import mock
+        self._add_project('Real', contract_value=1000)
+        self._add_project('Placeholder')            # no value → skipped
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 100, 'revenue': 120}):
+            rows, port = evm.portfolio_evm(self.conn)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['name'], 'Real')
+        self.assertEqual(port['projects'], 1)
+        self.assertEqual(port['bac'], 1000.0)
+
+
+class TestReviewAssemble(unittest.TestCase):
+    """The DB bridge that feeds the Weekly Review — one assembled pack from the
+    live database, shared by the desktop tab and the browser page."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_assemble_pulls_kpis_evm_and_opportunities(self):
+        import opportunity_store
+        self.conn.execute(
+            "INSERT INTO projects (name, contract_value, start_date, end_date) "
+            "VALUES ('Ward-7 Road', 1000000, '2026-01-01', '2026-12-31')")
+        self.conn.commit()
+        opportunity_store.add(self.conn, title='Early-completion bonus',
+                              likelihood=4, impact=4, value=200000)
+        pack = review_assemble.assemble(self.conn, generated='2026-07-21')
+        self.assertEqual(pack['generated'], '2026-07-21')
+        for key in ('kpis', 'advisories', 'risks', 'narrative'):
+            self.assertIn(key, pack)
+        self.assertIsNotNone(pack.get('evm'))            # a measured project
+        self.assertEqual(pack['evm']['projects'], 1)
+        self.assertEqual(pack['opportunities']['count'], 1)
+
+    def test_no_measured_project_leaves_evm_absent_not_zeroed(self):
+        pack = review_assemble.assemble(self.conn, generated='2026-07-21')
+        self.assertIsNone(pack.get('evm'))               # honestly absent
+        self.assertEqual(pack['opportunities']['count'], 0)
+
+
+class TestMbReport(unittest.TestCase):
+    """The Measurement Book (Form 23) / RA abstract (Form 26) DB bridge — one
+    assembly shared by the desktop 'Export' and the browser print routes, so the
+    two surfaces render the identical statutory document."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.cid = self.conn.execute(
+            "INSERT INTO contracts (contract_no, contract_value) "
+            "VALUES ('C/01', 2000000)").lastrowid
+        self.bid = self.conn.execute(
+            "INSERT INTO boq_items (contract_id, item_no, description, unit, "
+            "qty, rate) VALUES (?, '1.1', 'PCC 1:4:8 foundation', 'cum', 100, "
+            "5500)", (self.cid,)).lastrowid
+        self.conn.execute(
+            "INSERT INTO measurements (boq_item_id, contract_id, mb_date, "
+            "mb_ref, description, nos, length, breadth, depth, quantity) VALUES "
+            "(?, ?, '2026-07-01', 'MB-12/34', 'Footing F1', 4, 2.0, 2.0, 0.5, "
+            "8.0)", (self.bid, self.cid))
+        self.rbid = self.conn.execute(
+            "INSERT INTO ra_bills (contract_id, bill_no, bill_date, "
+            "this_bill_value) VALUES (?, 'RA-1', '2026-07-05', 44000)",
+            (self.cid,)).lastrowid
+        self.conn.execute(
+            "INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, upto_qty, "
+            "previous_qty, current_qty, rate, current_amount) VALUES "
+            "(?, ?, 8, 0, 8, 5500, 44000)", (self.rbid, self.bid))
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_has_measurements_reflects_the_data(self):
+        self.assertTrue(mb_report.has_measurements(self.conn, self.cid))
+        self.assertFalse(mb_report.has_measurements(self.conn, 99999))
+
+    def test_measurement_book_is_form23_and_shows_the_entry(self):
+        html = mb_report.measurement_book_html(self.conn, self.cid)
+        self.assertIn('Measurement Book', html)
+        self.assertIn('Form 23', html)
+        self.assertIn('Footing F1', html)          # the measured location
+        self.assertIn('PCC 1:4:8 foundation', html)  # the abstract item
+
+    def test_ra_abstract_is_the_pwd_layout_with_the_item(self):
+        html = mb_report.ra_abstract_html(self.conn, self.rbid)
+        self.assertIn('ABSTRACT OF WORK EXECUTED', html)
+        self.assertIn('PCC 1:4:8 foundation', html)
+
+    def test_ra_abstract_of_a_missing_bill_is_none(self):
+        self.assertIsNone(mb_report.ra_abstract_html(self.conn, 99999))
 
 
 class TestRisk(unittest.TestCase):
@@ -2048,11 +2260,16 @@ class TestRateRealisationApply(unittest.TestCase):
 
     def test_viewer_cannot_apply(self):
         import session
+        from unittest import mock
         from tab_lessons import RateRealisation
         session.login('viewer', 'Viewer')
         rr = RateRealisation.__new__(RateRealisation)
         rr.db_getter = self.db.get_conn
-        n = rr._apply([(1, 402.0)])
+        # ui_guard.can_write() pops a modal "read-only" dialog for a Viewer;
+        # with a Tk root alive from an earlier test that blocks the run, so
+        # suppress it — we are asserting the denial, not the dialog.
+        with mock.patch('ui_guard.messagebox'):
+            n = rr._apply([(1, 402.0)])
         self.assertEqual(n, 0)
         self.assertEqual(self._rate(), 380.0)              # unchanged
 
@@ -2188,7 +2405,7 @@ class TestWriteGuards(unittest.TestCase):
         """The gap that was actually shipped: a Viewer could rewrite firm
         details, the invoice series and the cash opening balance."""
         tools = dict(self._writers(os.path.join(self.APP, 'tab_tools.py')))
-        for fn in ('save_firm', 'save_ai', 'save_series', 'save_language',
+        for fn in ('save_firm', 'save_series', 'save_language',
                    'choose_sync_folder'):
             self.assertTrue(tools.get(fn), 'tab_tools.{} is unguarded'.format(fn))
         money = dict(self._writers(os.path.join(self.APP, 'tab_money.py')))
@@ -5045,11 +5262,31 @@ class TestDesignSystem(unittest.TestCase):
         self.assertEqual(tokens.DIALOG_RADIUS, 8)
         self.assertEqual(tokens.TAB_ALERT_WIDTH, 3)
 
+    def test_kit_v14_token_families(self):
+        # The newer (kit v1.4.0) cross-surface token families both skins share.
+        import tokens
+        self.assertTrue(tokens.FONT_STACK.startswith("'Urbanist'"))
+        self.assertEqual(tokens.LAYOUT['rail_width'], 240)
+        self.assertEqual(tokens.LAYOUT['content_max_width'], 1280)
+        self.assertEqual(tokens.SPACING['section'], 40)
+        self.assertTrue(tokens.DATA_VIZ_CATEGORICAL)       # chart/marker series
+        self.assertIn('body', tokens.TYPE)
+        self.assertIn('critical', tokens.STATUS_SHAPE)
+
     def test_desktop_theme_is_token_sourced(self):
         import theme
         import tokens
         self.assertIs(theme.PALETTES['light'], tokens.LIGHT)
         self.assertIs(theme.PALETTES['dark'], tokens.DARK)
+
+    def test_rail_width_is_one_token_for_both_skins(self):
+        # Desktop rail and web rail read the same LAYOUT.rail_width token.
+        import shell
+        import tokens
+        import webrender
+        self.assertEqual(shell.RAIL_WIDTH, tokens.LAYOUT['rail_width'])
+        self.assertIn('--rail-w:{}px'.format(tokens.LAYOUT['rail_width']),
+                      webrender._CSS)
 
     def test_web_css_is_token_sourced(self):
         import webrender
@@ -5083,21 +5320,8 @@ class TestDesignSystem(unittest.TestCase):
                          'theme.palette()[role]): {}'.format(offenders))
 
 
-class TestOllamaCatalog(unittest.TestCase):
-    """The model catalogue folded in from the Ollama Manager."""
-
-    def test_choices_and_tag_roundtrip(self):
-        import ollama_catalog as cat
-        self.assertTrue(cat.MODELS)
-        choices = cat.choices()
-        self.assertEqual(len(choices), len(cat.MODELS))
-        # a dropdown label round-trips back to its bare tag
-        for (tag, _sz, _note), choice in zip(cat.MODELS, choices):
-            self.assertEqual(cat.tag_from_choice(choice), tag)
-        # a hand-typed bare tag survives
-        self.assertEqual(cat.tag_from_choice('llama3.1:8b'), 'llama3.1:8b')
-        self.assertEqual(cat.tag_from_choice(''), '')
-        self.assertIn(':', cat.SUGGESTED)
+class TestOllamaApi(unittest.TestCase):
+    """The local Ollama API client (the runtime behind the built-in AI)."""
 
     def test_api_base_url_normalises(self):
         import ollama_api as api
@@ -5108,13 +5332,32 @@ class TestOllamaCatalog(unittest.TestCase):
         self.assertEqual(api.human_size(0), '0 B')
         self.assertTrue(api.human_size(5 * 1024 ** 3).endswith('GB'))
 
-    def test_suggested_is_the_inbuilt_default(self):
-        # The catalogue's default and the assistant's default must be the same
-        # model, and it must be a real entry in the list.
-        import ollama_catalog as cat
-        import ollama_client as client
-        self.assertEqual(cat.SUGGESTED, client.DEFAULT_MODEL)
-        self.assertIn(cat.SUGGESTED, [tag for tag, _s, _n in cat.MODELS])
+    def test_assistant_model_is_hardcoded(self):
+        # No picker: the assistant always uses the single built-in model, even
+        # if a stale app_settings 'assistant_model' value is present.
+        import db
+        import assistant
+        import ollama_client
+        fd, path = tempfile.mkstemp(suffix='.db'); os.close(fd); os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        db.init_db()
+        try:
+            conn = db.get_conn()
+            conn.execute("INSERT INTO app_settings (key, value) VALUES "
+                         "('assistant_model', 'some-other-model')")
+            conn.commit()
+            model, _host = assistant.get_config(conn)
+            conn.close()
+            self.assertEqual(model, ollama_client.DEFAULT_MODEL)
+            self.assertEqual(model, 'qwen2.5-coder:1.5b')
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
 
 
 class TestModelProvision(unittest.TestCase):
