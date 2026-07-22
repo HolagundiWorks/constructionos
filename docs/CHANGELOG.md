@@ -15,8 +15,10 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
   Measurement Book (per-item measurements, part-rates, printed Form 23/26) stays
   on the desktop. Verified: SD 2.5% / TDS 2% / cess 1% on ₹1,00,000 → 2500 /
   2000 / 1000, net 94,500, cumulative 1,50,000, and a balanced `RABill` entry.
-- **Three more editable registers** — Projects, Milestones and the Rate Book now
-  add/edit/delete in the browser (same drift-guarded `web_masters` path).
+- **More editable registers in the browser** (same drift-guarded `web_masters`
+  path): Projects, Milestones, the Rate Book, Thekedars, and the on-site logs —
+  **Snags** (punch list) and **NCRs** — whose *Raised* date defaults to today
+  (a shared `@today` resolver). The schema-drift test now covers all fourteen.
 
 ---
 

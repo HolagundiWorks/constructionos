@@ -83,15 +83,17 @@ _LABELS = {
     'purchase_orders': 'Purchase Orders', 'grns': 'Goods Receipts',
     'vendor_invoices': 'Vendor Invoices', 'subcontracts': 'Subcontractors',
     'payments': 'Payments', 'audit_log': 'Audit Log', 'rate_book': 'Rate Book',
-    'milestones': 'Milestones',
+    'milestones': 'Milestones', 'thekedars': 'Thekedars', 'snags': 'Snags',
+    'ncrs': 'NCRs',
 }
 _GROUPS = [
     ('Project Management', ['projects', 'milestones', 'timeline_tasks']),
     ('Masters', ['sites', 'clients', 'vendors', 'materials', 'labour',
-                 'equipment']),
+                 'equipment', 'thekedars']),
     ('Billing', ['rate_book', 'estimates', 'quotations', 'contracts', 'bills',
                  'ra_bills', 'variations', 'tax_invoices', 'takeoffs',
                  'bid_assessments']),
+    ('Operations', ['snags', 'ncrs']),
     ('Purchases', ['purchase_orders', 'grns', 'vendor_invoices',
                    'subcontracts']),
     ('Money', ['payments']),
@@ -539,7 +541,7 @@ def _master_form(conn, sess, table, row, errs=None, submitted=None):
         elif editing:
             val = row[f['key']]
         else:
-            val = f['default']
+            val = web_masters.resolve_default(f['default'])
         options = None
         if f['kind'] == 'fk':
             options = web_masters.fk_options(conn, f['fk_sql'])

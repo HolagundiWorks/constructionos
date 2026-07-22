@@ -19,7 +19,9 @@ browser — the same fields as the desktop, built from one shared spec
 drift):
 
 * **Sites**, **Clients**, **Vendors**, **Materials**, **Labour**, **Equipment**,
-  **Projects**, **Milestones** and the **Rate Book**.
+  **Thekedars**, **Projects**, **Milestones**, the **Rate Book**, and the
+  on-site logs — **Snags** (punch list) and **NCRs** (non-conformance), whose
+  *Raised* date defaults to today.
 * **Estimates** — header + line items (add/remove rows in the browser). The
   roll-up (subtotal → contingency → GST → grand total) is the same pure
   `estimate.estimate_totals` the desktop uses, and estimates never post to the

@@ -19,6 +19,9 @@ A field is a plain dict:
 """
 
 
+from datetime import date
+
+
 def _f(key, label, kind='text', options=None, fk_sql=None, default='',
        required=False):
     return {'key': key, 'label': label, 'kind': kind, 'options': options or [],
@@ -28,6 +31,7 @@ def _f(key, label, kind='text', options=None, fk_sql=None, default='',
 _SITES = 'SELECT id, name FROM sites ORDER BY name'
 _CLIENTS = 'SELECT id, name FROM clients ORDER BY name'
 _PROJECTS = 'SELECT id, name FROM projects ORDER BY name'
+_CONTRACTS = 'SELECT id, contract_no FROM contracts ORDER BY id DESC'
 
 # table -> {label, fields}. Order and wording follow the desktop tabs.
 MASTERS = {
@@ -121,7 +125,56 @@ MASTERS = {
         _f('rate', 'Rate', 'number', default='0'),
         _f('specification', 'Specification', 'textarea'),
     ]},
+    'thekedars': {'label': 'Thekedar', 'fields': [
+        _f('name', 'Name', required=True),
+        _f('phone', 'Phone'),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('skill_type', 'Skill / trade'),
+        _f('status', 'Status', 'combo', options=['Active', 'Inactive'],
+           default='Active'),
+    ]},
+    'snags': {'label': 'Snag', 'fields': [
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('contract_id', 'Contract', 'fk', fk_sql=_CONTRACTS),
+        _f('snag_no', 'Snag no'),
+        _f('raised_date', 'Raised', default='@today'),
+        _f('location', 'Location / element'),
+        _f('description', 'Defect', 'textarea', required=True),
+        _f('trade', 'Trade'),
+        _f('severity', 'Severity', 'combo',
+           options=['Minor', 'Major', 'Blocker'], default='Minor'),
+        _f('assigned_to', 'Assigned to'),
+        _f('target_date', 'Fix by'),
+        _f('status', 'Status', 'combo',
+           options=['Open', 'Fixed', 'Verified'], default='Open'),
+        _f('fixed_date', 'Fixed on'),
+        _f('verified_date', 'Verified on'),
+        _f('verified_by', 'Verified by'),
+        _f('remarks', 'Remarks', 'textarea'),
+    ]},
+    'ncrs': {'label': 'NCR', 'fields': [
+        _f('ncr_no', 'NCR no'),
+        _f('site_id', 'Site', 'fk', fk_sql=_SITES),
+        _f('raised_date', 'Raised', default='@today'),
+        _f('raised_by', 'Raised by'),
+        _f('description', 'Non-conformance', 'textarea', required=True),
+        _f('severity', 'Severity', 'combo',
+           options=['Minor', 'Major', 'Critical'], default='Minor'),
+        _f('root_cause', 'Root cause', 'textarea'),
+        _f('corrective_action', 'Corrective action', 'textarea'),
+        _f('preventive_action', 'Preventive action', 'textarea'),
+        _f('status', 'Status', 'combo', options=['Open', 'Closed'],
+           default='Open'),
+        _f('closed_date', 'Closed on'),
+        _f('closed_by', 'Closed by'),
+    ]},
 }
+
+
+def resolve_default(default):
+    """A form-field's starting value, resolving the ``@today`` sentinel to the
+    current date (parallels ``web_docs.resolve_default``)."""
+    return date.today().isoformat() if default == '@today' else default
 
 
 def is_master(table):
