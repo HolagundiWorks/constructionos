@@ -9,6 +9,7 @@ drown out one fatal factor, so conditions that should end the conversation sit
 outside the score and override it.
 """
 
+import branding
 import json
 import theme
 import tkinter as tk
@@ -25,7 +26,7 @@ import report_open
 def _company_name(conn):
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 def _capacity(conn):

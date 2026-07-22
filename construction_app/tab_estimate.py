@@ -11,6 +11,8 @@ This replaces the earlier DocumentFrame-based estimates (which only summed
 items) — the estimate is the one CBS feature ported into Construction OS.
 """
 
+import branding
+
 import os
 import webbrowser
 import tkinter as tk
@@ -319,7 +321,7 @@ class EstimateTab(ttk.Frame):
         if est is None:
             return
         html = bill_export.build_estimate_html(
-            est, items, seller, company_name=seller.get('name') or 'Construction OS')
+            est, items, seller, company_name=seller.get('name') or branding.APP_NAME)
         safe = (est['est_number'] or 'estimate').replace('/', '-').replace(' ', '_')
         path = filedialog.asksaveasfilename(
             title='Save estimate', defaultextension='.html',

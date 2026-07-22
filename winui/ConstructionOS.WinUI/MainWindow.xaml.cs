@@ -86,7 +86,7 @@ public sealed partial class MainWindow : Window
                 }
             }
             ContentFrame.Navigate(typeof(HomePage));
-            Title = $"Construction OS (api {apiVer})";
+            Title = $"ACO (api {apiVer})";
         }
         catch (Exception ex)
         {

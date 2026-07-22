@@ -80,7 +80,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.8'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.8'})
 
     if path == 'me' and method == 'GET':
         return _ok({

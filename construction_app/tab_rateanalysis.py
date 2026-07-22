@@ -9,6 +9,7 @@ The derived rate can be pushed into the Rate Book, which is the point of doing
 the analysis — otherwise the number dies in this screen.
 """
 
+import branding
 import tkinter as tk
 import theme
 from tkinter import ttk, messagebox
@@ -33,7 +34,7 @@ def _num(value, default=None):
 def _company_name(conn):
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 class RateAnalysisFrame(ttk.Frame):

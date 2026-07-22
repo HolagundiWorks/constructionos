@@ -565,7 +565,7 @@ class ToolsTab(ttk.Frame):
     def add_existing_company(self):
         path = filedialog.askopenfilename(
             title='Choose an existing company file',
-            filetypes=[('Construction OS data', '*.db'), ('All files', '*.*')])
+            filetypes=[(branding.APP_NAME + ' data', '*.db'), ('All files', '*.*')])
         if not path:
             return
         name = simpledialog.askstring(
@@ -750,7 +750,7 @@ class ToolsTab(ttk.Frame):
     def restore(self):
         src = filedialog.askopenfilename(
             title='Choose a backup file to restore',
-            filetypes=[('Construction OS backup', '*.db'), ('All files', '*.*')])
+            filetypes=[(branding.APP_NAME + ' backup', '*.db'), ('All files', '*.*')])
         if not src:
             return
         if os.path.abspath(src) == os.path.abspath(db.DB_PATH):
@@ -788,7 +788,7 @@ class ToolsTab(ttk.Frame):
         web.pack(fill='x', padx=12, pady=(6, 6))
         ttk.Label(
             web, text='Run a local web server so anyone on your office network '
-                      'can open Construction OS in a browser at '
+                      'can open ' + branding.APP_NAME + ' in a browser at '
                       'http://<this-PC>:<port> — no app to install. Login is '
                       'required (the first visit creates the admin). It serves '
                       'THIS company file. Keep it on a trusted LAN: the login '

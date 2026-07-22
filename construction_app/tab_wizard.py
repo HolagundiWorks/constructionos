@@ -33,7 +33,7 @@ class SetupWizard:
     def __init__(self, root, db_getter):
         self.db_getter = db_getter
         self.win = tk.Toplevel(root)
-        self.win.title('Construction OS — Welcome')
+        self.win.title('{} — Welcome'.format(branding.APP_NAME))
         self.win.resizable(False, False)
         self.win.transient(root)
         self.win.grab_set()

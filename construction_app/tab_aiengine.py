@@ -13,6 +13,8 @@ built-in model (``foundry_service.provision``). Network/process work runs on a
 worker thread and marshals back with ``after`` so the window never freezes.
 """
 
+import branding
+
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -109,7 +111,7 @@ class AiEngineTab(ttk.Frame):
         else:
             self.status_var.set('○ AI engine is not set up on this machine.')
             self.detail_var.set('Foundry Local (the built-in AI runtime) was not '
-                                'found. Install it (or reinstall Construction OS '
+                                'found. Install it (or reinstall ' + branding.APP_NAME + ' '
                                 'with the AI option) to use the Assistant '
                                 'offline.')
         self.start_btn.state(['!disabled'] if installed and not running

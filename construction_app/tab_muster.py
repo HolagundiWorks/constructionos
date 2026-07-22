@@ -13,6 +13,7 @@ How a real T2/T3 site runs its labour:
   ledger (Work owed vs Paid).
 """
 
+import branding
 import os
 import webbrowser
 from datetime import date, datetime, timedelta
@@ -49,7 +50,7 @@ def _company_name(conn):
     """Firm name from app_settings (Tools > Firm Details), for printouts."""
     row = conn.execute(
         "SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
-    return (row['value'] if row and row['value'] else '') or 'Construction OS'
+    return (row['value'] if row and row['value'] else '') or branding.APP_NAME
 
 
 def _recover_advances(conn, labor_id, amount):

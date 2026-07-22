@@ -19,6 +19,7 @@ import modules
 import menu
 import assets
 import auth
+import branding
 import session
 import i18n
 import errors
@@ -245,7 +246,7 @@ def main():
         conn.close()
 
     root = tk.Tk()
-    root.title('Construction OS — Construction Management')
+    root.title(branding.WINDOW_TITLE)
     root.geometry('1180x760')
     _apply_app_icon(root)
     errors.install(root)   # no stack trace ever reaches the user
@@ -264,8 +265,8 @@ def main():
             root.destroy()
             return
         root.deiconify()
-        root.title('Construction OS — {} ({})'.format(
-            session.username(), session.role()))
+        root.title('{} — {} ({})'.format(
+            branding.APP_NAME, session.username(), session.role()))
 
     # First-run wizard on a fresh book (empty masters, not previously done).
     maybe_run_setup(root, get)

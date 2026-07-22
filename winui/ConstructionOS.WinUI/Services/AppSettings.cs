@@ -4,8 +4,9 @@ namespace ConstructionOS.WinUI.Services;
 
 /// <summary>
 /// Persisted WinUI client settings (localhost API + login + persona).
-/// File lives under LocalApplicationData\Construction OS — same family as the
-/// Python data folder — so packaged and unpackaged runs share one place.
+/// File lives under LocalApplicationData\ACO — same family as the Python
+/// app's paths.APP_DIR_NAME. Legacy LocalApplicationData\Construction OS is
+/// still read if the ACO file is missing.
 /// </summary>
 public sealed class AppSettings
 {
@@ -17,11 +18,22 @@ public sealed class AppSettings
 
     public static AppSettings Current { get; private set; } = Load();
 
+    static string DataFolder
+    {
+        get
+        {
+            var root = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+            var aco = Path.Combine(root, "ACO");
+            if (Directory.Exists(aco)) return aco;
+            var legacy = Path.Combine(root, "Construction OS");
+            if (Directory.Exists(legacy)) return legacy;
+            return aco;
+        }
+    }
+
     public static string SettingsPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Construction OS",
-            "winui-settings.json");
+        Path.Combine(DataFolder, "winui-settings.json");
 
     public static AppSettings Load()
     {

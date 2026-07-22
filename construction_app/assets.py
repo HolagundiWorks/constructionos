@@ -106,7 +106,7 @@ def brand_logo_html(height=46):
     uri = data_uri(fp) if fp else logo_rect_uri()
     if not uri:
         return ''
-    return '<img src="{}" alt="logo" style="height:{}px;" />'.format(uri, height)
+    return '<img src="{}" alt="ACO" style="height:{}px;" />'.format(uri, height)
 
 
 def logo_html(height=46):
@@ -114,4 +114,4 @@ def logo_html(height=46):
     uri = logo_rect_uri()
     if not uri:
         return ''
-    return '<img src="{}" alt="logo" style="height:{}px;" />'.format(uri, height)
+    return '<img src="{}" alt="ACO" style="height:{}px;" />'.format(uri, height)

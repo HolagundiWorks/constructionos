@@ -1,17 +1,19 @@
-# Construction OS
+# ACO — Accelerated Construction Operations
 
-*Developed by Human Centric Works, Hospet.*
+*Formerly Construction OS. Developed by Human Centric Works, Hospet.*
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![Dependencies: none](https://img.shields.io/badge/pip%20dependencies-none-brightgreen.svg)
-![Tests](https://img.shields.io/badge/tests-454%20passing-brightgreen.svg)
 
 A single-user desktop **ERP for Indian construction contractors** — a focused,
 zero-dependency alternative to heavyweight suites, tailored to the civil trade.
 It runs offline on one PC, keeps everything in a single SQLite file, and is
 built **entirely on the Python standard library**: `tkinter` for the UI,
 `sqlite3` for storage. No pip packages, no web server, no build step, no cloud.
+
+**Brand:** product name **ACO**; logo mark kept and filled **Radiant Orange**
+(`#FF4F18`). Constants live in `construction_app/branding.py`.
 
 > Built for small civil contractors in tier-2 / tier-3 cities — offline, on one
 > PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md),
