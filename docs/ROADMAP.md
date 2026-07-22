@@ -97,7 +97,7 @@ with minimal typing?_
 - ✅ **Cloud track (C0–C14 / U0.7)** — JSON API thickened for WinUI forms (FK options, contracts, cashflow, allocations). See gap roadmap §5A.
 - ⏳ **Local track** — **L0** tkinter display smoke; finish **U3–U5** / **L7** MSIX; **L8** OCR/STT/VLM weights over `sidecars/stub_server.py`.
 - ✅ **Browser / LAN — parity complete.** RA-bill statutory documents (Form 23 MB, Form 26 abstract) viewable + printable; **per-item measurement entry** now writable in the browser (quantity = Nos×L×B×D derived on save, a blank dimension staying "not applicable" = factor 1, never a zeroing 0); the **compliance-filings** register is writable (obligation stored as its stable key); the **GST / TDS** register (outward / HSN / inward / TDS for a month) is a read-only browser view over the desktop's own `tab_gst` compute (a computed report, so view-only by design). Everything a solo contractor does day-to-day is now browser-reachable.
-- ⏳ **Real-display GUI render check.** Headless CI has no Tk, so GUI smoke tests run only on a machine with a display (or Xvfb). **705+** pure-logic tests pass headlessly (5 skipped).
+- ✅ **Real-display GUI render check — done.** Run on a Windows 11 box with tkinter + a display: the full suite is **713 tests, 0 skipped, all green** — the GUI smoke tests that skip headlessly all run and pass here (**every tab builds under both light and dark themes**, the action dock resolves contextually, the project-overview drill-down gathers on real data). Headless CI still skips those 3 (no Tk); the ~708 pure-logic tests are the headless floor.
 
 ---
 

@@ -6,6 +6,19 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Real-display GUI render check: done (713 tests, 0 skipped)
+
+- **Ran the tkinter GUI suite on a real display** (Windows 11 + Tk), which the
+  head-less CI can't. The whole suite is **713 tests, 0 skipped, all green** —
+  the 3 GUI smoke tests that skip on a display-less runner run and pass here:
+  **every tab builds under both the light and dark themes** (all the merged
+  tabs — EVM, Risk, Opportunity, Lessons, Process, Portfolio, Productivity — the
+  first proof they render post-merge), the action dock resolves contextually, and
+  the project-overview drill-down gathers on seeded data. Roadmap item flipped
+  ⏳ → ✅.
+
+---
+
 ## 2026-07-22 — WinUI: shared FieldForm (FK pickers) + receivable-ageing chart
 
 Reconciled a parallel WinUI session (`cursor/winui-u4-u5-api-bind`) that had
