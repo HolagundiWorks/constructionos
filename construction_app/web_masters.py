@@ -11,15 +11,23 @@ A field is a plain dict:
 
     key       column name
     label     form label
-    kind      'text' | 'number' | 'combo' | 'fk' | 'textarea'
+    kind      'text' | 'number' | 'dim' | 'combo' | 'fk' | 'textarea'
+              ('dim' = a measurement dimension: blank stays NULL, not 0)
     options   for 'combo': the allowed values
     fk_sql    for 'fk': a query returning (id, label) rows for the dropdown
     default   starting value for a new record
     required  reject a blank on submit
+
+A table may also carry a **deriver** (see ``_DERIVERS``) that fills computed
+columns on save — e.g. a measurement's ``quantity = Nos×L×B×D`` — so the browser
+and the desktop store the same derived figures.
 """
 
 
 from datetime import date
+
+import civil       # pure — measurement quantity (Nos x L x B x D)
+import compliance  # pure — the statutory obligation list
 
 
 def _f(key, label, kind='text', options=None, fk_sql=None, default='',
@@ -32,6 +40,11 @@ _SITES = 'SELECT id, name FROM sites ORDER BY name'
 _CLIENTS = 'SELECT id, name FROM clients ORDER BY name'
 _PROJECTS = 'SELECT id, name FROM projects ORDER BY name'
 _CONTRACTS = 'SELECT id, contract_no FROM contracts ORDER BY id DESC'
+_BOQ_ITEMS = ("SELECT id, COALESCE(item_no, '') || ' — ' || "
+              "COALESCE(substr(description, 1, 50), '') FROM boq_items "
+              "ORDER BY id DESC")
+_OBLIGATIONS = [o['name'] for o in compliance.OBLIGATIONS]
+_OBLIGATION_KEY = {o['name']: o['key'] for o in compliance.OBLIGATIONS}
 
 # table -> {label, fields}. Order and wording follow the desktop tabs.
 MASTERS = {
@@ -179,7 +192,64 @@ MASTERS = {
         _f('closed_date', 'Closed on'),
         _f('closed_by', 'Closed by'),
     ]},
+    # Per-item measurement-book entry (closes the last browser/desktop gap).
+    # quantity is derived (Nos×L×B×D) on save — see _derive_measurement — so a
+    # blank dimension stays "not applicable" (factor 1), never a zeroing 0.
+    'measurements': {'label': 'Measurement', 'fields': [
+        _f('contract_id', 'Contract', 'fk', fk_sql=_CONTRACTS, required=True),
+        _f('boq_item_id', 'BOQ item', 'fk', fk_sql=_BOQ_ITEMS),
+        _f('mb_date', 'Date', default='@today'),
+        _f('mb_ref', 'MB page / ref'),
+        _f('description', 'Location / particulars', 'textarea'),
+        _f('nos', 'Nos', 'dim'),
+        _f('length', 'Length', 'dim'),
+        _f('breadth', 'Breadth', 'dim'),
+        _f('depth', 'Depth / height', 'dim'),
+        _f('remarks', 'Remarks', 'textarea'),
+    ]},
+    # Statutory compliance filings (GST/TDS/PF/ESI/cess/IT). obligation is
+    # picked by friendly name and stored as the OBLIGATIONS key — see
+    # _derive_compliance — so it lines up with the desktop calendar.
+    'compliance_filings': {'label': 'Compliance filing', 'fields': [
+        _f('obligation', 'Obligation', 'combo', options=_OBLIGATIONS,
+           required=True),
+        _f('period', 'Period (e.g. 2026-04)', required=True),
+        _f('due_date', 'Due date'),
+        _f('filed_date', 'Filed on'),
+        _f('ref_no', 'ARN / challan / ack no'),
+        _f('amount', 'Amount', 'number'),
+        _f('notes', 'Notes', 'textarea'),
+    ]},
 }
+
+
+def _derive_measurement(values):
+    """quantity = Nos × L × B × D (blanks → factor 1, via civil.dim_factor)."""
+    values['quantity'] = civil.measurement_quantity(
+        values.get('nos'), values.get('length'),
+        values.get('breadth'), values.get('depth'))
+    return values
+
+
+def _derive_compliance(values):
+    """Store the obligation as its stable key, not the display name."""
+    name = values.get('obligation')
+    if name in _OBLIGATION_KEY:
+        values['obligation'] = _OBLIGATION_KEY[name]
+    return values
+
+
+_DERIVERS = {
+    'measurements': _derive_measurement,
+    'compliance_filings': _derive_compliance,
+}
+
+
+def derive(table, values):
+    """Fill/normalise computed columns before an insert or update. A no-op for
+    tables without a deriver, so callers can apply it unconditionally."""
+    fn = _DERIVERS.get(table)
+    return fn(dict(values)) if fn else values
 
 
 def resolve_default(default):
@@ -239,6 +309,16 @@ def coerce(field, raw):
     if kind == 'number':
         if raw == '':
             return True, 0.0, None
+        try:
+            return True, float(raw), None
+        except ValueError:
+            return False, None, '{} must be a number.'.format(field['label'])
+    if kind == 'dim':
+        # A measurement-book dimension: blank means "not applicable" and
+        # contributes a factor of 1 (civil.dim_factor), so it must stay NULL —
+        # not become 0, which would zero the whole quantity.
+        if raw == '':
+            return True, None, None
         try:
             return True, float(raw), None
         except ValueError:

@@ -22,6 +22,30 @@ Continue headless API work that unblocks local U3–U5 without .NET:
 - **Search.** Record hits carry `nav`/`tag` for WinUI AutoSuggest.
 - API version **u0.7**; WinUI `MasterTables` includes Contracts.
 - Suite: **708** tests OK (5 skipped).
+## 2026-07-22 — Browser / LAN parity complete: measurement entry, compliance, GST
+
+- **Per-item measurement entry in the browser** (the last desktop-only gap). A
+  writable `measurements` register (Billing group) with the BOQ item + contract
+  pickers, dimensions, and MB reference. **`quantity` is derived on save**
+  (`Nos×L×B×D` via `civil.measurement_quantity`) — and a new `dim` field kind
+  keeps a blank dimension **NULL** (factor 1, "not applicable"), so a
+  running-metre item measured as Nos×L doesn't get zeroed by a `0` breadth.
+- **Compliance-filings register writable in the browser** (Accounts group). The
+  obligation is picked by friendly name and **stored as its stable
+  `compliance.OBLIGATIONS` key**, so browser-entered filings line up with the
+  desktop calendar.
+- **GST & TDS view in the browser** (`/gst`, read-only). Outward supplies
+  (GSTR-1), HSN/SAC summary, inward ITC and the TDS register for a month —
+  computed by the desktop's *own* `tab_gst.outward/inward/hsn_summary/
+  tds_register`, lazy-imported so the two surfaces report identical figures.
+  A computed report, so it stays view-only by design.
+- **Mechanism:** `web_masters` gains a small `derive(table, values)` hook (fills
+  computed columns like the measurement quantity before insert/update); the
+  webapp create/edit routes apply it. Registers placed in the nav
+  (measurements→Billing, compliance→Accounts) + a `/gst` rail link.
+- **Tests.** Browser measurement create asserts the derived quantity **and** that
+  a blank breadth stays NULL; compliance create asserts the obligation-key
+  mapping; the `/gst` view renders with its rail link. Full suite **709 green**.
 
 ---
 

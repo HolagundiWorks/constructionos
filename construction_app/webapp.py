@@ -99,12 +99,13 @@ _GROUPS = [
     ('Masters', ['sites', 'clients', 'vendors', 'materials', 'labour',
                  'equipment', 'thekedars']),
     ('Billing', ['rate_book', 'estimates', 'quotations', 'contracts', 'bills',
-                 'ra_bills', 'variations', 'tax_invoices', 'takeoffs',
-                 'bid_assessments']),
+                 'ra_bills', 'measurements', 'variations', 'tax_invoices',
+                 'takeoffs', 'bid_assessments']),
     ('Operations', ['snags', 'ncrs']),
     ('Purchases', ['purchase_orders', 'grns', 'vendor_invoices',
                    'subcontracts']),
     ('Money', ['payments']),
+    ('Accounts', ['compliance_filings']),
 ]
 
 
@@ -229,6 +230,7 @@ def _nav(conn):
     nav = [('', [('/', 'Dashboard', 'dashboard'),
                  ('/evm', 'Earned Value', 'evm'),
                  ('/review', 'Weekly Review', 'review'),
+                 ('/gst', 'GST & TDS', 'gst'),
                  ('/m/capture', 'Field capture', 'capture')])]
     placed = set()
     for group, keys in _GROUPS:
@@ -277,6 +279,8 @@ def handle(request):
         return _evm(request, sess)
     if path == '/review':
         return _review(request, sess)
+    if path == '/gst':
+        return _gst(request, sess)
     if path in ('/m', '/m/', '/m/capture'):
         return _mobile_capture(request, sess)
     if path == '/t' or path == '/t/':
@@ -560,6 +564,78 @@ def _review(request, sess):
                       active='review')
     finally:
         conn.close()
+
+
+def _gst(request, sess):
+    """GST & TDS register for a month, in the browser (read-only). Reuses the
+    desktop's own compute functions (`tab_gst.outward/inward/hsn_summary/
+    tds_register`) so the browser and desktop report the identical figures.
+    A computed report, not a table — so it stays view-only."""
+    import tab_gst
+    from datetime import date
+    conn = db.get_conn()
+    try:
+        month = (request.query.get('month') or '').strip()
+        if not month:
+            month = date.today().strftime('%Y-%m')
+        out_rows, out_tot = tab_gst.outward(conn, month)
+        in_rows, in_tot = tab_gst.inward(conn, month)
+        hsn_rows, hsn_tot = tab_gst.hsn_summary(conn, month)
+        tds_rows, tds_tot = tab_gst.tds_register(conn, month)
+        body = _gst_body(month, out_rows, out_tot, in_rows, in_tot,
+                         hsn_rows, hsn_tot, tds_rows, tds_tot)
+        return _shell('GST & TDS', body, sess, conn, active='gst')
+    finally:
+        conn.close()
+
+
+def _gst_body(month, out_rows, out_tot, in_rows, in_tot,
+              hsn_rows, hsn_tot, tds_rows, tds_tot):
+    def money(v):
+        return R.money(v)
+
+    parts = [
+        '<h1>GST &amp; TDS</h1>',
+        '<form method="get" action="/gst" class="inline">'
+        '<label>Month <input type="month" name="month" value="{m}"></label> '
+        '<button class="btn" type="submit">Show</button></form>'
+        '<p class="muted">Computed from your tax invoices, RA / running bills '
+        '(works-contract supply) and vendor invoices for {m}. Read-only — the '
+        'GSTR figures are derived, not edited here.</p>'.format(m=R.esc(month)),
+    ]
+
+    out_head = ['Source', 'No', 'Date', 'Party', 'Taxable', 'CGST', 'SGST',
+                'IGST', 'Total']
+    parts.append('<h2>Outward supplies (GSTR-1 / output tax)</h2>')
+    parts.append(R.table(out_head, [list(r) for r in out_rows], scroll=True)
+                 if out_rows else '<p class="muted">No outward supplies.</p>')
+    parts.append('<p class="muted">Taxable {t} · CGST {c} · SGST {s} · IGST {i} '
+                 '· Total {tot}</p>'.format(
+                     t=money(out_tot['taxable']), c=money(out_tot['cgst']),
+                     s=money(out_tot['sgst']), i=money(out_tot['igst']),
+                     tot=money(out_tot['total'])))
+
+    parts.append('<h2>HSN / SAC summary (outward)</h2>')
+    parts.append(R.table(['HSN/SAC', 'Taxable', 'CGST', 'SGST', 'IGST', 'Tax'],
+                         [list(r) for r in hsn_rows], scroll=True)
+                 if hsn_rows else '<p class="muted">No HSN lines.</p>')
+
+    in_head = ['No', 'Date', 'Party', 'Taxable', 'CGST', 'SGST', 'IGST', 'Total']
+    parts.append('<h2>Inward supplies (input tax credit)</h2>')
+    parts.append(R.table(in_head, [list(r) for r in in_rows], scroll=True)
+                 if in_rows else '<p class="muted">No inward supplies.</p>')
+    parts.append('<p class="muted">Taxable {t} · CGST {c} · SGST {s} · IGST {i} '
+                 '· Total {tot}</p>'.format(
+                     t=money(in_tot['taxable']), c=money(in_tot['cgst']),
+                     s=money(in_tot['sgst']), i=money(in_tot['igst']),
+                     tot=money(in_tot['total'])))
+
+    parts.append('<h2>TDS deducted (vendor invoices)</h2>')
+    parts.append(R.table(['No', 'Date', 'Party', 'Taxable', 'TDS %', 'TDS'],
+                         [list(r) for r in tds_rows], scroll=True)
+                 if tds_rows else '<p class="muted">No TDS this month.</p>')
+    parts.append('<p class="muted">Total TDS {}</p>'.format(money(tds_tot)))
+    return ''.join(parts)
 
 
 def _mobile_capture(request, sess):
@@ -1128,6 +1204,7 @@ def _master_create(request, sess, conn, table, cols):
     values, errs = _coerce_all(specs, request.form)
     if errs:
         return _master_form(conn, sess, table, None, errs, request.form)
+    values = web_masters.derive(table, values)   # e.g. measurement quantity
     keys = list(values.keys())
     cur = conn.execute(
         'INSERT INTO "{}" ({}) VALUES ({})'.format(
@@ -1154,6 +1231,7 @@ def _master_edit(request, sess, conn, table, cols, rid):
     values, errs = _coerce_all(specs, request.form)
     if errs:
         return _master_form(conn, sess, table, row, errs, request.form)
+    values = web_masters.derive(table, values)   # e.g. measurement quantity
     keys = list(values.keys())
     conn.execute(
         'UPDATE "{}" SET {} WHERE "{}" = ?'.format(

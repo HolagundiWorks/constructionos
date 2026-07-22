@@ -202,6 +202,63 @@ class TestWebRouter(unittest.TestCase):
         self.assertIn(b'Measured items', rec.body)    # items table on the record
         self.assertIn(b'/mb', rec.body)               # print links present
 
+    def test_measurement_entry_in_browser_derives_quantity(self):
+        import webapp
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        ck = {'cosid': sid}
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO contracts (contract_no) VALUES ('C/1')")
+        cid = conn.execute('SELECT id FROM contracts').fetchone()['id']
+        conn.execute("INSERT INTO boq_items (contract_id, item_no, description) "
+                     "VALUES (?, '1', 'PCC')", (cid,))
+        bid = conn.execute('SELECT id FROM boq_items').fetchone()['id']
+        conn.commit()
+        conn.close()
+        # Nos 4 × L 2 × (breadth blank ⇒ factor 1) × D 0.5 = 4.0 — a blank
+        # dimension must NOT zero the quantity.
+        resp = webapp.handle(self._req(
+            '/t/measurements/new', 'POST',
+            form={'csrf': csrf, 'contract_id': str(cid), 'boq_item_id': str(bid),
+                  'mb_date': '2026-07-01', 'mb_ref': 'MB-1', 'nos': '4',
+                  'length': '2', 'breadth': '', 'depth': '0.5'}, cookies=ck))
+        self.assertEqual(resp.status, 303)
+        conn = self.db.get_conn()
+        row = conn.execute('SELECT * FROM measurements').fetchone()
+        conn.close()
+        self.assertEqual(row['quantity'], 4.0)       # blank breadth ⇒ factor 1
+        self.assertIsNone(row['breadth'])            # blank stays NULL, not 0
+
+    def test_compliance_filing_in_browser_stores_obligation_key(self):
+        import webapp
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        resp = webapp.handle(self._req(
+            '/t/compliance_filings/new', 'POST',
+            form={'csrf': csrf, 'obligation': 'GSTR-1 (outward supplies)',
+                  'period': '2026-04', 'due_date': '2026-05-11',
+                  'ref_no': 'ARN123', 'amount': '5000'},
+            cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 303)
+        conn = self.db.get_conn()
+        row = conn.execute('SELECT * FROM compliance_filings').fetchone()
+        conn.close()
+        self.assertEqual(row['obligation'], 'gstr1')  # display name → stable key
+        self.assertEqual(row['period'], '2026-04')
+
+    def test_gst_view_renders_read_only(self):
+        import webapp
+        sid = self._login_admin()
+        # No query param (TestWebRouter._req has none); _gst defaults the month.
+        resp = webapp.handle(self._req('/gst', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'GST', resp.body)
+        self.assertIn(b'Outward supplies', resp.body)
+        self.assertIn(b'TDS', resp.body)
+        # rail links to it
+        home = webapp.handle(self._req('/', cookies={'cosid': sid}))
+        self.assertIn(b'/gst', home.body)
+
     def test_users_table_is_never_exposed(self):
         import webapp
         sid = self._login_admin()

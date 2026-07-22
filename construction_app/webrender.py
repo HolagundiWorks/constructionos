@@ -242,7 +242,7 @@ def control(kind, name, value, options=None):
     for combo/fk."""
     v = esc('' if value is None else value)
     n = esc(name)
-    if kind == 'number':
+    if kind in ('number', 'dim'):
         return ('<input type="text" inputmode="decimal" name="{}" value="{}">'
                 .format(n, v))
     if kind == 'textarea':
