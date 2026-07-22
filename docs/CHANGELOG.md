@@ -6,16 +6,42 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud track: C3–C6 (audit origin, signal feed, events, lessons API)
+
+- **C3 AI-origin audit.** `audit_log.origin` (`manual`/`ai`) + `auth.audit(..., origin=)`;
+  `capture.origin_of` for confirmed capture drafts.
+- **C4 signal feed.** `signal_feed.py` turns drift / schedule forecast / rising
+  cost trends into AI risk drafts (`source='ai'`), with dedupe + audit.
+- **C5 event hooks.** `event_hooks.react` composes `followups` + optional
+  `risk_detect`; gated flags preserved.
+- **C6 lessons API.** `/api/lessons` CRUD; also `/api/events`, `/api/signals/feed`,
+  `/api/audit?origin=ai`.
+- **Tests.** 661 headless OK (5 skipped).
+
+---
+
+## 2026-07-22 — Cloud track: C0 purity + U0 JSON API
+
+- **C0 headless purity.** Cost/revenue DB bridge moved to tkinter-free
+  `project_rollup.py`; `evm` / dashboard / KPI no longer import `tab_projects`.
+  `lessons.apply_rates` extracted; display-only theme tests skip without tkinter.
+- **U0 JSON API (`webapi.py`).** Session-gated `/api/*` over the domain: health,
+  me, login, dashboard/KPI, menu, workflow, EVM, review, risks, opportunities,
+  and masters CRUD. CSRF via `X-CSRF-Token` / body; Viewers read-only.
+  `webserver` accepts JSON bodies and PUT/DELETE.
+- **Tests.** `TestWebApi` in `test_web.py`; full headless suite 648 OK (5 skipped).
+
+---
+
 ## 2026-07-22 — Cloud vs local roadmap split (actionable)
 
 - **Roadmap §5A / §5B expanded** into ordered action plans for the two
   development environments (cloud headless Python vs local Windows/.NET/display).
   Companion status tables refreshed for shipped EVM / Risk / Opportunity / Weekly
   Review surfaces; Lessons Learned register tab still called out as pending.
-- **Next cloud actions** named explicitly: **C0** extract cost roll-up out of
-  `tab_projects` (headless purity), then **C1/C2** `webapi.py` (U0 JSON API).
-- **Next local actions**: residual E7 UI (Controls, Lessons Learned tab, Process
-  view, persona rail), then WinUI **U1–U7** after U0.
+- **Cloud actions** C0–C6 delivered (see entries above); **local next**: residual
+  E7 UI (Controls, Lessons Learned tab, Process view, persona rail), then WinUI
+  **U1–U7** against the JSON API.
 - Agent memory (`CLAUDE.md`, `AGENTS.md` headline counts) and
   `EXECUTION-PART2.md` maturity tags aligned with the tree.
 

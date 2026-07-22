@@ -206,7 +206,7 @@ def collect(conn):
     s['projects_worst_margin'] = 0.0
     s['unattributed_cost'] = 0.0
     try:
-        from tab_projects import project_cost_rollup
+        from project_rollup import project_cost_rollup
         rolls = [(r['name'], project_cost_rollup(conn, r['id']))
                  for r in conn.execute("SELECT id, name FROM projects "
                                        "WHERE status != 'Cancelled'")]

@@ -583,5 +583,231 @@ class TestWebServerIntegration(unittest.TestCase):
                     pass
 
 
+class TestWebApi(unittest.TestCase):
+    """U0 JSON API — socket-free via ``webapp.handle``, same session gate."""
+
+    def setUp(self):
+        import db, webapp
+        self.db = db
+        self.webapp = webapp
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd); os.remove(self.path)
+        self.orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        webapp.reset_sessions()
+
+    def tearDown(self):
+        self.db.DB_PATH = self.orig
+        for ext in ('', '-wal', '-shm'):
+            try:
+                os.remove(self.path + ext)
+            except OSError:
+                pass
+
+    def _req(self, path, method='GET', form=None, cookies=None,
+             json_body=None, query=None, headers=None):
+        return self.webapp.Request(
+            method, path, query=query or {}, form=form or {},
+            cookies=cookies or {}, json_body=json_body,
+            headers=headers or {})
+
+    def _login(self, username='admin', password=STRONG):
+        import json
+        resp = self.webapp.handle(self._req(
+            '/api/login', 'POST',
+            json_body={'username': username, 'password': password}))
+        self.assertEqual(resp.status, 200, resp.body)
+        sid = cookie_val(resp, 'cosid')
+        self.assertTrue(sid)
+        data = json.loads(resp.body.decode('utf-8'))
+        return sid, data['csrf'], data
+
+    def _json(self, resp):
+        import json
+        return json.loads(resp.body.decode('utf-8'))
+
+    def test_api_requires_auth(self):
+        resp = self.webapp.handle(self._req('/api/dashboard'))
+        self.assertEqual(resp.status, 401)
+        self.assertIn('application/json', resp.headers['Content-Type'])
+        self.assertIn('Authentication', self._json(resp)['error'])
+
+    def test_api_login_and_me(self):
+        sid, csrf, me = self._login()
+        self.assertEqual(me['role'], 'Admin')
+        self.assertTrue(me['can_write'])
+        resp = self.webapp.handle(self._req(
+            '/api/me', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertEqual(body['username'], 'admin')
+        self.assertEqual(body['csrf'], csrf)
+
+    def test_dashboard_menu_workflow_evm(self):
+        sid, _csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        for path, key in (('/api/health', 'ok'),
+                          ('/api/dashboard', 'snapshot'),
+                          ('/api/kpi', 'advisories'),
+                          ('/api/workflow', 'workflows'),
+                          ('/api/evm', 'portfolio'),
+                          ('/api/review', 'narrative'),
+                          ('/api/risks', 'items'),
+                          ('/api/opportunities', 'items')):
+            resp = self.webapp.handle(self._req(path, cookies=cookies))
+            self.assertEqual(resp.status, 200, path)
+            self.assertIn(key, self._json(resp))
+        resp = self.webapp.handle(self._req(
+            '/api/menu', cookies=cookies, query={'persona': 'Owner'}))
+        self.assertEqual(resp.status, 200)
+        menu = self._json(resp)
+        self.assertEqual(menu['persona'], 'Owner')
+        self.assertTrue(menu['sections'])
+        titles = [s['title'] for s in menu['sections']]
+        self.assertIn('Project Management', titles)
+
+    def test_risk_crud_and_csrf(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        # Missing CSRF → 403
+        resp = self.webapp.handle(self._req(
+            '/api/risks', 'POST', cookies=cookies,
+            json_body={'title': 'No token', 'likelihood': 2, 'impact': 2}))
+        self.assertEqual(resp.status, 403)
+        # Create
+        resp = self.webapp.handle(self._req(
+            '/api/risks', 'POST', cookies=cookies,
+            json_body={'title': 'Cash gap', 'likelihood': 3, 'impact': 4,
+                       'impact_value': 50000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201)
+        risk = self._json(resp)
+        self.assertEqual(risk['title'], 'Cash gap')
+        self.assertEqual(risk['band'], 'High')
+        rid = risk['id']
+        # Update
+        resp = self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), 'PUT', cookies=cookies,
+            json_body={'likelihood': 5},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['score'], 20.0)
+        # Get + list
+        resp = self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        resp = self.webapp.handle(self._req('/api/risks', cookies=cookies))
+        self.assertEqual(len(self._json(resp)['items']), 1)
+        # Delete
+        resp = self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), 'DELETE', cookies=cookies,
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        resp = self.webapp.handle(self._req(
+            '/api/risks/{}'.format(rid), cookies=cookies))
+        self.assertEqual(resp.status, 404)
+
+    def test_master_create_and_viewer_denied(self):
+        import auth
+        sid, csrf, _ = self._login()
+        resp = self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies={'cosid': sid},
+            json_body={'name': 'Ward-7', 'location': 'Pune'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201)
+        self.assertEqual(self._json(resp)['name'], 'Ward-7')
+
+        conn = self.db.get_conn()
+        try:
+            auth.create_user(conn, 'viewer', STRONG, role='Viewer',
+                             actor='admin')
+        finally:
+            conn.close()
+        vsid, vcsrf, vme = self._login('viewer', STRONG)
+        self.assertFalse(vme['can_write'])
+        resp = self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies={'cosid': vsid},
+            json_body={'name': 'Nope'},
+            headers={'X-CSRF-Token': vcsrf}))
+        self.assertEqual(resp.status, 403)
+
+    def test_project_evm_endpoint(self):
+        sid, _csrf, _ = self._login()
+        conn = self.db.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, contract_value, start_date, "
+                "end_date) VALUES ('Road', 1000000, '2026-01-01', '2026-12-31')")
+            conn.commit()
+            pid = conn.execute('SELECT id FROM projects').fetchone()[0]
+        finally:
+            conn.close()
+        resp = self.webapp.handle(self._req(
+            '/api/project/{}/evm'.format(pid), cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertEqual(body['bac'], 1000000.0)
+        self.assertEqual(body['name'], 'Road')
+        resp = self.webapp.handle(self._req(
+            '/api/project/999/evm', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 404)
+
+    def test_lessons_crud(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        resp = self.webapp.handle(self._req(
+            '/api/lessons', 'POST', cookies=cookies,
+            json_body={'title': 'Tag costs early', 'outcome': 'positive',
+                       'recommendation': 'Always tag project_id on issues'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        lesson = self._json(resp)
+        self.assertEqual(lesson['title'], 'Tag costs early')
+        lid = lesson['id']
+        resp = self.webapp.handle(self._req('/api/lessons', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['items']), 1)
+        resp = self.webapp.handle(self._req(
+            '/api/lessons/{}'.format(lid), 'PUT', cookies=cookies,
+            json_body={'status': 'Applied'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['status'], 'Applied')
+
+    def test_events_and_signal_feed(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        resp = self.webapp.handle(self._req(
+            '/api/events', 'POST', cookies=cookies,
+            json_body={'event': 'grn_saved', 'payload': {'grn_id': 1}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertTrue(body['followups'])
+        self.assertEqual(body['gated_count'], 0)
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/feed', 'POST', cookies=cookies,
+            json_body={
+                'drift': {
+                    'drifting': True, 'score': 4, 'confidence': 'Low',
+                    'signals': [{'signal': 'plan reliability falling',
+                                 'basis': '4 periods'}],
+                },
+                'apply': True,
+            },
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertEqual(len(body['drafts']), 1)
+        self.assertEqual(len(body['applied_ids']), 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/audit', cookies=cookies, query={'origin': 'ai'}))
+        self.assertEqual(resp.status, 200)
+        self.assertTrue(self._json(resp)['items'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

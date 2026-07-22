@@ -17,14 +17,15 @@ and any report share one honest definition:
   A baseline S-curve would give a truer PV; time-elapsed is the honest stand-in
   when no baseline programme exists (``None`` planned% ⇒ PV 0, SPI blank).
 
-DB-only, no tkinter. ``project_cost_rollup`` is imported lazily inside the call
-(exactly as :mod:`dashboard` and :mod:`tab_kpi` do) so a head-less caller — the
-web server, a test — doesn't drag the GUI in at import time.
+DB-only, no tkinter. Cost figures come from :mod:`project_rollup` (also
+tkinter-free) so a head-less caller — the web server, a test — never pulls
+the GUI in.
 """
 
 from datetime import date
 
 import earnedvalue
+import project_rollup
 
 
 def _num(value):
@@ -66,11 +67,9 @@ def project_evm(conn, project, today=None):
     Wraps :func:`earnedvalue.earned_value` and tacks on ``id``, ``name`` and the
     ``planned_pct`` used, so a caller can render a row without re-querying.
     """
-    from tab_projects import project_cost_rollup
-
     pid = project['id']
     bac = _num(project['contract_value']) or _num(project['budget'])
-    roll = project_cost_rollup(conn, pid)
+    roll = project_rollup.project_cost_rollup(conn, pid)
     ac = _num(roll.get('total_cost'))
     ev = _num(roll.get('revenue'))
     pp = planned_pct(project['start_date'], project['end_date'], today)

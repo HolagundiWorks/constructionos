@@ -188,7 +188,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 
 | # | Target | Status | Approach | Verifiable |
 |---|---|---|---|---|
-| **U0** | Backend JSON API over the domain (`webapi.py`) | ❌ | Reuse the tested Python core as a localhost service; add JSON endpoints (stdlib, testable) | **Here (Python)** |
+| **U0** | Backend JSON API over the domain (`webapi.py`) | ✅ | Reuse the tested Python core as a localhost service; JSON endpoints under `/api/*` (stdlib, testable) | **Here (Python)** |
 | **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
@@ -237,21 +237,21 @@ discipline already in [`ROADMAP.md`](ROADMAP.md).
 
 **Implementation status at a glance** (verified against `main`, 2026-07-22). The
 **deterministic backbone of E0–E5 and the E7 models are built.** Most enterprise
-registers now also have a **desktop + browser surface**. What remains is the
-**JSON API (U0)**, residual pure/platform work, GUI wiring that needs a display,
-the WinUI 3 client, and ML/mobile sidecars.
+registers now also have a **desktop + browser surface**. Cloud C0–C6 (purity,
+JSON API, audit origin, signal feed, event hooks, lessons API) is **built**.
+What remains is mostly **local**: WinUI 3 client, residual GUI, ML/mobile.
 
 | Phase | Built (module / surface) | Remaining | Track |
 |---|---|---|---|
-| **E0** | `earnedvalue` + `evm` + **Earned Value tab** + `/evm`; `risk` + `risk_store` + **Risks tab**; detection ready | AI-origin audit tagging (E0.3); keep `evm` bridge headless-safe | Cloud (tagging + bridge) |
+| **E0** | `earnedvalue` + `evm` + **Earned Value tab** + `/evm`; `risk` + `risk_store` + **Risks tab**; detection; **AI-origin audit** | — | Cloud done |
 | **E1** | `capture.py` (draft-and-confirm framework) | OCR/voice/VLM **model sidecars** + capture UI | Local (models/UI) |
-| **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** tab + `/review` | Dedicated multi-file portfolio shell (optional) | Cloud (API) / Local (shell) |
-| **E3** | `risk_detect` (11 rules + mitigations), `narrative.risk_briefing`, Risks tab | Auto-wire detect→register from events | Cloud (logic) / Local (handlers) |
-| **E4** | `review_pack`, `followups` (gated follow-on logic) | GUI/event wiring that fires on save | Local (GUI) + Cloud (API hooks) |
-| **E5** | `forecast`, `drift` | Feed forecast/drift into register as suggestions | Cloud (store write) / Local (tab) |
+| **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** tab + `/review` | Dedicated multi-file portfolio shell (optional) | Local (shell) |
+| **E3** | `risk_detect` (11 rules + mitigations), `narrative.risk_briefing`, Risks tab; event detect hook | GUI auto-wire on save | Local (handlers) |
+| **E4** | `review_pack`, `followups`, `event_hooks` | GUI wiring that fires on save | Local (GUI) |
+| **E5** | `forecast`, `drift`, `signal_feed` → AI risk drafts | Tab surfacing of suggestions | Local (tab) |
 | **E6** | — | Mobile capture app | Local (separate) |
 | **E7** | `menu.py`, `workflow.py` (models + tests) | Controls section, Lessons Learned tab, Process view, persona rail, search | Local (UI) — models Cloud-done |
-| **U** | Spec complete ([`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md)) | **U0 JSON API** then U1–U7 WinUI 3 client | **U0 Cloud** · **U1–U7 Local** |
+| **U** | `webapi.py` `/api/*` (**U0 done**) | WinUI 3 C# client (U1–U7) | **U1–U7 Local** |
 
 **What this environment can still produce:** pure Python domain, SQLite stores,
 stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
@@ -271,6 +271,19 @@ GUI/`tab_*` imports that pull `tkinter` will **error on import** here — that i
 an environment limit, not a logic failure. Never claim a UI was tested without a
 display.
 
+| Area | Modules / deliverables | Status |
+|---|---|---|
+| Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
+| Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
+| Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
+| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ✅ **built** — `/api/*` (C1/C2) |
+| AI-origin audit (C3) | `audit_log.origin` + `auth.audit(..., origin=)` | ✅ built + tested |
+| Prediction → register (C4) | `signal_feed.py` | ✅ built + tested |
+| Event hooks (C5) | `event_hooks.py` over `followups` + `risk_detect` | ✅ built + tested |
+| Lessons API (C6) | `/api/lessons` + store | ✅ built + tested |
+| Headless purity (C0) | `project_rollup.py` | ✅ built + tested |
+| Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
+
 #### Already done on this track
 
 | Area | Deliverables |
@@ -280,18 +293,17 @@ display.
 | Web/LAN surfaces for new PM | `/evm`, `/review`, Risk/Opportunity/EVM browser pages (stdlib HTML) |
 | Docs | Architecture, WinUI migration, AI models, this roadmap |
 
-#### Ordered action plan — cloud next
+#### Ordered action plan — cloud (C0–C6 ✅ done)
 
-| # | Action | Why | Acceptance | Pri |
-|---|---|---|---|---|
-| **C0** | **Headless purity fix** — move `project_cost_rollup` out of `tab_projects.py` into a tkinter-free module (e.g. `projectcost.py` / `project_rollup.py`); point `evm`, `dashboard`, `tab_kpi` at it | `evm.project_evm` lazily imports `tab_projects` → **tkinter**, so ~9 headless tests error in this env | `python -m unittest discover -s tests` has **0 import errors** without tkinter; `evm` stays DB-only | P0 |
-| **C1** | **U0 — Backend JSON API** (`webapi.py`) over the domain; extend `tests/test_web.py` | Contract for WinUI 3 + future mobile; only U-phase buildable here | Socket-free `handle(Request)→Response` tests for read+write `/api/*`; role-gated writes; no maths in transport — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §3 | P0 |
-| **C2** | **U0 DTO coverage** — dashboard, KPI, menu(`persona`), workflow, EVM, risks, opportunities, masters CRUD, money docs | Local WinUI work needs a stable contract | OpenAPI-style docstring or `docs/` contract table + golden JSON fixtures in tests | P0 |
-| **C3** | **E0.3 AI-origin audit tagging** — tag AI-drafted records + confirming user beyond `risks.source` | Audit "what did AI touch" | `audit_log` (or row metadata) distinguishes AI draft vs human confirm; unit-tested | P1 |
-| **C4** | **E5 feed** — `forecast` / `drift` → optional draft risk/opportunity via store APIs | Closes the prediction→register loop without GUI | Pure function: signals in → `risk_store.add(..., source='ai')` draft out; tested | P1 |
-| **C5** | **E3/E4 event hooks (logic only)** — map save-events → `followups` / `risk_detect` drafts | GUI only wires the call; decision logic stays headless | Given event+snapshot → expected draft list; all consequential items `gated` | P1 |
-| **C6** | **Lessons Learned store API surface** — ensure `lessons_store` is ready for `/api/lessons` and a future Controls tab | Register exists; no first-class UI yet | CRUD + summary unit tests; JSON serialisable | P1 |
-| **C7** | Docs/counts hygiene — keep `AGENTS.md` / `CLAUDE.md` / this file honest after each merge | Prevents agents rebuilding shipped work | Headline module/test/table counts re-checked per §25 of `AGENTS.md` | P2 |
+| # | Action | Status |
+|---|---|---|
+| **C0** | Headless purity — `project_rollup.py` | ✅ |
+| **C1/C2** | U0 JSON API (`webapi.py`) + tests | ✅ |
+| **C3** | AI-origin audit tagging | ✅ |
+| **C4** | Forecast/drift → register drafts (`signal_feed`) | ✅ |
+| **C5** | Event hooks (`event_hooks`) | ✅ |
+| **C6** | Lessons API `/api/lessons` | ✅ |
+| **C7** | Docs/counts hygiene after each merge | ongoing |
 
 **Cloud non-goals:** WinUI XAML, MSIX, tkinter smoke screenshots, shipping OCR/STT
 weights, mobile app UI.

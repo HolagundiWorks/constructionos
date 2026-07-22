@@ -39,10 +39,10 @@ cd construction_app && python -m compileall -q .
 - **Two development environments** — the actionable split lives in
   [`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)
   §5A / §5B:
-  - **Cloud (this agent, headless Python):** domain/data/backend, **U0 JSON API**,
-    purity fixes, event/forecast→register logic, unit tests, docs. **No display,
-    no .NET, no ML models.** Next: **C0** (extract cost roll-up from
-    `tab_projects`) → **C1/C2** (`webapi.py`).
+  - **Cloud (this agent, headless Python):** domain/data/backend, JSON API
+    (**U0 `webapi.py` — built**), purity fixes, signal feed / event hooks /
+    audit origin (C3–C6), unit tests, docs. **No display, no .NET, no ML
+    models.**
   - **Local (Windows + display + .NET):** residual tkinter (Controls, Lessons
     Learned tab, Process view, persona rail), WinUI 3 client (**U1–U7** after
     U0), smoke tests, MSIX, model sidecars.

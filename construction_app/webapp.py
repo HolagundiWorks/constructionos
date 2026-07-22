@@ -26,6 +26,7 @@ import secrets
 import sqlite3
 import threading
 import urllib.parse
+import json
 
 import db
 import auth
@@ -110,7 +111,7 @@ _GROUPS = [
 # --------------------------------------------------------------- HTTP objects
 class Request:
     def __init__(self, method, path, query=None, form=None, form_multi=None,
-                 cookies=None, headers=None, client=''):
+                 cookies=None, headers=None, client='', json_body=None):
         self.method = method
         self.path = path
         self.query = query or {}
@@ -120,6 +121,9 @@ class Request:
         self.cookies = cookies or {}
         self.headers = headers or {}
         self.client = client
+        # Parsed JSON body for /api writes (dict/list/None). Separate from
+        # form so HTML form posts are unchanged.
+        self.json_body = json_body
 
 
 class Response:
@@ -246,6 +250,11 @@ def handle(request):
     path = request.path
     if path in ('/favicon.ico',):
         return Response('', status=204)
+
+    # JSON API login is public (creates the session); other /api/* need auth.
+    if path == '/api/login':
+        return _api_login(request)
+
     if path == '/login':
         return _login(request)
     if path == '/logout':
@@ -253,7 +262,13 @@ def handle(request):
 
     sess = _session(request.cookies.get('cosid'))
     if not sess:
+        if path.startswith('/api/'):
+            return _api_unauthorized()
         return _redirect('/login')
+
+    if path.startswith('/api/'):
+        import webapi
+        return webapi.handle(request, sess)
 
     if path == '/':
         return _dashboard(request, sess)
@@ -266,6 +281,62 @@ def handle(request):
     if path.startswith('/t/'):
         return _table_route(request, sess, path[3:])
     return _page('Not found', '<p class="muted">No such page.</p>', sess, conn=None)
+
+
+def _api_unauthorized():
+    body = json.dumps({'error': 'Authentication required'})
+    return Response(body, status=401,
+                    content_type='application/json; charset=utf-8')
+
+
+def _api_login(request):
+    """POST /api/login — JSON {username, password} → session cookie + me."""
+    if request.method != 'POST':
+        body = json.dumps({'error': 'POST required'})
+        return Response(body, status=405,
+                        content_type='application/json; charset=utf-8')
+    data = request.json_body if isinstance(request.json_body, dict) else {}
+    if not data:
+        # Allow form-encoded too for curl convenience.
+        data = {
+            'username': request.form.get('username', ''),
+            'password': request.form.get('password', ''),
+        }
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    conn = db.get_conn()
+    try:
+        first_run = auth.user_count(conn) == 0
+        if first_run:
+            ok, msg = auth.create_user(conn, username, password,
+                                       role='Admin', actor='api-setup')
+            if not ok:
+                body = json.dumps({'error': msg})
+                return Response(body, status=400,
+                                content_type='application/json; charset=utf-8')
+            role = 'Admin'
+        else:
+            ok, msg, user = auth.authenticate(conn, username, password)
+            if not ok:
+                body = json.dumps({'error': msg})
+                return Response(body, status=401,
+                                content_type='application/json; charset=utf-8')
+            role = user['role']
+        token = _new_session(username, role)
+        sess = _session(token)
+        body = json.dumps({
+            'username': username,
+            'role': role,
+            'csrf': sess['csrf'],
+            'can_write': can_write(role),
+        })
+        resp = Response(body, status=200,
+                        content_type='application/json; charset=utf-8')
+        resp.set_cookie('cosid', token)
+        return resp
+    finally:
+        conn.close()
+
 
 
 def _login(request):

@@ -15,6 +15,7 @@ Two ways to run it:
 """
 
 import http.cookies
+import json
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -41,7 +42,8 @@ class _Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlsplit(self.path)
         query = _flatten(urllib.parse.parse_qs(parsed.query))
         form, form_multi = {}, {}
-        if method == 'POST':
+        json_body = None
+        if method in ('POST', 'PUT', 'DELETE', 'PATCH'):
             try:
                 length = int(self.headers.get('Content-Length') or 0)
             except ValueError:
@@ -51,7 +53,15 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             raw = self.rfile.read(length).decode('utf-8', 'replace') if length else ''
             ctype = (self.headers.get('Content-Type') or '')
-            if 'application/x-www-form-urlencoded' in ctype:
+            if 'application/json' in ctype:
+                try:
+                    json_body = json.loads(raw) if raw else {}
+                except ValueError:
+                    self._send(webapp.Response(
+                        '{"error":"Invalid JSON"}', status=400,
+                        content_type='application/json; charset=utf-8'))
+                    return
+            elif 'application/x-www-form-urlencoded' in ctype:
                 # keep_blank_values so repeated line-item columns stay aligned
                 # by row index (an empty cell must not shorten its column).
                 form_multi = urllib.parse.parse_qs(raw, keep_blank_values=True)
@@ -70,7 +80,8 @@ class _Handler(BaseHTTPRequestHandler):
         req = webapp.Request(
             method=method, path=parsed.path, query=query, form=form,
             form_multi=form_multi, cookies=cookies, headers=dict(self.headers),
-            client=self.client_address[0] if self.client_address else '')
+            client=self.client_address[0] if self.client_address else '',
+            json_body=json_body)
         try:
             resp = webapp.handle(req)
         except Exception as exc:                             # noqa: BLE001
@@ -97,6 +108,12 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self._dispatch('POST')
+
+    def do_PUT(self):
+        self._dispatch('PUT')
+
+    def do_DELETE(self):
+        self._dispatch('DELETE')
 
     def do_HEAD(self):
         self._dispatch('GET')

@@ -6,9 +6,9 @@ opportunity register, then hands them to ``review_pack.build`` so the desktop ta
 and the browser page render **one identical pack** — the report can never say two
 different things on two screens.
 
-DB-only, no tkinter (``evm`` and ``dashboard`` pull the GUI-touching cost roll-up
-lazily, as they already do), so a head-less caller — the web server, a test — can
-assemble the same pack.
+DB-only, no tkinter. Cost figures come from :mod:`project_rollup` (also
+tkinter-free), so a head-less caller — the web server, a test — can assemble
+the same pack.
 """
 
 import dashboard
