@@ -99,10 +99,24 @@ class ProcessTab(ttk.Frame):
         self._filter()
 
     def _filter(self):
-        self._hits = menu.search_tabs(self.q_var.get())
+        import record_search
+        q = self.q_var.get()
+        tab_hits = menu.search_tabs(q)
+        conn = self.db_getter()
+        try:
+            rec_hits = record_search.search_records(conn, q, limit=20)
+        finally:
+            conn.close()
+        self._hits = (
+            [{'kind': 'tab', **h} for h in tab_hits]
+            + rec_hits
+        )
         self.hit_list.delete(0, 'end')
-        for h in self._hits[:40]:
-            self.hit_list.insert('end', h['label'])
+        for h in self._hits[:50]:
+            text = h.get('display') or h.get('label') or ''
+            if h.get('kind') == 'tab':
+                text = h.get('label') or text
+            self.hit_list.insert('end', text)
 
     def _open_selected(self):
         if not self.on_goto or not self._hits:
@@ -112,7 +126,7 @@ class ProcessTab(ttk.Frame):
         if i >= len(self._hits):
             return
         h = self._hits[i]
-        self.on_goto(h['section'], h['tab'])
+        self.on_goto(h.get('section'), h.get('tab'))
 
 
 def build_process_tab(parent, db_getter, on_goto=None):

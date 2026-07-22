@@ -1582,6 +1582,99 @@ class TestProductivityStore(unittest.TestCase):
             conn.close()
 
 
+class TestBuildersCatalogDrift(unittest.TestCase):
+    """Every catalog label must have a BUILDERS entry (headless — no import main)."""
+
+    def test_builders_cover_all_catalog_labels(self):
+        path = os.path.join(os.path.dirname(__file__), os.pardir,
+                            'construction_app', 'main.py')
+        src = open(path, encoding='utf-8').read()
+        # Keys inside BUILDERS = { ... }
+        m = re.search(r'^BUILDERS\s*=\s*\{(.*?)^\}\s*$', src,
+                      re.M | re.S)
+        self.assertIsNotNone(m, 'BUILDERS dict not found in main.py')
+        keys = set(re.findall(r"^\s*'([^']+)'\s*:", m.group(1), re.M))
+        missing = [label for label in modules_cat.ALL_MODULES if label not in keys]
+        self.assertEqual(missing, [], 'BUILDERS missing catalog labels')
+
+    def test_module_icons_cover_catalog(self):
+        path = os.path.join(os.path.dirname(__file__), os.pardir,
+                            'construction_app', 'main.py')
+        src = open(path, encoding='utf-8').read()
+        m = re.search(r'^MODULE_ICONS\s*=\s*\{(.*?)^\}\s*$', src,
+                      re.M | re.S)
+        self.assertIsNotNone(m)
+        keys = set(re.findall(r"'([^']+)'\s*:", m.group(1)))
+        missing = [label for label in modules_cat.ALL_MODULES if label not in keys]
+        self.assertEqual(missing, [], 'MODULE_ICONS missing catalog labels')
+
+
+class TestRecordSearch(unittest.TestCase):
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_finds_project_by_name(self):
+        import record_search
+        conn = self.db.get_conn()
+        try:
+            conn.execute("INSERT INTO projects (name) VALUES ('Ward-7 Road')")
+            conn.commit()
+            hits = record_search.search_records(conn, 'Ward')
+            self.assertTrue(hits)
+            self.assertEqual(hits[0]['table'], 'projects')
+            self.assertIn('Ward-7', hits[0]['label'])
+            self.assertTrue(hits[0]['href'].startswith('/t/projects/'))
+        finally:
+            conn.close()
+
+
+class TestFinanceNarrateReconcile(unittest.TestCase):
+    def test_over_billed(self):
+        import finance as f
+        r = f.reconcile(10000, 12000, 0)
+        text = f.narrate_reconcile(r, 'VI-2')
+        self.assertIn('over-billed', text.lower())
+
+
+class TestPortfolioAdvisory(unittest.TestCase):
+    def test_concentrated_exposure(self):
+        cards = advisory.for_portfolio([
+            {'name': 'East', 'risks': {'total_expected_exposure': 800000,
+                                       'needs_action': 3},
+             'lessons': {}, 'opportunities': {}},
+            {'name': 'West', 'risks': {'total_expected_exposure': 50000,
+                                       'needs_action': 0},
+             'lessons': {}, 'opportunities': {}},
+        ])
+        self.assertTrue(cards)
+        self.assertIn('East', cards[0]['title'])
+
+
+class TestComplianceFeed(unittest.TestCase):
+    def test_filing_events_are_gated(self):
+        import compliance_feed
+        events = compliance_feed.filing_events([
+            {'name': 'GSTR-1', 'due_date': '2026-01-11', 'period': 'Dec'},
+        ])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['event'], 'filing_due')
+        self.assertGreaterEqual(events[0]['gated_count'], 1)
+
+
 class TestWorkflowState(unittest.TestCase):
     """E7.4 — book-derived completion for the Process view."""
 

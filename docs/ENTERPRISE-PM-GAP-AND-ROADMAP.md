@@ -89,12 +89,12 @@ gap, its impact, and the required work.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Portfolio roll-up across projects/firms | 🟡 | Federated read model built (`portfolio_store.py`); Weekly Review surfaces a pack; no dedicated portfolio shell | Cross-file roll-up computable; UX still firm-file-centric | Wire roll-up into WinUI/Controls + keep federated offline-safe | P0 · L · Platform |
+| Portfolio roll-up across projects/firms | ✅ | Federated `portfolio_store` + Money › Portfolio + WinUI + `/api/portfolio` advisories | — | Maintain | — |
 | Earned Value Management (SPI/CPI/EAC) | ✅ | Maths (`earnedvalue.py`) + DB bridge (`evm.py`) + desktop tab + browser `/evm` | — | Maintain; keep bridge tkinter-free (see §5A C0) | — |
-| Formal risk register + scoring | ✅ | Scoring (`risk.py`) + store (`risk_store.py`) + **Project Management › Risks** tab + detection (`risk_detect.py`) | — | Maintain; optional Controls-section home (E7.3) | — |
-| Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; roll-up store; conflict handling | P1 · L · Platform |
-| Mobile field capture | 🟡 | Browser/LAN read + some entry; no mobile-optimised capture | Field data still typed later at a desk — the root cause of stale data | Mobile capture app feeding the capture pipeline (§3.2) | P1 · L · Platform |
-| AI-origin tagging in audit | 🟡 | Audit log exists; doesn't distinguish AI-drafted records | Can't audit "what did the AI touch and who confirmed it" | Tag AI-origin + confirming user on records | P1 · S · Platform |
+| Formal risk register + scoring | ✅ | Scoring (`risk.py`) + store (`risk_store.py`) + **Controls › Risk Register** + detection (`risk_detect.py`) | — | Maintain | — |
+| Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; conflict handling | P1 · L · Platform |
+| Mobile field capture | 🟡 | Browser `/m/capture` + `/api/capture/*` (E6-lite); no native app | Field data can sync via LAN; native app still open | Native mobile optional | P1 · L · Platform |
+| AI-origin tagging in audit | ✅ | `audit_log.origin` + default `manual`; AI paths tagged; `?origin=` filter | — | Maintain | — |
 | Enterprise identity (SSO, project roles) | ❌ | Roles Admin/Operator/Viewer built; no SSO or per-project scoping | Larger orgs need finer access; solo users need none | Optional SSO + per-project role scoping (opt-in) | P2 · M · Platform |
 
 ### 3.2 AI Job 1 — Eliminate manual data entry (capture)
@@ -117,9 +117,9 @@ true).
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Event-driven follow-on chaining | 🟡 | Some deterministic chaining built (idempotent posting) | Rote follow-ups done manually + inconsistently | Event hooks + drafted follow-on artefacts, human-gated | P1 · M · AI/Core |
-| Recurring project-review pack generation | ❌ | Reviews assembled by hand | Weekly review is a multi-day scramble | Auto-generate KPI + narrative + risk pack (draft) | P1 · M · AI |
-| Mismatch / exception narration | 🟡 | 3-way match flags exist; no narration | Users read raw flags, miss the "why" | Narrate exceptions from structured numbers | P2 · S · AI |
+| Event-driven follow-on chaining | ✅ | `followups` + `event_hooks`; GRN/measurement/variation/payment/capture/filings wired | — | Maintain; more save paths optional | — |
+| Recurring project-review pack generation | ✅ | `review_pack` + `review_assemble` + Weekly Review tab + `/review` | — | Maintain | — |
+| Mismatch / exception narration | ✅ | `procurement.narrate_*` + `finance.narrate_reconcile` + `/api/match` `/api/reconcile` | — | Maintain | — |
 | NL-triggered workflows | ❌ | NL assistant is read-only | Can't say "close snags + draft handover" | Map NL intent → concrete gated steps | P2 · M · AI |
 
 **Guardrail:** anything that moves money, files with a department, or changes a
@@ -132,11 +132,11 @@ assembly toil, never accountability.
 |---|---|---|---|---|---|
 | Deterministic KPI set (schedule/cost/cash/quality) | ✅ | Broadly complete | — | Maintain | — |
 | EVM KPIs (SPI, CPI, EAC) | ✅ | Surfaced in Project Management › Earned Value + browser `/evm` | — | Maintain | — |
-| Portfolio KPI roll-up | 🟡 | `earnedvalue.portfolio` + `review_pack.portfolio` + Weekly Review | No dedicated multi-file portfolio shell | Surface federated roll-up in Review/WinUI | P0 · M · Core |
+| Portfolio KPI roll-up | ✅ | `earnedvalue.portfolio` + Weekly Review + Money › Portfolio | — | Maintain | — |
 | KPI narration (plain-language briefing) | ✅ | `narrative.kpi_briefing` assembled into Weekly Review (`review_assemble`) | — | Maintain; optional LLM re-voice later | — |
-| Portfolio anomaly watch | 🟡 | Advisory is single-firm | Meaningful moves missed across many sites | Extend advisory to portfolio; surface only material moves | P1 · M · AI |
-| Forecasting (completion date, cost) | ❌ | Point-in-time only | No forward view | Trend projection as range + confidence | P2 · M · AI |
-| Productivity KPIs (crew/day, plant util.) | 🟡 | Muster + plant data exist | Underused signal | Derive from muster/`plant.py` | P2 · S · Core |
+| Portfolio anomaly watch | ✅ | `advisory.for_portfolio` on `/api/portfolio` | — | Maintain | — |
+| Forecasting (completion date, cost) | ✅ | `forecast.py` + `/api/forecast` (+ schedule SPI path) | — | Maintain | — |
+| Productivity KPIs (crew/day, plant util.) | ✅ | `productivity` + `productivity_store` + Key Numbers + `/api/productivity` | — | Maintain | — |
 
 **Guardrail:** every AI KPI statement traces to the deterministic figure behind
 it — the shipped `basis`/`confidence` discipline applied to narration.
@@ -167,7 +167,7 @@ operational-flow mapping. The gaps:
 | **N1** | Menu home for the new registers | ✅ | Controls section + Lessons Learned tab shipped | — | Maintain | — |
 | **N2** | Guided operational workflow | ✅ | Process rail over `workflow` + `workflow_state` | — | Maintain | — |
 | **N3** | Role/persona-scoped menu | ✅ | Tools › Persona + `menu.resolve` in rail | — | Maintain | — |
-| **N4** | Global search / command palette / breadcrumbs | 🟡 | Process “Go to…” + `menu.search_tabs` / `GET /api/search`; no record-level deep-link yet | Tab findability improved; record jump still open | Extend search to records; align with web URLs | P2 · M · UI |
+| **N4** | Global search / command palette / breadcrumbs | ✅ | Process search + `record_search` + `GET /api/search` (tabs + records) | Record jump opens section/tab (not row deep-link) | Optional record deep-link | P2 · S · UI |
 | **N5** | Sub-section grouping (3rd level) | ✅ | `menu.GROUPS` rendered as nested notebooks in `_section` | — | Maintain | — |
 | **N6** | Workflow-menu alignment | ✅ | Resolved by Process view (overlay, not a re-org) | — | Maintain | — |
 
@@ -189,7 +189,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 | # | Target | Status | Approach | Verifiable |
 |---|---|---|---|---|
 | **U0** | Backend JSON API over the domain (`webapi.py`) | ✅ | Reuse the tested Python core as a localhost service; JSON endpoints under `/api/*` (stdlib, testable) | **Here (Python)** |
-| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
+| **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | 🟡 | U1–U5 page scaffolds + packaging notes in `winui/`; build/MSIX on Windows | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
 the ~642-tested business modules in C#. The client renders; the Python core still
@@ -305,7 +305,8 @@ display.
 | **C5** | Event hooks (`event_hooks`) | ✅ |
 | **C6** | Lessons API `/api/lessons` | ✅ |
 | **C7** | Docs/counts hygiene after each merge | ongoing |
-| **C8** | U0.1 API widen (money docs, submittals, forecast/drift, portfolio, `/api/contract`) + WinUI U1 scaffold | ✅ |
+| **C8** | U0.1 API widen + WinUI U1 scaffold | ✅ |
+| **C9** | U0.2 (search records, match/reconcile/ageing/filings, portfolio advisories) | ✅ |
 
 **Cloud non-goals:** compiling WinUI on Linux, MSIX signing, tkinter smoke screenshots, shipping OCR/STT weights, mobile app UI.
 

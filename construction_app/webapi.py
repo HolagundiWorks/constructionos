@@ -65,7 +65,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.1'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.2'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -97,6 +97,24 @@ def handle(request, sess):
 
     if path == 'productivity' and method == 'GET':
         return _productivity(request)
+
+    if path == 'filings/feed' and method == 'GET':
+        return _filings_feed(request)
+
+    if path == 'purchase_orders' and method == 'GET':
+        return _list_ops_table('purchase_orders')
+
+    if path == 'goods_receipts' and method == 'GET':
+        return _list_ops_table('goods_receipts')
+
+    if path == 'match' and method == 'GET':
+        return _three_way_match(request)
+
+    if path == 'reconcile' and method == 'POST':
+        return _reconcile(request)
+
+    if path == 'ageing' and method == 'GET':
+        return _ageing_summary(request)
 
     if path == 'menu' and method == 'GET':
         return _menu(request)
@@ -860,7 +878,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.1',
+        'api': 'u0.2',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -871,7 +889,10 @@ def _api_contract():
             'GET /api/health', 'GET /api/contract',
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
-            'GET /api/productivity', 'GET /api/workflow', 'GET /api/evm',
+            'GET /api/productivity', 'GET /api/filings/feed',
+            'GET /api/purchase_orders', 'GET /api/goods_receipts',
+            'GET /api/match', 'GET /api/ageing',
+            'GET /api/workflow', 'GET /api/evm',
             'GET /api/project/{id}/evm',
             'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
             'GET /api/submittals', 'GET /api/audit?origin=',
@@ -883,6 +904,7 @@ def _api_contract():
             'POST/PUT/DELETE /api/lessons[/{id}]',
             'POST/PUT/DELETE /api/submittals[/{id}]',
             'POST /api/capture/draft', 'POST /api/capture/confirm',
+            'POST /api/reconcile',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -899,11 +921,17 @@ def _portfolio(request):
     raw = (request.query.get('paths') or '').strip()
     if raw:
         paths = [p.strip() for p in raw.split(',') if p.strip()]
-        return _ok(portfolio_store.roll_up(paths))
+        roll = portfolio_store.roll_up(paths)
+        roll['advisories'] = advisory.for_portfolio(roll.get('per_file') or [])
+        return _ok(roll)
     conn = _conn()
     try:
-        return _ok({'current': portfolio_store.file_rollup(conn, name='current'),
-                    'federated': False})
+        current = portfolio_store.file_rollup(conn, name='current')
+        return _ok({
+            'current': current,
+            'federated': False,
+            'advisories': advisory.for_portfolio([current]),
+        })
     finally:
         conn.close()
 
@@ -917,6 +945,124 @@ def _productivity(request):
             conn,
             from_date=(request.query or {}).get('from'),
             to_date=(request.query or {}).get('to')))
+    finally:
+        conn.close()
+
+
+def _filings_feed(request):
+    """GET /api/filings/feed — overdue/due-soon → gated FILING_DUE drafts."""
+    import compliance
+    import compliance_feed
+    conn = _conn()
+    try:
+        raw = conn.execute(
+            'SELECT * FROM compliance_filings ORDER BY due_date').fetchall()
+        plain = [{k: r[k] for k in r.keys()} for r in raw]
+    except Exception:  # noqa: BLE001
+        plain = []
+    finally:
+        conn.close()
+    late = compliance.overdue(plain)
+    soon = compliance.upcoming(plain, within_days=30)
+    events = compliance_feed.filing_events(late + soon)
+    return _ok({
+        'overdue': len(late),
+        'due_soon': len(soon),
+        'events': events,
+        'gated_count': sum(e.get('gated_count', 0) for e in events),
+    })
+
+
+def _list_ops_table(table):
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            'SELECT * FROM "{}" ORDER BY id DESC LIMIT 500'.format(table)
+        ).fetchall()
+        return _ok({'table': table, 'items': _rows(rows)})
+    finally:
+        conn.close()
+
+
+def _three_way_match(request):
+    """GET /api/match?tolerance= — PO ↔ GRN ↔ invoice with narration."""
+    import procurement
+    try:
+        tol = float((request.query or {}).get('tolerance') or 0)
+    except (TypeError, ValueError):
+        tol = 0.0
+    conn = _conn()
+    try:
+        pos = conn.execute(
+            'SELECT po.id, po.po_no, po.total_amount, v.name AS vendor '
+            'FROM purchase_orders po LEFT JOIN vendors v ON v.id = po.vendor_id '
+            'ORDER BY po.id DESC').fetchall()
+        received, invoiced = {}, {}
+        for r in conn.execute(
+                'SELECT g.purchase_order_id AS pid, SUM(gi.amount) AS a '
+                'FROM grn_items gi JOIN goods_receipts g ON g.id = gi.grn_id '
+                "WHERE g.status = 'Posted' GROUP BY g.purchase_order_id"):
+            received[r['pid']] = r['a'] or 0
+        for r in conn.execute(
+                'SELECT purchase_order_id AS pid, SUM(subtotal) AS a '
+                'FROM vendor_invoices WHERE purchase_order_id IS NOT NULL '
+                'GROUP BY purchase_order_id'):
+            invoiced[r['pid']] = r['a'] or 0
+        items = []
+        matches = []
+        for po in pos:
+            m = procurement.three_way(po['total_amount'],
+                                      received.get(po['id'], 0),
+                                      invoiced.get(po['id'], 0), tol)
+            matches.append(m)
+            label = po['po_no'] or 'PO {}'.format(po['id'])
+            items.append({
+                'id': po['id'], 'po_no': label, 'vendor': po['vendor'],
+                'match': m,
+                'narration': procurement.narrate_match(m, label),
+            })
+        summary = procurement.summarise(matches)
+        return _ok({
+            'items': items,
+            'summary': summary,
+            'narration': procurement.narrate_summary(summary),
+        })
+    finally:
+        conn.close()
+
+
+def _reconcile(request):
+    """POST /api/reconcile — {po_subtotal, invoice_subtotal, tolerance?}."""
+    import finance
+    body = _payload(request)
+    result = finance.reconcile(
+        body.get('po_subtotal'), body.get('invoice_subtotal'),
+        body.get('tolerance') or 0)
+    return _ok({
+        'result': result,
+        'narration': finance.narrate_reconcile(
+            result, po_label=body.get('label')),
+    })
+
+
+def _ageing_summary(request):
+    """GET /api/ageing — firm receivables ageing from open tax invoices."""
+    import ageing
+    conn = _conn()
+    try:
+        snap = dashboard.collect(conn)
+        items = []
+        for r in conn.execute(
+                "SELECT invoice_date, total_amount FROM tax_invoices "
+                "WHERE status != 'Cancelled'"):
+            if r['invoice_date']:
+                items.append((r['invoice_date'], float(r['total_amount'] or 0)))
+        aged = ageing.age_open_items(items)
+        return _ok({
+            'ageing': aged,
+            'receivable': snap.get('receivable'),
+            'receivable_90plus': snap.get('receivable_90plus'),
+        })
     finally:
         conn.close()
 
@@ -1173,8 +1319,21 @@ def _create_doc(request, sess, table):
 
 
 def _search(request):
+    """GET /api/search?q= — tab hits + record hits (N4)."""
+    import record_search
     q = (request.query or {}).get('q') or ''
-    return _ok({'query': q, 'hits': menu.search_tabs(q)})
+    tabs = menu.search_tabs(q)
+    conn = _conn()
+    try:
+        records = record_search.search_records(conn, q)
+    finally:
+        conn.close()
+    return _ok({
+        'query': q,
+        'hits': tabs,           # backward-compatible tab list
+        'tabs': tabs,
+        'records': records,
+    })
 
 
 def _capture_draft(request, sess):
@@ -1246,7 +1405,16 @@ def _capture_confirm(request, sess):
         row = conn.execute(
             'SELECT * FROM work_done_entries WHERE id = ?', (new_id,)
         ).fetchone()
-        return _ok({'id': new_id, 'record': _row(row),
-                    'origin': capture.origin_of(draft)}, status=201)
+        reacted = event_hooks.react(
+            followups.ACTIVITY_COMPLETE,
+            payload={'work_done_id': new_id, 'activity': activity,
+                     'site_id': site_id, 'qty': qty})
+        return _ok({
+            'id': new_id,
+            'record': _row(row),
+            'origin': capture.origin_of(draft),
+            'followups': reacted.get('followups') or [],
+            'gated_count': reacted.get('gated_count', 0),
+        }, status=201)
     finally:
         conn.close()

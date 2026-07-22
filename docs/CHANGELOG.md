@@ -6,6 +6,25 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: N4 records, U0.2 API, portfolio advisory, audit default
+
+- **N4 record search.** `record_search.py` + Process palette + `GET /api/search`
+  returns tabs **and** records (`/t/{table}/{id}` hrefs).
+- **U0.2 API.** `purchase_orders` / `goods_receipts` lists, `/api/match` (with
+  narration), `/api/reconcile`, `/api/ageing`, `/api/filings/feed`; health
+  version `u0.2`.
+- **Audit default.** `auth.audit` defaults to `origin=manual`; manual filter
+  includes legacy NULL rows.
+- **Events.** Capture confirm raises `ACTIVITY_COMPLETE` follow-ups;
+  `compliance_feed` drafts `FILING_DUE` from overdue/due-soon filings.
+- **Portfolio advisories.** `advisory.for_portfolio` on `/api/portfolio`.
+- **PO↔invoice narration.** `finance.narrate_reconcile`.
+- **Drift guard.** Headless test: `BUILDERS` / `MODULE_ICONS` cover every
+  catalog label (no `import main`).
+- Gap table hygiene for portfolio / audit / narration / productivity / N4.
+
+---
+
 ## 2026-07-22 — Continue: N5 groups, portfolio, productivity, match narration
 
 - **N5 grouping.** Billing/Operations section notebooks render `menu.GROUPS` as

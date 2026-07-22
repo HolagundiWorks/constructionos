@@ -814,7 +814,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.1')
+        self.assertEqual(c['api'], 'u0.2')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -908,6 +908,48 @@ class TestWebApi(unittest.TestCase):
         pay = self._json(resp)
         self.assertTrue(pay.get('followups'))
         self.assertGreaterEqual(pay.get('gated_count', 0), 1)
+
+    def test_u02_search_records_match_filings_reconcile(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        # Seed a searchable project
+        resp = self.webapp.handle(self._req(
+            '/api/projects', 'POST', cookies=cookies,
+            json_body={'name': 'Alpha Bridge Job'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertIn(resp.status, (200, 201), resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/search', cookies=cookies, query={'q': 'Alpha'}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertTrue(body.get('records'))
+        self.assertTrue(any('Alpha' in (r.get('label') or '')
+                            for r in body['records']))
+
+        resp = self.webapp.handle(self._req('/api/match', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('narration', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/reconcile', 'POST', cookies=cookies,
+            json_body={'po_subtotal': 1000, 'invoice_subtotal': 1200,
+                       'label': 'VI-1'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('over-billed', self._json(resp)['narration'].lower())
+
+        resp = self.webapp.handle(self._req('/api/filings/feed', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('events', self._json(resp))
+
+        resp = self.webapp.handle(self._req('/api/ageing', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('ageing', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/purchase_orders', cookies=cookies))
+        self.assertEqual(resp.status, 200)
 
 
 if __name__ == '__main__':
