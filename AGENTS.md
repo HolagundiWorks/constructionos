@@ -753,15 +753,19 @@ An "ask your data in plain language" tab answering questions about the
 contractor's **own records** via retrieval-augmented text-to-SQL against a
 **local** model.
 
-**No-pip / offline preserved.** `ollama_client.py` / `ollama_api.py` talk to a
-*local* Ollama HTTP server with stdlib `urllib` — no Python package, localhost
-only. The app ships **one built-in model** (`qwen2.5-coder:1.5b`, ~1 GB,
-Apache-2.0); `model_provision.py` registers it into Ollama **with no download**,
-and `ollama_service.py` handles install/start/stop. The only user-facing control
-is **Start / Stop** under the **AI Engine** rail row — no model picker, no
-accounts. Everything **fails soft**: with the engine off, the tab still shows
-deterministic **quick answers** and a clear status, and the rest of the app is
-unaffected.
+**No-pip / offline preserved.** `foundry_client.py` talks to **Microsoft Foundry
+Local**'s *local* OpenAI-compatible daemon with stdlib `urllib` — no Python
+package, localhost only; the daemon's dynamic port is discovered from
+`foundry status -o json` (`foundry_service.endpoint`). The app ships **one
+built-in model** (`qwen2.5-coder-1.5b`, ~1.8 GB, Apache-2.0, an optimized ONNX
+build from Foundry Local's catalogue that auto-uses the local CPU/GPU/NPU);
+`foundry_service.py` wraps the CLI (`server start/stop`, `model download/load/
+unload`) and its `provision()` downloads + loads the model on first Start. The
+only user-facing control is **Start / Stop** under the **AI Engine** rail row —
+no model picker, no accounts. Everything **fails soft**: with the engine off (or
+Foundry Local not installed), the tab still shows deterministic **quick answers**
+and a clear status, and the rest of the app is unaffected. (Replaced the earlier
+Ollama integration; `ollama_*`/`model_provision.py` were removed.)
 
 Pipeline (`assistant.answer`): `retrieve` ranks curated `SCHEMA_DOCS` +
 few-shot `EXAMPLES` by keyword overlap (no embeddings) → the model writes one

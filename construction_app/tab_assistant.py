@@ -1,9 +1,9 @@
 """Assistant tab — ask questions about your data in plain language.
 
 Free-text questions go through the RAG text-to-SQL pipeline in ``assistant.py``
-(local Ollama model); quick-answer buttons run deterministic queries that work
-even when Ollama isn't running. The LLM call runs in a background thread so the
-window never freezes; results are marshalled back with ``after``.
+(the local Foundry Local model); quick-answer buttons run deterministic queries
+that work even when the AI engine isn't running. The LLM call runs in a
+background thread so the window never freezes; results marshal back via ``after``.
 
 The assistant is strictly **read-only** (see ``assistant.safe_execute``).
 """
@@ -14,10 +14,10 @@ import tkinter as tk
 from tkinter import ttk
 
 import assistant
-import ollama_client
+import foundry_client
 import theme
 
-OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download'
+FOUNDRY_INSTALL_URL = 'https://github.com/microsoft/Foundry-Local'
 
 
 class AssistantTab(ttk.Frame):
@@ -34,9 +34,9 @@ class AssistantTab(ttk.Frame):
         self.status_var = tk.StringVar()
         ttk.Label(head, textvariable=self.status_var,
                   foreground=theme.palette()['muted']).pack(side='right')
-        # Shown only when Ollama isn't reachable — one click to the download page.
-        self.get_btn = ttk.Button(head, text='Get Ollama…',
-                                  command=self._get_ollama)
+        # Shown only when the AI engine isn't reachable — one click to install.
+        self.get_btn = ttk.Button(head, text='Get Foundry Local…',
+                                  command=self._get_foundry)
 
         # Quick, LLM-free answers.
         quick = ttk.LabelFrame(self, text='Quick answers (no AI needed)')
@@ -95,26 +95,26 @@ class AssistantTab(ttk.Frame):
 
     def refresh_status(self):
         model, host = self._config()
-        if ollama_client.available(host):
+        if foundry_client.available(host):
             self.status_var.set('AI: connected ({} @ {})'.format(model, host))
             self.get_btn.pack_forget()
         else:
             self.status_var.set('AI: offline — quick answers still work. '
-                                'Install Ollama, or start it & set the model in '
-                                'Tools.')
+                                'Turn on the engine in AI Engine, or install '
+                                'Foundry Local.')
             self.get_btn.pack(side='right', padx=(0, 8))
 
-    def _get_ollama(self):
-        """Open the Ollama download page — the assistant's only prerequisite."""
+    def _get_foundry(self):
+        """Open the Foundry Local page — the assistant's only prerequisite."""
         try:
-            webbrowser.open(OLLAMA_DOWNLOAD_URL)
+            webbrowser.open(FOUNDRY_INSTALL_URL)
         except Exception:                              # noqa: BLE001
             pass
         self.answer_var.set(
-            'Opening the Ollama download page ({}). After installing, run  '
-            'ollama pull {}  in a terminal — the assistant connects on its own '
-            'once Ollama is running.'.format(
-                OLLAMA_DOWNLOAD_URL, ollama_client.DEFAULT_MODEL))
+            'Opening the Foundry Local page ({}). After installing, open '
+            'AI Engine and press Start — it downloads {} once, then the '
+            'assistant connects on its own.'.format(
+                FOUNDRY_INSTALL_URL, foundry_client.DEFAULT_MODEL))
 
     # ------------------------------------------------------------ quick answers
     def load_quick(self):

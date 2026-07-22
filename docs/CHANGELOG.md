@@ -6,6 +6,37 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Switch the internalised AI from Ollama to Foundry Local
+
+Replaced the built-in AI runtime with **Microsoft Foundry Local** (its
+on-device, OpenAI-compatible daemon) — same product decision as before (one
+hardcoded model, no picker, Start/Stop), a Windows-native runtime that
+auto-selects the machine's CPU / GPU / NPU.
+
+- **New `foundry_client.py`** (stdlib `urllib`) — chat completions via the
+  OpenAI `/v1/chat/completions`; endpoint **discovered** from the CLI (the
+  daemon picks a dynamic port). **New `foundry_service.py`** wraps the CLI:
+  `server start/stop/status`, `model download/load/unload`, and `provision()`
+  (download + load the one model on first Start). `_run` decodes CLI output as
+  UTF-8 (the CLI emits ●/progress glyphs) so it never chokes on a Windows
+  codepage.
+- **Model:** `qwen2.5-coder-1.5b` — the Foundry Local catalogue's optimized ONNX
+  build of the same Qwen2.5-Coder-1.5B the assistant always used.
+- **Repointed** `assistant.py`, `tab_assistant.py`, `shell.py` (footer AI dot),
+  the **AI Engine tab** (`tab_ollama.py` → `tab_aiengine.py`), and `main.py`.
+  **Removed** `ollama_client.py`, `ollama_api.py`, `ollama_service.py`,
+  `model_provision.py` and the bundled-GGUF/Modelfile provisioning (Foundry Local
+  fetches its own optimized models).
+- **Verified end-to-end on this machine:** installed Foundry Local 0.10.2,
+  `foundry_service.endpoint()` correctly parsed the live daemon
+  (`http://127.0.0.1:55263`), and `foundry_client.generate("…count rows in
+  payments")` returned `SELECT COUNT(*) FROM payments;` in ~4 s on an RTX-4060.
+  Tests: `TestFoundry` (default model, endpoint fallback, unreachable →
+  `FoundryError`, service fails-soft without the CLI, model still hardcoded);
+  GUI smoke builds the new AI Engine tab. Full suite **713 green**.
+
+---
+
 ## 2026-07-22 — Real-display GUI render check: done (713 tests, 0 skipped)
 
 - **Ran the tkinter GUI suite on a real display** (Windows 11 + Tk), which the

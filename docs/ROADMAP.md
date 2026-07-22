@@ -60,7 +60,7 @@ with minimal typing?_
 
 ### AI
 - **Assistant** — read-only text-to-SQL over your own data (TF-IDF retrieval, conversational follow-ups, deterministic quick answers that work with no LLM).
-- **Internalised, one built-in model** (`qwen2.5-coder:1.5b`, Apache-2.0) that runs entirely on the machine — **no downloader, catalogue, or picker**. The only control is **Start / Stop** on its own **AI Engine** rail row (the local Ollama runtime is bundled + hidden; the model is registered offline at first start).
+- **Internalised, one built-in model** (`qwen2.5-coder-1.5b`, Apache-2.0) that runs entirely on the machine — **no picker or catalogue**. The only control is **Start / Stop** on its own **AI Engine** rail row. The on-device runtime is **Microsoft Foundry Local** (its OpenAI-compatible local daemon, auto-selecting the machine's CPU / GPU / NPU), hidden behind the tab; first Start downloads + loads the one model. Verified end-to-end (`foundry_client.generate` → SQL in ~4 s on an RTX-4060 laptop).
 
 ### Takeoff
 - Bluebeam-style **on-drawing quantity takeoff** — calibrate scale, then length / area / volume / count, live quantities, **Send to Estimate**; PDF → PNG via poppler / Ghostscript when present.

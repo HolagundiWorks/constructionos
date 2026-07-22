@@ -3,15 +3,15 @@
 Pipeline for a free-text question:
   1. **Retrieve** the schema docs + few-shot examples most relevant to the
      question (keyword overlap — small, stdlib, no embeddings).
-  2. **Generate** a single read-only SQL SELECT with a local Ollama model,
-     grounded in that retrieved context.
+  2. **Generate** a single read-only SQL SELECT with the local Foundry Local
+     model, grounded in that retrieved context.
   3. **Validate + execute** the SQL safely (SELECT-only, single statement,
      LIMIT-capped, and run under ``PRAGMA query_only`` so writes are impossible
      even if validation is bypassed).
   4. **Generate** a plain-language summary of the result rows.
 
 Also exposes deterministic **quick answers** (cash in hand, receivables, …) that
-work with zero LLM, so the tab is useful even when Ollama isn't running.
+work with zero LLM, so the tab is useful even when the AI engine isn't running.
 
 All of this is DB + stdlib only and unit-testable; only steps 2 and 4 call the
 LLM. Read-only by construction — the assistant can never modify data.
@@ -20,7 +20,7 @@ LLM. Read-only by construction — the assistant can never modify data.
 import re
 
 import db
-import ollama_client
+import foundry_client
 
 
 # ---------------------------------------------------------------- knowledge
@@ -141,12 +141,14 @@ _VALID_TABLES = {d['table'] for d in SCHEMA_DOCS} | {
 # ------------------------------------------------------------------ config
 def get_config(conn):
     """Return (model, host). The model is **hardcoded** — the app ships one
-    built-in model (``ollama_client.DEFAULT_MODEL``) and there is no picker; the
-    host stays configurable but defaults to localhost."""
+    built-in model (``foundry_client.DEFAULT_MODEL``) and there is no picker.
+    The host is Foundry Local's dynamically-discovered OpenAI endpoint; a stored
+    ``assistant_host`` overrides it (e.g. to point at another machine on the
+    LAN)."""
     row = conn.execute("SELECT value FROM app_settings WHERE key = "
                        "'assistant_host'").fetchone()
-    host = ((row['value'] if row else '') or '').strip() or ollama_client.DEFAULT_HOST
-    return ollama_client.DEFAULT_MODEL, host
+    host = ((row['value'] if row else '') or '').strip() or foundry_client.endpoint()
+    return foundry_client.DEFAULT_MODEL, host
 
 
 # ---------------------------------------------------------------- retrieval
@@ -300,20 +302,20 @@ def answer(question, model=None, host=None, history=None):
     refers back — "and for last month?", "what about the other site?" —
     resolves instead of being answered in a vacuum.
     """
-    host = host or ollama_client.DEFAULT_HOST
-    model = model or ollama_client.DEFAULT_MODEL
-    if not ollama_client.available(host):
-        return {'error': "Ollama isn't running. Start it (`ollama serve`) and pull "
-                         "a model (`ollama pull {}`), or use the quick buttons "
-                         "above which work without it.".format(model)}
+    host = host or foundry_client.endpoint()
+    model = model or foundry_client.DEFAULT_MODEL
+    if not foundry_client.available(host):
+        return {'error': "The AI engine isn't running. Turn it on in AI Engine "
+                         "(or run `foundry model run {}`), or use the quick "
+                         "buttons above which work without it.".format(model)}
     context = ' '.join(h.get('question', '')
                        for h in (history or [])[-2:])
     docs, examples = retrieve(question, context=context)
     try:
-        raw = ollama_client.generate(
+        raw = foundry_client.generate(
             build_sql_prompt(question, docs, examples, history=history),
             model=model, host=host, system=SQL_SYSTEM)
-    except ollama_client.OllamaError as exc:
+    except foundry_client.FoundryError as exc:
         return {'error': str(exc)}
     sql = extract_sql(raw)
     ok, cleaned = validate_sql(sql)
@@ -335,8 +337,8 @@ def _summarize(question, columns, rows, model, host):
               'contractor. Use Indian Rupee formatting for money. If there are '
               'no rows, say so.'.format(question, columns, preview))
     try:
-        return ollama_client.generate(prompt, model=model, host=host).strip()
-    except ollama_client.OllamaError:
+        return foundry_client.generate(prompt, model=model, host=host).strip()
+    except foundry_client.FoundryError:
         # Generation of prose failed but we still have the data.
         if not rows:
             return 'No matching records found.'

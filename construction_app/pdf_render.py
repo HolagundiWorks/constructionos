@@ -6,8 +6,8 @@ renderer. Rather than take on a pip dependency, this detects a renderer already
 on the machine — **poppler** (``pdftoppm``) or **Ghostscript** — and drives it
 with ``subprocess``. If neither is present it says so plainly and the user can
 install one, or simply export the page to a PNG and open that. Same spirit as
-the Ollama integration: use a local tool if it's there, never bundle a big
-native program.
+the AI-engine (Foundry Local) integration: use a local tool if it's there,
+never bundle a big native program.
 """
 
 import os

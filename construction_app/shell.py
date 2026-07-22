@@ -138,8 +138,8 @@ class RailStage(ttk.Frame):
         thread so the ~1 s network probe never freezes the window."""
         def work():
             try:
-                import ollama_client
-                up = ollama_client.available(timeout=1.0)
+                import foundry_client
+                up = foundry_client.available(timeout=1.0)
             except Exception:                        # noqa: BLE001
                 up = False
             try:

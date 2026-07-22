@@ -6019,24 +6019,53 @@ class TestDesignSystem(unittest.TestCase):
                          'theme.palette()[role]): {}'.format(offenders))
 
 
-class TestOllamaApi(unittest.TestCase):
-    """The local Ollama API client (the runtime behind the built-in AI)."""
+class TestFoundry(unittest.TestCase):
+    """The Foundry Local client/service — the on-device runtime behind the
+    built-in AI. Only the pure/offline behaviour (no daemon required); the actual
+    inference is exercised on a machine with Foundry Local installed."""
 
-    def test_api_base_url_normalises(self):
-        import ollama_api as api
-        self.assertEqual(api.base_url('localhost'),
-                         'http://localhost:11434')
-        self.assertEqual(api.base_url('http://127.0.0.1:11434'),
-                         'http://127.0.0.1:11434')
-        self.assertEqual(api.human_size(0), '0 B')
-        self.assertTrue(api.human_size(5 * 1024 ** 3).endswith('GB'))
+    def test_default_model_is_the_built_in_coder(self):
+        import foundry_client
+        # One built-in model, no picker: the Foundry Local alias for the same
+        # Qwen2.5-Coder-1.5B the assistant has always used.
+        self.assertEqual(foundry_client.DEFAULT_MODEL, 'qwen2.5-coder-1.5b')
+
+    def test_endpoint_falls_back_when_daemon_absent(self):
+        import foundry_client, foundry_service
+        from unittest import mock
+        with mock.patch.object(foundry_service, 'endpoint', return_value=None):
+            self.assertEqual(foundry_client.endpoint(),
+                             foundry_client.DEFAULT_HOST)
+
+    def test_available_is_false_when_unreachable(self):
+        import foundry_client
+        self.assertFalse(
+            foundry_client.available(host='http://127.0.0.1:1', timeout=0.5))
+
+    def test_generate_raises_foundryerror_when_unreachable(self):
+        import foundry_client
+        with self.assertRaises(foundry_client.FoundryError):
+            foundry_client.generate('hi', host='http://127.0.0.1:1', timeout=0.5)
+
+    def test_service_fails_soft_without_the_cli(self):
+        import foundry_service
+        from unittest import mock
+        with mock.patch('shutil.which', return_value=None):
+            self.assertFalse(foundry_service.installed())
+            self.assertEqual(foundry_service.status(), {})
+            self.assertIsNone(foundry_service.endpoint())
+            self.assertFalse(foundry_service.server_ready())
+            self.assertEqual(foundry_service.models_loaded(), 0)
+            self.assertFalse(foundry_service.start_server())
+            self.assertFalse(foundry_service.provision('anything'))
 
     def test_assistant_model_is_hardcoded(self):
         # No picker: the assistant always uses the single built-in model, even
         # if a stale app_settings 'assistant_model' value is present.
         import db
         import assistant
-        import ollama_client
+        import foundry_client, foundry_service
+        from unittest import mock
         fd, path = tempfile.mkstemp(suffix='.db'); os.close(fd); os.remove(path)
         orig = db.DB_PATH
         db.DB_PATH = path
@@ -6046,10 +6075,13 @@ class TestOllamaApi(unittest.TestCase):
             conn.execute("INSERT INTO app_settings (key, value) VALUES "
                          "('assistant_model', 'some-other-model')")
             conn.commit()
-            model, _host = assistant.get_config(conn)
+            # Avoid a real `foundry status` probe for the host in this unit test.
+            with mock.patch.object(foundry_service, 'endpoint',
+                                   return_value=None):
+                model, _host = assistant.get_config(conn)
             conn.close()
-            self.assertEqual(model, ollama_client.DEFAULT_MODEL)
-            self.assertEqual(model, 'qwen2.5-coder:1.5b')
+            self.assertEqual(model, foundry_client.DEFAULT_MODEL)
+            self.assertEqual(model, 'qwen2.5-coder-1.5b')
         finally:
             db.DB_PATH = orig
             for ext in ('', '-wal', '-shm'):
@@ -6057,55 +6089,6 @@ class TestOllamaApi(unittest.TestCase):
                     os.remove(path + ext)
                 except OSError:
                     pass
-
-
-class TestModelProvision(unittest.TestCase):
-    """Offline registration of the inbuilt model — the pure, Ollama-free parts:
-    locating the bundle, building the import command, deciding 'already there'."""
-
-    def test_registered_matches_tag_or_bare_base(self):
-        import model_provision as mp
-        self.assertTrue(mp.is_registered(['qwen2.5-coder:1.5b']))
-        self.assertTrue(mp.is_registered(['qwen2.5-coder']))          # bare base
-        self.assertTrue(mp.is_registered(['llama3.2:1b',
-                                          'qwen2.5-coder:1.5b']))
-        self.assertFalse(mp.is_registered(['llama3.2:1b']))
-        self.assertFalse(mp.is_registered([]))
-        self.assertFalse(mp.is_registered(None))
-
-    def test_create_command_shape(self):
-        import model_provision as mp
-        cmd = mp.create_command(ollama='C:/x/ollama.exe')
-        self.assertEqual(cmd[:3], ['C:/x/ollama.exe', 'create', mp.MODEL_NAME])
-        self.assertIn('-f', cmd)
-
-    def test_bundled_detects_modelfile_plus_gguf(self):
-        import model_provision as mp
-        import shutil
-        d = tempfile.mkdtemp()
-        orig = mp.ai_dir
-        try:
-            mp.ai_dir = lambda: d            # point the locator at a temp dir
-            self.assertFalse(mp.bundled())   # nothing there yet
-            open(os.path.join(d, mp.MODELFILE_NAME), 'w').close()
-            self.assertFalse(mp.bundled())   # Modelfile alone is not enough
-            open(os.path.join(d, mp.GGUF_NAME), 'w').close()
-            self.assertTrue(mp.bundled())    # both present -> this build has it
-            self.assertTrue(mp.modelfile_path().startswith(d))
-            self.assertTrue(mp.gguf_path().endswith(mp.GGUF_NAME))
-        finally:
-            mp.ai_dir = orig                 # undo the monkeypatch
-            shutil.rmtree(d, ignore_errors=True)
-
-    def test_modelfile_is_committed_and_points_at_the_gguf(self):
-        # The Modelfile ships in the repo (installer\ai); the GGUF does not.
-        import model_provision as mp
-        here = os.path.dirname(os.path.abspath(__file__))
-        mf = os.path.join(here, os.pardir, 'installer', 'ai', 'Modelfile')
-        self.assertTrue(os.path.exists(mf))
-        text = open(mf, encoding='utf-8').read()
-        self.assertIn(mp.GGUF_NAME, text)
-        self.assertIn('FROM', text)
 
 
 class TestScheduler(unittest.TestCase):

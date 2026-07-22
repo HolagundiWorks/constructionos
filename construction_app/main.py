@@ -28,7 +28,7 @@ from tab_login import LoginDialog
 from tab_wizard import maybe_run_setup
 from tab_home import build_home_tab
 from tab_assistant import build_assistant_tab
-from tab_ollama import build_ollama_tab
+from tab_aiengine import build_aiengine_tab
 from tab_money import build_money_tab
 from tab_insight import build_insight_tab
 from tab_masters import (build_sites_tab, build_clients_tab,
@@ -295,7 +295,7 @@ def main():
         'home': '\U0001F3E0',        # house
         'assistant': '\U0001F4AC',   # speech balloon
         'process': '\U0001F9ED',     # compass — guided what's-next
-        'aiengine': '\U0001F916',    # robot — the local LLM / Ollama manager
+        'aiengine': '\U0001F916',    # robot — the local AI engine (Foundry Local)
         'tools': '⚙',           # gear
         'Masters': '\U0001F5C2',            # card index dividers
         'Project Management': '\U0001F3D7',  # building construction
@@ -355,11 +355,11 @@ def main():
          'build': lambda p: build_assistant_tab(p, get)},
         {'key': 'process', 'label': 'Process', 'icon': icons['process'],
          'build': lambda p: build_process_tab(p, get, on_goto=goto)},
-        # The local LLM / Ollama manager as its own rail row — start/stop the
-        # server, install Ollama, pull or set up the model — so it is found at a
-        # glance rather than buried as a sub-tab.
+        # The local AI engine (Foundry Local) as its own rail row — start/stop
+        # the on-device daemon and set up the one built-in model — so it is found
+        # at a glance rather than buried as a sub-tab.
         {'key': 'aiengine', 'label': 'AI Engine', 'icon': icons['aiengine'],
-         'build': lambda p: build_ollama_tab(p, get)},
+         'build': lambda p: build_aiengine_tab(p, get)},
     ]
     for title, labels in resolved:
         items = [(label, BUILDERS[label]) for label in labels]
