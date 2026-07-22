@@ -26,6 +26,17 @@ public sealed partial class MainWindow : Window
         ["Equipment"] = "equipment", ["Thekedars"] = "thekedars",
         ["Projects"] = "projects", ["Milestones"] = "milestones",
         ["Rate Book"] = "rate_book", ["Contracts"] = "contracts",
+        ["Subcontractors"] = "thekedars", ["Thekedars"] = "thekedars",
+    };
+
+    // Read-only register/report tabs → a generic DataTablePage over an API
+    // endpoint ("path|Title[|itemsKey]"). Endpoint-backed tabs that aren't a
+    // master, money doc, or a dedicated page.
+    private static readonly Dictionary<string, string> TableTabs = new()
+    {
+        ["Purchase Orders"] = "purchase_orders|Purchase orders",
+        ["Goods Receipt"] = "goods_receipts|Goods receipts",
+        ["Compliance"] = "filings/feed|Compliance calendar|events",
     };
 
     // Money-document menu tabs → the API doc table the one generic MoneyPage
@@ -78,15 +89,15 @@ public sealed partial class MainWindow : Window
             var persona = Uri.EscapeDataString(AppSettings.Current.Persona);
             var menu = await ApiClient.Default.GetJsonAsync("api/menu?persona=" + persona);
 
-            Tabs.Children.Clear();
-            _sectionTabs.Clear();
-
-            // Always-on leaves (Home, Assistant, Process, Tools) — no band.
+            // Parse the menu into plain data only — no UI-tree mutation here.
+            var alwaysOn = new List<string>();
             if (menu.TryGetProperty("always_on", out var always))
                 foreach (var item in always.EnumerateArray())
-                    AddTab(item.GetString() ?? "");
-
-            // Sections carry tabs → shown in the band when the section is picked.
+                {
+                    var s = item.GetString();
+                    if (!string.IsNullOrEmpty(s)) alwaysOn.Add(s!);
+                }
+            var sectionList = new List<(string Title, List<(string Label, string Tag)> Tabs)>();
             if (menu.TryGetProperty("sections", out var sections))
                 foreach (var section in sections.EnumerateArray())
                 {
@@ -98,24 +109,21 @@ public sealed partial class MainWindow : Window
                             var name = tab.GetString() ?? "";
                             tabs.Add((name, $"{title}/{name}"));
                         }
-                    _sectionTabs[title] = tabs;
-                    AddTab(title);
+                    sectionList.Add((title, tabs));
                 }
 
-            AddTab("Settings");   // leaf → SettingsPage via NavRoute
-
             Title = $"ACO (api {apiVer})";
-            // Defer the first navigation to a later (Low-priority) UI turn. Doing
-            // it synchronously here — in the same async continuation that just
-            // built the tab strip, while the window's initial layout is still in
-            // flight — races the first render pass and intermittently corrupts the
-            // native heap (a 0xc000027b fail-fast in Microsoft.ui.xaml.dll that no
-            // managed handler sees). Posting it lets the shell's layout settle
-            // first. Verified: 0/14 startups crash deferred vs 11/12 synchronous.
-            if (Tabs.Children.Count > 0 && Tabs.Children[0] is ToggleButton first)
-                DispatcherQueue.TryEnqueue(
-                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                    () => SelectTab(first));   // Home
+            // Defer the ENTIRE shell build (tabs + utilities + first navigation)
+            // to a later (Low-priority) UI turn. Mutating the visual tree in this
+            // async continuation races the window's first layout pass and
+            // intermittently corrupts the native heap (a 0xc000027b fail-fast in
+            // Microsoft.ui.xaml.dll that no managed handler sees). Building after
+            // the initial layout settles removes the race. (Deferring only the
+            // navigation was enough until the chrome grew — utilities/tooltips/
+            // Mica — so defer the whole build.)
+            DispatcherQueue.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () => BuildShell(alwaysOn, sectionList));
         }
         catch (Exception ex)
         {
@@ -123,11 +131,68 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // Builds the tab strip + utility cluster and selects Home. Runs on a deferred
+    // UI turn (see OnRootLoaded) so no tree mutation races the window's first
+    // layout. Home leads the primary strip; the other always-on helpers and
+    // Settings go to the right-hand utility cluster (Fluent navigation-basics:
+    // keep top-level peers under ~8, hide less-important items).
+    private void BuildShell(
+        List<string> alwaysOn,
+        List<(string Title, List<(string Label, string Tag)> Tabs)> sectionList)
+    {
+        Tabs.Children.Clear();
+        Utilities.Children.Clear();
+        _sectionTabs.Clear();
+
+        var firstLeaf = true;
+        foreach (var label in alwaysOn)
+        {
+            if (firstLeaf) { AddTab(label); firstLeaf = false; }
+            else AddUtility(label);
+        }
+        foreach (var (title, tabs) in sectionList)
+        {
+            _sectionTabs[title] = tabs;
+            AddTab(title);
+        }
+        AddUtility("Settings");   // standard gear location, off the strip
+
+        if (Tabs.Children.Count > 0 && Tabs.Children[0] is ToggleButton first)
+            SelectTab(first);   // Home
+    }
+
     private void AddTab(string title)
     {
         var tab = new ToggleButton { Content = title, Tag = title };
         tab.Click += (s, _) => SelectTab((ToggleButton)s);
         Tabs.Children.Add(tab);
+    }
+
+    // Always-on helpers (Assistant/Process/Tools) and Settings live as icon
+    // buttons in the right-hand cluster — off the primary tab strip, in their
+    // standard location. Icon-only, so each carries a tooltip + automation name.
+    private void AddUtility(string title)
+    {
+        var btn = new Button
+        {
+            Content = new FontIcon { Glyph = RibbonIcons.Glyph(title), FontSize = 16 },
+            Tag = title,
+        };
+        ToolTipService.SetToolTip(btn, title);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(btn, title);
+        btn.Click += (_, _) => NavigateToUtility(title);
+        Utilities.Children.Add(btn);
+    }
+
+    // A utility navigates directly and clears any section-tab selection + band,
+    // since it lives outside the section model.
+    private void NavigateToUtility(string tag)
+    {
+        foreach (var child in Tabs.Children)
+            if (child is ToggleButton tb) tb.IsChecked = false;
+        Ribbon.Children.Clear();
+        RibbonBand.Visibility = Visibility.Collapsed;
+        NavigateTo(tag);
     }
 
     // Excel-style: selecting a section shows its commands in the band but does not
@@ -181,9 +246,10 @@ public sealed partial class MainWindow : Window
             Margin = new Thickness(24),
         };
         Tabs.Children.Clear();
+        Utilities.Children.Clear();
         _sectionTabs.Clear();
         RibbonBand.Visibility = Visibility.Collapsed;
-        AddTab("Settings");   // still reachable offline to fix the URL
+        AddUtility("Settings");   // still reachable offline to fix the URL
     }
 
     // Master tabs carry a table name to the one generic MastersPage; money-doc
@@ -196,8 +262,14 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(typeof(MastersPage), table);
         else if (MoneyDocs.TryGetValue(tab, out var doc))
             ContentFrame.Navigate(typeof(MoneyPage), doc);
+        else if (TableTabs.TryGetValue(tab, out var spec))
+            ContentFrame.Navigate(typeof(DataTablePage), spec);
+        else if (NavRoute.TryResolve(tag, out var page))
+            ContentFrame.Navigate(page);
         else
-            ContentFrame.Navigate(NavRoute.Resolve(tag));
+            // No master, doc, table, or dedicated page — a section the API
+            // doesn't expose yet. Land on a named placeholder, never a dead-end.
+            ContentFrame.Navigate(typeof(InfoPage), tab);
     }
 
     // ------------------------------------------------------ U5 command palette

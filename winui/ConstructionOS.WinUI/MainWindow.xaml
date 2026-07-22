@@ -4,29 +4,30 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="ACO">
   <!-- Excel-style ribbon, built from the simplest stock primitives so nothing in
-       the shell can native-crash: a horizontal row of ToggleButtons is the
-       section tab strip (mutually exclusive, managed in code), and picking one
-       fills the ribbon band below with that section's tabs as icon-over-label
-       commands (AppBarButton). Always-on entries (Home/Assistant/Process/Tools)
-       and Settings are leaf tabs that navigate directly with no band. Both the
-       tab strip and the band sit in horizontal ScrollViewers, so a narrow window
-       scrolls rather than clipping. (NavigationView Top / SelectorBar were both
-       dropped: their overflow-measure code fail-fasts in Microsoft.ui.xaml.dll
-       with 0xc000027b during layout on this Windows App SDK build.) -->
+       the shell can native-crash. To keep the top chrome calm and within the
+       Fluent "fewer than 8 top-level peers" guidance (navigation-basics), the
+       row is split into three groups:
+         • brand (compact "ACO", full name on hover),
+         • the primary tab strip — Home + the persona's sections (ToggleButtons);
+           picking a section fills the command band below with its tabs as
+           icon-over-label AppBarButtons (no dropdown),
+         • a right-hand utility cluster — search + the always-on helpers
+           (Assistant/Process/Tools) and Settings as icon buttons in their
+           standard location, off the primary strip.
+       Everything is stock (ToggleButton / AppBarButton / Button / FontIcon /
+       AutoSuggestBox) — no custom template, no owner-draw. Strips scroll rather
+       than clip on narrow windows. (NavigationView Top / SelectorBar were dropped:
+       they fail-fast in Microsoft.ui.xaml.dll with 0xc000027b on this SDK.) -->
   <Grid RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded">
-    <!-- Row 0: title | section tabs | search -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,8,12,4"
+    <!-- Row 0: brand | primary tabs | search + utilities -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,8,12,8"
+          ColumnSpacing="12"
           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-      <StackPanel Grid.Column="0" Orientation="Horizontal"
-                  VerticalAlignment="Center" Margin="4,0,16,0">
-        <TextBlock Text="ACO"
-                   Style="{StaticResource SubtitleTextBlockStyle}"
-                   VerticalAlignment="Center"/>
-        <TextBlock Text="Accelerated Construction Operations"
-                   Style="{StaticResource CaptionTextBlockStyle}"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                   VerticalAlignment="Bottom" Margin="8,0,0,4"/>
-      </StackPanel>
+      <TextBlock Grid.Column="0" Text="ACO"
+                 Style="{StaticResource SubtitleTextBlockStyle}"
+                 VerticalAlignment="Center"
+                 ToolTipService.ToolTip="Accelerated Construction Operations"/>
+
       <ScrollViewer Grid.Column="1" VerticalScrollMode="Disabled"
                     VerticalScrollBarVisibility="Disabled"
                     HorizontalScrollMode="Auto"
@@ -34,11 +35,15 @@
                     VerticalAlignment="Center">
         <StackPanel x:Name="Tabs" Orientation="Horizontal" Spacing="4"/>
       </ScrollViewer>
-      <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="240"
-                      PlaceholderText="Search tabs…" VerticalAlignment="Center"
+
+      <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="220"
+                      PlaceholderText="Search…" VerticalAlignment="Center"
                       TextChanged="Search_TextChanged"
                       SuggestionChosen="Search_SuggestionChosen"
                       QuerySubmitted="Search_QuerySubmitted"/>
+
+      <StackPanel x:Name="Utilities" Grid.Column="3" Orientation="Horizontal"
+                  Spacing="4" VerticalAlignment="Center"/>
     </Grid>
 
     <!-- Row 1: ribbon command band for the selected section -->

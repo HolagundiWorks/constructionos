@@ -31,14 +31,20 @@ public static class NavRoute
         (t => Has(t, "Settings"), typeof(SettingsPage)),
     };
 
-    public static Type Resolve(string? tag)
+    public static Type Resolve(string? tag) =>
+        TryResolve(tag, out var page) ? page : typeof(HomePage);
+
+    // True + the page when a route matches; false when nothing does (so callers
+    // can fall back to a placeholder instead of silently landing on Home).
+    public static bool TryResolve(string? tag, out Type page)
     {
         var t = tag ?? "";
-        foreach (var (match, page) in Routes)
+        foreach (var (match, p) in Routes)
         {
-            if (match(t)) return page;
+            if (match(t)) { page = p; return true; }
         }
-        return typeof(HomePage);
+        page = typeof(HomePage);
+        return false;
     }
 
     static bool Eq(string tag, string value) =>
