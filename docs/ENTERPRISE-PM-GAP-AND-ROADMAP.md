@@ -6,7 +6,7 @@ _Document type: Gap analysis + Implementation roadmap (living status — update 
 _Version: 1.2 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
 _Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target
 architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
-Baseline (this branch, 2026-07-22): **176+** Python modules (**113** tkinter-free
+Baseline (this branch, 2026-07-22): **177** Python modules (**114** tkinter-free
 by AST), **85** tables, **61** indexes, **708** headless-runnable tests
 (**5** GUI smoke skips without display)._
 
