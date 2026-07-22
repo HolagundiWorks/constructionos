@@ -21,8 +21,10 @@ Headless backlog from `docs/CLOUD-TASKS.md` (no WinUI / display):
 - **CT-4.** Parallel `labels`/`values` (cashflow also `series`) on
   `/api/cashflow`, `/api/ageing`, `/api/evm` alongside existing detail.
 - **CT-5.** Audit coverage for measurement writes + empty-DB read sweep in
-  `TestWebApi`.
+  `TestWebApi`. Master CRUD now commits **after** `auth.audit` (was before —
+  audit rows were dropped on close).
 - API version **u0.8**. Docs: `docs/API.md`, this entry; `CLOUD-TASKS` marked done.
+- Suite: **713** tests OK (5 skipped, no display).
 
 ---
 
