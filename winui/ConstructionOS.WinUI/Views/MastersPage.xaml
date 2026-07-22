@@ -25,10 +25,13 @@
         <AppBarButton.Icon><FontIcon Glyph="&#xE72C;"/></AppBarButton.Icon>
       </AppBarButton>
     </CommandBar>
-    <Grid Grid.Row="2" RowDefinitions="Auto,*">
+    <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*">
       <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True"
                Severity="Error" Margin="0,0,0,8"/>
-      <ListView x:Name="Grid" Grid.Row="1" SelectionMode="Single"
+      <Border x:Name="HeaderHost" Grid.Row="1"
+              BorderThickness="0,0,0,1"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"/>
+      <ListView x:Name="Grid" Grid.Row="2" SelectionMode="Single"
                 SelectionChanged="OnSelectionChanged"/>
     </Grid>
   </Grid>

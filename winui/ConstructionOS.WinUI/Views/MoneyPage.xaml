@@ -11,7 +11,7 @@
     </CommandBar>
     <Grid Grid.Row="2" RowDefinitions="Auto,*">
       <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True"/>
-      <ListView x:Name="Grid" Grid.Row="1" Margin="0,8,0,0" SelectionMode="Single"/>
+      <Grid x:Name="Host" Grid.Row="1" Margin="0,8,0,0"/>
     </Grid>
   </Grid>
 </Page>

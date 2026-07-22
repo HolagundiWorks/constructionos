@@ -40,7 +40,7 @@ public sealed partial class MastersPage : Page
             TitleText.Text = _label + " register";
             _fields = FieldForm.ParseFields(data);
             _rows = ParseItems(data);
-            Grid.ItemsSource = _rows.Select(Line).ToList();
+            RenderTable();
             UpdateButtons();
             Notice.IsOpen = false;
         }
@@ -64,14 +64,26 @@ public sealed partial class MastersPage : Page
         return rows;
     }
 
-    private string Line(Dictionary<string, object?> r)
+    // Render the rows as an aligned columnar table (header + one row grid per
+    // record) while keeping the ListView's selection for edit/delete — item
+    // order matches _rows, so Grid.SelectedIndex still indexes _rows.
+    private void RenderTable()
     {
-        var parts = new List<string>();
-        if (r.TryGetValue("id", out var id)) parts.Add($"#{id}");
+        var cols = new List<string> { "id" };
         foreach (var f in _fields)
-            if (r.TryGetValue(f.Key, out var v) && !string.IsNullOrEmpty(v?.ToString()))
-                parts.Add($"{f.Label}: {v}");
-        return string.Join("    ", parts);
+            if (!cols.Contains(f.Key) && cols.Count < 10) cols.Add(f.Key);
+        if (cols.Count == 1 && _rows.Count > 0)
+            foreach (var k in _rows[0].Keys)
+                if (!cols.Contains(k) && cols.Count < 10) cols.Add(k);
+
+        HeaderHost.Child = Ui.HeaderRow(cols);
+        Grid.Items.Clear();
+        foreach (var r in _rows)
+        {
+            var sr = new Dictionary<string, string>();
+            foreach (var kv in r) sr[kv.Key] = kv.Value?.ToString() ?? "";
+            Grid.Items.Add(Ui.DataRow(cols, sr));
+        }
     }
 
     private Dictionary<string, object?>? Selected =>

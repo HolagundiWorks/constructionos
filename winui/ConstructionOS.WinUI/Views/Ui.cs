@@ -88,6 +88,24 @@ internal static class Ui
         return root;
     }
 
+    /// <summary>Header row (bold, prettified column titles) for a columnar list
+    /// whose data rows are built with <see cref="DataRow"/> using the same
+    /// <paramref name="cols"/> — so columns align.</summary>
+    public static Grid HeaderRow(IReadOnlyList<string> cols)
+    {
+        var g = RowGrid(cols, Pretty, isHeader: true);
+        g.Padding = new Thickness(12, 6, 12, 6);
+        return g;
+    }
+
+    /// <summary>One data row for a columnar list (see <see cref="HeaderRow"/>).</summary>
+    public static Grid DataRow(IReadOnlyList<string> cols, IReadOnlyDictionary<string, string> row)
+    {
+        var g = RowGrid(cols, c => row.TryGetValue(c, out var v) ? v : "", isHeader: false);
+        g.Padding = new Thickness(12, 2, 12, 2);
+        return g;
+    }
+
     // A single grid row (header or data) with star columns so they align.
     private static Grid RowGrid(IReadOnlyList<string> cols, Func<string, string> value,
                                 bool isHeader)

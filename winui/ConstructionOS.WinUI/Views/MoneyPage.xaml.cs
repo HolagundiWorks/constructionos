@@ -49,11 +49,17 @@ public sealed partial class MoneyPage : Page
                 _label = lbl.GetString() ?? _label;
             PageTitle.Text = Plural(_label);
             NewButton.Label = "New " + _label.ToLowerInvariant();
-            Grid.ItemsSource = Ui.Lines(data);
+            Host.Children.Clear();
+            Host.Children.Add(Ui.Table(data));
         }
         catch (Exception ex)
         {
-            Grid.ItemsSource = new[] { "Error: " + ApiException.UserMessage(ex) };
+            Host.Children.Clear();
+            Host.Children.Add(new TextBlock
+            {
+                Text = ApiException.UserMessage(ex),
+                TextWrapping = TextWrapping.Wrap,
+            });
         }
     }
 
