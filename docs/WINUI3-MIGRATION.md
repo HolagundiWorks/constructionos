@@ -245,7 +245,7 @@ the tree for non-Windows use or delete per a later call.
 |---|---|---|
 | **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.1** |
 | **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | **✅ Scaffolded** in `winui/` (compile on Windows) |
-| **U2** | Masters + generic **DataGrid** CRUD page bound to the API (replaces `CrudFrame`) | Windows |
+| **U2** | Masters + generic **DataGrid** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Scaffolded** — `Views/MastersPage.*` (one metadata-driven page for all masters; compile on Windows) |
 | **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | Windows |
 | **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | Windows |
 | **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | Windows |

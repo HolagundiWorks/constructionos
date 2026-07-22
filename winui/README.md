@@ -32,7 +32,17 @@ box with Visual Studio 2022 + Windows App SDK. Spec:
 | `Services/ApiClient.cs` | Cookie + CSRF HttpClient over `/api/*` |
 | `Views/HomePage.*` | Dashboard / advisories |
 | `Views/RisksPage.*` | Risk register DataGrid |
+| `Views/MastersPage.*` | **U2** — generic CRUD register for every master (sites, clients, …), columns + form built from the API's field metadata |
 | `Views/ProcessPage.*` | Workflow "what's next" |
 
+## U2 — generic masters CRUD (scaffolded)
+`MastersPage` is navigated to with a table name (e.g. `"sites"`); it calls
+`GET /api/{table}`, builds the `DataGrid` columns and the add/edit `ContentDialog`
+from the returned `fields` metadata, and writes via `POST/PUT/DELETE /api/{table}`
+(CSRF header, Viewer→403 surfaced in an `InfoBar`). One page replaces the tkinter
+`CrudFrame` for all ten masters — no per-master XAML. The rail routes any master
+tab to it via `MainWindow.MasterTables`. Known refinement: foreign-key fields are
+entered by id for now; a picker (a `ComboBox` from the related master) is next.
+
 ## Next (local)
-U2 DataGrid CRUD masters · U3 Money/Billing · U4 charts · U5 Controls · U6 MSIX + PyInstaller sidecar · U7 parity.
+U3 Money/Billing · U4 charts · U5 Controls · U6 MSIX + PyInstaller sidecar · U7 parity.

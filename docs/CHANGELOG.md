@@ -6,6 +6,29 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U2 scaffold: generic masters DataGrid CRUD
+
+- **One metadata-driven CRUD page for every master.** `Views/MastersPage.*`
+  (WinUI, scaffold) is navigated to with a table name; it calls `GET /api/{table}`
+  and builds both the `DataGrid` columns and the add/edit `ContentDialog` **from
+  the API's field metadata** (`fields`: key/label/kind/options/default/required),
+  then writes via `POST`/`PUT`/`DELETE /api/{table}` with the CSRF header. One
+  page replaces the tkinter `CrudFrame` for all ten masters — no per-master XAML.
+  Stock Fluent controls only (`DataGrid`, `CommandBar`/`AppBarButton` with Segoe
+  Fluent glyphs, `NumberBox`/`ComboBox`/`TextBox`, `ContentDialog`, `InfoBar`).
+- **`ApiClient` gained `PutJsonAsync` / `DeleteAsync`** (shared CSRF body writer)
+  and an `ApiException` that surfaces the API's `{"error"}` text — so a Viewer's
+  403 or a validation 400 shows in the page's `InfoBar` rather than crashing.
+- **Shell wiring:** `MainWindow` routes any master tab (section-agnostic, by tab
+  label) to `MastersPage` via a `MasterTables` map.
+- **Windows-only:** this is C#/XAML scaffold — it compiles under VS 2022 +
+  Windows App SDK, not in the headless environment. The Python side is unchanged;
+  the domain + API stay covered by the 663-test suite. Known refinement: FK fields
+  are entered by id (a related-master picker is next). Spec:
+  [`docs/WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9 (U2).
+
+---
+
 ## 2026-07-22 — U0 hardening: JSON-API writes now audit reliably
 
 - **Fixed: API write audits were silently dropped.** `PUT`/`DELETE /api/risks`

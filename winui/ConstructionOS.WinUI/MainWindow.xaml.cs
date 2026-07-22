@@ -11,6 +11,18 @@ namespace ConstructionOS.WinUI;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    // Menu tab label → API master table. The tab labels come from the persona
+    // menu (/api/menu); the API registers are the lowercase table names. One
+    // generic MastersPage serves them all (U2).
+    private static readonly Dictionary<string, string> MasterTables = new()
+    {
+        ["Sites"] = "sites", ["Clients"] = "clients", ["Vendors"] = "vendors",
+        ["Materials"] = "materials", ["Labour"] = "labor",
+        ["Equipment"] = "equipment", ["Thekedars"] = "thekedars",
+        ["Projects"] = "projects", ["Milestones"] = "milestones",
+        ["Rate Book"] = "rate_book",
+    };
+
     public MainWindow()
     {
         InitializeComponent();
@@ -75,12 +87,17 @@ public sealed partial class MainWindow : Window
         if (args.SelectedItem is NavigationViewItem item)
         {
             var tag = item.Tag?.ToString() ?? "";
-            if (tag is "Home" or "")
+            // Tags are "Section/Tab" (or a bare label for always-on rows); the
+            // register is identified by the tab label, section-agnostic.
+            var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
+            if (MasterTables.TryGetValue(tab, out var table))
+                ContentFrame.Navigate(typeof(MastersPage), table);
+            else if (tag is "Home" or "")
                 ContentFrame.Navigate(typeof(HomePage));
-            else if (tag.Contains("Risk", StringComparison.OrdinalIgnoreCase))
+            else if (tab.Contains("Risk", StringComparison.OrdinalIgnoreCase))
                 ContentFrame.Navigate(typeof(RisksPage));
-            else if (tag.Contains("Process", StringComparison.OrdinalIgnoreCase)
-                     || tag == "What's next")
+            else if (tab.Contains("Process", StringComparison.OrdinalIgnoreCase)
+                     || tab == "What's next")
                 ContentFrame.Navigate(typeof(ProcessPage));
             else
                 ContentFrame.Navigate(typeof(HomePage));
