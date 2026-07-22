@@ -6,6 +6,17 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U5: command-palette search in the shell
+
+- **Global tab search.** A stock `AutoSuggestBox` in the `NavigationView` search
+  slot: typing queries `GET /api/search`, shows the matched tabs, and picking one
+  navigates to it. The rail selection and the search palette now share **one**
+  `NavigateTo(tag)` (master tabs → generic `MastersPage`; everything else via
+  `NavRoute`), so both route identically. Search is best-effort — a backend
+  hiccup clears suggestions, never crashes the shell. `dotnet build` 0 errors.
+
+---
+
 ## 2026-07-22 — WinUI U4: Earned Value page — per-project CPI/SPI chart
 
 - **EVM page plots real performance.** `Views/EvmPage.*` now reads

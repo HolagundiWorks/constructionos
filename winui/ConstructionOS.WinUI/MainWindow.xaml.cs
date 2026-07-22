@@ -106,15 +106,68 @@ public sealed partial class MainWindow : Window
             return;
         }
         if (args.SelectedItem is NavigationViewItem item)
+            NavigateTo(item.Tag?.ToString() ?? "");
+    }
+
+    // Master tabs carry a table name to the one generic MastersPage (U2);
+    // everything else resolves by NavRoute (typed tag → page). Shared by the
+    // rail selection and the search palette so they route identically.
+    private void NavigateTo(string tag)
+    {
+        var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
+        if (MasterTables.TryGetValue(tab, out var table))
+            ContentFrame.Navigate(typeof(MastersPage), table);
+        else
+            ContentFrame.Navigate(NavRoute.Resolve(tag));
+    }
+
+    // ------------------------------------------------------ U5 command palette
+    // Each suggestion is a tab the backend matched; keep the section+tab so a
+    // chosen label routes exactly like clicking that rail item.
+    private readonly List<(string Section, string Tab, string Label)> _hits = new();
+
+    private async void Search_TextChanged(AutoSuggestBox sender,
+                                          AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        var q = (sender.Text ?? "").Trim();
+        if (q.Length == 0) { sender.ItemsSource = null; return; }
+        try
         {
-            var tag = item.Tag?.ToString() ?? "";
-            // Master tabs carry a table name to the one generic MastersPage
-            // (U2); everything else resolves by NavRoute (typed tag → page).
-            var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
-            if (MasterTables.TryGetValue(tab, out var table))
-                ContentFrame.Navigate(typeof(MastersPage), table);
-            else
-                ContentFrame.Navigate(NavRoute.Resolve(tag));
+            var data = await ApiClient.Default.GetJsonAsync(
+                "api/search?q=" + Uri.EscapeDataString(q));
+            _hits.Clear();
+            if (data.TryGetProperty("hits", out var hits)
+                && hits.ValueKind == System.Text.Json.JsonValueKind.Array)
+                foreach (var h in hits.EnumerateArray())
+                    _hits.Add((Prop(h, "section"), Prop(h, "tab"),
+                               Prop(h, "label")));
+            sender.ItemsSource = _hits.Select(h => h.Label).ToList();
+        }
+        catch
+        {
+            sender.ItemsSource = null;   // search is best-effort, never fatal
         }
     }
+
+    private void Search_SuggestionChosen(
+        AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args) =>
+        GoToHit(args.SelectedItem as string);
+
+    private void Search_QuerySubmitted(
+        AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args) =>
+        GoToHit(args.ChosenSuggestion as string
+                ?? (_hits.Count > 0 ? _hits[0].Label : null));
+
+    private void GoToHit(string? label)
+    {
+        var hit = _hits.FirstOrDefault(h => h.Label == label);
+        if (hit.Tab is null) return;
+        NavigateTo(string.IsNullOrEmpty(hit.Section) ? hit.Tab
+                   : $"{hit.Section}/{hit.Tab}");
+        Search.Text = "";
+    }
+
+    private static string Prop(System.Text.Json.JsonElement o, string key) =>
+        o.TryGetProperty(key, out var v) ? v.GetString() ?? "" : "";
 }

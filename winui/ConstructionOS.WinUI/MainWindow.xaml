@@ -15,6 +15,15 @@
                    Style="{StaticResource SubtitleTextBlockStyle}"
                    Margin="12,8"/>
       </NavigationView.PaneHeader>
+      <NavigationView.AutoSuggestBox>
+        <!-- U5 command palette: type to find any tab (GET /api/search), pick to
+             navigate. Stock AutoSuggestBox in the NavigationView search slot. -->
+        <AutoSuggestBox x:Name="Search" QueryIcon="Find"
+                        PlaceholderText="Search tabs…"
+                        TextChanged="Search_TextChanged"
+                        SuggestionChosen="Search_SuggestionChosen"
+                        QuerySubmitted="Search_QuerySubmitted"/>
+      </NavigationView.AutoSuggestBox>
       <Frame x:Name="ContentFrame" Margin="12"/>
     </NavigationView>
   </Grid>
