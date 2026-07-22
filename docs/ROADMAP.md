@@ -81,6 +81,18 @@ with minimal typing?_
 
 ## 🚧 In progress · ⏳ Next
 
+> **Two platform tracks (owner-approved).** Beyond the shipped tkinter/browser
+> product, development now runs on two parallel tracks, each with its own phased
+> roadmap:
+> - **Local — native WinUI 3 client** (`U` phases): replatform the desktop UI to
+>   stock Fluent controls over the Python domain, kept as a localhost JSON API.
+>   **U0** (API) is built and headless-tested; **U1–U5** are scaffolded C#/XAML
+>   (shell, generic masters CRUD, money/EVM/charts, Controls/Process). See
+>   [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+> - **Cloud — headless services** (`C` phases): AI-origin audit, signal feed,
+>   event hooks, capture/field intake and the JSON API that the clients share.
+>   Delivered C0–C6; tracked in the changelog and [`API.md`](API.md).
+
 - ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
 - ⏳ **Browser / LAN — remaining parity.** RA-bill statutory documents are now viewable and printable in the browser (measured items, Form 23 MB, Form 26 abstract — above); the one piece still desktop-only is **per-item measurement *entry*** (the on-drawing / dimension grid). The **GST / compliance** registers also stay desktop / view-only for now; everything else is browser-editable.
 - ⏳ **Real-display GUI render check.** A validation task, not a code gap: the headless CI has no Tk, so the two GUI smoke tests run only on a machine with a display (or Xvfb). The 600+ pure-logic tests pass headlessly.
