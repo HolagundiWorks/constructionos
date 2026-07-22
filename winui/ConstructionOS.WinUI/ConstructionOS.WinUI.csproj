@@ -24,7 +24,8 @@
          "side-by-side configuration is incorrect" error. Re-enable the RID graph
          (fixes NETSDK1206) so the framework's native bits land in the output. -->
     <UseRidGraph>true</UseRidGraph>
-    <!-- Scaffold only — open on Windows with VS 2022 + Windows App SDK to build. -->
+    <!-- Hardened WinUI 3 client — builds on Windows with the .NET SDK + Windows
+         App SDK (VS 2022 or `dotnet build`); not on Linux cloud agents. -->
   </PropertyGroup>
 
   <ItemGroup>

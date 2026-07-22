@@ -1,0 +1,21 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.ImportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer Padding="8">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Import / capture drafts" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock TextWrapping="Wrap"
+                 Text="Paste challan, BOQ CSV, or free text. Sidecar OCR/STT is optional — drafts always need human confirm."/>
+      <TextBox x:Name="PasteBox" AcceptsReturn="True" Height="160" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="GrnBtn" Content="GRN draft" Click="Grn_Click"/>
+        <Button x:Name="VendorBtn" Content="Vendor invoice" Click="VendorInvoice_Click"/>
+        <Button x:Name="BoqBtn" Content="BOQ draft" Click="Boq_Click"/>
+        <Button x:Name="TextBtn" Content="Text extract" Click="Text_Click"/>
+        <Button x:Name="SignalsBtn" Content="Signals suggest" Click="Signals_Click"/>
+      </StackPanel>
+      <TextBlock x:Name="Result" TextWrapping="Wrap" FontFamily="Consolas"/>
+    </StackPanel>
+  </ScrollViewer>
+</Page>

@@ -97,6 +97,18 @@ import event_hooks
 import menu
 import workflow
 import modules as modules_cat
+import nl_intent
+import sidecar_bridge
+import labor_match
+import muster_draft
+import boq_import
+import text_extract
+import pattern_learn
+import material_match
+import grn_draft
+import signal_suggest
+import pdf_text
+import vendor_invoice_draft
 
 
 class TestFinance(unittest.TestCase):
@@ -1419,6 +1431,266 @@ class TestEventHooks(unittest.TestCase):
         self.assertIsInstance(r['risks'], list)
 
 
+class TestNlIntent(unittest.TestCase):
+    """Deterministic NL → gated follow-up / workflow drafts."""
+
+    def test_grn_phrase_maps_to_event(self):
+        r = nl_intent.resolve('please run the three-way match after GRN')
+        self.assertEqual(r['event'], followups.GRN_SAVED)
+        self.assertTrue(r['followups'])
+        self.assertEqual(r['gated_count'], 0)
+
+    def test_payment_phrase_is_gated(self):
+        r = nl_intent.resolve('draft payment for the vendor')
+        self.assertEqual(r['event'], followups.PAYMENT_DUE)
+        self.assertGreaterEqual(r['gated_count'], 1)
+
+    def test_close_snags_extra(self):
+        r = nl_intent.resolve('close snags and prepare handover')
+        self.assertTrue(any('Closeout' in (f.get('where') or '')
+                            for f in r['followups']))
+        self.assertGreaterEqual(r['gated_count'], 1)
+
+    def test_unknown_is_empty(self):
+        r = nl_intent.resolve('xyzzy nonsense')
+        self.assertIsNone(r['event'])
+        self.assertEqual(r['followups'], [])
+
+    def test_workflow_hint(self):
+        r = nl_intent.resolve('start looking at the tender bid')
+        self.assertEqual(r['workflow'], 'bid_to_contract')
+        self.assertIsNotNone(r['next_step'])
+
+
+class TestSidecarBridge(unittest.TestCase):
+    """E1 soft-fail bridge — stubs present, live extract fails cleanly."""
+
+    def test_status_reports_stubs(self):
+        st = sidecar_bridge.status()
+        self.assertIn('ocr', st)
+        self.assertTrue(st['ocr']['stub'])
+        self.assertFalse(st['ocr']['available'])
+
+    def test_extract_unavailable_returns_empty_draft(self):
+        r = sidecar_bridge.extract('ocr', payload={'path': '/no/such.jpg'})
+        self.assertFalse(r['ok'])
+        self.assertTrue(r['needs_review'])
+        self.assertEqual(capture.to_record(r['draft']), {})
+
+    def test_unknown_kind(self):
+        r = sidecar_bridge.extract('nope')
+        self.assertFalse(r['ok'])
+
+
+class TestSidecarStubServer(unittest.TestCase):
+    """Local stub_server soft-fail floor (no model weights)."""
+
+    def test_extract_response_empty_and_preview(self):
+        # Import by path so tests don't need sidecars/ on PYTHONPATH.
+        import importlib.util
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'sidecars', 'stub_server.py')
+        spec = importlib.util.spec_from_file_location('stub_server', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        empty = mod.extract_response('ocr', {})
+        self.assertTrue(empty['stub'])
+        self.assertEqual(empty['fields'], {})
+        preview = mod.extract_response(
+            'stt', {'fields': {'site_name': 'Plot A'}})
+        self.assertEqual(preview['fields']['site_name'], 'Plot A')
+        self.assertEqual(preview['confidence']['site_name'], 0.0)
+
+    def test_stub_against_live_server(self):
+        import importlib.util
+        import threading
+        from http.server import HTTPServer
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'sidecars', 'stub_server.py')
+        spec = importlib.util.spec_from_file_location('stub_server_live', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Ephemeral port on loopback.
+        server = HTTPServer(('127.0.0.1', 0), mod.make_handler('ocr'))
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            host = 'http://127.0.0.1:{}'.format(port)
+            self.assertTrue(
+                sidecar_bridge.available('ocr', host=host, timeout=2.0))
+            r = sidecar_bridge.extract(
+                'ocr', payload={'path': 'probe'}, host=host, timeout=2.0)
+            self.assertTrue(r['ok'])
+            self.assertEqual(capture.to_record(r['draft']), {})
+            # Empty stub draft has no low-confidence fields; human still confirms
+            # before any write (API / capture.confirm gate).
+            self.assertFalse(r['needs_review'])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
+class TestLaborMatchAndMusterDraft(unittest.TestCase):
+    def setUp(self):
+        self.labor = [
+            {'id': 1, 'name': 'Ram Singh', 'father_name': 'Suresh'},
+            {'id': 2, 'name': 'Amit Kumar', 'father_name': ''},
+            {'id': 3, 'name': 'Sita Devi', 'father_name': 'Ram'},
+        ]
+
+    def test_exact_and_fuzzy(self):
+        m = labor_match.match_one('Ram Singh', self.labor)
+        self.assertEqual(m['labor_id'], 1)
+        self.assertGreaterEqual(m['confidence'], 0.99)
+        m2 = labor_match.match_one('ram sin', self.labor)
+        self.assertEqual(m2['labor_id'], 1)
+
+    def test_muster_draft_counts(self):
+        d = muster_draft.draft_from_text(
+            '1. Ram Singh\n2. Nobody Here', self.labor, '2026-07-22')
+        self.assertEqual(d['matched'], 1)
+        self.assertEqual(d['unmatched'], 1)
+        self.assertTrue(d['rows'][1]['needs_review'])
+
+
+class TestBoqImport(unittest.TestCase):
+    def test_csv_with_header(self):
+        text = ('item_no,description,unit,qty,rate\n'
+                '1.1,Excavation in ordinary soil,cum,10,250\n'
+                '1.2,PCC M15,cum,5,4500')
+        p = boq_import.parse_text(text)
+        self.assertEqual(len(p['lines']), 2)
+        self.assertEqual(p['lines'][0]['amount'], 2500.0)
+        self.assertEqual(p['lines'][1]['amount'], 22500.0)
+        drafts = boq_import.to_capture_drafts(p['lines'])
+        self.assertEqual(len(drafts), 2)
+
+    def test_positional_tsv(self):
+        text = 'A\tBrick work\tcum\t2\t1000'
+        p = boq_import.parse_text(text)
+        self.assertEqual(len(p['lines']), 1)
+        self.assertEqual(p['lines'][0]['description'], 'Brick work')
+
+
+class TestTextExtract(unittest.TestCase):
+    def test_work_done_qty(self):
+        e = text_extract.extract('Poured 12.5 cum M20 footing', target='work_done')
+        self.assertEqual(e['target'], 'work_done')
+        self.assertEqual(e['fields']['qty'], 12.5)
+        self.assertEqual(e['fields']['unit'], 'cum')
+
+    def test_ncr_detect(self):
+        e = text_extract.extract('Critical NCR: honeycombing in column C3')
+        self.assertEqual(e['target'], 'ncr')
+        self.assertEqual(e['fields']['severity'], 'Critical')
+
+
+class TestPatternLearn(unittest.TestCase):
+    def test_recurring_negative_category(self):
+        rows = [
+            {'category': 'cost', 'outcome': 'negative', 'title': 'A',
+             'recommendation': 'Lock steel early'},
+            {'category': 'cost', 'outcome': 'negative', 'title': 'B',
+             'recommendation': 'Weigh cement'},
+            {'category': 'schedule', 'outcome': 'negative', 'title': 'C',
+             'recommendation': ''},
+        ]
+        drafts = pattern_learn.from_lessons(rows, min_count=2)
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(drafts[0]['category'], 'cost')
+        self.assertEqual(drafts[0]['source'], 'ai')
+
+
+class TestFollowupsNewEvents(unittest.TestCase):
+    def test_ra_and_ncr_events(self):
+        ra = followups.for_event(followups.RA_BILL_APPROVED)
+        self.assertTrue(any(f['gated'] for f in ra))
+        ncr = followups.for_event(followups.NCR_RAISED)
+        self.assertTrue(ncr)
+        att = followups.for_event(followups.ATTENDANCE_SAVED)
+        self.assertTrue(att)
+
+
+class TestMaterialMatchAndGrnDraft(unittest.TestCase):
+    def setUp(self):
+        self.mats = [
+            {'id': 1, 'name': 'OPC 53 Cement', 'unit': 'bags', 'category': 'cement'},
+            {'id': 2, 'name': 'TMT 12mm', 'unit': 'MT', 'category': 'steel'},
+        ]
+
+    def test_match_and_challan_parse(self):
+        m = material_match.match_one('opc 53 cement', self.mats)
+        self.assertEqual(m['material_id'], 1)
+        text = ('Challan DC-12 vehicle MH12AB1234 2026-07-22\n'
+                '1. OPC 53 Cement 40 bags\n'
+                '2. Unknown Widget 3 nos')
+        d = grn_draft.draft_from_text(text, self.mats)
+        self.assertEqual(d['header']['challan_no'], 'DC-12')
+        self.assertEqual(d['matched'], 1)
+        self.assertEqual(d['unmatched'], 1)
+
+
+class TestMeasurementExtract(unittest.TestCase):
+    def test_mb_dims(self):
+        e = text_extract.extract(
+            'measurement nos 4 length 3 breadth 2 depth 1 footing',
+            target='measurement')
+        self.assertEqual(e['target'], 'measurement')
+        self.assertEqual(e['fields']['quantity'], 24.0)
+
+
+class TestSignalSuggest(unittest.TestCase):
+    def test_empty_book_preview(self):
+        import db, tempfile, os
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd); os.remove(path)
+        orig = db.DB_PATH
+        db.DB_PATH = path
+        try:
+            db.init_db()
+            conn = db.get_conn()
+            r = signal_suggest.suggest(conn, apply=False)
+            self.assertIn('drift', r)
+            self.assertFalse(r['applied'])
+            conn.close()
+        finally:
+            db.DB_PATH = orig
+            for ext in ('', '-wal', '-shm'):
+                try:
+                    os.remove(path + ext)
+                except OSError:
+                    pass
+
+
+class TestPdfText(unittest.TestCase):
+    def test_missing_file_soft_fails(self):
+        r = pdf_text.extract_text('/no/such/file.pdf')
+        self.assertFalse(r['ok'])
+        self.assertEqual(r['text'], '')
+
+
+class TestVendorInvoiceDraft(unittest.TestCase):
+    def test_parse_lines_and_totals(self):
+        text = ('Invoice INV-9 2026-07-22 GST 18%\n'
+                '1. Cement bags 10 350\n'
+                '2. Sand cum 5 1200')
+        d = vendor_invoice_draft.draft_from_text(text)
+        self.assertEqual(d['header']['invoice_no'], 'INV-9')
+        self.assertEqual(len(d['lines']), 2)
+        self.assertEqual(d['subtotal'], 10 * 350 + 5 * 1200)
+        self.assertIn('net_payable', d['totals'])
+
+
+class TestFollowupsSnagAndBill(unittest.TestCase):
+    def test_new_events(self):
+        self.assertTrue(followups.for_event(followups.SNAG_RAISED))
+        self.assertTrue(any(
+            f['gated'] for f in followups.for_event(followups.RUNNING_BILL_APPROVED)))
+
+
 class TestAuditOrigin(unittest.TestCase):
     """E0.3 / C3 — audit_log.origin tags AI vs manual."""
 
@@ -1580,6 +1852,99 @@ class TestProductivityStore(unittest.TestCase):
             self.assertIsNone(s['plant_util_pct'])
         finally:
             conn.close()
+
+
+class TestBuildersCatalogDrift(unittest.TestCase):
+    """Every catalog label must have a BUILDERS entry (headless — no import main)."""
+
+    def test_builders_cover_all_catalog_labels(self):
+        path = os.path.join(os.path.dirname(__file__), os.pardir,
+                            'construction_app', 'main.py')
+        src = open(path, encoding='utf-8').read()
+        # Keys inside BUILDERS = { ... }
+        m = re.search(r'^BUILDERS\s*=\s*\{(.*?)^\}\s*$', src,
+                      re.M | re.S)
+        self.assertIsNotNone(m, 'BUILDERS dict not found in main.py')
+        keys = set(re.findall(r"^\s*'([^']+)'\s*:", m.group(1), re.M))
+        missing = [label for label in modules_cat.ALL_MODULES if label not in keys]
+        self.assertEqual(missing, [], 'BUILDERS missing catalog labels')
+
+    def test_module_icons_cover_catalog(self):
+        path = os.path.join(os.path.dirname(__file__), os.pardir,
+                            'construction_app', 'main.py')
+        src = open(path, encoding='utf-8').read()
+        m = re.search(r'^MODULE_ICONS\s*=\s*\{(.*?)^\}\s*$', src,
+                      re.M | re.S)
+        self.assertIsNotNone(m)
+        keys = set(re.findall(r"'([^']+)'\s*:", m.group(1)))
+        missing = [label for label in modules_cat.ALL_MODULES if label not in keys]
+        self.assertEqual(missing, [], 'MODULE_ICONS missing catalog labels')
+
+
+class TestRecordSearch(unittest.TestCase):
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_finds_project_by_name(self):
+        import record_search
+        conn = self.db.get_conn()
+        try:
+            conn.execute("INSERT INTO projects (name) VALUES ('Ward-7 Road')")
+            conn.commit()
+            hits = record_search.search_records(conn, 'Ward')
+            self.assertTrue(hits)
+            self.assertEqual(hits[0]['table'], 'projects')
+            self.assertIn('Ward-7', hits[0]['label'])
+            self.assertTrue(hits[0]['href'].startswith('/t/projects/'))
+        finally:
+            conn.close()
+
+
+class TestFinanceNarrateReconcile(unittest.TestCase):
+    def test_over_billed(self):
+        import finance as f
+        r = f.reconcile(10000, 12000, 0)
+        text = f.narrate_reconcile(r, 'VI-2')
+        self.assertIn('over-billed', text.lower())
+
+
+class TestPortfolioAdvisory(unittest.TestCase):
+    def test_concentrated_exposure(self):
+        cards = advisory.for_portfolio([
+            {'name': 'East', 'risks': {'total_expected_exposure': 800000,
+                                       'needs_action': 3},
+             'lessons': {}, 'opportunities': {}},
+            {'name': 'West', 'risks': {'total_expected_exposure': 50000,
+                                       'needs_action': 0},
+             'lessons': {}, 'opportunities': {}},
+        ])
+        self.assertTrue(cards)
+        self.assertIn('East', cards[0]['title'])
+
+
+class TestComplianceFeed(unittest.TestCase):
+    def test_filing_events_are_gated(self):
+        import compliance_feed
+        events = compliance_feed.filing_events([
+            {'name': 'GSTR-1', 'due_date': '2026-01-11', 'period': 'Dec'},
+        ])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['event'], 'filing_due')
+        self.assertGreaterEqual(events[0]['gated_count'], 1)
 
 
 class TestWorkflowState(unittest.TestCase):

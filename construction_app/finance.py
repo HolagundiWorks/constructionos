@@ -90,6 +90,31 @@ def reconcile(po_subtotal, invoice_subtotal, tolerance=0.0):
             'status': status}
 
 
+def narrate_reconcile(result, po_label=None):
+    """Plain-language sentence for a ``reconcile`` result (PO ↔ invoice)."""
+    if not result:
+        return ''
+    label = po_label or 'This invoice'
+    status = result.get('status')
+    var = result.get('variance') or 0
+    pct = result.get('variance_pct')
+    pct_bit = '' if pct is None else ' ({:+.1f}%)'.format(pct)
+    if status == 'No PO':
+        return ('{} has no linked purchase order — match it to a PO before '
+                'paying, or confirm it is a non-PO buy.'.format(label))
+    if status == 'Matched' or result.get('within_tolerance'):
+        return ('{} matches the PO within tolerance'
+                '{}.'.format(label, pct_bit))
+    if status == 'Over-billed':
+        return ('{} is over-billed by ₹{:,.0f}{} against the PO — check rates '
+                'and quantities before paying.'.format(label, abs(var), pct_bit))
+    if status == 'Under-billed':
+        return ('{} is under-billed by ₹{:,.0f}{} against the PO — confirm '
+                'whether a balance invoice is still due.'.format(
+                    label, abs(var), pct_bit))
+    return '{} reconciliation status: {}.'.format(label, status or 'unknown')
+
+
 # ------------------------------------------------------------- double-entry
 NORMAL_DEBIT = ('Asset', 'Expense')
 NORMAL_CREDIT = ('Liability', 'Income', 'Equity')

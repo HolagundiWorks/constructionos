@@ -412,3 +412,71 @@ def counts(cards):
     for c in cards or []:
         out[c['severity']] = out.get(c['severity'], 0) + 1
     return out
+
+
+def for_portfolio(per_file):
+    """Advisories across federated firm/year files — only material moves.
+
+    ``per_file`` is a list of ``portfolio_store.file_rollup`` dicts (or the
+    ``per_file`` list from ``roll_up``). Emits at most a few cards pointing at
+    the file that needs attention, with an explicit basis. Empty / single-file
+    portfolios with nothing material return [].
+    """
+    files = list(per_file or [])
+    if not files:
+        return []
+    cards = []
+    # Risk exposure concentration
+    exposures = []
+    for fr in files:
+        name = fr.get('name') or 'a file'
+        risks = fr.get('risks') or {}
+        exp = float(risks.get('total_expected_exposure') or 0)
+        needs = int(risks.get('needs_action') or 0)
+        exposures.append((name, exp, needs))
+    total_exp = sum(e for _n, e, _k in exposures)
+    if total_exp > 0 and len(exposures) >= 2:
+        name, exp, needs = max(exposures, key=lambda t: t[1])
+        share = exp / total_exp
+        if share >= 0.6 and exp > 0:
+            cards.append(_card(
+                ACT if needs else WATCH,
+                'Risk exposure concentrated in {}'.format(name),
+                '{} holds {:.0f}% of portfolio expected exposure ({}).'.format(
+                    name, share * 100.0, _money(exp)),
+                'Open that file\'s Risk Register and clear Critical/High items.',
+                HIGH if needs else MEDIUM,
+                '{}/{} files · ₹{:,.0f} total exposure'.format(
+                    len(files), len(files), total_exp),
+                'Money › Portfolio'))
+    # Lessons feed-forward backlog
+    for fr in files:
+        name = fr.get('name') or 'a file'
+        less = fr.get('lessons') or {}
+        ff = int(less.get('feed_forward_count') or 0)
+        if ff >= 3:
+            cards.append(_card(
+                WATCH,
+                'Lessons waiting to be applied in {}'.format(name),
+                '{} recommendation(s) captured but not yet Applied.'.format(ff),
+                'Review Controls › Lessons Learned and mark Applied when acted on.',
+                MEDIUM, '{} feed-forward rows'.format(ff),
+                'Controls › Lessons Learned'))
+    # Pursue-now opportunities stranded
+    for fr in files:
+        name = fr.get('name') or 'a file'
+        opps = fr.get('opportunities') or {}
+        pursue = int(opps.get('pursue_now') or 0)
+        upside = float(opps.get('total_expected_value') or 0)
+        if pursue >= 2 and upside > 0:
+            cards.append(_card(
+                WATCH,
+                'Open upside in {}'.format(name),
+                '{} opportunities flagged to pursue now ({} expected).'.format(
+                    pursue, _money(upside)),
+                'Review the Opportunity Register and decide Pursue / Decline.',
+                MEDIUM, '{} pursue-now · {}'.format(pursue, _money(upside)),
+                'Controls › Opportunity Register'))
+    cards.sort(key=lambda c: (_SEV_RANK.get(c['severity'], 9),
+                              _CONF_RANK.get(c['confidence'], 9)))
+    return cards

@@ -25,6 +25,8 @@ import wages
 import muster
 import money as m
 import bill_export
+import event_hooks
+import followups
 from crud_frame import CrudFrame, Field
 from tab_masters import site_options
 
@@ -228,6 +230,16 @@ class MusterRollFrame(ttk.Frame):
         finally:
             conn.close()
         messagebox.showinfo('Saved', 'Muster saved for {}.'.format(day))
+        result = event_hooks.react(followups.ATTENDANCE_SAVED, {
+            'att_date': day, 'rows': len(rows)})
+        steps = result.get('followups') or []
+        if steps:
+            lines = ['• {} — {}'.format(f.get('action', ''), f.get('where', ''))
+                     for f in steps]
+            messagebox.showinfo(
+                'Suggested next steps',
+                'Draft follow-ups (nothing was auto-posted):\n\n'
+                + '\n'.join(lines))
 
 
 # ============================================================ Weekly Payout

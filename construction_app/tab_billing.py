@@ -25,10 +25,31 @@ from tkinter import ttk, messagebox, filedialog
 from ui_guard import can_write
 
 import bill_export
+import event_hooks
+import followups
 from tab_masters import site_options  # noqa: F401  (kept for parity/imports)
 
 
 APPROVED_STATUSES = ('Approved', 'Paid')
+
+
+def _show_bill_followups(bill_id, status):
+    if status not in APPROVED_STATUSES:
+        return
+    result = event_hooks.react(
+        followups.RUNNING_BILL_APPROVED, payload={'bill_id': bill_id})
+    steps = result.get('followups') or []
+    if not steps:
+        return
+    lines = []
+    for f in steps:
+        tag = '  [needs your approval]' if f.get('gated') else ''
+        lines.append('• {} — {}{}'.format(
+            f.get('action', ''), f.get('where', ''), tag))
+    messagebox.showinfo(
+        'Suggested next steps',
+        'Bill saved. Draft follow-ups (nothing was auto-posted):\n\n'
+        + '\n'.join(lines))
 
 
 # ---------------------------------------------------------------- pure logic
@@ -265,11 +286,12 @@ class BillingTab(ttk.Frame):
         if None in (work_done, retention, other):
             return
         status = self.h['status'].get().strip() or 'Draft'
+        new_id = None
         conn = self.db_getter()
         try:
             prev = self._previous_billed(conn, contract_id)
             net = compute_net_payable(work_done, prev, retention, other)
-            conn.execute(
+            cur = conn.execute(
                 "INSERT INTO bills (contract_id, bill_no, bill_date, status, "
                 "work_done_value, previous_billed, retention_amt, "
                 "other_deductions, net_payable, remarks) "
@@ -277,11 +299,14 @@ class BillingTab(ttk.Frame):
                 (contract_id, self.h['bill_no'].get().strip(),
                  self.h['bill_date'].get().strip(), status, work_done, prev,
                  retention, other, net, self.h['remarks'].get().strip()))
+            new_id = cur.lastrowid
             conn.commit()
         finally:
             conn.close()
         self.refresh_bills()
         self.clear_bill()
+        if new_id is not None:
+            _show_bill_followups(new_id, status)
 
     def update_bill(self):
         if not can_write():
@@ -299,6 +324,7 @@ class BillingTab(ttk.Frame):
         if None in (work_done, retention, other):
             return
         status = self.h['status'].get().strip() or 'Draft'
+        bill_id = self.selected_bill_id
         conn = self.db_getter()
         try:
             prev = self._previous_billed(conn, contract_id,
@@ -317,6 +343,7 @@ class BillingTab(ttk.Frame):
         finally:
             conn.close()
         self.refresh_bills()
+        _show_bill_followups(bill_id, status)
 
     def delete_bill(self):
         if not can_write():

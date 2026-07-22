@@ -163,7 +163,7 @@ public sealed partial class MastersPage : Page
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
-            await ApiClient.Default.DeleteAsync($"api/{_table}/{id}");
+            await ApiClient.Default.DeleteJsonAsync($"api/{_table}/{id}");
             await LoadAsync();
         }
         catch (Exception ex) { ShowError(ex); }
@@ -248,7 +248,7 @@ public sealed partial class MastersPage : Page
 
     private void ShowError(Exception ex)
     {
-        Notice.Title = ex is ApiException api ? $"Couldn't save ({(int)api.Status})" : "Error";
+        Notice.Title = ex is ApiException api ? $"Couldn't save ({(int)api.StatusCode})" : "Error";
         Notice.Message = ex.Message;
         Notice.Severity = InfoBarSeverity.Error;
         Notice.IsOpen = true;

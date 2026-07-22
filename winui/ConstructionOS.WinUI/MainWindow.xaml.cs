@@ -1,13 +1,14 @@
-using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
 using ConstructionOS.WinUI.Views;
 
 namespace ConstructionOS.WinUI;
 
 /// <summary>
-/// U1 shell: NavigationView items come from GET /api/menu?persona=Owner.
+/// U1 shell: NavigationView items from GET /api/menu?persona=…; Settings gear
+/// opens connection settings.
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -33,17 +34,21 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            var health = await ApiClient.Default.HealthAsync();
+            var apiVer = health.TryGetProperty("api", out var v) ? v.ToString() : "?";
             await ApiClient.Default.EnsureSessionAsync();
-            var menu = await ApiClient.Default.GetJsonAsync("api/menu?persona=Owner");
+            var persona = Uri.EscapeDataString(AppSettings.Current.Persona);
+            var menu = await ApiClient.Default.GetJsonAsync("api/menu?persona=" + persona);
             Nav.MenuItems.Clear();
             if (menu.TryGetProperty("always_on", out var always))
             {
                 foreach (var item in always.EnumerateArray())
                 {
+                    var label = item.GetString() ?? "";
                     Nav.MenuItems.Add(new NavigationViewItem
                     {
-                        Content = item.GetString(),
-                        Tag = item.GetString(),
+                        Content = label,
+                        Tag = label,
                     });
                 }
             }
@@ -57,10 +62,11 @@ public sealed partial class MainWindow : Window
                     {
                         foreach (var tab in tabs.EnumerateArray())
                         {
+                            var name = tab.GetString() ?? "";
                             parent.MenuItems.Add(new NavigationViewItem
                             {
-                                Content = tab.GetString(),
-                                Tag = $"{title}/{tab.GetString()}",
+                                Content = name,
+                                Tag = $"{title}/{name}",
                             });
                         }
                     }
@@ -68,57 +74,47 @@ public sealed partial class MainWindow : Window
                 }
             }
             ContentFrame.Navigate(typeof(HomePage));
+            Title = $"Construction OS (api {apiVer})";
         }
         catch (Exception ex)
         {
             ContentFrame.Content = new TextBlock
             {
-                Text = "Backend unreachable. Start: cd construction_app && python web_main.py\n\n"
-                       + ex.Message,
+                Text = "Backend unreachable. Start:\n"
+                       + "  cd construction_app && python web_main.py --host 127.0.0.1 --port 8080\n\n"
+                       + "Or open Settings (gear) after fixing the URL.\n\n"
+                       + ApiException.UserMessage(ex),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(24),
             };
+            // Still allow Settings when offline.
+            Nav.MenuItems.Clear();
+            Nav.MenuItems.Add(new NavigationViewItem
+            {
+                Content = "Home",
+                Tag = "Home",
+            });
         }
     }
 
     private void Nav_SelectionChanged(NavigationView sender,
                                       NavigationViewSelectionChangedEventArgs args)
     {
+        if (args.IsSettingsSelected)
+        {
+            ContentFrame.Navigate(typeof(SettingsPage));
+            return;
+        }
         if (args.SelectedItem is NavigationViewItem item)
         {
             var tag = item.Tag?.ToString() ?? "";
-            // Tags are "Section/Tab" (or a bare label for always-on rows); the
-            // register is identified by the tab label, section-agnostic.
+            // Master tabs carry a table name to the one generic MastersPage
+            // (U2); everything else resolves by NavRoute (typed tag → page).
             var tab = tag.Contains('/') ? tag[(tag.LastIndexOf('/') + 1)..] : tag;
             if (MasterTables.TryGetValue(tab, out var table))
                 ContentFrame.Navigate(typeof(MastersPage), table);
-            else if (tag is "Home" or "")
-                ContentFrame.Navigate(typeof(HomePage));
-            else if (tab.Contains("Risk", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(RisksPage));
-            else if (tag.Contains("Opportun", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(OpportunitiesPage));
-            else if (tag.Contains("Lesson", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(LessonsPage));
-            else if (tag.Contains("Submittal", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(SubmittalsPage));
-            else if (tag.Contains("Cash", StringComparison.OrdinalIgnoreCase)
-                     || tag.Contains("Payment", StringComparison.OrdinalIgnoreCase)
-                     || tag.Contains("Money", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(MoneyPage));
-            else if (tag.Contains("Earned", StringComparison.OrdinalIgnoreCase)
-                     || tag.Contains("EVM", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(EvmPage));
-            else if (tag.Contains("Portfolio", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(PortfolioPage));
-            else if (tag.Contains("Chart", StringComparison.OrdinalIgnoreCase)
-                     || tag.Contains("Key Numbers", StringComparison.OrdinalIgnoreCase))
-                ContentFrame.Navigate(typeof(ChartsPage));
-            else if (tag.Contains("Process", StringComparison.OrdinalIgnoreCase)
-                     || tag == "What's next")
-                ContentFrame.Navigate(typeof(ProcessPage));
             else
-                ContentFrame.Navigate(typeof(HomePage));
+                ContentFrame.Navigate(NavRoute.Resolve(tag));
         }
     }
 }

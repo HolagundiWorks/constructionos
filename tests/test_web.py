@@ -849,7 +849,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.1')
+        self.assertEqual(c['api'], 'u0.6')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
 
@@ -943,6 +943,251 @@ class TestWebApi(unittest.TestCase):
         pay = self._json(resp)
         self.assertTrue(pay.get('followups'))
         self.assertGreaterEqual(pay.get('gated_count', 0), 1)
+
+    def test_u02_search_records_match_filings_reconcile(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        # Seed a searchable project
+        resp = self.webapp.handle(self._req(
+            '/api/projects', 'POST', cookies=cookies,
+            json_body={'name': 'Alpha Bridge Job'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertIn(resp.status, (200, 201), resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/search', cookies=cookies, query={'q': 'Alpha'}))
+        self.assertEqual(resp.status, 200)
+        body = self._json(resp)
+        self.assertTrue(body.get('records'))
+        self.assertTrue(any('Alpha' in (r.get('label') or '')
+                            for r in body['records']))
+
+        resp = self.webapp.handle(self._req('/api/match', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('narration', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/reconcile', 'POST', cookies=cookies,
+            json_body={'po_subtotal': 1000, 'invoice_subtotal': 1200,
+                       'label': 'VI-1'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('over-billed', self._json(resp)['narration'].lower())
+
+        resp = self.webapp.handle(self._req('/api/filings/feed', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('events', self._json(resp))
+
+        resp = self.webapp.handle(self._req('/api/ageing', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('ageing', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/purchase_orders', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+
+    def test_u03_intent_sidecar_narrative(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+
+        resp = self.webapp.handle(self._req(
+            '/api/intent', 'POST', cookies=cookies,
+            json_body={'text': 'run the three-way match on this GRN'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body.get('event'), 'grn_saved')
+        self.assertTrue(body.get('followups'))
+
+        resp = self.webapp.handle(self._req(
+            '/api/sidecar/status', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        sides = self._json(resp)['sidecars']
+        self.assertIn('ocr', sides)
+        self.assertTrue(sides['ocr']['stub'])
+        self.assertFalse(sides['ocr']['available'])  # no live sidecar here
+
+        resp = self.webapp.handle(self._req(
+            '/api/sidecar/extract', 'POST', cookies=cookies,
+            json_body={'kind': 'ocr', 'payload': {'path': '/tmp/nope.jpg'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        ext = self._json(resp)
+        self.assertFalse(ext['ok'])
+        self.assertIn('draft', ext)
+
+        resp = self.webapp.handle(self._req(
+            '/api/narrative', cookies=cookies, query={'kind': 'kpi'}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['kind'], 'kpi')
+        self.assertTrue(self._json(resp)['text'])
+
+    def test_u04_text_muster_boq_patterns(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+
+        resp = self.webapp.handle(self._req(
+            '/api/text/extract', 'POST', cookies=cookies,
+            json_body={'text': 'Poured 8 cum M25 slab 2026-07-22'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertIn(body['target'], ('work_done', 'daily_progress'))
+
+        # Seed labour + site for muster
+        self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies=cookies,
+            json_body={'name': 'Site A'},
+            headers={'X-CSRF-Token': csrf}))
+        self.webapp.handle(self._req(
+            '/api/labor', 'POST', cookies=cookies,
+            json_body={'name': 'Ram Singh', 'status': 'Active', 'site_id': 1},
+            headers={'X-CSRF-Token': csrf}))
+
+        resp = self.webapp.handle(self._req(
+            '/api/muster/draft', 'POST', cookies=cookies,
+            json_body={'text': '1. Ram Singh\n2. Ghost Worker',
+                       'att_date': '2026-07-22'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        md = self._json(resp)
+        self.assertEqual(md['matched'], 1)
+
+        matched = [r for r in md['rows'] if r.get('labor_id')]
+        resp = self.webapp.handle(self._req(
+            '/api/muster/confirm', 'POST', cookies=cookies,
+            json_body={'att_date': '2026-07-22', 'rows': matched},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/boq/import/draft', 'POST', cookies=cookies,
+            json_body={'text': 'item_no,description,unit,qty,rate\n'
+                               '1,Excavation,cum,10,100'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['lines']), 1)
+
+        # Contract for BOQ confirm
+        self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=cookies,
+            json_body={'name': 'Client A'},
+            headers={'X-CSRF-Token': csrf}))
+        # contracts may be via masters or docs — try projects path if needed
+        # Use raw SQL via a known writable: skip confirm if no contract endpoint
+        resp = self.webapp.handle(self._req(
+            '/api/patterns/learn', 'POST', cookies=cookies,
+            json_body={'min_count': 2, 'apply': False},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn('drafts', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/preview', 'POST', cookies=cookies,
+            json_body={'drift': {
+                'drifting': True,
+                'score': 4,
+                'signals': [{'signal': 'ppc', 'basis': 'falling PPC'}],
+            }},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('drafts', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/confirm', 'POST', cookies=cookies,
+            json_body={'target': 'ncr', 'source': 'ai',
+                       'fields': {'description': 'Honeycomb at C3',
+                                  'severity': 'Major',
+                                  'raised_date': '2026-07-22'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertEqual(self._json(resp)['target'], 'ncr')
+
+    def test_u05_grn_draft_signals_suggest_mobile_modes(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.webapp.handle(self._req(
+            '/api/materials', 'POST', cookies=cookies,
+            json_body={'name': 'OPC 53 Cement', 'unit': 'bags'},
+            headers={'X-CSRF-Token': csrf}))
+
+        resp = self.webapp.handle(self._req(
+            '/api/grn/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Challan DC-1\n1. OPC 53 Cement 10 bags'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertGreaterEqual(self._json(resp)['matched'], 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/signals/suggest', 'POST', cookies=cookies,
+            json_body={'apply': False},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn('drift', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/m/capture', cookies=cookies, query={'mode': 'free_text'}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Paste note', resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/text/extract', 'POST', cookies=cookies,
+            json_body={'text': 'measurement nos 2 length 5 breadth 1 depth 1',
+                       'target': 'measurement'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['fields']['quantity'], 10.0)
+
+    def test_u06_grn_confirm_vendor_invoice_pdf(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.webapp.handle(self._req(
+            '/api/materials', 'POST', cookies=cookies,
+            json_body={'name': 'OPC 53 Cement', 'unit': 'bags'},
+            headers={'X-CSRF-Token': csrf}))
+
+        draft = self._json(self.webapp.handle(self._req(
+            '/api/grn/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Challan DC-2\n1. OPC 53 Cement 5 bags'},
+            headers={'X-CSRF-Token': csrf})))
+        resp = self.webapp.handle(self._req(
+            '/api/grn/confirm', 'POST', cookies=cookies,
+            json_body={'header': draft['header'], 'lines': draft['lines'],
+                       'source': 'ai'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body['status'], 'Draft')
+        self.assertTrue(body.get('followups'))
+
+        resp = self.webapp.handle(self._req(
+            '/api/vendor_invoice/draft', 'POST', cookies=cookies,
+            json_body={'text': 'Invoice VI-1 2026-07-22\nCement 10 100'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        vd = self._json(resp)
+        resp = self.webapp.handle(self._req(
+            '/api/vendor_invoice/confirm', 'POST', cookies=cookies,
+            json_body={'header': vd['header'], 'lines': vd['lines']},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertIn('totals', self._json(resp))
+
+        resp = self.webapp.handle(self._req(
+            '/api/pdf/extract', 'POST', cookies=cookies,
+            json_body={'path': '/tmp/nope.pdf'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertFalse(self._json(resp)['ok'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/confirm', 'POST', cookies=cookies,
+            json_body={'target': 'snag', 'source': 'ai',
+                       'fields': {'description': 'Lobby tile chip',
+                                  'severity': 'Minor'}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        self.assertTrue(self._json(resp).get('followups') is not None)
 
 
 if __name__ == '__main__':

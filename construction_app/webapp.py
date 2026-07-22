@@ -563,82 +563,243 @@ def _review(request, sess):
 
 
 def _mobile_capture(request, sess):
-    """E6-lite field capture — mobile-friendly work-done entry via ``capture``.
+    """E6-lite field capture — work-done form, free-text note, or muster names.
 
-    Stages as a draft (human can override), then confirms into
-    ``work_done_entries``. No model weights required; OCR/STT/VLM sidecars
-    (local L8) can pre-fill the same form later.
+    Confirm always required for writes. OCR/STT sidecars (L8) can pre-fill later.
     """
     import capture
+    import muster_draft
+    import text_extract
     from datetime import date
 
     flash = ''
+    preview = ''
     conn = db.get_conn()
     try:
         sites = [(r['id'], r['name'] or 'Site {}'.format(r['id']))
                  for r in conn.execute(
                      'SELECT id, name FROM sites ORDER BY name')]
+        qmode = ''
+        if request.query:
+            qmode = (request.query.get('mode') or '').strip()
+        mode = qmode or 'work_done'
         if request.method == 'POST':
             if not can_write(sess['role']):
                 return _forbidden(sess, conn)
             if not _csrf_ok(request, sess):
                 return _forbidden(sess, conn, 'Invalid form token — try again.')
-            fields = {
-                'site_id': request.form.get('site_id', ''),
-                'activity': request.form.get('activity', ''),
-                'unit': request.form.get('unit', ''),
-                'qty': request.form.get('qty', ''),
-                'entry_date': request.form.get('entry_date', '')
-                              or date.today().isoformat(),
-                'remarks': request.form.get('remarks', ''),
-            }
-            draft = capture.build_draft(fields, source=capture.MANUAL)
-            record = capture.to_record(draft)
-            activity = str(record.get('activity') or '').strip()
-            if not activity:
-                flash = 'Activity is required.'
+            mode = (request.form.get('mode') or mode or 'work_done').strip()
+
+            if mode == 'free_text':
+                text = request.form.get('note', '')
+                target = request.form.get('target') or None
+                if target == '':
+                    target = None
+                extracted = text_extract.extract(text, target=target)
+                if request.form.get('confirm') == '1':
+                    fields = extracted.get('fields') or {}
+                    tgt = extracted.get('target') or 'daily_progress'
+                    draft = capture.build_draft(fields, source=capture.AI)
+                    record = capture.to_record(draft)
+                    if tgt == 'ncr':
+                        desc = str(record.get('description') or '').strip()
+                        if not desc:
+                            flash = 'Could not extract an NCR description.'
+                        else:
+                            cur = conn.execute(
+                                'INSERT INTO ncrs (description, severity, '
+                                'raised_date, status) VALUES (?, ?, ?, ?)',
+                                (desc, str(record.get('severity') or 'Major'),
+                                 str(record.get('raised_date') or ''),
+                                 'Open'))
+                            auth.audit(conn, sess['username'], 'mobile_capture',
+                                       'ncrs', cur.lastrowid,
+                                       origin=auth.ORIGIN_AI)
+                            conn.commit()
+                            flash = 'Saved NCR #{}'.format(cur.lastrowid)
+                    elif tgt == 'work_done':
+                        activity = str(record.get('activity') or '').strip()
+                        if not activity:
+                            flash = 'Could not extract activity.'
+                        else:
+                            try:
+                                qty = float(record.get('qty') or 0)
+                            except (TypeError, ValueError):
+                                qty = 0.0
+                            cur = conn.execute(
+                                'INSERT INTO work_done_entries '
+                                '(activity, unit, qty, entry_date, remarks) '
+                                'VALUES (?, ?, ?, ?, ?)',
+                                (activity, str(record.get('unit') or ''),
+                                 qty, str(record.get('entry_date') or ''),
+                                 str(record.get('remarks') or '')[:200]))
+                            auth.audit(conn, sess['username'], 'mobile_capture',
+                                       'work_done_entries', cur.lastrowid,
+                                       origin=auth.ORIGIN_AI)
+                            conn.commit()
+                            flash = 'Saved work-done #{}'.format(cur.lastrowid)
+                    else:
+                        try:
+                            labour = float(record.get('labour_count') or 0)
+                        except (TypeError, ValueError):
+                            labour = 0.0
+                        try:
+                            plant = float(record.get('plant_count') or 0)
+                        except (TypeError, ValueError):
+                            plant = 0.0
+                        cur = conn.execute(
+                            'INSERT INTO daily_progress '
+                            '(report_date, weather, labour_count, plant_count, '
+                            'work_summary) VALUES (?, ?, ?, ?, ?)',
+                            (str(record.get('report_date') or ''),
+                             str(record.get('weather') or ''), labour, plant,
+                             str(record.get('work_summary') or '')[:500]))
+                        auth.audit(conn, sess['username'], 'mobile_capture',
+                                   'daily_progress', cur.lastrowid,
+                                   origin=auth.ORIGIN_AI)
+                        conn.commit()
+                        flash = 'Saved daily progress #{}'.format(cur.lastrowid)
+                else:
+                    preview = ('Detected <strong>{}</strong>. Fields: {} '
+                               '— set Confirm to save.').format(
+                        R.esc(extracted.get('target') or ''),
+                        R.esc(str(extracted.get('fields') or {})))
+
+            elif mode == 'muster':
+                text = request.form.get('names', '')
+                att_date = (request.form.get('att_date')
+                            or date.today().isoformat())
+                labor_rows = conn.execute(
+                    "SELECT id, name, father_name FROM labor "
+                    "WHERE status = 'Active'").fetchall()
+                draft = muster_draft.draft_from_text(text, labor_rows, att_date)
+                if request.form.get('confirm') == '1':
+                    written = 0
+                    for row in draft.get('rows') or []:
+                        if not row.get('labor_id'):
+                            continue
+                        lid = int(row['labor_id'])
+                        conn.execute(
+                            'DELETE FROM attendance WHERE labor_id = ? '
+                            'AND att_date = ?', (lid, att_date))
+                        conn.execute(
+                            'INSERT INTO attendance '
+                            '(labor_id, att_date, status, hours) '
+                            'VALUES (?, ?, ?, ?)',
+                            (lid, att_date, row.get('status') or 'Present',
+                             float(row.get('hours') or 8)))
+                        written += 1
+                    auth.audit(conn, sess['username'], 'mobile_muster',
+                               'attendance', None,
+                               detail='{} marks'.format(written),
+                               origin=auth.ORIGIN_MANUAL)
+                    conn.commit()
+                    flash = 'Saved {} attendance mark(s) for {}.'.format(
+                        written, att_date)
+                else:
+                    preview = (
+                        'Matched {} / unmatched {} for {} — set Confirm to '
+                        'write.').format(
+                        draft.get('matched'), draft.get('unmatched'),
+                        R.esc(att_date))
+
             else:
-                try:
-                    site_id = int(record.get('site_id') or 0) or None
-                except (TypeError, ValueError):
-                    site_id = None
-                try:
-                    qty = float(record.get('qty') or 0)
-                except (TypeError, ValueError):
-                    qty = 0.0
-                cur = conn.execute(
-                    'INSERT INTO work_done_entries '
-                    '(site_id, activity, unit, qty, entry_date, remarks) '
-                    'VALUES (?, ?, ?, ?, ?, ?)',
-                    (site_id, activity,
-                     str(record.get('unit') or '').strip(), qty,
-                     str(record.get('entry_date') or '').strip(),
-                     str(record.get('remarks') or '').strip()))
-                new_id = cur.lastrowid
-                auth.audit(conn, sess['username'], 'mobile_capture',
-                           'work_done_entries', new_id,
-                           origin=auth.ORIGIN_MANUAL)
-                conn.commit()
-                flash = 'Saved work-done #{} — {}'.format(new_id, activity)
+                fields = {
+                    'site_id': request.form.get('site_id', ''),
+                    'activity': request.form.get('activity', ''),
+                    'unit': request.form.get('unit', ''),
+                    'qty': request.form.get('qty', ''),
+                    'entry_date': request.form.get('entry_date', '')
+                                  or date.today().isoformat(),
+                    'remarks': request.form.get('remarks', ''),
+                }
+                draft = capture.build_draft(fields, source=capture.MANUAL)
+                record = capture.to_record(draft)
+                activity = str(record.get('activity') or '').strip()
+                if not activity:
+                    flash = 'Activity is required.'
+                else:
+                    try:
+                        site_id = int(record.get('site_id') or 0) or None
+                    except (TypeError, ValueError):
+                        site_id = None
+                    try:
+                        qty = float(record.get('qty') or 0)
+                    except (TypeError, ValueError):
+                        qty = 0.0
+                    cur = conn.execute(
+                        'INSERT INTO work_done_entries '
+                        '(site_id, activity, unit, qty, entry_date, remarks) '
+                        'VALUES (?, ?, ?, ?, ?, ?)',
+                        (site_id, activity,
+                         str(record.get('unit') or '').strip(), qty,
+                         str(record.get('entry_date') or '').strip(),
+                         str(record.get('remarks') or '').strip()))
+                    new_id = cur.lastrowid
+                    auth.audit(conn, sess['username'], 'mobile_capture',
+                               'work_done_entries', new_id,
+                               origin=auth.ORIGIN_MANUAL)
+                    conn.commit()
+                    flash = 'Saved work-done #{} — {}'.format(new_id, activity)
 
         site_opts = [(str(i), n) for i, n in sites]
-        rows = [
-            R.field_row('Site', R.control('fk', 'site_id', '', site_opts)),
-            R.field_row('Activity', R.control('text', 'activity', '')),
-            R.field_row('Unit', R.control('text', 'unit', 'cum')),
-            R.field_row('Qty', R.control('number', 'qty', '')),
-            R.field_row('Date', R.control(
-                'text', 'entry_date', date.today().isoformat())),
-            R.field_row('Remarks', R.control('textarea', 'remarks', '')),
-        ]
+        switch = (
+            '<p>'
+            '<a class="btn ghost" href="/m/capture?mode=work_done">Work done</a> '
+            '<a class="btn ghost" href="/m/capture?mode=free_text">Paste note</a> '
+            '<a class="btn ghost" href="/m/capture?mode=muster">Muster</a>'
+            '</p>')
+        if mode == 'free_text':
+            note_val = request.form.get('note', '') if request.method == 'POST' else ''
+            rows = [
+                R.field_row('Mode', '<input type="hidden" name="mode" '
+                             'value="free_text">Paste note'),
+                R.field_row('Note', R.control('textarea', 'note', note_val)),
+                R.field_row('Force target', R.control(
+                    'combo', 'target', '',
+                    [('', 'auto'), ('work_done', 'work_done'),
+                     ('daily_progress', 'daily_progress'), ('ncr', 'ncr')])),
+                R.field_row('Confirm write', R.control(
+                    'combo', 'confirm', '0',
+                    [('0', 'Preview only'), ('1', 'Confirm & save')])),
+            ]
+            submit = 'Preview / Save'
+        elif mode == 'muster':
+            rows = [
+                R.field_row('Mode', '<input type="hidden" name="mode" '
+                             'value="muster">Muster names'),
+                R.field_row('Date', R.control(
+                    'text', 'att_date', date.today().isoformat())),
+                R.field_row('Names (one per line)', R.control(
+                    'textarea', 'names', '')),
+                R.field_row('Confirm write', R.control(
+                    'combo', 'confirm', '0',
+                    [('0', 'Preview only'), ('1', 'Confirm & save')])),
+            ]
+            submit = 'Preview / Save'
+        else:
+            rows = [
+                R.field_row('Mode', '<input type="hidden" name="mode" '
+                             'value="work_done">Work done'),
+                R.field_row('Site', R.control('fk', 'site_id', '', site_opts)),
+                R.field_row('Activity', R.control('text', 'activity', '')),
+                R.field_row('Unit', R.control('text', 'unit', 'cum')),
+                R.field_row('Qty', R.control('number', 'qty', '')),
+                R.field_row('Date', R.control(
+                    'text', 'entry_date', date.today().isoformat())),
+                R.field_row('Remarks', R.control('textarea', 'remarks', '')),
+            ]
+            submit = 'Confirm & save'
         form_html = R.form('/m/capture', ''.join(rows), sess['csrf'],
-                           submit='Confirm & save')
-        note = ('<p class="muted">Phone-friendly field capture. Confirm writes '
-                'work done into the same SQLite file. AI photo/voice fill is a '
-                'local sidecar (L8) — this page always needs your confirm.</p>')
-        body = '<h1>Field capture</h1>' + note
+                           submit=submit)
+        note = ('<p class="muted">Phone-friendly field capture into the same '
+                'SQLite file. Paste-note and muster support Preview then Confirm. '
+                'AI photo/voice fill is a local sidecar (L8).</p>')
+        body = '<h1>Field capture</h1>' + note + switch
         if flash:
             body += '<p><strong>{}</strong></p>'.format(R.esc(flash))
+        if preview:
+            body += '<p class="muted">{}</p>'.format(preview)
         body += form_html
         return _shell('Field capture', body, sess, conn, active='capture')
     finally:

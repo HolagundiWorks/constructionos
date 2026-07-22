@@ -91,6 +91,102 @@ unchanged.
   all six `api_*` rows appear in `GET /api/audit`. Swept every read endpoint
   (health, dashboard, menu, workflow, evm, review, portfolio, all masters + docs)
   — all 200. Full suite 663 green.
+## 2026-07-22 — Harden local WinUI + sidecar scaffolds
+
+- **WinUI ApiClient.** Timeouts, Put/Delete, health probe, CSRF on writes,
+  `ApiException` with status/body, session reset; `AppSettings` persisted under
+  `%LOCALAPPDATA%\Construction OS\winui-settings.json`.
+- **Shell.** Typed `NavRoute`, Settings gear page (URL/user/persona/timeout +
+  Test health), menu persona from settings, offline fallback messaging.
+- **Pages.** Shared `JsonRows` / `PageLoad`; status lines and pretty JSON on
+  Home/Process/registers/Money/EVM/Portfolio/Productivity/Charts/Capture/Import.
+- **Sidecars.** Stdlib `sidecars/stub_server.py` (loopback `/health` + `/extract`)
+  and `health_check.py`; unit tests for stub extract + live probe.
+- **Docs.** `winui/README.md`, `PACKAGING.md`, roadmap L5–L7 notes. WinUI still
+  **not compiled** in this Linux cloud environment.
+
+---
+
+## 2026-07-22 — Finish cloud track: U0.6 GRN confirm, vendor invoice, PDF text
+
+- **GRN confirm.** `POST /api/grn/confirm` writes Draft GRN + lines (no stock
+  post) and returns `GRN_SAVED` follow-ups.
+- **Vendor invoice floor.** `vendor_invoice_draft` + `/api/vendor_invoice/draft|confirm`
+  with `finance.invoice_totals`.
+- **PDF text.** `pdf_text.py` + `POST /api/pdf/extract` via local `pdftotext`
+  (soft-fail).
+- **Events.** `SNAG_RAISED`, `RUNNING_BILL_APPROVED` + API/GUI wiring
+  (snag confirm, bills create, Blocker snag save, running-bill approve).
+- **Cloud track closed** for deterministic floors; remaining work is local
+  (display smoke, WinUI build/MSIX, model weights, SSO).
+
+---
+
+## 2026-07-22 — Continue: U0.5 GRN draft, signal suggest, mobile modes
+
+- **GRN draft floor.** `material_match` + `grn_draft` + `POST /api/grn/draft`
+  (challan paste → matched lines; no stock post).
+- **Measurement extract.** `text_extract` target `measurement` (Nos×L×B×D).
+- **Live signal suggest.** `signal_suggest` + `POST /api/signals/suggest` (PPC/RFI
+  soft signals → drift → preview drafts; opt-in apply). Process tab shows preview.
+- **Mobile capture modes.** `/m/capture` — work done / paste note / muster names
+  with Preview→Confirm.
+- **WinUI** `ImportPage` scaffold for GRN/BOQ/text/signals.
+- **API u0.5.** Predictive weak-signal row marked partial (drift+suggest built).
+
+---
+
+## 2026-07-22 — Continue: U0.4 capture floors, pattern learn, more events
+
+- **Text extract.** `text_extract.py` + `POST /api/text/extract` — WhatsApp/site
+  notes → DPR / work-done / NCR / snag drafts; confirm targets expanded.
+- **Muster match.** `labor_match` + `muster_draft` + `/api/muster/draft|confirm`
+  (difflib name match → attendance).
+- **BOQ import.** `boq_import.py` + `/api/boq/import/draft|confirm` (CSV/TSV/plain).
+- **Pattern learn.** `pattern_learn.py` + `POST /api/patterns/learn` (opt-in AI
+  lesson drafts from recurring negatives / high risks).
+- **Signals preview.** `POST /api/signals/preview` (no write).
+- **Events.** `RA_BILL_APPROVED`, `NCR_RAISED`, `ATTENDANCE_SAVED` + GUI wiring
+  on RA status, Critical NCR save, muster save, inspection→NCR raise.
+- **API u0.4.**
+
+---
+
+## 2026-07-22 — Continue: U0.3 intent/sidecar/narrative, Productivity, concurrency notes
+
+- **NL intent floor.** `nl_intent.py` maps free text → gated `followups` /
+  `workflow` drafts; `POST /api/intent` (nothing auto-runs).
+- **Sidecar bridge.** `sidecar_bridge.py` soft-fails OCR/STT/VLM localhost
+  probes; `GET /api/sidecar/status`, `POST /api/sidecar/extract` → `capture`
+  drafts. Stub READMEs updated with HTTP contract.
+- **Narrative API.** `GET /api/narrative?kind=kpi|risk` over `narrative.py`.
+- **Productivity tab.** Operations › Productivity over `productivity_store`;
+  WinUI `ProductivityPage` + `CapturePage` scaffolds.
+- **Payment event wiring.** Cash & Parties payment create surfaces gated
+  `PAYMENT_DUE` follow-ups (same pattern as GRN).
+- **API u0.3.** Health/contract version bump.
+- **Concurrency notes.** `docs/CONCURRENCY.md` — honest single-file limits, no
+  redesign.
+- Gap glance / E0.3 / E7.3–E7.4 hygiene (already-shipped items marked built).
+
+---
+
+## 2026-07-22 — Continue: N4 records, U0.2 API, portfolio advisory, audit default
+
+- **N4 record search.** `record_search.py` + Process palette + `GET /api/search`
+  returns tabs **and** records (`/t/{table}/{id}` hrefs).
+- **U0.2 API.** `purchase_orders` / `goods_receipts` lists, `/api/match` (with
+  narration), `/api/reconcile`, `/api/ageing`, `/api/filings/feed`; health
+  version `u0.2`.
+- **Audit default.** `auth.audit` defaults to `origin=manual`; manual filter
+  includes legacy NULL rows.
+- **Events.** Capture confirm raises `ACTIVITY_COMPLETE` follow-ups;
+  `compliance_feed` drafts `FILING_DUE` from overdue/due-soon filings.
+- **Portfolio advisories.** `advisory.for_portfolio` on `/api/portfolio`.
+- **PO↔invoice narration.** `finance.narrate_reconcile`.
+- **Drift guard.** Headless test: `BUILDERS` / `MODULE_ICONS` cover every
+  catalog label (no `import main`).
+- Gap table hygiene for portfolio / audit / narration / productivity / N4.
 
 ---
 

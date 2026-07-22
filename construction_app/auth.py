@@ -171,12 +171,12 @@ ORIGIN_AI = 'ai'
 
 
 def audit(conn, username, action, entity=None, entity_id=None, detail=None,
-          origin=None):
+          origin=ORIGIN_MANUAL):
     """Append an audit-log row. Best-effort — never raises into the caller.
 
-    ``origin`` is ``'manual'``, ``'ai'``, or None (untagged). AI-drafted writes
-    and detections should pass ``origin='ai'`` so the trail can answer "what
-    did the AI touch and who confirmed it".
+    ``origin`` defaults to ``'manual'`` (human write). AI-drafted writes and
+    detections should pass ``origin='ai'`` so the trail can answer "what did
+    the AI touch and who confirmed it".
     """
     try:
         conn.execute(
@@ -190,7 +190,22 @@ def audit(conn, username, action, entity=None, entity_id=None, detail=None,
 
 
 def recent_audit(conn, limit=200, origin=None):
-    """Recent audit rows, newest first. Optional ``origin`` filter ('ai'/'manual')."""
+    """Recent audit rows, newest first. Optional ``origin`` filter ('ai'/'manual').
+
+    ``origin='manual'`` also includes legacy rows where ``origin`` is NULL
+    (written before C3 tagging), so the filter stays useful on older books.
+    """
+    if origin == ORIGIN_AI:
+        return conn.execute(
+            'SELECT ts, username, action, entity, entity_id, detail, origin '
+            'FROM audit_log WHERE origin = ? ORDER BY id DESC LIMIT ?',
+            (ORIGIN_AI, limit)).fetchall()
+    if origin == ORIGIN_MANUAL:
+        return conn.execute(
+            'SELECT ts, username, action, entity, entity_id, detail, origin '
+            'FROM audit_log WHERE origin = ? OR origin IS NULL '
+            'ORDER BY id DESC LIMIT ?',
+            (ORIGIN_MANUAL, limit)).fetchall()
     if origin:
         return conn.execute(
             'SELECT ts, username, action, entity, entity_id, detail, origin '
