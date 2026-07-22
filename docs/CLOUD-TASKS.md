@@ -27,7 +27,7 @@ domain/data/backend, the JSON API, purity, unit tests, docs). **No display, no
 
 ## Tasks (priority order)
 
-### CT-1 — Extract a pure `gst.py` (purity)
+### CT-1 — Extract a pure `gst.py` (purity) ✅
 **Why:** the GST/TDS compute (`outward` / `inward` / `hsn_summary` /
 `tds_register`) currently lives in the **tkinter** module `tab_gst.py`, so the
 browser `/gst` route and any future `/api/gst` must lazy-import Tk. Pull the pure
@@ -42,8 +42,9 @@ logic out.
 **Done when:** `tests/test_core.py` has a `TestGst` seeding a tax invoice + a
 vendor invoice and asserting outward/inward/HSN/TDS totals; web `/gst` test still
 green; no behaviour change (identical figures).
+**Status:** shipped — `gst.py` + `TestGst`; browser `/gst` imports `gst`.
 
-### CT-2 — `/api/gst?month=YYYY-MM` (read)
+### CT-2 — `/api/gst?month=YYYY-MM` (read) ✅
 **Why:** the WinUI/mobile clients need the GST/TDS report as JSON (parity with the
 browser `/gst` view).
 **Do:** add a `GET /api/gst` handler in `webapi.py` returning
@@ -51,8 +52,9 @@ browser `/gst` view).
 tds:{rows,total}}` over `gst.py` (CT-1). Session-gated read; no writes.
 **Done when:** `TestWebApi` asserts 200 + the four blocks on a seeded month;
 `docs/API.md` lists it under Reads.
+**Status:** shipped — `GET /api/gst` + tests; API **u0.8**.
 
-### CT-3 — `/api/measurements` CRUD (write)
+### CT-3 — `/api/measurements` CRUD (write) ✅
 **Why:** browser measurement entry shipped; the JSON API + WinUI/mobile need the
 same. Quantity is derived (`Nos×L×B×D`), a **blank dimension stays NULL**
 (factor 1), never 0.
@@ -64,8 +66,10 @@ CSRF, audited.
 **Done when:** `TestWebApi` creates a measurement with a blank breadth and asserts
 `quantity` is right (not zeroed) and `breadth` is NULL; delete/update covered;
 `docs/API.md` updated.
+**Status:** shipped — `measurements` in `_API_MASTERS`; create/update call
+`web_masters.derive`.
 
-### CT-4 — Chart-ready shapes for WinUI U4 (read, thin)
+### CT-4 — Chart-ready shapes for WinUI U4 (read, thin) ✅
 **Why:** the WinUI Charts/EVM/Money pages bind LiveCharts series; they render best
 from `{labels:[...], values:[...]}` arrays rather than nested records.
 **Do:** confirm `GET /api/cashflow`, `/api/ageing`, `/api/evm` each expose (or add
@@ -74,14 +78,17 @@ alongside the existing detail — no new maths, just a serialisation shape. Note
 `docs/API.md` which key the client should bind.
 **Done when:** `TestWebApi` asserts each endpoint returns parallel `labels`/`values`
 arrays of equal length; existing detail keys unchanged.
+**Status:** shipped — cashflow `labels`/`values`/`series`; ageing + evm
+`labels`/`values`; `chart_bind` on `/api/contract`.
 
-### CT-5 — Coverage + audit sweep
+### CT-5 — Coverage + audit sweep ✅
 **Why:** keep the governance guarantee ("every write audited") honest as endpoints
 grow.
 **Do:** a `TestWebApi` test that drives create/update/delete on the new
 measurements endpoint (CT-3) and asserts the `api_*` rows appear in
 `GET /api/audit`. Sweep every **read** endpoint for a 200 on an empty DB.
 **Done when:** the sweep test is green and lists every endpoint it hit.
+**Status:** shipped — `test_ct_gst_measurements_chart_shapes_audit`.
 
 ---
 

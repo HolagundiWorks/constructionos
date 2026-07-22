@@ -6,6 +6,26 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud CT-1…CT-5: pure GST, measurements API, chart shapes
+
+Headless backlog from `docs/CLOUD-TASKS.md` (no WinUI / display):
+
+- **CT-1.** New pure `construction_app/gst.py` (`outward` / `inward` /
+  `hsn_summary` / `tds_register`). `tab_gst` and browser `/gst` import it —
+  no lazy Tk for the LAN view.
+- **CT-2.** `GET /api/gst?month=YYYY-MM` →
+  `{month, outward, hsn, inward, tds}`.
+- **CT-3.** `measurements` on the JSON masters CRUD; blank dims stay NULL;
+  quantity via shared `web_masters.derive` → `civil.measurement_quantity`;
+  list filter `?contract_id=`.
+- **CT-4.** Parallel `labels`/`values` (cashflow also `series`) on
+  `/api/cashflow`, `/api/ageing`, `/api/evm` alongside existing detail.
+- **CT-5.** Audit coverage for measurement writes + empty-DB read sweep in
+  `TestWebApi`.
+- API version **u0.8**. Docs: `docs/API.md`, this entry; `CLOUD-TASKS` marked done.
+
+---
+
 ## 2026-07-22 — WinUI U4: Home dashboard — KPI stat cards + InfoBar advisories
 
 - **Home page is a real dashboard now.** `Views/HomePage.*` renders the money

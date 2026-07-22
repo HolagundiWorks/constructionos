@@ -5,7 +5,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 `tests/test_web.py` (`TestWebApi`).
 
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.7` (`GET /api/health` → `{"api":"u0.7"}`)  
+**Version:** `u0.8` (`GET /api/health` → `{"api":"u0.8"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -18,8 +18,8 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.7` |
-| GET | `/api/contract` | Endpoint catalogue for clients |
+| GET | `/api/health` | Auth except login; reports `api: u0.8` |
+| GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
 | GET | `/api/portfolio` | Current-file roll-up; `?paths=` federates; includes advisories |
@@ -28,8 +28,9 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | GET | `/api/filings/feed` | Overdue/due-soon → gated FILING_DUE drafts |
 | GET | `/api/purchase_orders`, `/api/goods_receipts` | Procurement lists |
 | GET | `/api/match?tolerance=` | Three-way match + narration |
-| GET | `/api/ageing` | Receivables ageing + plottable `buckets` |
-| GET | `/api/cashflow?periods=&mode=week\|month` | Forecast buckets (`cashflow_assemble`) |
+| GET | `/api/ageing` | Receivables ageing + `buckets` + chart `labels`/`values` |
+| GET | `/api/cashflow?periods=&mode=week\|month` | Forecast `buckets` + `labels`/`values`/`series` |
+| GET | `/api/gst?month=YYYY-MM` | Outward / HSN / inward / TDS over pure `gst.py` |
 | GET | `/api/bills/previous?contract_id=` | Approved/Paid running-bill sum |
 | GET | `/api/boq_items?contract_id=` | BOQ lines for a contract |
 | GET | `/api/allocations?payment_id=` | Payment↔bill allocation lines |
@@ -37,16 +38,16 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | GET | `/api/search?q=` | Tabs + records with `nav`/`tag` for WinUI |
 | GET | `/api/narrative?kind=kpi\|risk` | Plain-language briefing (`narrative.py`) |
 | GET | `/api/sidecar/status` | OCR/STT/VLM stub + live probe |
-| GET | `/api/evm`, `/api/project/{id}/evm` | Earned value |
+| GET | `/api/evm`, `/api/project/{id}/evm` | Earned value; portfolio adds `labels`/`values` (SPI) |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
 | GET | `/api/audit?origin=ai` | Audit trail (`manual` includes legacy NULL) |
-| GET | `/api/{master}` | includes **contracts**; FK fields carry resolved `options:[{id,label}]` |
+| GET | `/api/{master}` | includes **contracts**, **measurements** (`?contract_id=`); FK `options` |
 | GET | `/api/{doc}` | payments, tax_invoices, vendor_invoices, bills, ra_bills (+ FK options) |
 
 ## Writes
 | Method | Path | Notes |
 |---|---|---|
-| POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters (incl. contracts) |
+| POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters (incl. contracts, **measurements**) |
 | POST | `/api/{doc}` | Money docs — **create only**; payments may return gated `followups` |
 | POST | `/api/purchase_orders` | Header + `items[]`; `total_amount` = sum of line amounts |
 | POST | `/api/allocations` | Replace lines for a payment (`payment_id`, `lines`) |
@@ -63,8 +64,16 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | POST | `/api/patterns/learn`, `/api/signals/*`, `/api/intent`, `/api/sidecar/extract` | AI floors — drafts only |
 | POST | `/api/events`, `/api/signals/feed`, `/api/forecast`, `/api/drift` | Hooks / prediction |
 
+### Measurements
+`POST/PUT /api/measurements` derive `quantity = Nos×L×B×D` via `web_masters.derive` →
+`civil.measurement_quantity`. A **blank dimension stays SQL NULL** (factor 1), never 0.
+List with `GET /api/measurements?contract_id=`.
+
 ## Notes for WinUI
 - Master/doc list payloads include **resolved FK `options`** — do not run `fk_sql` in C#.
 - Search record hits include `nav` / `tag` (`Section/Tab`) for `NavigationView` routing.
-- Charts: bind LiveCharts to `/api/cashflow` buckets and `/api/ageing` buckets (no maths in C#).
+- Charts: bind LiveCharts to parallel **`labels` + `values`** on `/api/cashflow`,
+  `/api/ageing`, and `/api/evm` (detail keys unchanged). Cashflow also exposes
+  `series.{in,out,balance}`. See `GET /api/contract` → `chart_bind`.
+- GST/TDS: bind `GET /api/gst?month=` (same maths as browser `/gst` and desktop).
 - Money docs stay **create-only** by design (AGENTS.md §14).

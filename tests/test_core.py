@@ -48,6 +48,7 @@ import einvoice
 import company
 import estimate
 import finance
+import gst
 import hse
 import isodate
 import lessons
@@ -147,6 +148,79 @@ class TestFinance(unittest.TestCase):
         self.assertTrue(finance.is_balanced(1500, 1500))
         self.assertFalse(finance.is_balanced(1500, 1400))
         self.assertTrue(finance.is_balanced(1500.001, 1500.002))
+
+
+class TestGst(unittest.TestCase):
+    """CT-1 — pure gst.py over seeded tax + vendor invoices."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self._orig
+        for ext in ('', '-wal', '-shm'):
+            try:
+                os.remove(self.path + ext)
+            except OSError:
+                pass
+
+    def test_outward_inward_hsn_tds_totals(self):
+        conn = self.db.get_conn()
+        try:
+            conn.execute("INSERT INTO clients (name) VALUES ('PWD')")
+            conn.execute("INSERT INTO vendors (name) VALUES ('Steel Co')")
+            # Intra-state tax invoice: taxable 10000 @ 18% → CGST/SGST 900 each
+            conn.execute(
+                "INSERT INTO tax_invoices (invoice_no, client_id, invoice_date, "
+                "interstate, gst_pct, subtotal, tax_amount, total_amount, status) "
+                "VALUES ('TI-1', 1, '2026-07-15', 0, 18, 10000, 1800, 11800, 'Issued')")
+            conn.execute(
+                "INSERT INTO tax_invoice_items (tax_invoice_id, description, "
+                "hsn_code, qty, rate, amount) "
+                "VALUES (1, 'Concrete work', '9954', 1, 10000, 10000)")
+            # Vendor invoice with TDS: taxable 5000 @ 18% + TDS 2% = 100
+            t = finance.invoice_totals(5000, 18, 2, False)
+            conn.execute(
+                "INSERT INTO vendor_invoices (invoice_no, vendor_id, invoice_date, "
+                "interstate, gst_pct, tds_pct, subtotal, tax_amount, tds_amount, "
+                "total_amount, net_payable) "
+                "VALUES ('VI-1', 1, '2026-07-20', 0, 18, 2, ?, ?, ?, ?, ?)",
+                (t['subtotal'], t['tax_amount'], t['tds_amount'],
+                 t['total_amount'], t['net_payable']))
+            conn.commit()
+
+            out_rows, out_tot = gst.outward(conn, '2026-07')
+            self.assertEqual(len(out_rows), 1)
+            self.assertEqual(out_tot['taxable'], 10000.0)
+            self.assertEqual(out_tot['cgst'], 900.0)
+            self.assertEqual(out_tot['sgst'], 900.0)
+            self.assertEqual(out_tot['igst'], 0.0)
+
+            in_rows, in_tot = gst.inward(conn, '2026-07')
+            self.assertEqual(len(in_rows), 1)
+            self.assertEqual(in_tot['taxable'], 5000.0)
+            self.assertEqual(in_tot['cgst'], 450.0)
+
+            hsn_rows, hsn_tot = gst.hsn_summary(conn, '2026-07')
+            self.assertEqual(len(hsn_rows), 1)
+            self.assertEqual(hsn_rows[0][0], '9954')
+            self.assertEqual(hsn_tot['taxable'], 10000.0)
+
+            tds_rows, tds_tot = gst.tds_register(conn, '2026-07')
+            self.assertEqual(len(tds_rows), 1)
+            self.assertEqual(tds_tot, 100.0)
+
+            # Other month → empty
+            self.assertEqual(gst.outward(conn, '2026-06')[1]['taxable'], 0.0)
+        finally:
+            conn.close()
 
 
 class TestCivil(unittest.TestCase):
