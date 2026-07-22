@@ -6,6 +6,31 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI: Excel-style ribbon, U3 money forms, startup-crash fix
+
+- **Excel-style ribbon shell.** Replaced the top `NavigationView` with a
+  `ToggleButton` section tab strip + an `AppBarButton` **command band**: picking a
+  section (Masters, Billing, Money…) fills the band with that section's tabs as
+  icon-over-label commands (Segoe MDL2 glyphs via `Helpers/RibbonIcons.cs`) rather
+  than a dropdown. Both the strip and band scroll horizontally on narrow windows.
+  `NavigationView` Top and `SelectorBar` were both dropped — they native-crash on
+  this Windows App SDK build.
+- **Fixed the intermittent startup crash (native heap corruption).** Traced under
+  `cdb` to a re-entrant layout race: the shell navigated the `ContentFrame` to the
+  first page *synchronously* inside the async menu-load continuation, racing the
+  window's first layout → a heap-block overrun → `0xc000027b` fail-fast in
+  `Microsoft.ui.xaml.dll` (no managed exception, so nothing logged). Fix: defer the
+  first navigation via `DispatcherQueue.TryEnqueue(Low, …)`. Bisected 11/12 → 0/14;
+  stress-tested **0/16** startups after the fix.
+- **U3 money documents — create + list forms.** One generic `MoneyPage` (doc table
+  = nav parameter) now serves **Payments, Tax Invoice, Vendor Invoices, Running
+  Bills** through the shared `FieldForm` (FK pickers for Client/Vendor/Contract,
+  gated follow-ups in an `InfoBar`); title/fields/rows all come from
+  `GET /api/<doc>`. Verified live (Tax Invoice dialog renders the Client FK + 5
+  inputs; posts via the backend engine).
+
+---
+
 ## 2026-07-22 — WinUI shell: top ribbon nav (was left sidebar)
 
 - **NavigationView is now a top ribbon** (`PaneDisplayMode="Top"`, was `Left`):

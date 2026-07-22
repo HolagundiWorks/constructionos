@@ -247,9 +247,9 @@ the tree for non-Windows use or delete per a later call.
 | Phase | Deliverable | Where verifiable |
 |---|---|---|
 | **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.1** |
-| **U1** | WinUI 3 solution + shell: `MainWindow` `NavigationView` from `/api/menu`, theme (Mica, light/dark), Segoe Fluent Icons | **✅ Built + runs** — shell over `/api/menu`, Settings gear, offline fallback, `NavRoute` |
+| **U1** | WinUI 3 solution + shell from `/api/menu`, theme (light/dark), Segoe Fluent Icons | **✅ Built + runs** — **Excel-style ribbon** shell: a row of `ToggleButton`s is the section tab strip, and picking a section fills a command **band** with that section's tabs as icon-over-label `AppBarButton`s (Segoe MDL2 glyphs via `RibbonIcons`) — no dropdowns. Always-on + Settings are leaf tabs that navigate directly. Search palette + offline fallback + `NavRoute`. Built from the simplest stock primitives after `NavigationView`-Top and `SelectorBar` both native-crashed here (see fix 7) |
 | **U2** | Masters + generic **ListView** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Built** — `Views/MastersPage.*`, one metadata-driven page (list + add/edit/delete) for every master, on the shared **`FieldForm`** helper with **FK pickers** (a related-master `ComboBox` from the API's `{id,label}` options, not a typed id) |
-| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **🚧 Partial** — **Payments: "New payment" form** via the shared **`FieldForm`** (`CommandBar` + `ContentDialog`; `POST` → 201, posts to the ledger — verified end-to-end; surfaces gated follow-ups in an `InfoBar`); Capture + Import pages built; the same helper extends to invoices/bills next |
+| **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **✅ built (create+list)** — one **generic `MoneyPage`** (doc table = nav parameter) serves **every** money document the API exposes — **Payments**, **Tax Invoice**, **Vendor Invoices**, **Running Bills** — through the shared **`FieldForm`** (`CommandBar` + `ContentDialog`, `POST` → 201 posting through the backend engine, FK pickers for Client/Vendor/Contract, gated follow-ups in an `InfoBar`). Title + fields + rows all come from `GET /api/<doc>`; verified live (Tax Invoice create dialog renders the Client FK + 5 inputs). Capture + Import pages built. RA-bill create (needs measurement context) and record-view/print remain follow-ups |
 | **U4** | Dashboard (KPI cards, `InfoBar` advisories) + **charts** (EVM/cash/ageing) | **✅ built** — Home **KPI cards** + **`InfoBar` advisories**; Charts page: money-KPI columns **+ cash-flow forecast** (in/out + balance) **+ receivable ageing** (`/api/cashflow`, `/api/ageing` — cloud CT-4); **EVM** per-project CPI/SPI chart (`/api/evm`) |
 | **U5** | **Controls** section — Risk/Opportunity/Lessons register pages (over the built stores) + **Process view** (workflow.py) + search (`AutoSuggestBox`) | **✅ built** — Risks/Opportunities/Lessons/Submittals/Portfolio + Process pages; **`AutoSuggestBox` command palette** in the NavigationView search slot (type → `GET /api/search` tab hits → pick → routes via the shared `NavigateTo`) |
 | **U6** | Packaging: PyInstaller backend sidecar inside **MSIX**; launch/停 lifecycle; signing | Windows — notes in [`winui/PACKAGING.md`](../winui/PACKAGING.md) |
@@ -267,7 +267,7 @@ which bundles the .NET 8 + WindowsAppSDK runtimes so nothing extra need be
 installed) launches a **responsive "Construction OS" window** that logs into the
 Python backend and builds its rail from `/api/menu`.
 
-Getting there took six real fixes to the scaffold, all committed:
+Getting there took seven real fixes to the scaffold, all committed:
 1. **`app.manifest`** had a malformed `<manifest>` root — a Win32 manifest's root
    must be `<assembly>`, or activation fails at start ("side-by-side
    configuration is incorrect").
@@ -300,6 +300,19 @@ Getting there took six real fixes to the scaffold, all committed:
    2.0.x would force SkiaSharp 3.x + WindowsAppSDK 1.7). Belt-and-braces:
    `App.UnhandledException` now sets `e.Handled = true` after logging, so a single
    page's load failure degrades gracefully instead of killing the process.
+7. **Excel-style ribbon + deferred first navigation.** The top ribbon is built
+   from a `ToggleButton` tab strip + an `AppBarButton` command band (§9 U1),
+   *not* `NavigationView` Top mode or `SelectorBar` — both native-crash on this
+   SDK build (`SelectorBar` at load; `NavigationView` Top's overflow-measure
+   intermittently). Running the app under `cdb` then traced the remaining
+   intermittent startup crash to **native heap corruption** (a block overrun →
+   `0xc000027b` fail-fast in `Microsoft.ui.xaml.dll`, no managed exception behind
+   it): the shell navigated the `ContentFrame` to the first page *synchronously*
+   inside the async menu-load continuation, racing the window's first layout
+   pass. Bisected with env-gated builds — bare window 1/12, full sync-nav 11/12,
+   deferred-nav **0/14**. Fix: post the first navigation via
+   `DispatcherQueue.TryEnqueue(Low, …)` so the shell's layout settles before the
+   page loads. Stress-tested **0/16** startups after the fix.
 
 Run it: start the backend (`cd construction_app && python web_main.py --host
 127.0.0.1 --port 8080`), then **`winui/run.ps1`** (builds into `%LOCALAPPDATA%`
