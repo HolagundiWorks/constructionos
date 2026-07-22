@@ -55,8 +55,9 @@ double-clicking one folder.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**150 Python modules** (91 of them tkinter-free), **82 tables**, **61
-indexes**, and **628 passing tests**. Rather than a feature checklist that
+**152 Python modules** (~93 of them tkinter-free), **85 tables**, **61
+indexes**, and **~642 tests** runnable headless (GUI smoke needs a display /
+`tkinter`). Rather than a feature checklist that
 rots, the honest summary is:
 
 - **Operations**: sites, warehouses, vendors, clients, materials, labour,
@@ -103,7 +104,7 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — 91 of them. This is
+- **Business maths lives in pure, tkinter-free modules** — ~93 of them. This is
   the testable core; extend it there rather than burying new maths inside GUI
   callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
@@ -119,7 +120,7 @@ python main.py
 The full sweep used to validate changes, from the repo root:
 
 ```bash
-python -m unittest discover -s tests               # 628 tests
+python -m unittest discover -s tests               # ~642 tests (GUI smoke needs display)
 cd construction_app && python -m compileall -q .   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
@@ -143,7 +144,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The 91 tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The ~93 tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
@@ -415,7 +416,7 @@ entry to re-post (§14).
 
 ## 10. Database schema
 
-All **82 tables** and **61 indexes** live in one `SCHEMA` string in `db.py`.
+All **85 tables** and **61 indexes** live in one `SCHEMA` string in `db.py`.
 `get_conn()` sets per connection:
 
 - **`foreign_keys = ON`** — FKs won't enforce otherwise. Any script or test
@@ -882,11 +883,11 @@ hardcoded colour will fail the suite. Use `theme`/`tokens`.
 
 ## 25. Keeping this document honest
 
-This file drifted badly once: it claimed 58 tests when there were 628, described
-a `ttk.Notebook` shell that had been replaced by the rail, listed ~50 of 150
-modules, and flagged P&L, balance sheet, ageing, three-way match, FY invoice
-numbering and CPM dependencies as "not built" when all shipped. An agent reading
-it would have rebuilt working features.
+This file drifted badly once: it claimed 58 tests when there were hundreds,
+described a `ttk.Notebook` shell that had been replaced by the rail, listed ~50
+of 150+ modules, and flagged P&L, balance sheet, ageing, three-way match, FY
+invoice numbering and CPM dependencies as "not built" when all shipped. An agent
+reading it would have rebuilt working features.
 
 So: **when you change something described here, update the section in the same
 commit.** To re-check the headline numbers before trusting them:

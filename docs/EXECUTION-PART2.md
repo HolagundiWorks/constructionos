@@ -51,17 +51,17 @@ live in (below), scored the same way so they rank against each other.
 
 | Deliverable | Source in the system | Maturity |
 |---|---|---|
-| **Updated Risk Register** | `risks` table + `risk_store.py`; auto-detection via `risk_detect.py` | **Built (data); tab pending** |
-| **Opportunity Register** | `opportunities` table + `opportunity_store.py` | **Built (data); tab pending** |
-| Monthly Progress Reports | `review_pack.build` (KPIs + advisories + risks + narrative) | **Built (assembly)** |
-| Cost Performance Report | `earnedvalue.py` (CPI, EAC/FAC), `projectcost.py` | **Built (maths)** |
+| **Updated Risk Register** | `risks` table + `risk_store.py`; auto-detection via `risk_detect.py`; **Project Management › Risks** tab | **Built** |
+| **Opportunity Register** | `opportunities` table + `opportunity_store.py`; **Project Management › Opportunities** tab | **Built** |
+| Monthly Progress Reports | `review_pack.build` + `review_assemble`; **Money › Review** + `/review` | **Built** |
+| Cost Performance Report | `earnedvalue.py` + `evm.py`; **Project Management › Earned Value** + `/evm` | **Built** |
 | Schedule Updates | `programme.py`, `cpm.py`, `forecast.schedule_forecast` | **Built** |
 | Safety Performance Report | `hse.summarise` (LTIFR, TRIR, near-miss, permits) | **Built** |
 | QA/QC Reports | `quality.py` (ITP, NCR) | **Built** |
 | Change Management Log | `variation.py` register | **Built** |
 | Procurement Status Report | `procurement.py`, `sourcing.py`, GRN match | **Built** |
 | Commissioning Plan / Handover Docs | `closeout.py` | **Extend** |
-| **Lessons Learned Register** | `lessons_learned` table + `lessons_store.py` (§6) | **Built (data); tab pending** |
+| **Lessons Learned Register** | `lessons_learned` table + `lessons_store.py` (§6) | **Built (data); dedicated tab still pending** (Rate Realisation is a different feature) |
 
 The two headline execution artefacts — the **Risk Register** and the
 **Opportunity Register** — are the new capability this pass delivers.

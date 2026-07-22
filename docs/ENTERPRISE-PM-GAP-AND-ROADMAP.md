@@ -3,9 +3,11 @@
 **From today's solo-contractor product to the enterprise PM + AI target**
 
 _Document type: Gap analysis + Implementation roadmap (documentation only — no code changes)_
-_Version: 1.0 · Last updated: 2026-07-21 · Prepared by: Human Centric Works_
+_Version: 1.1 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
 _Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target
-architecture & AI strategy). Baseline: `main` — 60 Python modules, 45+ tables._
+architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+Baseline: `main` — ~152 Python modules (~93 tkinter-free), 85 tables, 61 indexes,
+~642 headless-runnable tests (GUI smoke skips / errors without `tkinter`)._
 
 ---
 
@@ -87,9 +89,9 @@ gap, its impact, and the required work.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Portfolio roll-up across projects/firms | 🟡 | Per-project drill-down exists; no cross-project read model | No single view of a portfolio of sites; every KPI is per-file | Federated read model over firm/year files (offline-safe) | P0 · L · Platform |
-| Earned Value Management (SPI/CPI/EAC) | 🟡 | Pure maths now built (`earnedvalue.py` + tests); not yet surfaced in a tab | Forecast-at-completion computable; cost KPIs still point-in-time in the UI | Surface `earnedvalue` in Insight/KPI; feed portfolio roll-up | P0 · M · Core |
-| Formal risk register + scoring | 🟡 | Scoring (`risk.py`) + persistence (`risks` table, `risk_store.py`) now built + tested; only the tab is pending | Risks can be stored, scored, owned, and audited; not yet on screen | A tkinter tab over `risk_store` | P0 · S · Core |
+| Portfolio roll-up across projects/firms | 🟡 | Federated read model built (`portfolio_store.py`); Weekly Review surfaces a pack; no dedicated portfolio shell | Cross-file roll-up computable; UX still firm-file-centric | Wire roll-up into WinUI/Controls + keep federated offline-safe | P0 · L · Platform |
+| Earned Value Management (SPI/CPI/EAC) | ✅ | Maths (`earnedvalue.py`) + DB bridge (`evm.py`) + desktop tab + browser `/evm` | — | Maintain; keep bridge tkinter-free (see §5A C0) | — |
+| Formal risk register + scoring | ✅ | Scoring (`risk.py`) + store (`risk_store.py`) + **Project Management › Risks** tab + detection (`risk_detect.py`) | — | Maintain; optional Controls-section home (E7.3) | — |
 | Concurrency / multi-user at scale | 🟡 | WAL + busy_timeout + LAN web; single-file assumptions remain | Contention under many concurrent field users | Concurrency review; roll-up store; conflict handling | P1 · L · Platform |
 | Mobile field capture | 🟡 | Browser/LAN read + some entry; no mobile-optimised capture | Field data still typed later at a desk — the root cause of stale data | Mobile capture app feeding the capture pipeline (§3.2) | P1 · L · Platform |
 | AI-origin tagging in audit | 🟡 | Audit log exists; doesn't distinguish AI-drafted records | Can't audit "what did the AI touch and who confirmed it" | Tag AI-origin + confirming user on records | P1 · S · Platform |
@@ -129,9 +131,9 @@ assembly toil, never accountability.
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
 | Deterministic KPI set (schedule/cost/cash/quality) | ✅ | Broadly complete | — | Maintain | — |
-| EVM KPIs (SPI, CPI, EAC) | 🟡 | Maths built (`earnedvalue.py`); not surfaced | Predictive cost view computable, not yet on screen | Surface `earnedvalue` (shared with §3.1) | P0 · M · Core |
-| Portfolio KPI roll-up | 🟡 | Per-project only | No portfolio health at a glance | Roll-up over federated read model | P0 · M · Core |
-| KPI narration (plain-language briefing) | ❌ | Numbers shown, not narrated | Users must interpret raw boards | Generate sentences over computed numbers, cite source | P1 · M · AI |
+| EVM KPIs (SPI, CPI, EAC) | ✅ | Surfaced in Project Management › Earned Value + browser `/evm` | — | Maintain | — |
+| Portfolio KPI roll-up | 🟡 | `earnedvalue.portfolio` + `review_pack.portfolio` + Weekly Review | No dedicated multi-file portfolio shell | Surface federated roll-up in Review/WinUI | P0 · M · Core |
+| KPI narration (plain-language briefing) | ✅ | `narrative.kpi_briefing` assembled into Weekly Review (`review_assemble`) | — | Maintain; optional LLM re-voice later | — |
 | Portfolio anomaly watch | 🟡 | Advisory is single-firm | Meaningful moves missed across many sites | Extend advisory to portfolio; surface only material moves | P1 · M · AI |
 | Forecasting (completion date, cost) | ❌ | Point-in-time only | No forward view | Trend projection as range + confidence | P2 · M · AI |
 | Productivity KPIs (crew/day, plant util.) | 🟡 | Muster + plant data exist | Underused signal | Derive from muster/`plant.py` | P2 · S · Core |
@@ -143,9 +145,9 @@ it — the shipped `basis`/`confidence` discipline applied to narration.
 
 | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|
-| Risk register + likelihood×impact scoring | 🟡 | Scoring (`risk.py`) + persistence (`risks`, `risk_store.py`) built + tested; tab pending | Risks storable/scored/owned/audited; not yet on screen | A tab over `risk_store` (shared with §3.1) | P0 · S · Core |
-| Rule-based risk detection taxonomy | 🟡 | Advisory rules exist, unnamed as risks | No consistent risk vocabulary | Promote advisory rules into a named risk taxonomy | P1 · M · Core |
-| Risk narrative (top-N by exposure) | ❌ | No narrative | Hard to see the portfolio's top risks | Ranked plain-language risk summary | P1 · S · AI |
+| Risk register + likelihood×impact scoring | ✅ | Scoring + store + **Risks** tab + AI detection | — | Maintain | — |
+| Rule-based risk detection taxonomy | ✅ | `risk_detect.py` (11 rules + mitigation drafts) | Detection not yet auto-wired from every save event | Optional: event hook → draft into register (E4) | P1 · M · Core |
+| Risk narrative (top-N by exposure) | ✅ | `narrative.risk_briefing` in Weekly Review | — | Maintain | — |
 | Predictive / early-weak-signal risk | ❌ | Threshold rules only | Drift caught late, after a threshold trips | Correlate soft signals; trend projection (range+basis) | P2 · L · AI |
 | Cross-project learning | ❌ | None | Past overruns don't inform new jobs | Opt-in, local-first pattern learning | P2 · L · AI |
 
@@ -162,7 +164,7 @@ operational-flow mapping. The gaps:
 
 | # | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|---|
-| **N1** | Menu home for the new registers | ❌ | Risk / Opportunity / Lessons registers are built (data+logic) but unreachable in the UI | Part 2 deliverables can't be used by an operator | A "Controls / Risk & Governance" section + tabs over the stores | P1 · M · UI |
+| **N1** | Menu home for the new registers | 🟡 | Risks / Opportunities live under Project Management; Weekly Review under Money; **Lessons Learned register** still has no dedicated tab (Rate Realisation ≠ lessons-learned); Submittals sit inside Sourcing | Part 2 registers partly reachable; Lessons Learned register still buried | Controls section + Lessons Learned tab (E7.3); keep Submittals or promote | P1 · M · UI |
 | **N2** | Guided operational workflow | 🟡 | Flow graph built (`workflow.py` — next-step/progress, drift-guarded); Process view (UI) pending | New users can't yet *see* the operating sequence | Process view over `workflow`/`advisory`/`followups` (E7.4) | P1 · M · UI |
 | **N3** | Role/persona-scoped menu | 🟡 | Persona→sections model built (`menu.py`, composes with feature-flags); rail filtering (UI) pending | Model ready; menu not yet rendered per persona | Rail filtering over `menu.resolve` (E7.3) | P1 · S · UI |
 | **N4** | Global search / command palette / breadcrumbs | ❌ | 47+ tabs, findability by memory; no deep-linking | Slow navigation; no jump-to-record | Search index over tabs+records; align with web URL routing | P2 · M · UI |
@@ -190,7 +192,7 @@ stdlib / cross-platform / no-pip constraints (accepted). Full spec:
 | **U1–U7** | WinUI 3 C# client (NavigationView, DataGrid, Fluent, Segoe icons, charts) | ❌ | Pure presentation over the JSON API; MSIX + PyInstaller backend sidecar | Windows/.NET only |
 
 **Key decision (already made):** reuse the domain as a backend, **do not** rewrite
-the 619-tested business modules in C#. The client renders; the Python core still
+the ~642-tested business modules in C#. The client renders; the Python core still
 computes. **U0 is the only piece buildable/verifiable in this environment**, and
 is the correct API-first first step.
 
@@ -203,24 +205,25 @@ work** or **deliver the most value per unit effort**:
 
 **P0 — foundational (do first; everything else leans on these):**
 
-1. **EVM pure module** (`earnedvalue.py`) — unblocks predictive cost KPIs *and*
-   cost-overrun risk detection. Pure maths, inputs already exist. _(M · Core)_
-2. **Risk register + scoring schema** — the container every risk capability
-   writes into. _(M · Core)_
-3. **Portfolio federated read model** — unblocks all portfolio roll-up KPIs and
-   portfolio-wide advisory/risk, without breaking offline-first. _(L · Platform)_
+1. **Headless purity / cost roll-up extraction (cloud C0)** — unblock the suite
+   in display-free environments and keep the EVM bridge honest. _(S · Core)_
+2. **Backend JSON API U0 (cloud C1/C2)** — the contract for WinUI 3 and mobile.
+   _(M · Platform)_
+3. **Portfolio UX over the federated read model** — roll-up maths exists;
+   needs a durable shell + API. _(M · Core/UI)_
 
 **P1 — high value (the visible payoff):**
 
-4. **Capture pipeline** (photo→GRN/invoice, voice→DPR) — the biggest cut to
-   manual entry and the fix for stale data. _(L · AI)_
-5. **KPI narration + portfolio advisory** — turns boards into a five-minute read.
-   _(M · AI)_
-6. **Risk detection taxonomy + narrative** — the early-warning payoff. _(M · AI)_
-7. **Recurring review-pack generation** — automates the weekly scramble. _(M · AI)_
+4. **E7 Controls / Lessons Learned / Process / persona rail (local L1–L3)** —
+   finish discoverability over built stores. _(M · UI)_
+5. **Capture pipeline** (photo→GRN/invoice, voice→DPR) — biggest cut to manual
+   entry; models are local-track. _(L · AI)_
+6. **Event auto-wire** detect/followups into drafts (C5 + L4). _(M · AI/Core)_
+7. **WinUI 3 client U1–U7 (local L5–L7)** after U0. _(L · Platform)_
 
-**P2 — completeness:** predictive forecasting, NL-triggered workflows, mobile
-field app, cross-project learning, SSO/project roles, muster OCR, BOQ import.
+**P2 — completeness:** predictive register feed (C4), NL-triggered workflows,
+mobile field app (L9), cross-project learning, SSO/project roles, muster OCR,
+BOQ import.
 
 ---
 
@@ -232,72 +235,115 @@ deliverables, dependencies, and acceptance criteria. Each phase is
 **independently shippable and independently useful** — matching the phase
 discipline already in [`ROADMAP.md`](ROADMAP.md).
 
-**Implementation status at a glance** (what has been built as verifiable,
-headless-tested modules vs. what remains). The **deterministic backbone of E0–E5
-is built** — every piece that could be written and unit-tested without a display,
-a model, or a pip dependency:
+**Implementation status at a glance** (verified against `main`, 2026-07-22). The
+**deterministic backbone of E0–E5 and the E7 models are built.** Most enterprise
+registers now also have a **desktop + browser surface**. What remains is the
+**JSON API (U0)**, residual pure/platform work, GUI wiring that needs a display,
+the WinUI 3 client, and ML/mobile sidecars.
 
-| Phase | Built (module) | Remaining |
-|---|---|---|
-| **E0** | `earnedvalue.py`, `risk.py`, `risk_store.py` + `risks` table | risk tab (GUI); wider audit tagging |
-| **E1** | `capture.py` (draft-and-confirm framework) | the OCR/voice/vision **models** (external sidecars) + tabs |
-| **E2** | `narrative.py`; `review_pack.py` roll-up; `portfolio_store.py` (federated read model) | tabs |
-| **E3** | `risk_detect.py` (11 rules + mitigation drafts), `narrative.risk_briefing` | risk tab |
-| **E4** | `review_pack.py` (pack + portfolio); `followups.py` (event → follow-on logic) | GUI event wiring |
-| **E5** | `forecast.py` (trend + schedule); `drift.py` (weak-signal correlation) | feed forecasts into the register (tab) |
-| **E6** | — | mobile capture app (separate front-end) |
-| **E7** Navigation & Workflow | `menu.py` (personas + grouping), `workflow.py` (flow graph) | Controls/register tabs, Process view, search (GUI) — see §3.6 |
-| **U** UI Replatform → WinUI 3 | — | Backend JSON API (U0, Python — buildable here) + WinUI 3 C# client (U1–U7, Windows) — see §3.7 & [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) |
+| Phase | Built (module / surface) | Remaining | Track |
+|---|---|---|---|
+| **E0** | `earnedvalue` + `evm` + **Earned Value tab** + `/evm`; `risk` + `risk_store` + **Risks tab**; detection ready | AI-origin audit tagging (E0.3); keep `evm` bridge headless-safe | Cloud (tagging + bridge) |
+| **E1** | `capture.py` (draft-and-confirm framework) | OCR/voice/VLM **model sidecars** + capture UI | Local (models/UI) |
+| **E2** | `narrative`, `review_pack`, `portfolio_store`, `review_assemble` + **Weekly Review** tab + `/review` | Dedicated multi-file portfolio shell (optional) | Cloud (API) / Local (shell) |
+| **E3** | `risk_detect` (11 rules + mitigations), `narrative.risk_briefing`, Risks tab | Auto-wire detect→register from events | Cloud (logic) / Local (handlers) |
+| **E4** | `review_pack`, `followups` (gated follow-on logic) | GUI/event wiring that fires on save | Local (GUI) + Cloud (API hooks) |
+| **E5** | `forecast`, `drift` | Feed forecast/drift into register as suggestions | Cloud (store write) / Local (tab) |
+| **E6** | — | Mobile capture app | Local (separate) |
+| **E7** | `menu.py`, `workflow.py` (models + tests) | Controls section, Lessons Learned tab, Process view, persona rail, search | Local (UI) — models Cloud-done |
+| **U** | Spec complete ([`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md)) | **U0 JSON API** then U1–U7 WinUI 3 client | **U0 Cloud** · **U1–U7 Local** |
 
-**The deterministic roadmap is complete.** Every piece that can be written and
-unit-tested without a display, a model, or a pip dependency is built (619-test
-suite; the menu/workflow models of E7.1/E7.2 included). The irreducible residual is exactly three things this environment cannot
-produce or verify — and none is application logic:
+**What this environment can still produce:** pure Python domain, SQLite stores,
+stdlib JSON API, unit tests, docs — **not** display smoke tests, .NET/WinUI, or
+ML model weights.
 
-1. **tkinter tabs** — the on-screen registers and KPI/EVM surfacing. Need a
-   display to smoke-test (this container has no `tkinter`). The data, scoring,
-   and roll-ups behind every tab are done.
-2. **The ML models themselves** — OCR / speech-to-text / VLM for capture, and
-   the LLM that re-voices narration. These are **external local sidecars** by
-   design (see [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)), not
-   code in this repo; `capture.py` is the deterministic scaffold they feed.
-3. **The E6 mobile app** — a separate front-end project.
+### 5A. Cloud development track (headless Python agent)
 
-### 5A. Cloud development track (headless Python agent environment)
+**Environment:** Linux cloud agent — **no display, no .NET, no ML models**.
+Stdlib only, tkinter-free domain, verified with:
 
-Work that is **built and verified in the cloud agent environment** — Linux,
-**no display, no .NET, no ML models**. Everything here is pure/DB-only,
-tkinter-free, no-pip, and unit-tested headless (`python -m unittest discover -s
-tests`). This is where the *engine* is built.
+```bash
+python -m unittest discover -s tests          # headless suite
+cd construction_app && python -m compileall -q .
+```
 
-| Area | Modules / deliverables | Status |
-|---|---|---|
-| Deterministic PM core (E0–E5) | `earnedvalue`, `risk`, `risk_store`, `risk_detect`, `opportunity`(+store), `lessons`/`lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `portfolio_store`, `capture` | ✅ built + tested |
-| Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) | ✅ built + tested |
-| Execution KPIs (Part 2) | `productivity`, `hse.trir` | ✅ built + tested |
-| **Backend JSON API (U0)** | `webapi.py` over the domain (extends the stdlib web layer) | ⬜ **next — buildable here** |
-| Tests & docs | `tests/test_core.py`, `tests/test_web.py`, all `docs/*` | ✅ ongoing |
+GUI/`tab_*` imports that pull `tkinter` will **error on import** here — that is
+an environment limit, not a logic failure. Never claim a UI was tested without a
+display.
 
-**Cannot be done in the cloud env:** anything needing a **display** (tkinter/GUI
-smoke tests), the **.NET/Windows App SDK** (WinUI 3), or **ML model weights**
-(OCR/voice/VLM). Those are the local track.
+#### Already done on this track
+
+| Area | Deliverables |
+|---|---|
+| Deterministic PM core (E0–E5) | `earnedvalue`, `evm` (bridge), `risk`(+store/detect), `opportunity`(+store), `lessons_register`(+store), `forecast`, `drift`, `narrative`, `review_pack`, `review_assemble`, `portfolio_store`, `capture`, `followups`, `productivity` |
+| Navigation/workflow models (E7.1/E7.2) | `menu.py` (personas + grouping), `workflow.py` (flow graph) — drift-guarded tests |
+| Web/LAN surfaces for new PM | `/evm`, `/review`, Risk/Opportunity/EVM browser pages (stdlib HTML) |
+| Docs | Architecture, WinUI migration, AI models, this roadmap |
+
+#### Ordered action plan — cloud next
+
+| # | Action | Why | Acceptance | Pri |
+|---|---|---|---|---|
+| **C0** | **Headless purity fix** — move `project_cost_rollup` out of `tab_projects.py` into a tkinter-free module (e.g. `projectcost.py` / `project_rollup.py`); point `evm`, `dashboard`, `tab_kpi` at it | `evm.project_evm` lazily imports `tab_projects` → **tkinter**, so ~9 headless tests error in this env | `python -m unittest discover -s tests` has **0 import errors** without tkinter; `evm` stays DB-only | P0 |
+| **C1** | **U0 — Backend JSON API** (`webapi.py`) over the domain; extend `tests/test_web.py` | Contract for WinUI 3 + future mobile; only U-phase buildable here | Socket-free `handle(Request)→Response` tests for read+write `/api/*`; role-gated writes; no maths in transport — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §3 | P0 |
+| **C2** | **U0 DTO coverage** — dashboard, KPI, menu(`persona`), workflow, EVM, risks, opportunities, masters CRUD, money docs | Local WinUI work needs a stable contract | OpenAPI-style docstring or `docs/` contract table + golden JSON fixtures in tests | P0 |
+| **C3** | **E0.3 AI-origin audit tagging** — tag AI-drafted records + confirming user beyond `risks.source` | Audit "what did AI touch" | `audit_log` (or row metadata) distinguishes AI draft vs human confirm; unit-tested | P1 |
+| **C4** | **E5 feed** — `forecast` / `drift` → optional draft risk/opportunity via store APIs | Closes the prediction→register loop without GUI | Pure function: signals in → `risk_store.add(..., source='ai')` draft out; tested | P1 |
+| **C5** | **E3/E4 event hooks (logic only)** — map save-events → `followups` / `risk_detect` drafts | GUI only wires the call; decision logic stays headless | Given event+snapshot → expected draft list; all consequential items `gated` | P1 |
+| **C6** | **Lessons Learned store API surface** — ensure `lessons_store` is ready for `/api/lessons` and a future Controls tab | Register exists; no first-class UI yet | CRUD + summary unit tests; JSON serialisable | P1 |
+| **C7** | Docs/counts hygiene — keep `AGENTS.md` / `CLAUDE.md` / this file honest after each merge | Prevents agents rebuilding shipped work | Headline module/test/table counts re-checked per §25 of `AGENTS.md` | P2 |
+
+**Cloud non-goals:** WinUI XAML, MSIX, tkinter smoke screenshots, shipping OCR/STT
+weights, mobile app UI.
 
 ### 5B. Local development track (Windows + display + .NET)
 
-Work that needs a **local machine** — a display for GUI, and Windows/.NET for the
-replatform. Developed and verified locally (the team already builds here — e.g.
-the EVM, Risk Register and Opportunity/Weekly-Review tabs shipped on `main`).
+**Environment:** Windows 11 (or 10 1809+) with a display, Visual Studio 2022 /
+Windows App SDK, Python 3.8+. This is where **GUI**, **WinUI 3**, and **model
+sidecars** are built and verified.
 
-| Area | Deliverable | Verified by |
-|---|---|---|
-| tkinter GUI tabs | Register/KPI/EVM/opportunity tabs; Controls section; Process view (E7.3/E7.4) over `menu`/`workflow` | `tests/test_smoke_tabs.py` (needs a display) |
-| **WinUI 3 client (U1–U7)** | NavigationView shell, DataGrid CRUD, Fluent pages, Segoe icons, charts, MSIX + backend sidecar — [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | Windows/.NET build + WinAppDriver/xUnit |
-| AI model sidecars (E1) | OCR / speech-to-text / VLM local models (see [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md)) | on a machine that can run the models |
-| Field mobile (E6) | Mobile capture app | separate front-end project |
+#### Already done on this track (shipped on `main`)
 
-**The contract between the two tracks is the JSON API (U0):** the cloud track
-builds and tests it in Python; the local track (WinUI 3 client, mobile) consumes
-it. Build U0 first so local work has a stable, tested contract to render against.
+| Surface | Where |
+|---|---|
+| Earned Value tab + browser | Project Management › Earned Value; `/evm` |
+| Risk Register tab | Project Management › Risks |
+| Opportunity Register tab | Project Management › Opportunities |
+| Weekly Review tab + browser | Money › Review; `/review` |
+| Submittals (inside Sourcing) | Purchases › Sourcing › Submittals |
+| Rate Realisation (`tab_lessons`) | distinct from Lessons *Learned* register |
+
+#### Ordered action plan — local next
+
+| # | Action | Depends on | Verified by | Pri |
+|---|---|---|---|---|
+| **L0** | Run full suite **with tkinter** + `tests/test_smoke_tabs.py` light+dark after pulls | — | Discover green locally | P0 |
+| **L1** | **E7.3 Controls section** — rail section for Risk / Opportunity / **Lessons Learned** / Submittals (or deep-links); Lessons Learned **new tab** over `lessons_store` | Cloud C6 helpful | Smoke tabs; catalog ↔ `BUILDERS` agree | P1 |
+| **L2** | **E7.3 persona rail** — filter `RailStage` via `menu.resolve` | E7.1 done | Persona sees scoped sections | P1 |
+| **L3** | **E7.4 Process view + search** — "What's next" over `workflow.py`; command palette | E7.2 done | Smoke + manual nav | P1 |
+| **L4** | **E4 GUI event wiring** — on GRN/save/etc. call Cloud C5 hooks; show gated drafts | C5 | Manual: save → draft follow-up appears, not auto-posted | P1 |
+| **L5** | **U1 WinUI shell** — `NavigationView` from `GET /api/menu`, Mica, Segoe icons | **C1/C2 (U0)** | Windows build runs against local `web_main.py` | P0 (after U0) |
+| **L6** | **U2–U5 WinUI pages** — DataGrid CRUD → Money/Billing → Dashboard/charts → Controls + Process | U1 | xUnit ViewModels + WinAppDriver smoke | P1 |
+| **L7** | **U6–U7 packaging + parity** — PyInstaller sidecar in MSIX; persona menus; retire tkinter-on-Windows decision | U2–U5 | Signed MSIX install; localhost-only backend | P1 |
+| **L8** | **E1 model sidecars** — OCR / STT / VLM per [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md); feed `capture.py` | capture scaffold done | Offline draft from photo/voice; human confirm | P2 |
+| **L9** | **E6 mobile capture** — separate front-end consuming U0 API | U0 | Field capture syncs to SQLite file | P2 |
+
+**Local setup (WinUI)** — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §11.
+
+### Contract between tracks
+
+```
+ Cloud (Python)                         Local (Windows)
+ ─────────────                         ───────────────
+ C0 purity / stores ──┐
+ C1–C2 JSON API (U0) ─┼── localhost /api/* ──► L5–L7 WinUI client
+ C3–C6 domain hooks ──┘                      L1–L4 tkinter residual
+                                             L8 models · L9 mobile
+```
+
+**Rule:** build **U0 (C1/C2) before** WinUI pages (L5+). The client is pure
+presentation; the Python core still computes. Do not reimplement finance/civil/
+EVM/risk maths in C#.
 
 ### Phase E0 — Foundation _(P0 · deterministic core first)_
 
@@ -305,32 +351,20 @@ it. Build U0 first so local work has a stable, tested contract to render against
 
 - **E0.1 EVM module ✅ (built)** — `earnedvalue.py`: PV, EV, AC → SPI, CPI, SV,
   CV, EAC (three methods), ETC, VAC, TCPI, percent-complete/spent, and a
-  value-weighted `portfolio` roll-up. Pure, tkinter/DB-free, 8 unit tests in
-  `tests/test_core.py` (`TestEarnedValue`). Inputs map to `programme` (baseline
-  → PV), `analytics.contract_progress` (measured value → EV), `projectcost`
-  (total cost → AC). _Remaining: surface it in Insight/KPI (E2)._
-- **E0.2 Risk scoring ✅ + register persistence ✅ (built) / tab ⏳** —
-  `risk.py`: 5×5 likelihood×impact scoring, bands (Low/Medium/High/Critical),
-  probability-weighted expected exposure, residual-after-mitigation, ranking and
-  a register summary (pure, 8 unit tests, `TestRisk`). `risks` table added to
-  `db.py` (additive, cascades on project delete) and `risk_store.py` — a
-  conn-taking, tkinter-free persistence layer that derives score/band/exposure
-  on every save through `risk.py` (so stored values can't drift) and re-assesses
-  from raw levels in `summary` (so a hand-edited row still rolls up honestly).
-  7 DB-backed unit tests against a temporary SQLite database (`TestRiskStore`).
-  _Remaining: a tkinter tab over the store — deferred because it needs a display
-  to verify._
+  value-weighted `portfolio` roll-up. Pure, tkinter/DB-free, unit-tested
+  (`TestEarnedValue`). DB bridge `evm.py` + **desktop tab + browser `/evm`**
+  shipped. _Remaining (cloud C0): keep the cost roll-up import tkinter-free._
+- **E0.2 Risk scoring ✅ + register ✅ + tab ✅** —
+  `risk.py` / `risk_store.py` / **Project Management › Risks**. Detection via
+  `risk_detect.py`. _Remaining: optional Controls-section home (local L1)._
 - **E0.3 AI-origin audit tagging ⏳** — the `risks` table already carries a
   `source` (`manual`/`ai`) and `decided_by`/`decided_date`; extending the app-wide
-  audit log to tag AI-drafted origin on other records is not yet started.
+  audit log to tag AI-drafted origin on other records is not yet started
+  (**cloud C3**).
 
 **Depends on:** existing analytics/cost/programme (present).
-**Acceptance:** EVM figures reconcile against a worked example in tests ✅; risk
-scoring/exposure/ranking unit-tested ✅; the register persists, derives on save,
-and cascades on project delete, all against a real temp database ✅; no new pip
-dependency ✅; full suite passes (the one environment error is the pre-existing
-missing-`tkinter` GUI theme test, unrelated to this work). _The risk tab and
-wider audit tagging remain open._
+**Acceptance:** EVM figures reconcile in tests ✅; risk scoring/store ✅; tab
+shipped ✅; no new pip dependency ✅. _Wider audit tagging remains open (C3)._
 
 ### Phase E1 — Capture _(P1 · cut manual entry)_
 
@@ -382,7 +416,9 @@ file **read-only** and pools projects, risk exposure, opportunity upside and
 lessons across them; each file stays authoritative, preserving offline-first) ✅;
 E2.2 roll-up (`earnedvalue.portfolio`, value-weighted; pooled via
 `review_pack.portfolio`) ✅; E2.3 narration (`narrative.kpi_briefing`) ✅; E2.4
-portfolio advisory (pooled `advisory` counts) ✅. _Remaining:_ the tab (display).
+portfolio advisory (pooled `advisory` counts) ✅. **Weekly Review** tab +
+`/review` surface the pack (`review_assemble`). _Remaining:_ optional dedicated
+multi-file portfolio shell (local); JSON exposure via U0 (cloud C1).
 
 ### Phase E3 — Risk _(P1 · early warning)_
 
@@ -408,7 +444,8 @@ schedule/cost/commercial/quality/statutory/external, each scored via
 (`narrative.risk_briefing`, top-N by exposure) ✅; E3.3 mitigation drafts
 (`risk_detect.suggest_mitigation` / `with_mitigations` — a suggested response +
 first action per category, a draft the owner edits) ✅. Detected risks are
-register-ready (`risk_store.add(..., source='ai')`). _Remaining:_ the risk tab.
+register-ready (`risk_store.add(..., source='ai')`). **Risks tab shipped.**
+_Remaining:_ auto-wire detect on events (cloud C5 + local L4).
 
 ### Phase E4 — Automation _(P1 · remove rote assembly)_
 
@@ -486,12 +523,15 @@ a flat 47-tab grid. Addresses the §3.6 gaps (N1–N6). Reference:
   the "what's next" and completion from a state dict. 6 unit tests
   (`TestWorkflow`), including `unknown_locations() == []` — a drift-guard that
   every step points at a real menu location. (N2, N6)
-- **E7.3 "Controls" section + register tabs (GUI)** — a menu home for
-  **Risk Register · Opportunity Register · Lessons Learned · Submittals**, tabs
-  over the built stores. (N1)
-- **E7.4 Process view + search (GUI)** — a "What's next" overlay that renders the
-  E7.2 graph, plus a global search / command palette and breadcrumbs aligned with
-  the web layer's URL routing. (N2, N4)
+- **E7.3 "Controls" section + remaining register tabs (GUI · local L1/L2)** —
+  menu home for **Risk Register · Opportunity Register · Lessons Learned ·
+  Submittals**. Risks/Opportunities already live under Project Management;
+  Submittals under Sourcing. **Lessons Learned** (the register, not Rate
+  Realisation) still needs a dedicated tab over `lessons_store`. Persona rail
+  filtering over `menu.resolve`. (N1, N3)
+- **E7.4 Process view + search (GUI · local L3)** — a "What's next" overlay that
+  renders the E7.2 graph, plus a global search / command palette and breadcrumbs
+  aligned with the web layer's URL routing. (N2, N4)
 
 **Depends on:** E0–E5 stores/logic (built); `modules.SECTIONS_CATALOG`,
 `shell.RailStage`, `advisory`, `followups` (built).
@@ -501,10 +541,10 @@ state); the Part 2 registers are reachable from a menu; a persona sees a menu
 scoped to their job. _Rendering (rail filtering, Process overlay, search UI) is
 display-dependent and verified on a display, per the standing boundary._
 **Built so far:** E7.1 (`menu.py`) and E7.2 (`workflow.py`) — the pure menu and
-workflow models — are **built and unit-tested** (14 tests, drift-guarded against
-the live catalog), on top of the existing `advisory` (ranking) and `followups`
-(next-step) logic. _Remaining:_ E7.3/E7.4 — the Controls/register tabs, the
-Process view, and search — are display-dependent GUI and follow on a display.
+workflow models — are **built and unit-tested** (drift-guarded against the live
+catalog). Risks / Opportunities / EVM / Weekly Review tabs shipped under existing
+sections. _Remaining:_ E7.3/E7.4 — Controls home, Lessons Learned tab, persona
+rail, Process view, search — **local track** (display-dependent).
 
 ---
 
@@ -550,17 +590,16 @@ E0 Foundation ──┬──> E2 KPI reach ──┐
   no code path.
 - **E4 needs E1–E3**; **E5 needs E2–E3 plus accumulated history**; **E6 needs E1.**
 
-**Suggested waves** (each independently shippable):
+**Suggested waves** (each independently shippable), tagged by track:
 
-- **Wave A (foundation):** E0.
-- **Wave B (visible value, parallel tracks):** E1 capture ‖ E2 KPI reach ‖ E3 risk.
-- **Wave C (leverage):** E4 automation.
-- **Wave D (frontier):** E5 prediction, E6 mobile.
-- **Wave E (usability):** E7 navigation & workflow — E7.1/E7.2 (pure menu +
-  workflow models) run any time after E0–E5 have the stores/logic to point at;
-  E7.3/E7.4 (register tabs, Process view, search) land with the other GUI tabs
-  when a display is available. E7 is what turns the built engine into an
-  application an operator can navigate.
+- **Wave A (foundation):** E0 — ✅ mostly done; residual **C0** (headless purity),
+  **C3** (audit tagging).
+- **Wave B (visible value):** E1 ‖ E2 ‖ E3 — engine ✅; surfaces mostly ✅;
+  residual capture models (**L8**), event auto-wire (**C5**/**L4**).
+- **Wave C (leverage):** E4 automation — logic ✅ (`followups`); GUI wiring **L4**.
+- **Wave D (frontier):** E5 prediction (**C4** + tab), E6 mobile (**L9**).
+- **Wave E (usability):** E7 — models ✅; Controls/Process/search **L1–L3**.
+- **Wave U (replatform):** **C1/C2 (U0 API)** → **L5–L7 (WinUI U1–U7)**.
 
 ---
 
@@ -621,25 +660,29 @@ Outcome metrics to baseline and track (from the solution doc §11):
 ## 11. Summary
 
 The distance from today's Construction OS to an enterprise PM + AI platform is
-**short on domain logic and concentrated in three places**: a couple of
-deterministic analytics additions (**EVM**, a **risk register**), **scale-out
-platform** work (portfolio roll-up, mobile, concurrency), and the **AI layer**
-(capture, automation, narration, risk prediction).
+**short on domain logic** — EVM, risk, opportunity, forecast, drift, narrative,
+review-pack, menu/workflow models are **built and mostly surfaced**. What remains
+is concentrated in three places: (1) the **JSON API + WinUI 3 replatform** (U0
+cloud → U1–U7 local), (2) **navigation/usability** leftovers (Controls, Lessons
+Learned tab, Process view, persona rail), and (3) the **AI capture / mobile**
+frontier (model sidecars + field app).
 
-The plan closes them in dependency order: **E0 lays the deterministic foundation**
-(EVM + risk register + audit tagging); **E1–E3 deliver the visible payoff in
-parallel** (capture cuts manual entry, KPI reach makes reviews a five-minute
-read, risk gives early warning); **E4 automates the rote assembly**; **E5–E6 add
-the frontier** (prediction, mobile). Throughout, the discipline is the one the
-shipped code already embodies: **deterministic maths underneath, explainable AI
-on top, a human on anything that moves money or a date, and the offline solo
+Work is split deliberately:
+
+| Track | Owns | Next |
+|---|---|---|
+| **Cloud (§5A)** | Pure domain, stores, stdlib JSON API, headless tests, docs | **C0** purity fix → **C1/C2 U0 API** |
+| **Local (§5B)** | tkinter residual UI, WinUI 3 client, ML sidecars, mobile | **L0** smoke → **L1–L3** E7 UI; after U0 → **L5–L7** WinUI |
+
+Throughout, the discipline stays: **deterministic maths underneath, explainable
+AI on top, a human on anything that moves money or a date, and the offline solo
 experience never degraded.**
 
 ---
 
 _Planning document only — changes no code, commits no dates. Read alongside
 [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target & AI
-strategy), [`REPORT-sop-gap-analysis.md`](REPORT-sop-gap-analysis.md) (the SOP
-gap set), [`PRODUCT.md`](PRODUCT.md) (scope & principles), and
-[`ROADMAP.md`](ROADMAP.md) (delivered features). Architecture and conventions:
-[`../AGENTS.md`](../AGENTS.md)._
+strategy), [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) (UI replatform),
+[`REPORT-sop-gap-analysis.md`](REPORT-sop-gap-analysis.md) (the SOP gap set),
+[`PRODUCT.md`](PRODUCT.md) (scope & principles), and [`ROADMAP.md`](ROADMAP.md)
+(delivered features). Architecture and conventions: [`../AGENTS.md`](../AGENTS.md)._

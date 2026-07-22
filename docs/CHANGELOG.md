@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Cloud vs local roadmap split (actionable)
+
+- **Roadmap §5A / §5B expanded** into ordered action plans for the two
+  development environments (cloud headless Python vs local Windows/.NET/display).
+  Companion status tables refreshed for shipped EVM / Risk / Opportunity / Weekly
+  Review surfaces; Lessons Learned register tab still called out as pending.
+- **Next cloud actions** named explicitly: **C0** extract cost roll-up out of
+  `tab_projects` (headless purity), then **C1/C2** `webapi.py` (U0 JSON API).
+- **Next local actions**: residual E7 UI (Controls, Lessons Learned tab, Process
+  view, persona rail), then WinUI **U1–U7** after U0.
+- Agent memory (`CLAUDE.md`, `AGENTS.md` headline counts) and
+  `EXECUTION-PART2.md` maturity tags aligned with the tree.
+
+---
+
 ## 2026-07-22 — RA-bill statutory documents in the browser (Form 23 + Form 26)
 
 - **Measurement Book and RA abstract, printable from the browser.** An RA bill's
