@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U4: ChartsPage plots a real LiveCharts series
+
+- **First real chart.** `Views/ChartsPage.*` now binds a stock LiveCharts
+  `ColumnSeries` to the money snapshot from `GET /api/kpi` (cash, receivable,
+  payable, net position, billed / collected this month) with a labelled X axis —
+  replacing the previous key-dump placeholder. No maths in C#: the API computes
+  every figure; the page only renders what it returns, and shows a plain "nothing
+  recorded yet" line when the bars are all zero.
+- **Native dependency verified.** LiveCharts renders through SkiaSharp's native
+  `libSkiaSharp.dll`; confirmed it (and the LiveChartsCore / SkiaSharp assemblies)
+  deploys into the self-contained `win-x64` output, so the Charts tab renders on a
+  clean machine rather than crashing on a missing native lib. `dotnet build` 0
+  errors. Remaining U4: EVM/ageing series + the KPI stat cards.
+
+---
+
 ## 2026-07-22 — Roadmap honesty pass (post WinUI harden + local run)
 
 - Reconciled [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)

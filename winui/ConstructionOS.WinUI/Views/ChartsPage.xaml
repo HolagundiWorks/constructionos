@@ -1,13 +1,20 @@
 <Page
     x:Class="ConstructionOS.WinUI.Views.ChartsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <!-- U4: LiveCharts series bind on Windows; this page always shows API keys. -->
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI">
+  <!-- U4: money KPIs from GET /api/kpi bound to a stock LiveCharts column chart.
+       No business maths in C# — the values come straight from the Python API. -->
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12">
       <TextBlock Text="Charts / Key Numbers" Style="{StaticResource TitleTextBlockStyle}"/>
-      <TextBlock TextWrapping="Wrap"
-                 Text="Numbers come from GET /api/kpi and /api/dashboard. Bind LiveCharts2 series locally — no maths in C#."/>
+      <TextBlock x:Name="Caption" TextWrapping="Wrap"
+                 Text="Money snapshot from GET /api/kpi."/>
+      <Border Height="340" Padding="4"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              CornerRadius="8">
+        <lvc:CartesianChart x:Name="Chart"/>
+      </Border>
       <TextBlock x:Name="Status" TextWrapping="Wrap" FontFamily="Consolas"/>
     </StackPanel>
   </ScrollViewer>
