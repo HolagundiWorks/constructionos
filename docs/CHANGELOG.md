@@ -18,6 +18,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Shell: status footer, rail refresh, no floating dock
+
+- **Status footer** — a full-width taskbar at the bottom of the window with a
+  live **AI-engine light**: green ● *AI engine: running* / red ● *off*, polled
+  off the UI thread (a ~1 s probe never freezes the window) and recoloured on a
+  theme flip.
+- **Refresh moved into the rail** — a single, predictable **⟳ Refresh** at the
+  rail foot (reuses the active tab's refresh); replaces the old floating dock's
+  refresh.
+- **Removed the floating action dock** (bottom-right New · Refresh · Save
+  overlay) and its now-dead `FloatingDock` widget — the per-tab buttons already
+  cover add/save, so nothing is lost.
+
+---
+
 ## 2026-07-22 — Risk Register (Enterprise PM: E0.2 / E3 surfaced)
 
 - **The risk register is now on screen** — Project Management › Risks

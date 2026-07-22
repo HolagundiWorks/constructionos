@@ -23,6 +23,7 @@ startup shows the window immediately instead of constructing forty-odd tabs up
 front.
 """
 
+import threading
 import tkinter as tk
 from tkinter import ttk
 
@@ -30,7 +31,7 @@ import assets
 import branding
 import theme
 import tokens
-from widgets import Switch, FloatingDock
+from widgets import Switch
 
 # One rail width for both skins — the kit's LAYOUT.railWidth (the web rail reads
 # the same token), so desktop and browser match.
@@ -78,9 +79,13 @@ class RailStage(ttk.Frame):
         for e in entries:
             self._add_row(nav, e)
 
-        # --- foot: theme switch + developer credit (identity + settings)
+        # --- foot: refresh + theme switch + developer credit
         foot = ttk.Frame(rail, style='Rail.TFrame')
         foot.pack(fill='x', side='bottom', pady=(6, 10), padx=12)
+        # Refresh the current screen — moved here from the old floating dock so
+        # it lives in one predictable place.
+        ttk.Button(foot, text='⟳  Refresh', command=self._do_refresh).pack(
+            fill='x', pady=(0, 8))
         sw_row = ttk.Frame(foot, style='Rail.TFrame')
         sw_row.pack(fill='x')
         self._sw_label = ttk.Label(sw_row, text=self._theme_label(),
@@ -93,6 +98,11 @@ class RailStage(ttk.Frame):
                   wraplength=RAIL_WIDTH - 30, justify='left').pack(
             anchor='w', pady=(10, 0))
 
+        # --- Footer (taskbar) — a full-width status strip at the very bottom,
+        # built before the rail/stage so it reserves the bottom band. Carries
+        # the live AI-engine status light.
+        self._build_footer()
+
         # hairline between rail and stage
         self._sep = tk.Frame(self, width=1, bg=theme.palette()['hairline'])
         self._sep.pack(side='left', fill='y')
@@ -101,14 +111,64 @@ class RailStage(ttk.Frame):
         self._stage = ttk.Frame(self, style='Stage.TFrame')
         self._stage.pack(side='left', fill='both', expand=True)
 
-        # --- floating action dock over the stage (New · Refresh · Save)
-        self._dock = FloatingDock(self._stage, self._resolve_action)
-        # Any notebook tab change anywhere re-evaluates what the dock can do.
-        self.bind_all('<<NotebookTabChanged>>',
-                      lambda _e: self._dock.update_state(), add='+')
-
+        self._poll_ai()          # start the AI-status heartbeat
         if entries:
             self.select(entries[0]['key'])
+
+    # ---------------------------------------------------------------- footer
+    def _build_footer(self):
+        pal = theme.palette()
+        footer = ttk.Frame(self, style='Rail.TFrame')
+        footer.pack(side='bottom', fill='x')
+        self._foot_rule = tk.Frame(footer, height=1, bg=pal['hairline'])
+        self._foot_rule.pack(side='top', fill='x')
+        inner = ttk.Frame(footer, style='Rail.TFrame')
+        inner.pack(fill='x', padx=14, pady=4)
+        # AI status: a coloured dot + label (green = running, red = off).
+        self._ai_dot = ttk.Label(inner, text='●', style='Rail.TLabel')
+        self._ai_dot.pack(side='left')
+        self._ai_label = ttk.Label(inner, text='AI engine: checking…',
+                                   style='RailMuted.TLabel')
+        self._ai_label.pack(side='left', padx=(6, 0))
+        ttk.Label(inner, text=branding.APP_NAME, style='RailMuted.TLabel') \
+            .pack(side='right')
+
+    def _poll_ai(self):
+        """Heartbeat: check whether the local AI engine answers, off the UI
+        thread so the ~1 s network probe never freezes the window."""
+        def work():
+            try:
+                import ollama_client
+                up = ollama_client.available(timeout=1.0)
+            except Exception:                        # noqa: BLE001
+                up = False
+            try:
+                self.after(0, lambda: self._set_ai(up))
+            except (tk.TclError, RuntimeError):
+                pass                                 # window went away
+        threading.Thread(target=work, daemon=True).start()
+        try:
+            self.after(6000, self._poll_ai)          # next beat
+        except tk.TclError:
+            pass
+
+    def _set_ai(self, up):
+        try:
+            if not self._ai_dot.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        self._ai_up = up
+        pal = theme.palette()
+        self._ai_dot.configure(foreground=pal['success'] if up else pal['error'])
+        self._ai_label.configure(
+            text='AI engine: running' if up else 'AI engine: off')
+
+    def _do_refresh(self):
+        """Refresh the on-screen tab (the rail Refresh button)."""
+        fn = self._resolve_action('refresh')
+        if callable(fn):
+            fn()
 
     # ---------------------------------------------------------------- logo
     def _load_logo(self):
@@ -177,9 +237,6 @@ class RailStage(ttk.Frame):
             self._built[key] = widget
         widget.pack(fill='both', expand=True)
         self._current = key
-        # Re-evaluate the dock once the new tab has mapped (its notebook, if
-        # any, has settled on a selected page).
-        self.after(0, self._dock.update_state)
 
     # ----------------------------------------------------------- action dock
     def _resolve_action(self, action):
@@ -227,5 +284,8 @@ class RailStage(ttk.Frame):
         self._switch.set(theme.mode() == 'dark')
         self._switch.restyle()
         self._sw_label.configure(text=self._theme_label())
-        self._sep.configure(bg=theme.palette()['hairline'])
+        pal = theme.palette()
+        self._sep.configure(bg=pal['hairline'])
+        self._foot_rule.configure(bg=pal['hairline'])   # footer hairline
+        self._set_ai(getattr(self, '_ai_up', False))    # recolour the AI dot
         self._load_logo()                    # black ↔ near-white logo
