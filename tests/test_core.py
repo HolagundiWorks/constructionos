@@ -74,6 +74,7 @@ import submittals
 import variation
 import wages
 import earnedvalue
+import evm
 import risk
 import risk_store
 import forecast
@@ -395,6 +396,105 @@ class TestEarnedValue(unittest.TestCase):
         self.assertEqual(p['cpi'], round(100 / 105, 3))
         self.assertEqual(p['worst_cpi'], 'A')
         self.assertIn('A', p['over_cost_names'])
+
+
+class TestEvmPlannedPct(unittest.TestCase):
+    """The time-scheduled PV fallback: the elapsed fraction of a project's
+    window, clamped 0..100, and None when there is no honest schedule."""
+
+    def test_midpoint_of_the_window_is_fifty_percent(self):
+        self.assertEqual(
+            evm.planned_pct('2026-01-01', '2026-12-31', today='2026-07-02'),
+            50.0)
+
+    def test_before_start_floors_to_zero_after_end_caps_at_hundred(self):
+        self.assertEqual(
+            evm.planned_pct('2026-06-01', '2026-12-01', today='2026-01-01'),
+            0.0)
+        self.assertEqual(
+            evm.planned_pct('2026-01-01', '2026-06-01', today='2026-12-01'),
+            100.0)
+
+    def test_missing_or_degenerate_dates_give_none(self):
+        self.assertIsNone(evm.planned_pct('', '2026-12-31', today='2026-06-01'))
+        self.assertIsNone(evm.planned_pct('2026-01-01', '', today='2026-06-01'))
+        # end on/before start is not a schedule to earn against.
+        self.assertIsNone(
+            evm.planned_pct('2026-06-01', '2026-01-01', today='2026-03-01'))
+
+
+class TestEvmAssembly(unittest.TestCase):
+    """evm.py's DB bridge — where BAC/EV/AC/PV come from and the skip rule. The
+    cost rollup is mocked (it has its own tests in TestProjectCost) so these
+    prove only evm.py's own wiring, not the rollup twice."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def _add_project(self, name, **cols):
+        keys = ['name'] + list(cols)
+        self.conn.execute(
+            'INSERT INTO projects ({}) VALUES ({})'.format(
+                ', '.join(keys), ', '.join('?' * len(keys))),
+            [name] + list(cols.values()))
+        self.conn.commit()
+
+    def test_project_evm_pulls_bac_ev_ac_and_time_scheduled_pv(self):
+        from unittest import mock
+        self._add_project('Ward-7 Road', contract_value=1000,
+                          start_date='2026-01-01', end_date='2026-12-31')
+        row = self.conn.execute('SELECT * FROM projects').fetchone()
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 500.0, 'revenue': 400.0}):
+            e = evm.project_evm(self.conn, row, today='2026-07-02')
+        self.assertEqual(e['bac'], 1000.0)          # contract value
+        self.assertEqual(e['ac'], 500.0)            # rollup total_cost
+        self.assertEqual(e['ev'], 400.0)            # rollup revenue (billed)
+        self.assertEqual(e['planned_pct'], 50.0)    # half the window elapsed
+        self.assertEqual(e['pv'], 500.0)            # 1000 x 50%
+        self.assertEqual(e['cpi'], 0.8)             # 400/500
+        self.assertEqual(e['spi'], 0.8)             # 400/500
+        self.assertEqual(e['name'], 'Ward-7 Road')
+
+    def test_bac_falls_back_to_budget_and_no_dates_leaves_pv_zero(self):
+        from unittest import mock
+        self._add_project('Budget-only', budget=800)
+        row = self.conn.execute('SELECT * FROM projects').fetchone()
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 0, 'revenue': 0}):
+            e = evm.project_evm(self.conn, row)
+        self.assertEqual(e['bac'], 800.0)           # budget, no contract value
+        self.assertIsNone(e['planned_pct'])         # no dates → no schedule
+        self.assertEqual(e['pv'], 0.0)
+        self.assertIsNone(e['spi'])                 # PV 0 → undefined, not faked
+
+    def test_portfolio_skips_projects_with_no_value_to_measure(self):
+        from unittest import mock
+        self._add_project('Real', contract_value=1000)
+        self._add_project('Placeholder')            # no value → skipped
+        with mock.patch('tab_projects.project_cost_rollup',
+                        return_value={'total_cost': 100, 'revenue': 120}):
+            rows, port = evm.portfolio_evm(self.conn)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['name'], 'Real')
+        self.assertEqual(port['projects'], 1)
+        self.assertEqual(port['bac'], 1000.0)
 
 
 class TestRisk(unittest.TestCase):

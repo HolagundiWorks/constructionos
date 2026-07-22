@@ -31,6 +31,7 @@ import db
 import auth
 import bill_export
 import estimate
+import evm
 import journal_post
 import web_docs
 import web_masters
@@ -219,7 +220,8 @@ def _pk(cols):
 def _nav(conn):
     """Rail groups, in a stable order, listing only tables that exist here."""
     have = _viewable_tables(conn)
-    nav = [('', [('/', 'Dashboard', 'dashboard')])]
+    nav = [('', [('/', 'Dashboard', 'dashboard'),
+                 ('/evm', 'Earned Value', 'evm')])]
     placed = set()
     for group, keys in _GROUPS:
         items = []
@@ -252,6 +254,8 @@ def handle(request):
 
     if path == '/':
         return _dashboard(request, sess)
+    if path == '/evm':
+        return _evm(request, sess)
     if path == '/t' or path == '/t/':
         return _redirect('/')
     if path.startswith('/t/'):
@@ -388,6 +392,83 @@ def _dashboard_body(s, cards, advisory):
         parts.append(R.table(['Decision', 'Count', 'Value', 'Screen'], rows))
 
     return ''.join(parts)
+
+
+def _evm(request, sess):
+    """Earned Value, in the browser — the same figures as the desktop tab, read
+    only. Reuses ``evm.portfolio_evm`` so the two surfaces can never disagree."""
+    conn = db.get_conn()
+    try:
+        rows, port = evm.portfolio_evm(conn)
+        return _shell('Earned Value', _evm_body(rows, port), sess, conn,
+                      active='evm')
+    finally:
+        conn.close()
+
+
+def _evm_index(value):
+    return '—' if value is None else '{:.2f}'.format(value)
+
+
+def _evm_pct(value):
+    return '—' if value is None else '{:.0f}%'.format(value)
+
+
+def _evm_health(row):
+    on_budget, on_schedule = row.get('on_budget'), row.get('on_schedule')
+    if on_budget is None and on_schedule is None:
+        return '—'
+    bad = []
+    if on_budget is False:
+        bad.append('over cost')
+    if on_schedule is False:
+        bad.append('behind')
+    return 'On track' if not bad else ' & '.join(bad).capitalize()
+
+
+def _evm_body(rows, port):
+    if not port['projects']:
+        return ('<h1>Earned Value</h1><p class="muted">No projects with a '
+                'contract value or budget yet — add one to measure earned '
+                'value against it.</p>')
+
+    kpis = [
+        ('Projects measured', port['projects']),
+        ('Portfolio CPI', _evm_index(port['cpi'])),
+        ('Portfolio SPI', _evm_index(port['spi'])),
+        ('Over cost', port['over_cost']),
+        ('Behind schedule', port['behind_schedule']),
+        ('EV of BAC', '{} / {}'.format(R.money(port['ev']),
+                                       R.money(port['bac']))),
+    ]
+    kpi_html = ''.join(
+        '<div class="card"><div class="k">{}</div><div class="v">{}</div></div>'
+        .format(R.esc(k), R.esc(v)) for k, v in kpis)
+
+    # Worst cost performance first — the jobs needing attention on top.
+    ordered = sorted(rows, key=lambda r: (r['cpi'] is None, r.get('cpi') or 0))
+    trows = [[
+        r['name'], R.money(r['bac']), R.money(r['pv']), R.money(r['ev']),
+        R.money(r['ac']), _evm_index(r['spi']), _evm_index(r['cpi']),
+        _evm_pct(r['percent_complete']), R.money(r['eac']['default']),
+        R.money(r['vac']), _evm_health(r)] for r in ordered]
+    headers = ['Project', 'BAC', 'PV (planned)', 'EV (earned)', 'AC (actual)',
+               'SPI', 'CPI', '% complete', 'EAC (forecast)', 'VAC', 'Health']
+
+    worst = ''
+    if port['worst_cpi']:
+        worst = '<p class="muted">Worst CPI: {} ({}).</p>'.format(
+            R.esc(port['worst_cpi']), _evm_index(port['worst_cpi_value']))
+    note = ('EV is billed/certified value — work measured but not yet billed '
+            'reads low. PV is the elapsed fraction of each project’s start→end '
+            'window; a baseline programme would give a truer schedule.')
+    return ''.join([
+        '<h1>Earned Value</h1>',
+        '<div class="cards">{}</div>'.format(kpi_html),
+        worst,
+        R.table(headers, trows, scroll=True),
+        '<p class="muted">{}</p>'.format(R.esc(note)),
+    ])
 
 
 def _table_route(request, sess, rest):

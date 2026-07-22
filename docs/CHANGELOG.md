@@ -6,6 +6,30 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Earned Value (SPI / CPI / EAC) — desktop tab + browser view
+
+- **Earned Value surfaced.** A new read-only **Project Management › Earned
+  Value** tab (and a matching browser page at `/evm`) shows, per project, the two
+  performance indices **SPI** and **CPI**, percent complete, the forecast
+  **EAC / VAC**, and a plain health verdict — over a **value-weighted portfolio**
+  roll-up (a big overrunning job can't hide behind small tidy ones), sorted
+  worst cost-performance first.
+- **`evm.py` — the honest DB bridge.** The maths stays in the pure, already-tested
+  `earnedvalue.py`; `evm.py` only decides where the four base numbers come from:
+  **BAC** = contract value (fallback budget), **AC** = the project cost roll-up's
+  `total_cost`, **EV** = the roll-up's billed `revenue`, **PV** = `BAC ×` the
+  elapsed fraction of the project's start→end window. Both proxies (EV tracks
+  *billed* not raw progress; PV is time-scheduled, not a baseline S-curve) are
+  **footnoted on screen**, not hidden. Undefined indices render as `—`, never
+  faked. DB-only and head-less-safe (the cost roll-up is imported lazily, as
+  `dashboard`/`tab_kpi` already do), so desktop and browser share one definition.
+- **Tests.** `evm.planned_pct` (elapsed-fraction clamping, `None` on missing/
+  degenerate dates) and the assembly wiring (BAC fallback, PV derivation, the
+  "skip projects with no value to measure" rule) are unit-tested with the cost
+  roll-up mocked; the `/evm` route and its rail link are covered in `test_web`.
+
+---
+
 ## 2026-07-22 — Browser / LAN access: printable estimate
 
 - **Print / Save-as-PDF an estimate from the browser.** The estimate record view

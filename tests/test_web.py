@@ -134,6 +134,27 @@ class TestWebRouter(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertIn(b'Cash in hand', resp.body)   # a KPI card rendered
 
+    def test_earned_value_page_renders(self):
+        import webapp
+        sid = self._login_admin()
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO projects (name, contract_value, start_date, "
+                     "end_date) VALUES ('Ward-7 Road', 1000000, '2026-01-01', "
+                     "'2026-12-31')")
+        conn.commit()
+        conn.close()
+        resp = webapp.handle(self._req('/evm', cookies={'cosid': sid}))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Earned Value', resp.body)
+        self.assertIn(b'Ward-7 Road', resp.body)     # the project row
+        self.assertIn(b'Portfolio CPI', resp.body)    # a KPI card rendered
+
+    def test_earned_value_in_nav(self):
+        import webapp
+        sid = self._login_admin()
+        resp = webapp.handle(self._req('/', cookies={'cosid': sid}))
+        self.assertIn(b'/evm', resp.body)             # rail links to it
+
     def test_users_table_is_never_exposed(self):
         import webapp
         sid = self._login_admin()
