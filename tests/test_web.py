@@ -164,6 +164,44 @@ class TestWebRouter(unittest.TestCase):
         self.assertIn(b'Money at a glance', resp.body)
         self.assertIn(b'/review', resp.body)          # rail links to it
 
+    def test_ra_bill_measurement_book_and_abstract_print(self):
+        import webapp
+        sid = self._login_admin()
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO contracts (contract_no, contract_value) "
+                     "VALUES ('C/9', 2000000)")
+        cid = conn.execute('SELECT id FROM contracts').fetchone()['id']
+        conn.execute("INSERT INTO boq_items (contract_id, item_no, description, "
+                     "unit, qty, rate) VALUES (?, '1', 'Earthwork in trench', "
+                     "'cum', 50, 300)", (cid,))
+        bid = conn.execute('SELECT id FROM boq_items').fetchone()['id']
+        conn.execute("INSERT INTO measurements (boq_item_id, contract_id, "
+                     "mb_ref, description, nos, length, breadth, depth, "
+                     "quantity) VALUES (?, ?, 'MB-1', 'Trench T1', 1, 10, 1, 1, "
+                     "10)", (bid, cid))
+        conn.execute("INSERT INTO ra_bills (contract_id, bill_no, "
+                     "this_bill_value) VALUES (?, 'RA-1', 3000)", (cid,))
+        rbid = conn.execute('SELECT id FROM ra_bills').fetchone()['id']
+        conn.execute("INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, "
+                     "upto_qty, current_qty, rate, current_amount) VALUES "
+                     "(?, ?, 10, 10, 300, 3000)", (rbid, bid))
+        conn.commit()
+        conn.close()
+
+        mbp = webapp.handle(self._req('/t/ra_bills/{}/mb'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertEqual(mbp.status, 200)
+        self.assertIn(b'Measurement Book', mbp.body)
+        self.assertIn(b'Trench T1', mbp.body)
+        rap = webapp.handle(self._req('/t/ra_bills/{}/ra'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertEqual(rap.status, 200)
+        self.assertIn(b'ABSTRACT OF WORK EXECUTED', rap.body)
+        rec = webapp.handle(self._req('/t/ra_bills/{}'.format(rbid),
+                                      cookies={'cosid': sid}))
+        self.assertIn(b'Measured items', rec.body)    # items table on the record
+        self.assertIn(b'/mb', rec.body)               # print links present
+
     def test_users_table_is_never_exposed(self):
         import webapp
         sid = self._login_admin()

@@ -68,6 +68,8 @@ with minimal typing?_
 ### Browser / LAN access
 - Built-in **stdlib web server** — use the app in a browser at `http://<host>:<port>`, **no client install**, sharing the same SQLite file (see [`LAN.md`](LAN.md)).
 - **Login-gated** (reuses the desktop accounts / roles / PBKDF2 / audit; Viewers read-only). All read views, plus **write** for the Masters + on-site logs (snags/NCRs), **estimates** (with print), and **all postable money documents** (payments, tax/vendor invoices, running & RA bills) — posting through the desktop's own engine.
+- **RA-bill statutory documents in the browser** — an RA bill's record view lists its measured items and prints the **Measurement Book (Form 23 / CMB)** and the **PWD-style RA abstract (Form 26)** from the same pure builders the desktop uses (shared `mb_report.py`, so the two surfaces render the identical document).
+- **Portfolio dashboards in the browser** — **Earned Value** (`/evm`) and the assembled **Weekly Review** (`/review`), read-only, from the same assemblers as the desktop.
 
 ### Platform
 - **One HCW-UI design system** across desktop + web from a pure `tokens.py` (guard-tested so the two can't drift).
@@ -80,7 +82,7 @@ with minimal typing?_
 ## 🚧 In progress · ⏳ Next
 
 - ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
-- ⏳ **Browser / LAN — remaining parity.** The RA-bill **measurement-book detail** (per-item measurements, part-rates, printed Form 23/26) and the **GST / compliance** registers stay desktop / view-only for now; everything else is browser-editable.
+- ⏳ **Browser / LAN — remaining parity.** RA-bill statutory documents are now viewable and printable in the browser (measured items, Form 23 MB, Form 26 abstract — above); the one piece still desktop-only is **per-item measurement *entry*** (the on-drawing / dimension grid). The **GST / compliance** registers also stay desktop / view-only for now; everything else is browser-editable.
 - ⏳ **Real-display GUI render check.** A validation task, not a code gap: the headless CI has no Tk, so the two GUI smoke tests run only on a machine with a display (or Xvfb). The 600+ pure-logic tests pass headlessly.
 
 ---

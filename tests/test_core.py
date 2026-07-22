@@ -75,6 +75,7 @@ import variation
 import wages
 import earnedvalue
 import evm
+import mb_report
 import review_assemble
 import risk
 import risk_store
@@ -541,6 +542,71 @@ class TestReviewAssemble(unittest.TestCase):
         pack = review_assemble.assemble(self.conn, generated='2026-07-21')
         self.assertIsNone(pack.get('evm'))               # honestly absent
         self.assertEqual(pack['opportunities']['count'], 0)
+
+
+class TestMbReport(unittest.TestCase):
+    """The Measurement Book (Form 23) / RA abstract (Form 26) DB bridge — one
+    assembly shared by the desktop 'Export' and the browser print routes, so the
+    two surfaces render the identical statutory document."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self._orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+        self.conn = db.get_conn()
+        self.cid = self.conn.execute(
+            "INSERT INTO contracts (contract_no, contract_value) "
+            "VALUES ('C/01', 2000000)").lastrowid
+        self.bid = self.conn.execute(
+            "INSERT INTO boq_items (contract_id, item_no, description, unit, "
+            "qty, rate) VALUES (?, '1.1', 'PCC 1:4:8 foundation', 'cum', 100, "
+            "5500)", (self.cid,)).lastrowid
+        self.conn.execute(
+            "INSERT INTO measurements (boq_item_id, contract_id, mb_date, "
+            "mb_ref, description, nos, length, breadth, depth, quantity) VALUES "
+            "(?, ?, '2026-07-01', 'MB-12/34', 'Footing F1', 4, 2.0, 2.0, 0.5, "
+            "8.0)", (self.bid, self.cid))
+        self.rbid = self.conn.execute(
+            "INSERT INTO ra_bills (contract_id, bill_no, bill_date, "
+            "this_bill_value) VALUES (?, 'RA-1', '2026-07-05', 44000)",
+            (self.cid,)).lastrowid
+        self.conn.execute(
+            "INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, upto_qty, "
+            "previous_qty, current_qty, rate, current_amount) VALUES "
+            "(?, ?, 8, 0, 8, 5500, 44000)", (self.rbid, self.bid))
+        self.conn.commit()
+
+    def tearDown(self):
+        self.conn.close()
+        self.db.DB_PATH = self._orig
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
+
+    def test_has_measurements_reflects_the_data(self):
+        self.assertTrue(mb_report.has_measurements(self.conn, self.cid))
+        self.assertFalse(mb_report.has_measurements(self.conn, 99999))
+
+    def test_measurement_book_is_form23_and_shows_the_entry(self):
+        html = mb_report.measurement_book_html(self.conn, self.cid)
+        self.assertIn('Measurement Book', html)
+        self.assertIn('Form 23', html)
+        self.assertIn('Footing F1', html)          # the measured location
+        self.assertIn('PCC 1:4:8 foundation', html)  # the abstract item
+
+    def test_ra_abstract_is_the_pwd_layout_with_the_item(self):
+        html = mb_report.ra_abstract_html(self.conn, self.rbid)
+        self.assertIn('ABSTRACT OF WORK EXECUTED', html)
+        self.assertIn('PCC 1:4:8 foundation', html)
+
+    def test_ra_abstract_of_a_missing_bill_is_none(self):
+        self.assertIsNone(mb_report.ra_abstract_html(self.conn, 99999))
 
 
 class TestRisk(unittest.TestCase):
@@ -2090,11 +2156,16 @@ class TestRateRealisationApply(unittest.TestCase):
 
     def test_viewer_cannot_apply(self):
         import session
+        from unittest import mock
         from tab_lessons import RateRealisation
         session.login('viewer', 'Viewer')
         rr = RateRealisation.__new__(RateRealisation)
         rr.db_getter = self.db.get_conn
-        n = rr._apply([(1, 402.0)])
+        # ui_guard.can_write() pops a modal "read-only" dialog for a Viewer;
+        # with a Tk root alive from an earlier test that blocks the run, so
+        # suppress it — we are asserting the denial, not the dialog.
+        with mock.patch('ui_guard.messagebox'):
+            n = rr._apply([(1, 402.0)])
         self.assertEqual(n, 0)
         self.assertEqual(self._rate(), 380.0)              # unchanged
 

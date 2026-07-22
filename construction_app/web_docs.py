@@ -174,10 +174,12 @@ DOCS = {
     'ra_bills': {
         'label': 'RA Bill',
         'note': ('Running-account bill. Enter the value of work done in THIS '
-                 'bill (detailed measurements stay in the desktop Measurement '
-                 'Book). The CPWA Form-26 recoveries — security deposit, income-'
-                 'tax TDS, labour cess — are charged on this bill’s value. '
-                 'Posts to the ledger when Approved or Paid.'),
+                 'bill (detailed measurement entry stays in the desktop '
+                 'Measurement Book; the saved bill’s items, its Form-23 '
+                 'Measurement Book and Form-26 abstract are viewable and '
+                 'printable from its record here). The CPWA Form-26 recoveries — '
+                 'security deposit, income-tax TDS, labour cess — are charged on '
+                 'this bill’s value. Posts to the ledger when Approved or Paid.'),
         'compute': _ra_bill,
         'fields': [
             _f('bill_no', 'Bill no', required=True),

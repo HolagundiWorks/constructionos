@@ -33,6 +33,7 @@ import bill_export
 import estimate
 import evm
 import journal_post
+import mb_report
 import review_assemble
 import web_docs
 import web_masters
@@ -602,6 +603,8 @@ def _table_route(request, sess, rest):
             return _master_create(request, sess, conn, table, cols)
         if len(segs) == 3 and segs[2] == 'print' and table == 'estimates':
             return _print_estimate(conn, segs[1])
+        if len(segs) == 3 and table == 'ra_bills' and segs[2] in ('mb', 'ra'):
+            return _print_ra_document(conn, segs[1], segs[2])
         if len(segs) == 3 and segs[2] == 'edit':
             if table == 'estimates':
                 return _estimate_editor(request, sess, conn, segs[1])
@@ -720,6 +723,13 @@ def _record(conn, sess, table, cols, rid):
                  'target="_blank" rel="noopener">Print / Save as PDF</a></p>'
                  '{lines}').format(rid=R.esc(rid),
                                    lines=_estimate_lines_html(conn, rid))
+    elif table == 'ra_bills':
+        extra = ('<p><a class="btn ghost" href="/t/ra_bills/{rid}/mb" '
+                 'target="_blank" rel="noopener">Measurement Book (Form 23)</a> '
+                 '<a class="btn ghost" href="/t/ra_bills/{rid}/ra" '
+                 'target="_blank" rel="noopener">RA abstract (PWD Form 26)</a>'
+                 '</p>{items}').format(rid=R.esc(rid),
+                                       items=_ra_items_html(conn, rid))
     body = ('<h1>{lbl} #{rid}</h1><p><a class="btn ghost" href="/t/{tbl}">'
             '‹ Back to {lbl}</a></p>{actions}<dl class="dl">{items}</dl>'
             '{extra}').format(
@@ -1120,6 +1130,46 @@ def _print_estimate(conn, rid):
     html = bill_export.build_estimate_html(
         est, items, seller, company_name=seller.get('name') or 'Construction OS')
     return Response(html)
+
+
+def _print_ra_document(conn, rid, kind):
+    """Serve a statutory RA document as a standalone printable page (not the app
+    chrome): ``mb`` = the contract's Measurement Book (Form 23 / CMB), ``ra`` =
+    the RA bill's PWD-style abstract (Form 26). Both come from the pure
+    ``bill_export`` builders via ``mb_report``, identical to the desktop."""
+    if kind == 'mb':
+        bill = conn.execute('SELECT contract_id FROM ra_bills WHERE id = ?',
+                            (rid,)).fetchone()
+        if not bill or bill['contract_id'] is None:
+            return Response('This bill has no contract to measure against.',
+                            status=404)
+        return Response(mb_report.measurement_book_html(conn,
+                                                        bill['contract_id']))
+    html = mb_report.ra_abstract_html(conn, rid)
+    if html is None:
+        return Response('RA bill not found', status=404)
+    return Response(html)
+
+
+def _ra_items_html(conn, rid):
+    """The measured items on an RA bill, for the browser record view."""
+    rows = conn.execute(
+        "SELECT b.item_no, b.description, b.unit, ri.upto_qty, ri.previous_qty, "
+        "ri.current_qty, ri.rate, ri.current_amount FROM ra_bill_items ri "
+        "LEFT JOIN boq_items b ON b.id = ri.boq_item_id "
+        "WHERE ri.ra_bill_id = ? ORDER BY ri.id", (rid,)).fetchall()
+    if not rows:
+        return ('<p class="muted">No measured items recorded on this bill yet — '
+                'enter measurements in the desktop BOQ / RA tab.</p>')
+
+    def q(value):
+        return '' if value is None else '%g' % value
+    headers = ['Item', 'Description', 'Unit', 'Upto qty', 'Prev qty',
+               'This qty', 'Rate', 'This amount']
+    trows = [[r['item_no'] or '', r['description'] or '', r['unit'] or '',
+              q(r['upto_qty']), q(r['previous_qty']), q(r['current_qty']),
+              R.money(r['rate']), R.money(r['current_amount'])] for r in rows]
+    return '<h2>Measured items</h2>' + R.table(headers, trows, scroll=True)
 
 
 # ------------------------------------------------ postable money documents
