@@ -1,9 +1,23 @@
 <Page
     x:Class="ConstructionOS.WinUI.Views.EvmPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid RowDefinitions="Auto,*" Padding="8">
-    <TextBlock Text="Earned Value" Style="{StaticResource TitleTextBlockStyle}"/>
-    <ListView x:Name="Grid" Grid.Row="1" Margin="0,8,0,0" SelectionMode="Single"/>
-  </Grid>
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI">
+  <ScrollViewer Padding="8">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Earned Value" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock x:Name="Summary" TextWrapping="Wrap"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <!-- Per-project cost (CPI) and schedule (SPI) performance. 1.0 = on plan;
+           below 1 is over cost / behind. Values from /api/evm — no maths in C#. -->
+      <Border Height="320" Padding="4"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              CornerRadius="8">
+        <lvc:CartesianChart x:Name="Chart"/>
+      </Border>
+      <TextBlock x:Name="Status" TextWrapping="Wrap"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <ListView x:Name="Grid" SelectionMode="Single"/>
+    </StackPanel>
+  </ScrollViewer>
 </Page>

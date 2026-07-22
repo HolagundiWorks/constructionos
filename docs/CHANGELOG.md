@@ -6,6 +6,19 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — WinUI U4: Earned Value page — per-project CPI/SPI chart
+
+- **EVM page plots real performance.** `Views/EvmPage.*` now reads
+  `GET /api/evm` (`{rows, portfolio}`) and draws a stock LiveCharts **grouped
+  column chart** — cost (CPI) and schedule (SPI) per project, with a portfolio
+  summary line (projects · CPI · SPI · over-cost · behind · "1.0 = on plan") and
+  the full per-project detail below. Null indices (AC/PV not booked yet) render
+  as gaps via `double?` values, not fake zeros. Fixes the old page, which read
+  the wrong keys (`projects`/`items`) and always showed nothing. No EVM maths in
+  C#. `dotnet build` 0 errors.
+
+---
+
 ## 2026-07-22 — WinUI U4: Home dashboard — KPI stat cards + InfoBar advisories
 
 - **Home page is a real dashboard now.** `Views/HomePage.*` renders the money
