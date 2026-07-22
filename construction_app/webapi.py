@@ -57,6 +57,7 @@ import workflow_state
 _API_MASTERS = (
     'sites', 'clients', 'vendors', 'materials', 'labor', 'equipment',
     'projects', 'milestones', 'thekedars', 'rate_book', 'contracts',
+    'measurements',
 )
 
 # Money documents: create + list/get (no edit — records of fact).
@@ -79,7 +80,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.7'})
+        return _ok({'ok': True, 'service': 'construction-os', 'api': 'u0.8'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -135,6 +136,9 @@ def handle(request, sess):
 
     if path == 'cashflow' and method == 'GET':
         return _cashflow(request)
+
+    if path == 'gst' and method == 'GET':
+        return _gst_report(request)
 
     if path == 'bills/previous' and method == 'GET':
         return _bills_previous(request)
@@ -311,7 +315,7 @@ def handle(request, sess):
 
     if path in _API_MASTERS:
         if method == 'GET':
-            return _list_master(path)
+            return _list_master(path, request)
         if method == 'POST':
             return _create_master(request, sess, path)
     m = _MASTER_ID.match(path)
@@ -488,7 +492,17 @@ def _evm_portfolio():
     conn = _conn()
     try:
         rows, port = evm.portfolio_evm(conn)
-        return _ok({'rows': rows, 'portfolio': port})
+        # Chart-ready parallel arrays (WinUI LiveCharts); detail unchanged.
+        labels = [r.get('name') or '' for r in rows]
+        values = [
+            (r.get('spi') if r.get('spi') is not None else 0.0) for r in rows
+        ]
+        return _ok({
+            'rows': rows,
+            'portfolio': port,
+            'labels': labels,
+            'values': values,
+        })
     finally:
         conn.close()
 
@@ -658,11 +672,21 @@ def _delete_opp(request, sess, oid):
         conn.close()
 
 
-def _list_master(table):
+def _list_master(table, request=None):
     conn = _conn()
     try:
+        where, params = '', []
+        q = (request.query if request else None) or {}
+        # Optional FK filters used by WinUI drill-downs (measurements by contract).
+        if table == 'measurements' and q.get('contract_id') not in (None, ''):
+            try:
+                where, params = ' WHERE contract_id = ?', [int(q['contract_id'])]
+            except (TypeError, ValueError):
+                return _err('contract_id must be an integer', 400)
         rows = conn.execute(
-            'SELECT * FROM "{}" ORDER BY id DESC LIMIT 500'.format(table)
+            'SELECT * FROM "{}"{} ORDER BY id DESC LIMIT 500'.format(
+                table, where),
+            params,
         ).fetchall()
         return _ok({
             'table': table,
@@ -695,7 +719,7 @@ def _collect_master_values(table, payload):
         if key not in payload:
             if field.get('required') and not field.get('default'):
                 return False, None, '{} is required.'.format(field['label'])
-            raw = field.get('default', '')
+            raw = web_masters.resolve_default(field.get('default', ''))
         else:
             raw = payload[key]
             if raw is None:
@@ -716,6 +740,9 @@ def _create_master(request, sess, table):
     ok, values, err = _collect_master_values(table, _payload(request))
     if not ok:
         return _err(err, 400)
+    # Derive computed columns (e.g. measurements.quantity) before insert —
+    # same path as the browser register (web_masters.derive).
+    values = web_masters.derive(table, values)
     conn = _conn()
     try:
         cols = list(values.keys())
@@ -723,9 +750,9 @@ def _create_master(request, sess, table):
             table, ', '.join('"{}"'.format(c) for c in cols),
             ', '.join('?' for _ in cols))
         cur = conn.execute(sql, [values[c] for c in cols])
-        conn.commit()
         new_id = cur.lastrowid
         auth.audit(conn, sess['username'], 'api_create', table, new_id)
+        conn.commit()
         row = conn.execute(
             'SELECT * FROM "{}" WHERE id = ?'.format(table), (new_id,)
         ).fetchone()
@@ -761,12 +788,21 @@ def _update_master(request, sess, table, rid):
             if not ok:
                 return _err(err, 400)
             merged[key] = val
-        cols = [c for c in merged if c in {f['key'] for f in web_masters.fields(table)}]
+        # Re-derive after merge so quantity / obligation keys stay consistent.
+        derived = web_masters.derive(table, {
+            k: merged[k] for k in merged
+            if k in {f['key'] for f in web_masters.fields(table)}
+            or k in ('quantity',)
+        })
+        merged.update(derived)
+        field_keys = {f['key'] for f in web_masters.fields(table)}
+        # Include derived columns that aren't form fields (quantity).
+        cols = [c for c in merged if c in field_keys or c in ('quantity',)]
         sql = 'UPDATE "{}" SET {} WHERE id = ?'.format(
             table, ', '.join('"{}" = ?'.format(c) for c in cols))
         conn.execute(sql, [merged[c] for c in cols] + [rid])
-        conn.commit()
         auth.audit(conn, sess['username'], 'api_update', table, rid)
+        conn.commit()
         row = conn.execute(
             'SELECT * FROM "{}" WHERE id = ?'.format(table), (rid,)
         ).fetchone()
@@ -788,11 +824,11 @@ def _delete_master(request, sess, table, rid):
             return _err('Not found', 404)
         try:
             conn.execute('DELETE FROM "{}" WHERE id = ?'.format(table), (rid,))
-            conn.commit()
         except Exception as exc:  # noqa: BLE001 — FK integrity → plain error
             return _err('Cannot delete: record is still used elsewhere ({})'
                         .format(exc), 409)
         auth.audit(conn, sess['username'], 'api_delete', table, rid)
+        conn.commit()
         return _ok({'deleted': rid})
     finally:
         conn.close()
@@ -966,7 +1002,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.7',
+        'api': 'u0.8',
         'auth': {
             'login': 'POST /api/login',
             'session_cookie': 'cosid',
@@ -980,6 +1016,7 @@ def _api_contract():
             'GET /api/productivity', 'GET /api/filings/feed',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
+            'GET /api/gst?month=',
             'GET /api/bills/previous?contract_id=',
             'GET /api/boq_items?contract_id=',
             'GET /api/allocations?payment_id=',
@@ -1017,6 +1054,11 @@ def _api_contract():
         'masters': list(_API_MASTERS),
         'docs': list(_API_DOCS),
         'personas': list(menu.PERSONAS),
+        'chart_bind': {
+            'cashflow': 'labels + values (balance) + series.{in,out,balance}',
+            'ageing': 'labels + values (bucket amounts)',
+            'evm': 'labels (project name) + values (SPI)',
+        },
     })
 
 
@@ -1166,9 +1208,13 @@ def _ageing_summary(request):
             {'label': label, 'amount': aged.get(label, 0.0)}
             for label in ageing.BUCKETS
         ]
+        labels = [b['label'] for b in buckets]
+        values = [b['amount'] for b in buckets]
         return _ok({
             'ageing': aged,
             'buckets': buckets,
+            'labels': labels,
+            'values': values,
             'total': aged.get('total', 0.0),
             'receivable': snap.get('receivable'),
             'receivable_90plus': snap.get('receivable_90plus'),
@@ -1190,7 +1236,44 @@ def _cashflow(request):
             payment_lag_days=q.get('payment_lag') or 15,
             weekly_wages=q.get('weekly_wages') or 0,
         )
+        buckets = result.get('buckets') or []
+        # Parallel arrays for LiveCharts; detail buckets stay intact.
+        result['labels'] = [
+            (b.get('start').isoformat() if hasattr(b.get('start'), 'isoformat')
+             else str(b.get('start') or ''))
+            for b in buckets
+        ]
+        result['values'] = [b.get('balance', 0.0) for b in buckets]
+        result['series'] = {
+            'in': [b.get('in', 0.0) for b in buckets],
+            'out': [b.get('out', 0.0) for b in buckets],
+            'balance': list(result['values']),
+        }
         return _ok(result)
+    finally:
+        conn.close()
+
+
+def _gst_report(request):
+    """GET /api/gst?month=YYYY-MM — outward/inward/HSN/TDS over ``gst.py``."""
+    import gst
+    from datetime import date
+    month = ((request.query or {}).get('month') or '').strip()
+    if not month:
+        month = date.today().strftime('%Y-%m')
+    conn = _conn()
+    try:
+        out_rows, out_tot = gst.outward(conn, month)
+        in_rows, in_tot = gst.inward(conn, month)
+        hsn_rows, hsn_tot = gst.hsn_summary(conn, month)
+        tds_rows, tds_tot = gst.tds_register(conn, month)
+        return _ok({
+            'month': month,
+            'outward': {'rows': [list(r) for r in out_rows], 'totals': out_tot},
+            'hsn': {'rows': [list(r) for r in hsn_rows], 'totals': hsn_tot},
+            'inward': {'rows': [list(r) for r in in_rows], 'totals': in_tot},
+            'tds': {'rows': [list(r) for r in tds_rows], 'total': tds_tot},
+        })
     finally:
         conn.close()
 

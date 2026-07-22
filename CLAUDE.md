@@ -7,7 +7,7 @@ is the short, always-loaded memory.
 Construction OS — a full **ERP for Indian construction contractors**: pure
 **Python standard library**, **tkinter** desktop UI, optional **stdlib web/LAN**
 front-end, a single **SQLite** file, **no pip dependencies**. Business maths lives
-in ~98 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
+in ~99 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
 
 ## Hard rules (don't break without explicit instruction)
 - **Stdlib only, no pip** in the domain/backend. New business maths → a **pure,

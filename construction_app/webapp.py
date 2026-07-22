@@ -568,20 +568,20 @@ def _review(request, sess):
 
 def _gst(request, sess):
     """GST & TDS register for a month, in the browser (read-only). Reuses the
-    desktop's own compute functions (`tab_gst.outward/inward/hsn_summary/
-    tds_register`) so the browser and desktop report the identical figures.
-    A computed report, not a table — so it stays view-only."""
-    import tab_gst
+    pure ``gst`` module (same maths as the desktop tab and ``GET /api/gst``)
+    so every surface reports identical figures. A computed report, not a
+    table — so it stays view-only."""
+    import gst
     from datetime import date
     conn = db.get_conn()
     try:
         month = (request.query.get('month') or '').strip()
         if not month:
             month = date.today().strftime('%Y-%m')
-        out_rows, out_tot = tab_gst.outward(conn, month)
-        in_rows, in_tot = tab_gst.inward(conn, month)
-        hsn_rows, hsn_tot = tab_gst.hsn_summary(conn, month)
-        tds_rows, tds_tot = tab_gst.tds_register(conn, month)
+        out_rows, out_tot = gst.outward(conn, month)
+        in_rows, in_tot = gst.inward(conn, month)
+        hsn_rows, hsn_tot = gst.hsn_summary(conn, month)
+        tds_rows, tds_tot = gst.tds_register(conn, month)
         body = _gst_body(month, out_rows, out_tot, in_rows, in_tot,
                          hsn_rows, hsn_tot, tds_rows, tds_tot)
         return _shell('GST & TDS', body, sess, conn, active='gst')

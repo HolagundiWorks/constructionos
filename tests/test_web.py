@@ -912,10 +912,11 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.7')
+        self.assertEqual(c['api'], 'u0.8')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
+        self.assertIn('measurements', c['masters'])
 
         resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
         self.assertEqual(resp.status, 200)
@@ -1366,6 +1367,132 @@ class TestWebApi(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         recs = self._json(resp).get('records') or []
         self.assertTrue(any(r.get('nav') and r.get('tag') for r in recs))
+
+    def test_ct_gst_measurements_chart_shapes_audit(self):
+        """CT-2..CT-5 — /api/gst, measurements CRUD, chart labels, audit sweep."""
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        H = {'X-CSRF-Token': csrf}
+
+        # Seed parties + contract for GST + measurements.
+        self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=cookies,
+            json_body={'name': 'PWD'}, headers=H))
+        self.webapp.handle(self._req(
+            '/api/vendors', 'POST', cookies=cookies,
+            json_body={'name': 'Steel Co'}, headers=H))
+        self.webapp.handle(self._req(
+            '/api/contracts', 'POST', cookies=cookies,
+            json_body={'contract_no': 'C-GST', 'client_id': 1},
+            headers=H))
+
+        conn = self.db.get_conn()
+        conn.execute(
+            "INSERT INTO tax_invoices (invoice_no, client_id, invoice_date, "
+            "interstate, gst_pct, subtotal, tax_amount, total_amount, status) "
+            "VALUES ('TI-CT', 1, '2026-07-10', 0, 18, 10000, 1800, 11800, 'Issued')")
+        conn.execute(
+            "INSERT INTO tax_invoice_items (tax_invoice_id, description, "
+            "hsn_code, amount) VALUES (1, 'Work', '9954', 10000)")
+        t = __import__('finance').invoice_totals(5000, 18, 2, False)
+        conn.execute(
+            "INSERT INTO vendor_invoices (invoice_no, vendor_id, invoice_date, "
+            "interstate, gst_pct, tds_pct, subtotal, tax_amount, tds_amount, "
+            "total_amount, net_payable) "
+            "VALUES ('VI-CT', 1, '2026-07-12', 0, 18, 2, 5000, ?, ?, ?, ?)",
+            (t['tax_amount'], t['tds_amount'], t['total_amount'], t['net_payable']))
+        conn.execute(
+            "INSERT INTO boq_items (contract_id, item_no, description, unit, "
+            "qty, rate, amount) VALUES (1, '1', 'PCC', 'cum', 10, 100, 1000)")
+        conn.commit()
+        conn.close()
+
+        # CT-2 — GST JSON report
+        resp = self.webapp.handle(self._req(
+            '/api/gst', cookies=cookies, query={'month': '2026-07'}))
+        self.assertEqual(resp.status, 200, resp.body)
+        g = self._json(resp)
+        self.assertEqual(g['month'], '2026-07')
+        for block in ('outward', 'hsn', 'inward', 'tds'):
+            self.assertIn(block, g)
+        self.assertEqual(g['outward']['totals']['taxable'], 10000.0)
+        self.assertEqual(g['inward']['totals']['taxable'], 5000.0)
+        self.assertEqual(g['tds']['total'], 100.0)
+
+        # CT-3 — measurements CRUD; blank breadth stays NULL, qty = 4*2*1*0.5
+        resp = self.webapp.handle(self._req(
+            '/api/measurements', 'POST', cookies=cookies,
+            json_body={'contract_id': 1, 'boq_item_id': 1,
+                       'mb_date': '2026-07-01', 'mb_ref': 'MB-CT',
+                       'nos': 4, 'length': 2, 'breadth': '', 'depth': 0.5},
+            headers=H))
+        self.assertEqual(resp.status, 201, resp.body)
+        m = self._json(resp)
+        mid = m['id']
+        self.assertEqual(m['quantity'], 4.0)
+        self.assertIsNone(m['breadth'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/measurements', cookies=cookies,
+            query={'contract_id': '1'}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self._json(resp)['items']), 1)
+
+        resp = self.webapp.handle(self._req(
+            '/api/measurements/{}'.format(mid), 'PUT', cookies=cookies,
+            json_body={'nos': 5, 'length': 2, 'breadth': '', 'depth': 0.5},
+            headers=H))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertEqual(self._json(resp)['quantity'], 5.0)
+
+        # CT-4 — chart-ready labels/values
+        for path in ('/api/cashflow', '/api/ageing', '/api/evm'):
+            resp = self.webapp.handle(self._req(path, cookies=cookies))
+            self.assertEqual(resp.status, 200, path)
+            body = self._json(resp)
+            self.assertIn('labels', body, path)
+            self.assertIn('values', body, path)
+            self.assertEqual(len(body['labels']), len(body['values']), path)
+        cf = self._json(self.webapp.handle(self._req(
+            '/api/cashflow', cookies=cookies, query={'periods': '3'})))
+        self.assertIn('buckets', cf)  # detail unchanged
+        self.assertIn('series', cf)
+        self.assertEqual(len(cf['series']['balance']), len(cf['labels']))
+
+        # CT-5 — audit rows for measurement writes + read sweep
+        resp = self.webapp.handle(self._req(
+            '/api/measurements/{}'.format(mid), 'DELETE', cookies=cookies,
+            headers=H))
+        self.assertEqual(resp.status, 200)
+
+        resp = self.webapp.handle(self._req(
+            '/api/audit', cookies=cookies, query={'limit': '100'}))
+        self.assertEqual(resp.status, 200)
+        actions = {i['action'] for i in self._json(resp)['items']}
+        self.assertIn('api_create', actions)
+        self.assertIn('api_update', actions)
+        self.assertIn('api_delete', actions)
+
+        read_paths = [
+            '/api/health', '/api/me', '/api/contract', '/api/dashboard',
+            '/api/kpi', '/api/review', '/api/portfolio',
+            '/api/productivity', '/api/filings/feed', '/api/purchase_orders',
+            '/api/goods_receipts', '/api/match', '/api/ageing', '/api/cashflow',
+            '/api/gst', '/api/workflow', '/api/evm', '/api/risks',
+            '/api/opportunities', '/api/lessons', '/api/submittals',
+            '/api/audit', '/api/sidecar/status',
+            '/api/measurements', '/api/sites', '/api/contracts',
+        ]
+        for path in read_paths:
+            resp = self.webapp.handle(self._req(path, cookies=cookies))
+            self.assertEqual(resp.status, 200, path)
+        # Endpoints that need a query param still return 200 with one.
+        for path, query in (('/api/search', {'q': 'x'}),
+                            ('/api/narrative', {'kind': 'kpi'}),
+                            ('/api/menu', {'persona': 'Owner'})):
+            resp = self.webapp.handle(self._req(
+                path, cookies=cookies, query=query))
+            self.assertEqual(resp.status, 200, path)
 
 
 if __name__ == '__main__':
