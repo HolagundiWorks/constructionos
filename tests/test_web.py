@@ -290,6 +290,35 @@ class TestWebRouter(unittest.TestCase):
         self.assertAlmostEqual(total2, 3894.0, places=2)
         self.assertEqual(nlines2, 2)     # replaced, not duplicated
 
+    def test_estimate_print_serves_a_document(self):
+        import webapp
+        self._make_site()
+        sid = self._login_admin()
+        csrf = self._scsrf(sid)
+        ck = {'cosid': sid}
+        r = webapp.handle(self._req(
+            '/t/estimates/new', 'POST',
+            form={'csrf': csrf, 'title': 'Boundary Wall', 'contingency_pct': '0',
+                  'gst_pct': '18', 'status': 'Draft'},
+            multi={'li_desc': ['Excavation'], 'li_qty': ['10'],
+                   'li_rate': ['100']}, cookies=ck))
+        eid = r.headers['Location'].rsplit('/', 1)[1]
+        # record view offers the print link
+        rec = webapp.handle(self._req('/t/estimates/{}'.format(eid), cookies=ck))
+        self.assertIn('/t/estimates/{}/print'.format(eid).encode(), rec.body)
+        # the print route serves the generated document (not the app chrome)
+        doc = webapp.handle(self._req('/t/estimates/{}/print'.format(eid),
+                                      cookies=ck))
+        self.assertEqual(doc.status, 200)
+        self.assertIn(b'Boundary Wall', doc.body)
+        self.assertIn(b'Excavation', doc.body)
+
+    def test_estimate_print_requires_login(self):
+        import webapp
+        # no cookie -> the gate bounces to /login
+        r = webapp.handle(self._req('/t/estimates/1/print'))
+        self.assertEqual(r.status, 303)
+
     def test_estimate_requires_title_and_a_line(self):
         import webapp
         sid = self._login_admin()

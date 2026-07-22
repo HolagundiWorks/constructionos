@@ -25,7 +25,9 @@ drift):
 * **Estimates** — header + line items (add/remove rows in the browser). The
   roll-up (subtotal → contingency → GST → grand total) is the same pure
   `estimate.estimate_totals` the desktop uses, and estimates never post to the
-  ledger.
+  ledger. Each estimate has a **Print / Save as PDF** link that serves the fully
+  formatted document (`bill_export.build_estimate_html`, the same as the desktop)
+  for the browser to print or save.
 * **Money documents that post** — **payments, tax invoices, vendor invoices,
   running bills and RA bills** (`web_docs.py`). The browser writes the document
   with the same derived amounts the desktop computes (GST, TDS, net payable,
