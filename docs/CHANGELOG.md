@@ -46,6 +46,46 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — Continue: N5 groups, portfolio, productivity, match narration
+
+- **N5 grouping.** Billing/Operations section notebooks render `menu.GROUPS` as
+  nested group tabs; Process deep-link walks nested notebooks.
+- **More event wiring.** Measurement save and variation Approve surface gated
+  `event_hooks` drafts (same pattern as GRN).
+- **Portfolio shell.** Money › Portfolio tab + WinUI `PortfolioPage` over
+  `portfolio_store` (federated paths optional).
+- **Productivity bridge.** `productivity_store` feeds Key Numbers +
+  `GET /api/productivity` from muster/plant/work-done (pure ratios unchanged).
+- **3-way match narration.** `procurement.narrate_match` / `narrate_summary`
+  on the Goods Receipt match view.
+- **Nav status.** N1–N3/N5/N6 marked built in the gap table; N4 partial (tab
+  search only).
+
+---
+
+## 2026-07-22 — Remaining roadmap: Controls / Process / persona / WinUI / field
+
+- **L1 Controls section.** `modules.SECTIONS_CATALOG` gains **Controls** (Risk
+  Register, Opportunity Register, Lessons Learned, Submittals); Risks /
+  Opportunities leave Project Management. Labels align with `menu.CONTROLS_SECTION`.
+- **L2 Lessons Learned tab.** New `tab_lessons_learned.py` over `lessons_store`
+  (distinct from Rate Realisation `tab_lessons.py`).
+- **L3 Persona rail.** Tools › Persona persists `app_settings.persona`;
+  `main.py` builds the rail via `menu.resolve`.
+- **L4 Process + search.** Always-on Process rail (`tab_process.py`) over
+  `workflow` + new `workflow_state.infer`; command search via `menu.search_tabs`.
+- **L4 event wiring.** GRN add/post surfaces `event_hooks` drafts (no auto-post);
+  payment create API returns gated follow-ups.
+- **L6–L7 WinUI scaffolds.** Opportunities / Lessons / Submittals / Money / EVM /
+  Charts pages + `winui/PACKAGING.md` (MSIX notes). Still Windows-only to build.
+- **L8 sidecar stubs.** `sidecars/{ocr,stt,vlm}/` READMEs — no weights in-repo.
+- **L9 field capture (E6-lite).** `/m/capture` mobile web form +
+  `POST /api/capture/draft|confirm` over `capture.py`.
+- **Tests.** 667 headless OK (5 skipped without tkinter). GUI smoke still needs
+  a local display (L0).
+
+---
+
 ## 2026-07-22 — Roadmap continue: U0.1 API widen + WinUI U1 scaffold
 
 - **API u0.1.** Money docs create (`payments`, invoices, bills), submittals CRUD,

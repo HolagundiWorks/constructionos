@@ -96,8 +96,26 @@ public sealed partial class MainWindow : Window
                 ContentFrame.Navigate(typeof(HomePage));
             else if (tab.Contains("Risk", StringComparison.OrdinalIgnoreCase))
                 ContentFrame.Navigate(typeof(RisksPage));
-            else if (tab.Contains("Process", StringComparison.OrdinalIgnoreCase)
-                     || tab == "What's next")
+            else if (tag.Contains("Opportun", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(OpportunitiesPage));
+            else if (tag.Contains("Lesson", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(LessonsPage));
+            else if (tag.Contains("Submittal", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(SubmittalsPage));
+            else if (tag.Contains("Cash", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("Payment", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("Money", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(MoneyPage));
+            else if (tag.Contains("Earned", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("EVM", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(EvmPage));
+            else if (tag.Contains("Portfolio", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(PortfolioPage));
+            else if (tag.Contains("Chart", StringComparison.OrdinalIgnoreCase)
+                     || tag.Contains("Key Numbers", StringComparison.OrdinalIgnoreCase))
+                ContentFrame.Navigate(typeof(ChartsPage));
+            else if (tag.Contains("Process", StringComparison.OrdinalIgnoreCase)
+                     || tag == "What's next")
                 ContentFrame.Navigate(typeof(ProcessPage));
             else
                 ContentFrame.Navigate(typeof(HomePage));

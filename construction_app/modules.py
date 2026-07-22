@@ -19,8 +19,13 @@ SECTIONS_CATALOG = [
     # portfolio, the programme (Gantt/CPM/baseline/LD) and the weekly plan —
     # rather than "what happened on site today".
     ('Project Management',
-     ['Projects', 'Earned Value', 'Timeline', 'Look-ahead', 'Risks',
-      'Opportunities']),
+     ['Projects', 'Earned Value', 'Timeline', 'Look-ahead']),
+    # Controls — Part 2 registers (E7.3). Risk / Opportunity moved here from
+    # Project Management; Lessons Learned is the register (not Rate Realisation);
+    # Submittals also remain reachable under Purchases › Sourcing.
+    ('Controls',
+     ['Risk Register', 'Opportunity Register', 'Lessons Learned',
+      'Submittals']),
     ('Operations', ['Warehouse', 'Muster & Wages', 'Labour Ops',
                     'Equipment Hire', 'Plant', 'Consumption', 'Site Reports',
                     'Quality', 'Safety', 'Closeout']),
@@ -31,9 +36,30 @@ SECTIONS_CATALOG = [
     ('Purchases', ['Sourcing', 'Purchase Orders', 'Goods Receipt',
                    'Vendor Invoices', 'Subcontractors']),
     ('Money', ['Key Numbers', 'Approvals', 'Cash & Parties', 'Cash Flow',
-               'Retention', 'Insight', 'Review']),
+               'Retention', 'Insight', 'Review', 'Portfolio']),
     ('Accounts', ['GST & TDS', 'Compliance', 'Accounting']),
 ]
+
+# app_settings key for the job-persona that scopes the rail (E7.3).
+PERSONA_KEY = 'persona'
+
+
+def get_persona(conn):
+    """Saved persona name, or ``'Owner'`` when unset / unknown."""
+    row = conn.execute(
+        'SELECT value FROM app_settings WHERE key = ?', (PERSONA_KEY,)
+    ).fetchone()
+    return (row['value'] if row and row['value'] else 'Owner')
+
+
+def set_persona(conn, persona):
+    """Persist the persona string (validated by the caller against menu.PERSONAS)."""
+    conn.execute(
+        'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        (PERSONA_KEY, persona or 'Owner'))
+    conn.commit()
+
 
 # Flat list of every toggleable module label, in catalog order.
 ALL_MODULES = [label for _title, labels in SECTIONS_CATALOG for label in labels]

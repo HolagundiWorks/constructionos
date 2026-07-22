@@ -26,6 +26,7 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 import assets
 import db
 import modules
+import menu
 import branding
 import firm as firm_module
 import company
@@ -165,6 +166,23 @@ class ToolsTab(ttk.Frame):
         ttk.Button(row, text='Save Language', command=self.save_language) \
             .pack(side='left', padx=6)
 
+        # --- Persona (job menu scope — distinct from Admin/Operator/Viewer) ---
+        pers = ttk.LabelFrame(self, text='Persona (what menu you see)')
+        pers.pack(fill='x', padx=12, pady=(6, 6))
+        ttk.Label(
+            pers,
+            text='Owner sees everything. Other personas hide sections that are '
+                 'not their job. Applies the next time you open the app.',
+            wraplength=540, foreground=theme.palette()['muted'],
+            justify='left').pack(anchor='w', padx=8, pady=(6, 2))
+        self.persona_var = tk.StringVar()
+        prow = ttk.Frame(pers); prow.pack(fill='x', padx=8, pady=4)
+        ttk.Combobox(
+            prow, textvariable=self.persona_var, width=22, state='readonly',
+            values=list(menu.PERSONAS)).pack(side='left')
+        ttk.Button(prow, text='Save Persona', command=self.save_persona) \
+            .pack(side='left', padx=6)
+
         # --- Modules (switch tabs on/off) ---
         mod = ttk.LabelFrame(self, text='Modules (switch off what you don\'t use)')
         mod.pack(fill='x', padx=12, pady=(6, 6))
@@ -253,14 +271,36 @@ class ToolsTab(ttk.Frame):
         conn = self.db_getter()
         try:
             states = modules.enabled_map(conn)
+            persona = modules.get_persona(conn)
         finally:
             conn.close()
+        if persona not in menu.PERSONAS:
+            persona = menu.OWNER
+        self.persona_var.set(persona)
         for label, var in self.module_vars.items():
             var.set(1 if states.get(label, True) else 0)
 
     def _set_all_modules(self, value):
         for var in self.module_vars.values():
             var.set(value)
+
+    def save_persona(self):
+        if not can_write():
+            return
+        persona = self.persona_var.get().strip() or menu.OWNER
+        if persona not in menu.PERSONAS:
+            persona = menu.OWNER
+        conn = self.db_getter()
+        try:
+            modules.set_persona(conn, persona)
+        finally:
+            conn.close()
+        self.status_var.set(
+            'Persona saved ({}) — reopen the app to apply.'.format(persona))
+        messagebox.showinfo(
+            'Persona saved',
+            'The rail will show sections for “{}” the next time you open '
+            'the app.'.format(persona))
 
     def save_modules(self):
         if not can_write():

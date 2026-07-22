@@ -26,6 +26,8 @@ import civil
 import mb
 import mb_report
 import bill_export
+import event_hooks
+import followups
 import ratebook_picker
 import report_open
 
@@ -529,6 +531,22 @@ class MeasurementFrame(ttk.Frame):
             conn.commit()
         finally:
             conn.close()
+        try:
+            result = event_hooks.react(followups.MEASUREMENT_ENTERED, {
+                'contract_id': d.get('contract_id'),
+                'boq_item_id': d.get('boq_item_id'),
+                'quantity': d.get('quantity'),
+            })
+            steps = result.get('followups') or []
+            if steps:
+                lines = ['• {} — {}'.format(f.get('action', ''), f.get('where', ''))
+                         for f in steps]
+                messagebox.showinfo(
+                    'Suggested next steps',
+                    'Measurement saved. Draft follow-ups '
+                    '(nothing was auto-posted):\n\n' + '\n'.join(lines))
+        except Exception:                                    # noqa: BLE001
+            pass
         self.refresh_items(); self.clear()
 
     def update(self):

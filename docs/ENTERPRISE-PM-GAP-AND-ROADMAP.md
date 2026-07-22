@@ -164,12 +164,12 @@ operational-flow mapping. The gaps:
 
 | # | Target | Status | Gap | Impact | Required work | Pri · Effort · Type |
 |---|---|---|---|---|---|---|
-| **N1** | Menu home for the new registers | 🟡 | Risks / Opportunities live under Project Management; Weekly Review under Money; **Lessons Learned register** still has no dedicated tab (Rate Realisation ≠ lessons-learned); Submittals sit inside Sourcing | Part 2 registers partly reachable; Lessons Learned register still buried | Controls section + Lessons Learned tab (E7.3); keep Submittals or promote | P1 · M · UI |
-| **N2** | Guided operational workflow | 🟡 | Flow graph built (`workflow.py` — next-step/progress, drift-guarded); Process view (UI) pending | New users can't yet *see* the operating sequence | Process view over `workflow`/`advisory`/`followups` (E7.4) | P1 · M · UI |
-| **N3** | Role/persona-scoped menu | 🟡 | Persona→sections model built (`menu.py`, composes with feature-flags); rail filtering (UI) pending | Model ready; menu not yet rendered per persona | Rail filtering over `menu.resolve` (E7.3) | P1 · S · UI |
-| **N4** | Global search / command palette / breadcrumbs | ❌ | 47+ tabs, findability by memory; no deep-linking | Slow navigation; no jump-to-record | Search index over tabs+records; align with web URL routing | P2 · M · UI |
-| **N5** | Sub-section grouping (3rd level) | 🟡 | Grouping overlay built (`menu.GROUPS`/`groups_for`/`flatten`, drift-guarded); render pending | Model ready; 3rd level not yet rendered | Render grouped tabs in the section notebook (E7.3) | P2 · S · UI |
-| **N6** | Workflow-menu alignment | 🟡 | Steps of one process sit in different sections (Sourcing↔Bid/No-Bid; Measurement↔DPR) | Functional grouping fights the flow | Resolved by N2's Process view (overlay, not a re-org) | P2 · S · UX |
+| **N1** | Menu home for the new registers | ✅ | Controls section + Lessons Learned tab shipped | — | Maintain | — |
+| **N2** | Guided operational workflow | ✅ | Process rail over `workflow` + `workflow_state` | — | Maintain | — |
+| **N3** | Role/persona-scoped menu | ✅ | Tools › Persona + `menu.resolve` in rail | — | Maintain | — |
+| **N4** | Global search / command palette / breadcrumbs | 🟡 | Process “Go to…” + `menu.search_tabs` / `GET /api/search`; no record-level deep-link yet | Tab findability improved; record jump still open | Extend search to records; align with web URLs | P2 · M · UI |
+| **N5** | Sub-section grouping (3rd level) | ✅ | `menu.GROUPS` rendered as nested notebooks in `_section` | — | Maintain | — |
+| **N6** | Workflow-menu alignment | ✅ | Resolved by Process view (overlay, not a re-org) | — | Maintain | — |
 
 **Guardrail:** the menu *model* — the role→section map, the workflow step graph,
 the catalog grouping — is **pure config/data and unit-testable headless**; only
@@ -320,10 +320,13 @@ sidecars** are built and verified.
 | Surface | Where |
 |---|---|
 | Earned Value tab + browser | Project Management › Earned Value; `/evm` |
-| Risk Register tab | Project Management › Risks |
-| Opportunity Register tab | Project Management › Opportunities |
+| Risk Register tab | **Controls › Risk Register** |
+| Opportunity Register tab | **Controls › Opportunity Register** |
+| Lessons Learned register | **Controls › Lessons Learned** (`tab_lessons_learned`) |
+| Submittals | **Controls › Submittals** (also Purchases › Sourcing) |
+| Process view + search | Always-on **Process** rail |
 | Weekly Review tab + browser | Money › Review; `/review` |
-| Submittals (inside Sourcing) | Purchases › Sourcing › Submittals |
+| Field capture (E6-lite) | Browser `/m/capture` + `/api/capture/*` |
 | Rate Realisation (`tab_lessons`) | distinct from Lessons *Learned* register |
 
 #### Ordered action plan — local next
@@ -331,15 +334,15 @@ sidecars** are built and verified.
 | # | Action | Depends on | Verified by | Pri |
 |---|---|---|---|---|
 | **L0** | Run full suite **with tkinter** + `tests/test_smoke_tabs.py` light+dark after pulls | — | Discover green locally | P0 |
-| **L1** | **E7.3 Controls section** — rail section for Risk / Opportunity / **Lessons Learned** / Submittals (or deep-links); Lessons Learned **new tab** over `lessons_store` | Cloud C6 helpful | Smoke tabs; catalog ↔ `BUILDERS` agree | P1 |
-| **L2** | **E7.3 persona rail** — filter `RailStage` via `menu.resolve` | E7.1 done | Persona sees scoped sections | P1 |
-| **L3** | **E7.4 Process view + search** — "What's next" over `workflow.py`; command palette | E7.2 done | Smoke + manual nav | P1 |
-| **L4** | **E4 GUI event wiring** — on GRN/save/etc. call Cloud C5 hooks; show gated drafts | C5 | Manual: save → draft follow-up appears, not auto-posted | P1 |
-| **L5** | **U1 WinUI shell** — scaffold is in `winui/`; open on Windows, point at `web_main.py` | **U0** | VS 2022 build against local API | P0 |
-| **L6** | **U2–U5 WinUI pages** — DataGrid CRUD → Money/Billing → Dashboard/charts → Controls + Process | U1 | xUnit ViewModels + WinAppDriver smoke | P1 |
-| **L7** | **U6–U7 packaging + parity** — PyInstaller sidecar in MSIX; persona menus; retire tkinter-on-Windows decision | U2–U5 | Signed MSIX install; localhost-only backend | P1 |
-| **L8** | **E1 model sidecars** — OCR / STT / VLM per [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md); feed `capture.py` | capture scaffold done | Offline draft from photo/voice; human confirm | P2 |
-| **L9** | **E6 mobile capture** — separate front-end consuming U0 API | U0 | Field capture syncs to SQLite file | P2 |
+| **L1** | **E7.3 Controls section** + Lessons Learned tab | — | ✅ catalog + tabs shipped (smoke on display) | P1 |
+| **L2** | **E7.3 persona rail** via `menu.resolve` | E7.1 | ✅ Tools › Persona + rail filter | P1 |
+| **L3** | **E7.4 Process view + search** | E7.2 | ✅ Process rail + `workflow_state` | P1 |
+| **L4** | **E4 GUI event wiring** (GRN + payment API follow-ups) | C5 | ✅ drafts surfaced, not auto-posted | P1 |
+| **L5** | **U1 WinUI shell** — build/run on Windows against `web_main.py` | **U0** | VS 2022 build (env-blocked in cloud) | P0 |
+| **L6** | **U2–U5 WinUI pages** | U1 | ✅ page scaffolds in `winui/`; bind/run on Windows | P1 |
+| **L7** | **U6–U7 packaging + parity** | U2–U5 | `winui/PACKAGING.md` scaffold; signed MSIX on Windows | P1 |
+| **L8** | **E1 model sidecars** — OCR / STT / VLM weights | capture | `sidecars/` stubs; install weights locally | P2 |
+| **L9** | **E6 mobile capture** | U0 | ✅ `/m/capture` + API; native app optional later | P2 |
 
 **Local setup (WinUI)** — see [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §11.
 

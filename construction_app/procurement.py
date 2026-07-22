@@ -116,6 +116,67 @@ def summarise(matches):
     }
 
 
+def narrate_match(match, po_label=None):
+    """One plain-language sentence for a three-way match row.
+
+    Explains *why* a flag matters — over-invoiced is money about to leave for
+    goods that never arrived; under-received is stock still in transit.
+    """
+    if not match:
+        return ''
+    label = po_label or 'This PO'
+    status = match.get('status')
+    over = match.get('over_invoiced') or 0
+    pending_r = match.get('pending_receipt') or 0
+    pending_i = match.get('pending_invoice') or 0
+    if status == OVER_INVOICED or over > 0:
+        return ('{} is over-invoiced by ₹{:,.0f} — billed beyond what was '
+                'received; hold payment until the GRN catches up.'.format(
+                    label, over))
+    if status in (PART_RECEIVED, NOT_RECEIVED, OVER_RECEIVED) or (
+            pending_r and pending_r > 0 and match.get('invoiced', 0) > 0):
+        return ('{} still has ₹{:,.0f} of ordered value not yet received — '
+                'do not treat the invoice as fully matched.'.format(
+                    label, pending_r or match.get('ordered', 0)))
+    if pending_i and pending_i > 0:
+        return ('{} has ₹{:,.0f} received but not yet invoiced — chase the '
+                'vendor bill or book a GRN-only accrual.'.format(
+                    label, pending_i))
+    if match.get('ok'):
+        return ('{} matches within tolerance — ordered, received and invoiced '
+                'line up.'.format(label))
+    return '{} needs a closer look (status: {}).'.format(
+        label, status or 'unknown')
+
+
+def narrate_summary(summary):
+    """Firm-level three-way narration from ``summarise`` output."""
+    if not summary or not summary.get('total_count'):
+        return 'No purchase orders to match yet.'
+    lines = []
+    at_risk = summary.get('at_risk') or 0
+    problems = summary.get('problem_count') or 0
+    if at_risk > 0:
+        lines.append(
+            '₹{:,.0f} is over-invoiced across {} problem PO(s) — value billed '
+            'with no receipt behind it.'.format(at_risk, problems))
+    elif problems:
+        lines.append(
+            '{} PO(s) are outside tolerance but nothing is over-invoiced yet.'
+            .format(problems))
+    else:
+        lines.append(
+            'All {} PO(s) match within tolerance.'.format(
+                summary.get('total_count')))
+    awaiting = summary.get('awaiting_delivery') or 0
+    if awaiting > 0:
+        lines.append('₹{:,.0f} still awaits delivery.'.format(awaiting))
+    unbilled = summary.get('received_not_invoiced') or 0
+    if unbilled > 0:
+        lines.append('₹{:,.0f} received is not yet invoiced.'.format(unbilled))
+    return ' '.join(lines)
+
+
 def next_doc_no(existing, prefix):
     """Next serial in a document series ('GRN-4'), from the highest existing.
 

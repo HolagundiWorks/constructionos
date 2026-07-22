@@ -16,10 +16,12 @@ import re
 
 import advisory
 import auth
+import capture
 import dashboard
 import drift
 import event_hooks
 import evm
+import followups
 import forecast
 import journal_post
 import lessons_store
@@ -35,6 +37,7 @@ import web_docs
 import web_masters
 import webapp
 import workflow
+import workflow_state
 
 # Masters exposed as flat CRUD registers over the JSON API.
 _API_MASTERS = (
@@ -92,11 +95,23 @@ def handle(request, sess):
     if path == 'portfolio' and method == 'GET':
         return _portfolio(request)
 
+    if path == 'productivity' and method == 'GET':
+        return _productivity(request)
+
     if path == 'menu' and method == 'GET':
         return _menu(request)
 
     if path == 'workflow' and method == 'GET':
         return _workflow(request)
+
+    if path == 'search' and method == 'GET':
+        return _search(request)
+
+    if path == 'capture/draft' and method == 'POST':
+        return _capture_draft(request, sess)
+
+    if path == 'capture/confirm' and method == 'POST':
+        return _capture_confirm(request, sess)
 
     if path == 'evm' and method == 'GET':
         return _evm_portfolio()
@@ -324,6 +339,7 @@ def _menu(request):
 
 def _workflow(request):
     # Optional per-flow completion state as query: state.<flow>.<key>=1
+    # With no explicit state (or ?infer=1), derive completion from the books.
     state_by_flow = {}
     for key, val in (request.query or {}).items():
         if not key.startswith('state.'):
@@ -333,8 +349,14 @@ def _workflow(request):
             continue
         _, flow, step = parts
         state_by_flow.setdefault(flow, {})[step] = val in ('1', 'true', 'True')
-    if not state_by_flow:
-        # Empty state → every flow starts at its first step.
+    infer = (request.query or {}).get('infer', '1') in ('1', 'true', 'True')
+    if not state_by_flow and infer:
+        conn = _conn()
+        try:
+            state_by_flow = workflow_state.infer(conn)
+        finally:
+            conn.close()
+    elif not state_by_flow:
         state_by_flow = {name: {} for name in workflow.WORKFLOWS}
     progress = workflow.all_progress(state_by_flow)
     # serialise next_step objects
@@ -356,6 +378,8 @@ def _workflow(request):
             for name, steps in workflow.WORKFLOWS.items()
         },
         'progress': out,
+        'inferred': bool(infer and not any(
+            k.startswith('state.') for k in (request.query or {}))),
     })
 
 
@@ -852,16 +876,18 @@ def _api_contract():
             'GET /api/health', 'GET /api/contract',
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
-            'GET /api/workflow', 'GET /api/evm', 'GET /api/project/{id}/evm',
+            'GET /api/productivity', 'GET /api/workflow', 'GET /api/evm',
+            'GET /api/project/{id}/evm',
             'GET /api/risks', 'GET /api/opportunities', 'GET /api/lessons',
             'GET /api/submittals', 'GET /api/audit?origin=',
-            'GET /api/{master}', 'GET /api/{doc}',
+            'GET /api/search?q=', 'GET /api/{master}', 'GET /api/{doc}',
         ],
         'writes': [
             'POST/PUT/DELETE /api/risks[/{id}]',
             'POST/PUT/DELETE /api/opportunities[/{id}]',
             'POST/PUT/DELETE /api/lessons[/{id}]',
             'POST/PUT/DELETE /api/submittals[/{id}]',
+            'POST /api/capture/draft', 'POST /api/capture/confirm',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -883,6 +909,19 @@ def _portfolio(request):
     try:
         return _ok({'current': portfolio_store.file_rollup(conn, name='current'),
                     'federated': False})
+    finally:
+        conn.close()
+
+
+def _productivity(request):
+    """GET /api/productivity — crew/plant utilisation from muster + plant logs."""
+    import productivity_store
+    conn = _conn()
+    try:
+        return _ok(productivity_store.firm_summary(
+            conn,
+            from_date=(request.query or {}).get('from'),
+            to_date=(request.query or {}).get('to')))
     finally:
         conn.close()
 
@@ -1126,6 +1165,93 @@ def _create_doc(request, sess, table):
         row = conn.execute(
             'SELECT * FROM "{}" WHERE id = ?'.format(table), (new_id,)
         ).fetchone()
-        return _ok(_row(row), status=201)
+        out = _row(row)
+        # Draft follow-ups only — never auto-apply gated money/date actions.
+        if table == 'payments':
+            reacted = event_hooks.react(
+                followups.PAYMENT_DUE, payload={'payment_id': new_id})
+            out['followups'] = reacted.get('followups') or []
+            out['gated_count'] = reacted.get('gated_count', 0)
+        return _ok(out, status=201)
+    finally:
+        conn.close()
+
+
+def _search(request):
+    q = (request.query or {}).get('q') or ''
+    return _ok({'query': q, 'hits': menu.search_tabs(q)})
+
+
+def _capture_draft(request, sess):
+    """POST /api/capture/draft — stage extracted fields for human review."""
+    body = _payload(request)
+    extracted = body.get('fields') if isinstance(body.get('fields'), dict) else {}
+    confidence = body.get('confidence') if isinstance(body.get('confidence'), dict) else {}
+    source = body.get('source') or capture.AI
+    if source not in (capture.AI, capture.MANUAL):
+        source = capture.AI
+    draft = capture.build_draft(extracted, confidence=confidence, source=source)
+    return _ok({
+        'draft': draft,
+        'needs_review': capture.needs_review(draft),
+        'low_confidence': capture.low_confidence_fields(draft),
+        'summary': capture.confidence_summary(draft),
+        'origin': capture.origin_of(draft),
+    })
+
+
+def _capture_confirm(request, sess):
+    """POST /api/capture/confirm — apply overrides and write work_done_entries.
+
+    Body: {fields?, overrides?, confidence?, source?, target?}
+    ``target`` defaults to ``work_done``. Nothing is written without this
+    explicit confirm — AI proposes, human disposes.
+    """
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    extracted = body.get('fields') if isinstance(body.get('fields'), dict) else {}
+    confidence = body.get('confidence') if isinstance(body.get('confidence'), dict) else {}
+    source = body.get('source') or capture.MANUAL
+    draft = capture.build_draft(extracted, confidence=confidence, source=source)
+    overrides = body.get('overrides') if isinstance(body.get('overrides'), dict) else {}
+    draft = capture.apply_overrides(draft, overrides)
+    record = capture.to_record(draft)
+    target = (body.get('target') or 'work_done').strip()
+    if target != 'work_done':
+        return _err('Unsupported target {!r}'.format(target), 400)
+    try:
+        site_id = int(record.get('site_id') or 0) or None
+    except (TypeError, ValueError):
+        site_id = None
+    try:
+        qty = float(record.get('qty') or 0)
+    except (TypeError, ValueError):
+        qty = 0.0
+    activity = str(record.get('activity') or '').strip()
+    if not activity:
+        return _err('activity is required', 400)
+    unit = str(record.get('unit') or '').strip()
+    entry_date = str(record.get('entry_date') or '').strip()
+    remarks = str(record.get('remarks') or '').strip()
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            'INSERT INTO work_done_entries '
+            '(site_id, activity, unit, qty, entry_date, remarks) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (site_id, activity, unit, qty, entry_date, remarks))
+        new_id = cur.lastrowid
+        origin = (auth.ORIGIN_AI if capture.origin_of(draft) == capture.AI
+                  else auth.ORIGIN_MANUAL)
+        auth.audit(conn, sess['username'], 'capture_confirm',
+                   'work_done_entries', new_id, origin=origin)
+        conn.commit()
+        row = conn.execute(
+            'SELECT * FROM work_done_entries WHERE id = ?', (new_id,)
+        ).fetchone()
+        return _ok({'id': new_id, 'record': _row(row),
+                    'origin': capture.origin_of(draft)}, status=201)
     finally:
         conn.close()

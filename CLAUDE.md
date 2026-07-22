@@ -7,7 +7,7 @@ is the short, always-loaded memory.
 Construction OS — a full **ERP for Indian construction contractors**: pure
 **Python standard library**, **tkinter** desktop UI, optional **stdlib web/LAN**
 front-end, a single **SQLite** file, **no pip dependencies**. Business maths lives
-in ~93 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
+in ~98 **pure, tkinter-free modules**; `tab_*.py` are a thin GUI over them.
 
 ## Hard rules (don't break without explicit instruction)
 - **Stdlib only, no pip** in the domain/backend. New business maths → a **pure,
@@ -43,15 +43,16 @@ cd construction_app && python -m compileall -q .
     (**U0 `webapi.py` — built**), purity fixes, signal feed / event hooks /
     audit origin (C3–C6), unit tests, docs. **No display, no .NET, no ML
     models.**
-  - **Local (Windows + display + .NET):** residual tkinter (Controls, Lessons
-    Learned tab, Process view, persona rail), WinUI 3 client (**U1–U7** after
-    U0), smoke tests, MSIX, model sidecars.
+  - **Local (Windows + display + .NET):** residual tkinter Controls / Process /
+    persona **shipped** (smoke on a display still L0); WinUI 3 client scaffolds
+    (**U1–U6** — build/run/MSIX on Windows); model sidecars under `sidecars/`
+    (install weights locally). Field capture: browser `/m/capture`.
 
 ## Watch out
-- **Flat 143+-module namespace** invites filename collisions — `lessons.py`
-  (rate realisation) and `lessons_register.py` (lessons-learned register) are two
-  different features; don't merge them. Check for an existing module before
-  adding one.
+- **Flat 159-module namespace** invites filename collisions — `lessons.py`
+  (rate realisation), `lessons_register.py` / `tab_lessons_learned.py` (lessons-
+  learned register) are different features; don't merge them. Check for an
+  existing module before adding one.
 - Keep this file and `AGENTS.md` accurate: if you change something they describe,
   update them in the same commit.
 

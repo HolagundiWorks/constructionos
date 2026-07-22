@@ -33,7 +33,15 @@ box with Visual Studio 2022 + Windows App SDK. Spec:
 | `Views/HomePage.*` | Dashboard / advisories |
 | `Views/RisksPage.*` | Risk register DataGrid |
 | `Views/MastersPage.*` | **U2** — generic CRUD register for every master (sites, clients, …), columns + form built from the API's field metadata |
+| `Views/OpportunitiesPage.*` | Opportunity register |
+| `Views/LessonsPage.*` | Lessons Learned register |
+| `Views/SubmittalsPage.*` | Submittals |
+| `Views/MoneyPage.*` | Payments list (U3) |
+| `Views/EvmPage.*` | Earned Value |
+| `Views/PortfolioPage.*` | Portfolio roll-up |
+| `Views/ChartsPage.*` | LiveCharts KPI scaffold (U4) |
 | `Views/ProcessPage.*` | Workflow "what's next" |
+| [`PACKAGING.md`](PACKAGING.md) | MSIX + PyInstaller sidecar notes (U6) |
 
 ## U2 — generic masters CRUD (scaffolded)
 `MastersPage` is navigated to with a table name (e.g. `"sites"`); it calls
@@ -44,5 +52,7 @@ from the returned `fields` metadata, and writes via `POST/PUT/DELETE /api/{table
 tab to it via `MainWindow.MasterTables`. Known refinement: foreign-key fields are
 entered by id for now; a picker (a `ComboBox` from the related master) is next.
 
-## Next (local)
-U3 Money/Billing · U4 charts · U5 Controls · U6 MSIX + PyInstaller sidecar · U7 parity.
+## Next (local Windows)
+Build/run against `web_main.py` · FK pickers on `MastersPage` · bind LiveCharts ·
+U5 Controls registers · packaging project (MSIX + PyInstaller sidecar) · retire
+tkinter-on-Windows when parity is enough.

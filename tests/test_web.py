@@ -890,6 +890,60 @@ class TestWebApi(unittest.TestCase):
         self.assertTrue(sub['is_open'])
         self.assertTrue(sub['is_overdue'])
 
+    def test_search_capture_and_mobile_field(self):
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+
+        resp = self.webapp.handle(self._req(
+            '/api/search', cookies=cookies, query={'q': 'risk'}))
+        self.assertEqual(resp.status, 200)
+        hits = self._json(resp)['hits']
+        self.assertTrue(any('Risk Register' in h['label'] for h in hits))
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/draft', 'POST', cookies=cookies,
+            json_body={'fields': {'activity': 'M20', 'qty': '12'},
+                       'confidence': {'qty': 0.4}, 'source': 'ai'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        draft = self._json(resp)
+        self.assertTrue(draft['needs_review'])
+        self.assertEqual(draft['origin'], 'ai')
+
+        resp = self.webapp.handle(self._req(
+            '/api/capture/confirm', 'POST', cookies=cookies,
+            json_body={'fields': {'activity': 'M20 Concrete', 'qty': '12',
+                                  'unit': 'cum', 'entry_date': '2026-07-22'},
+                       'overrides': {'qty': '12.5'}, 'source': 'ai'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body['record']['qty'], 12.5)
+        # activity still AI-sourced → overall origin remains ai
+        self.assertEqual(body['origin'], 'ai')
+
+        resp = self.webapp.handle(self._req('/m/capture', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn(b'Field capture', resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/m/capture', 'POST', cookies=cookies,
+            form={'csrf': csrf, 'activity': 'Plaster', 'qty': '3',
+                  'unit': 'sqm', 'entry_date': '2026-07-22'}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn(b'Saved work-done', resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/payments', 'POST', cookies=cookies,
+            json_body={'pay_date': '2026-07-22', 'direction': 'Payment',
+                       'party_type': 'Vendor', 'party_name': 'Steel Co',
+                       'mode': 'Bank', 'amount': 1000},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        pay = self._json(resp)
+        self.assertTrue(pay.get('followups'))
+        self.assertGreaterEqual(pay.get('gated_count', 0), 1)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

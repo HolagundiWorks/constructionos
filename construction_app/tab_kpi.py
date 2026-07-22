@@ -294,6 +294,25 @@ class KPIDashboard(ttk.Frame):
                             'Fix this and reliability moves more than any '
                             'amount of chasing.'))
 
+        # --- productivity (crew / plant)
+        import productivity_store
+        prod = productivity_store.firm_summary(conn)
+        uph = prod.get('units_per_hour')
+        if uph is None:
+            out.append(('Crew output per labour-hour', '—', NONE,
+                        'Need work-done qty and attendance to compute.'))
+        else:
+            out.append(('Crew output per labour-hour', '{:,.3f}'.format(uph),
+                        WATCH, 'Work-done quantity divided by muster hours.'))
+        putil = prod.get('plant_util_pct')
+        if putil is None:
+            out.append(('Plant utilisation', '—', NONE,
+                        'Need plant log hours to compute.'))
+        else:
+            out.append(('Plant utilisation', '{:.0f}%'.format(putil),
+                        GOOD if putil >= 70 else WATCH if putil >= 40 else ACT,
+                        'Hours run ÷ (hours run + downtime) from plant logs.'))
+
         # --- quality
         insp = conn.execute('SELECT * FROM inspections').fetchall()
         ftp = quality.first_time_pass_rate(insp)

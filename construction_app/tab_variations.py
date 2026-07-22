@@ -14,10 +14,12 @@ All arithmetic lives in ``variation.py`` so it can be tested without a display.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import theme
 
 import bill_export
+import event_hooks
+import followups
 import report_open
 import variation
 from crud_frame import CrudFrame, Field
@@ -48,6 +50,32 @@ def _compute_amount(conn, row_id, values):
         pass
 
 
+def _on_variation_save(conn, row_id, values):
+    """Amount auto-fill + gated follow-ups when a variation is Approved."""
+    _compute_amount(conn, row_id, values)
+    if (values.get('status') or '') != variation.APPROVED:
+        return
+    try:
+        result = event_hooks.react(followups.VARIATION_APPROVED, {
+            'variation_id': row_id,
+            'contract_id': values.get('contract_id'),
+        })
+        steps = result.get('followups') or []
+        if not steps:
+            return
+        lines = []
+        for f in steps:
+            tag = '  [needs your approval]' if f.get('gated') else ''
+            lines.append('• {} — {}{}'.format(
+                f.get('action', ''), f.get('where', ''), tag))
+        messagebox.showinfo(
+            'Suggested next steps',
+            'Variation approved. Draft follow-ups '
+            '(nothing was auto-posted):\n\n' + '\n'.join(lines))
+    except Exception:                                        # noqa: BLE001
+        pass
+
+
 def build_register(parent, db_getter):
     fields = [
         Field('contract_id', 'Contract', kind='fk', options_func=contract_options),
@@ -70,7 +98,7 @@ def build_register(parent, db_getter):
         Field('remarks', 'Remarks'),
     ]
     return CrudFrame(parent, db_getter, 'variations', fields,
-                     'Variations / Change Orders', on_save=_compute_amount)
+                     'Variations / Change Orders', on_save=_on_variation_save)
 
 
 class VariationPosition(ttk.Frame):

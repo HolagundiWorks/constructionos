@@ -24,7 +24,9 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | GET | `/api/review` | Weekly review pack |
 | GET | `/api/portfolio` | Current-file roll-up; `?paths=a.db,b.db` federates |
 | GET | `/api/menu?persona=Owner` | Sections/tabs for NavigationView |
-| GET | `/api/workflow` | Flow graphs + progress |
+| GET | `/api/productivity` | Crew/plant utilisation from muster + plant logs |
+| GET | `/api/workflow?infer=1` | Flow graphs + progress (book-inferred by default) |
+| GET | `/api/search?q=` | Command-palette hits over the catalog |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
 | GET | `/api/audit?origin=ai` | Audit trail |
@@ -35,7 +37,9 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 | Method | Path | Notes |
 |---|---|---|
 | POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters |
-| POST | `/api/{doc}` | Money docs — **create only**; then `journal_post.post_all` |
+| POST | `/api/{doc}` | Money docs — **create only**; payments may return gated `followups` |
+| POST | `/api/capture/draft` | Stage extraction for human review |
+| POST | `/api/capture/confirm` | Confirm → `work_done_entries` (never without confirm) |
 | POST | `/api/events` | `{event, payload?, include_detect?, apply_risks?}` |
 | POST | `/api/signals/feed` | Prediction → AI risk drafts |
 | POST | `/api/forecast` | `{series, periods_ahead?}` or `{baseline_duration, spi}` |
