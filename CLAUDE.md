@@ -66,4 +66,5 @@ Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM +
 roadmap: `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`
 · Execution (risk/opportunity/KPIs): `docs/EXECUTION-PART2.md` · AI:
 `docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform:
-`docs/WINUI3-MIGRATION.md` · Product & scope: `docs/PRODUCT.md`.
+`docs/WINUI3-MIGRATION.md` · UI principles (Fluent / WinUI):
+`docs/UI-PRINCIPLES-AND-GUIDELINES.md` · Product & scope: `docs/PRODUCT.md`.

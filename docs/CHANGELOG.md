@@ -6,6 +6,21 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-22 — UI principles & guidelines (Fluent / WinUI)
+
+- New **`docs/UI-PRINCIPLES-AND-GUIDELINES.md`**: detailed ACO UI rules grounded
+  in Microsoft’s
+  [Windows 11 design principles](https://learn.microsoft.com/en-us/windows/apps/design/design-principles)
+  and
+  [design guidelines](https://learn.microsoft.com/en-us/windows/apps/design/guidelines-overview)
+  (Effortless / Calm / Personal / Familiar / Complete+Coherent; color,
+  typography, materials, navigation, commanding, writing, accessibility).
+- Maps each principle to contractor-facing product rules (cash-first, plain
+  language, stock controls only) with do/don’t tables, page recipes, and a UI
+  PR checklist. Reconciled with the shipped **Excel-style ribbon** (a composed
+  stock-primitive shell, owner-directed) and the **ACO** brand. Linked from
+  `WINUI3-MIGRATION.md`, `PRODUCT.md`, `CLAUDE.md`, `AGENTS.md`.
+
 ## 2026-07-22 — Rebrand: ACO (Accelerated Construction Operations)
 
 - Product renamed from **Construction OS** → **ACO** (*Accelerated Construction

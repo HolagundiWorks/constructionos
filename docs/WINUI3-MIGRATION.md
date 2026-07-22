@@ -10,8 +10,11 @@ _Product: **ACO** (Accelerated Construction Operations; formerly Construction OS
 _Decision: native WinUI 3 desktop (Windows-only, C#/.NET) — authorised departure
 from the stdlib/cross-platform constraints. Read with
 [`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md),
-[`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md), and
-[`PRODUCT.md`](PRODUCT.md) (brand: ACO + Radiant Orange logo mark)._
+[`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md),
+[`PRODUCT.md`](PRODUCT.md) (brand: ACO + Radiant Orange logo mark), and the UI
+principles checklist
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
+(Windows 11 / Fluent design principles applied to ACO)._
 
 ---
 
@@ -148,6 +151,11 @@ ConstructionOS.WinUI/               # WinUI 3 app (Windows App SDK)
 ---
 
 ## 5. Component & element mapping — stock WinUI 3 only ("no custom items")
+
+**Visual / interaction rules** (Effortless, Calm, Familiar, …; type ramp; Mica;
+commanding; writing tone) live in
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md). This section
+is only the **control map**.
 
 Every current UX element maps to a **stock** WinUI 3 / Windows App SDK / WinUI
 Community Toolkit control. Nothing is hand-drawn.

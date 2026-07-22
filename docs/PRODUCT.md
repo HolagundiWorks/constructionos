@@ -65,8 +65,8 @@ connection, or a monthly subscription.
 Product non-negotiables below. For the **WinUI 3 / Fluent** visual and
 interaction rules (Windows 11 principles, stock controls, type ramp, writing
 tone, PR checklist), see
-[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) when present,
-and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) and
+[`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
 
 1. **Offline-first, single file.** The whole business is one SQLite file next to
    the app. No internet required to do anything core. Sync/cloud is optional and
