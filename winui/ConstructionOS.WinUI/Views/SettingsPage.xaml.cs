@@ -32,6 +32,44 @@ public sealed partial class SettingsPage : Page
             : DefaultPersonas[0];
         Status.Text = "Settings path: " + AppSettings.SettingsPath;
         _ = TryLoadPersonasAsync();
+        _ = TryLoadCompaniesAsync();
+    }
+
+    // Populate the company picker from GET /api/companies (public list of
+    // registered books). The field stays editable — a book the client hasn't
+    // registered can still be typed by path/name; blank = the server's active
+    // book. Creating/importing books lives in the desktop/browser app.
+    async Task TryLoadCompaniesAsync()
+    {
+        try
+        {
+            var data = await ApiClient.Default.GetJsonAsync("api/companies");
+            var names = new List<string>();
+            string? active = null;
+            if (data.TryGetProperty("items", out var list)
+                && list.ValueKind == System.Text.Json.JsonValueKind.Array)
+                foreach (var c in list.EnumerateArray())
+                {
+                    var name = c.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+                    names.Add(name!);
+                    if (c.TryGetProperty("active", out var a)
+                        && a.ValueKind == System.Text.Json.JsonValueKind.True)
+                        active = name;
+                }
+            if (names.Count > 0)
+            {
+                var saved = CompanyBox.Text;          // preserve the saved value
+                CompanyBox.ItemsSource = names;
+                CompanyBox.Text = saved;
+            }
+            if (!string.IsNullOrEmpty(active))
+                Status.Text = $"Active book: {active}.  " + Status.Text;
+        }
+        catch
+        {
+            // Backend down — keep the free-text field, no picker.
+        }
     }
 
     async Task TryLoadPersonasAsync()

@@ -6,6 +6,16 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI: company picker in Settings
+
+- The Settings **Company** field is now an **editable ComboBox** populated from
+  `GET /api/companies` (the public registry list): pick a registered book from the
+  dropdown, or type a name/path; blank still means the server's active book. The
+  chosen company is saved to `AppSettings.Company` and sent on the next login
+  (`/api/login`), so the native client can point at a specific company file. The
+  active book is shown in the status line. Creating/importing books stays in the
+  desktop/browser app. Falls back to a free-text field when the backend is down.
+
 ## 2026-07-23 — Multi-company: select company, then login (+ export/import)
 
 - **Boot flow:** desktop always opens a company picker, then Sign in / Continue
