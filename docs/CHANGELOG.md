@@ -17,6 +17,8 @@ Continuation of multi-agent work:
 - Extra workflows: `cash_chase`, `quality_closeout`, `sourcing_award`.
 - API: `GET /api/agents/provider`, `GET|POST /api/agents/eval` — **u0.15**.
 - Docs: `AI-FOUNDRY-AGENTS.md` Phase A+; `AI-MODELS-AND-DEPLOYMENT.md` Foundry note.
+- Fix: `incident_summary` no longer SELECTs a non-existent `incidents.status`
+  column (uses `severity` / `lost_days`).
 
 ## 2026-07-23 — Foundry multi-agent Phase A (API u0.14)
 
