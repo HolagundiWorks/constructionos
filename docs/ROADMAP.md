@@ -102,12 +102,12 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| **U0** | Backend JSON API (`webapi.py`) over the domain | ✅ shipped (u0.8) |
+| **U0** | Backend JSON API (`webapi.py`) over the domain | ✅ shipped (u0.10) |
 | **U1** | Shell from `/api/menu`; **Excel-style ribbon** (ToggleButton tab strip + AppBarButton icon band, no dropdowns); search palette | ✅ built + runs |
 | **U2** | Masters — one generic register page: columnar tables + `FieldForm` CRUD with FK pickers | ✅ built + runs |
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
-| **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS** + **Weekly Review** report pages; honest placeholders for the rest | ✅ built + runs |
+| **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages; honest placeholders for the rest | ✅ built + runs |
 | **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **MSIX manifest scaffolded ✅**; the `.wapproj`/assets/signing finish in VS 2022 ⏳ | 🚧 in progress |
 | **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
 
@@ -121,15 +121,15 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 
 **Local track — next:**
 - 🚧 **U6 packaging** — backend **auto-launch + PyInstaller sidecar shipped** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed); still to do: the **MSIX package project** (VS 2022) + signing.
-- ⏳ **Wire the richer data the cloud track adds** — CT-6 table metadata (labelled columns + FK names), CT-7 Accounting P&L/BS page, CT-9 Look-ahead page.
+- ✅ **Wired the richer data the cloud track adds** — CT-6 table metadata (`Ui.Table` honours the server's `columns`/`cols`: labelled, ordered, right-aligned, FK names), CT-7 **AccountingPage** (P&L / Balance Sheet / Journal), CT-9 **LookaheadPage** (PPC + weekly trend + misses).
 - 🚧 **Accessibility** — page headings (`PageTitleStyle` → `HeadingLevel`), search + control names, decorative icons `Raw` shipped; remaining: keyboard-nav audit, contrast check in the forced-light theme.
 - ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.
 
 ### Cloud track — headless services
 
-- ✅ **C0–C14 / API u0.8** — masters, money docs, EVM, cashflow, ageing, GST, review, chart shapes, the read-only register whitelist (`_API_TABLES`), event hooks, audit origin, signal feed.
+- ✅ **C0–C14 / API u0.10** — masters, money docs, EVM, cashflow, ageing, GST, review, chart shapes, the read-only register whitelist (`_API_TABLES`), event hooks, audit origin, signal feed.
 - ✅ **Multi-company backend** — registry + carry-forward + company-select login (web + `/api/login` / `/api/companies`).
-- ⏳ **CT-6 … CT-10** queued in [`CLOUD-TASKS.md`](CLOUD-TASKS.md): rich register-table metadata (FK names), `/api/pnl` + `/api/balance_sheet`, `cols` headers on reports, `/api/lookahead`, multi-company audit/role hardening.
+- ✅ **CT-6 … CT-10** (see [`CLOUD-TASKS.md`](CLOUD-TASKS.md)): rich register-table metadata + FK names (`web_tables.py`), `/api/pnl` + `/api/balance_sheet` (`reports_store.py`), `cols` headers on reports, `/api/lookahead` (`lookahead_store.py`), multi-company audit. All now consumed by the WinUI client (above).
 
 ### Cross-cutting (both tracks)
 - ✅ **Enterprise PM backbone — fully surfaced** (EVM, risk, opportunity, forecast, KPIs, narration/review-pack) on desktop + browser + WinUI. See [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md), [`EXECUTION-PART2.md`](EXECUTION-PART2.md).

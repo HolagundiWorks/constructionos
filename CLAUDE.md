@@ -58,7 +58,7 @@ cd construction_app && python -m compileall -q .
   existing module before adding one.
 - Keep this file and `AGENTS.md` accurate: if you change something they describe,
   update them in the same commit. Catalog is **8 sections / 52 modules** (incl.
-  Controls + Productivity); API version **u0.6**. Cloud track (deterministic
+  Controls + Productivity); API version **u0.10**. Cloud track (deterministic
   floors + JSON API) is complete; remaining roadmap work is local/Windows.
 
 ## Key docs
