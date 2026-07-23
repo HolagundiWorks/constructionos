@@ -42,8 +42,8 @@ def project_delay_position(conn, project_id):
     return programme.position(
         tasks,
         contract_value=_col(proj, 'contract_value', 0) or 0,
-        ld_pct_per_week=_col(proj, 'ld_pct_per_week',
-                             programme.DEFAULT_LD_PCT_PER_WEEK),
+        pct_per_week=_col(proj, 'ld_pct_per_week',
+                          programme.DEFAULT_LD_PCT_PER_WEEK),
         cap_pct=_col(proj, 'ld_cap_pct', programme.DEFAULT_LD_CAP_PCT))
 
 
@@ -77,8 +77,8 @@ def assemble(conn, project_id):
     position = programme.position(
         tasks,
         contract_value=_col(proj, 'contract_value', 0) or 0,
-        ld_pct_per_week=_col(proj, 'ld_pct_per_week',
-                             programme.DEFAULT_LD_PCT_PER_WEEK),
+        pct_per_week=_col(proj, 'ld_pct_per_week',
+                          programme.DEFAULT_LD_PCT_PER_WEEK),
         cap_pct=_col(proj, 'ld_cap_pct', programme.DEFAULT_LD_CAP_PCT))
     # Flatten CPM task map for JSON clients.
     cpm_tasks = []

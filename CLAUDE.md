@@ -8,7 +8,7 @@ is the short, always-loaded memory.
 a full **ERP for Indian construction contractors**: pure **Python standard
 library**, **tkinter** desktop UI, optional **stdlib web/LAN** front-end, a
 single **SQLite** file, **no pip dependencies**. Business maths lives in
-**~118** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
+**~128** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
 mark = existing logo geometry in **Radiant Orange** (`branding.py` /
 `tokens` accent `#FF4F18`).
 
@@ -52,7 +52,8 @@ cd construction_app && python -m compileall -q .
 - **Flat ~191-module namespace** — `lessons.py` (rate realisation) ≠
   `lessons_register.py` / `tab_lessons_learned.py`. Grep before adding a module.
 - Catalog: **8 sections / 52 modules**; API **u0.13**. Headline counts (verify
-  before quoting): run the §25 re-check commands in `AGENTS.md`.
+  before quoting): **191** modules / **128** AST-pure / **85** tables / **61**
+  indexes / **739** tests (5 skipped headless).
 - Keep this file and `AGENTS.md` accurate in the **same commit** as the change
   they describe.
 
