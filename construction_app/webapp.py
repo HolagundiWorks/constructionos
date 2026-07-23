@@ -254,8 +254,16 @@ def _nav(conn):
 def handle(request):
     """Route a request to a response. The one entry point the server calls."""
     path = request.path
-    if path in ('/favicon.ico',):
-        return Response('', status=204)
+    if path in ('/favicon.ico', '/favicon.png'):
+        import assets
+        try:
+            src = assets.APP_ICON if path.endswith('.ico') else assets.FAVICON
+            with open(src, 'rb') as fh:
+                data = fh.read()
+            ct = 'image/x-icon' if path.endswith('.ico') else 'image/png'
+            return Response(data, content_type=ct)
+        except OSError:
+            return Response('', status=204)
 
     # JSON API login + company list are public; other /api/* need auth.
     if path == '/api/login':

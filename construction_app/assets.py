@@ -18,10 +18,15 @@ RES_DIR = paths.resource_path('resources')
 
 LOGO_SQUARE = os.path.join(RES_DIR, 'logo_square.png')
 LOGO_RECT = os.path.join(RES_DIR, 'logo_rectangle.png')
-# Dark-mode variants: the dark artwork lifted to near-white so it reads on the
-# dark rail (generated from the originals by tools/logo_tint.py).
+# Dark-background variants: the mark/wordmark in white (initials kept Radiant
+# Orange) so they read on the dark rail. All brand art is generated vector-crisp
+# from one source, branding/make-brand.ps1.
 LOGO_SQUARE_WHITE = os.path.join(RES_DIR, 'logo_square_white.png')
 LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
+# The bare gauge-C mark (Radiant Orange on transparent) for light surfaces, and
+# the browser-tab favicon (orange mark on white).
+LOGO_MARK = os.path.join(RES_DIR, 'logo_mark.png')
+FAVICON = os.path.join(RES_DIR, 'favicon.png')
 APP_ICON = os.path.join(RES_DIR, 'app.ico')
 
 

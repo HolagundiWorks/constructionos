@@ -69,4 +69,6 @@ roadmap: `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/ENTERPRISE-PM-GAP-AND-ROADMAP.m
 `docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform:
 `docs/WINUI3-MIGRATION.md` · UI principles (Fluent / WinUI):
 `docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3 coding standard (auto-applied):
-`.github/instructions/winui3.instructions.md` · Product & scope: `docs/PRODUCT.md`.
+`.github/instructions/winui3.instructions.md` · Product & scope: `docs/PRODUCT.md`
+· Brand identity (mark/wordmark/assets): `docs/BRAND.md` (regenerate art with
+`branding/make-brand.ps1`).
