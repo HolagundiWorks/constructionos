@@ -33,6 +33,7 @@ public sealed partial class MastersPage : Page
     private async Task LoadAsync()
     {
         if (string.IsNullOrEmpty(_table)) return;
+        Busy.IsActive = true;
         try
         {
             var data = await ApiClient.Default.GetJsonAsync($"api/{_table}");
@@ -47,6 +48,10 @@ public sealed partial class MastersPage : Page
         catch (Exception ex)
         {
             ShowError(ex);
+        }
+        finally
+        {
+            Busy.IsActive = false;
         }
     }
 

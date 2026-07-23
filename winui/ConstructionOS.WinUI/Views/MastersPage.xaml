@@ -33,6 +33,10 @@
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"/>
       <ListView x:Name="Grid" Grid.Row="2" SelectionMode="Single"
                 SelectionChanged="OnSelectionChanged"/>
+      <ProgressRing x:Name="Busy" Grid.Row="2" IsActive="False"
+                    Width="32" Height="32"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,48,0,0"/>
     </Grid>
   </Grid>
 </Page>
