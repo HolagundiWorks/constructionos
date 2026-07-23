@@ -6,7 +6,7 @@ quantities, human reconciliation, and revision-delta analysis**
 _Document type: Reference / Solution design (documentation only — no code changes)_
 _Version: 1.0 · Last updated: 2026-07-21 · Prepared by: Human Centric Works_
 _Deep-dive companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md)
-(E1 Capture) and [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+(E1 Capture). Status: [`ROADMAP.md`](ROADMAP.md)._
 
 ---
 
@@ -350,7 +350,7 @@ unattended robot doing quantity surveying.
 ## 9. Phased delivery (fits the enterprise roadmap)
 
 Slots under **E1 Capture** in
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md), sequenced
+[`ROADMAP.md`](ROADMAP.md), sequenced
 value-first:
 
 | Step | Deliverable | Type | Depends on |
@@ -401,7 +401,7 @@ QS's power tool rather than an unaccountable black box.
 _Reference/design document only — changes no code. Anchored on the shipped
 `takeoff.py` / `tab_takeoff.py`. Read alongside
 [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (AI strategy),
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) (where this
-sits in the plan), and [`REPORT-sop-gap-analysis.md`](REPORT-sop-gap-analysis.md)
+[`ROADMAP.md`](ROADMAP.md) (where this
+sits in the plan), and [`SOP-manual.md`](SOP-manual.md)
 (the variation/revenue-leak thesis this feature serves). Architecture:
 [`../AGENTS.md`](../AGENTS.md)._

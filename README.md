@@ -17,18 +17,17 @@ built **entirely on the Python standard library**: `tkinter` for the UI,
 
 > Built for small civil contractors in tier-2 / tier-3 cities — offline, on one
 > PC, minimal typing. See [`docs/PRODUCT.md`](docs/PRODUCT.md),
-> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) (single status board) and
+> [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
 >
-> **Enterprise / architecture docs:**
-> [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md) (structure, menu
-> hierarchy & workflow),
-> [`docs/ENTERPRISE-PM-SOLUTION.md`](docs/ENTERPRISE-PM-SOLUTION.md) +
-> [`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)
-> (AI PM engine + roadmap),
-> [`docs/EXECUTION-PART2.md`](docs/EXECUTION-PART2.md) (risk/opportunity/KPIs),
+> **Architecture / design docs:**
+> [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md),
+> [`docs/ENTERPRISE-PM-SOLUTION.md`](docs/ENTERPRISE-PM-SOLUTION.md),
+> [`docs/EXECUTION-PART2.md`](docs/EXECUTION-PART2.md),
 > [`docs/AI-DRAWING-TAKEOFF.md`](docs/AI-DRAWING-TAKEOFF.md),
-> [`docs/AI-MODELS-AND-DEPLOYMENT.md`](docs/AI-MODELS-AND-DEPLOYMENT.md), and the
-> in-progress UI replatform [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md).
+> [`docs/AI-MODELS-AND-DEPLOYMENT.md`](docs/AI-MODELS-AND-DEPLOYMENT.md),
+> [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
+> [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md).
 
 ## Highlights
 

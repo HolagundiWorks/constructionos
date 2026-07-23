@@ -1,10 +1,85 @@
 # Changelog — Construction OS / ACO
 
 Notable changes, newest first. Dates are `YYYY-MM-DD`. This log records *what*
-changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
-`AGENTS.md` §23 documents the architecture of the later modules.
+changed and *where* it lives. **Living status** (done vs pending) is only in
+[`ROADMAP.md`](ROADMAP.md). Architecture: `AGENTS.md`.
 
 ---
+
+## 2026-07-23 — Single RESEARCH.md; merge PR track into main
+
+- Replaced four research files (competitive, Fluent UI, SOP practice, CPWD
+  primary sources) with one [`docs/RESEARCH.md`](RESEARCH.md).
+- ROADMAP: Light/Dark/System theme marked **done** (main UI audit).
+- Removed duplicate research docs; links retargeted.
+
+## 2026-07-23 — Doc cleanup: one ROADMAP, remove stray audits/roadmaps
+
+Removed competing / closed status docs (pending already in `ROADMAP.md`;
+history already in this changelog):
+
+- `CLOUD-TASKS.md` (all CT ✅)
+- `COMPLETENESS-AUDIT.md` (findings → ROADMAP §2)
+- `ENTERPRISE-PM-GAP-AND-ROADMAP.md` (stray roadmap; keep `ENTERPRISE-PM-SOLUTION.md`)
+- `REPORT-sop-gap-analysis.md` (gaps closed 2026-07-21)
+- `SPEC-submittals-register.md` (submittals shipped)
+- `RESEARCH-OPTIMISATION-AND-PRECISION.md` + `RESEARCH-INDEX.md` (pending → ROADMAP)
+
+Kept research that is not a status board: competitive case study, Fluent UI deep
+dive, SOP research + primary sources. Fixed links in README / CLAUDE / AGENTS /
+adjacent specs.
+
+## 2026-07-23 — Single roadmap: status here → CHANGELOG archive
+
+- **`docs/ROADMAP.md` rewritten** as the **one** status doc: Completed (§1) vs
+  Pending P0–P4 (§2) vs Non-goals (§3). Removed long “shipped narrative” lists
+  that duplicated this changelog.
+- **API baseline noted as u0.12** (assistant + parties endpoints).
+- Pending WinUI work prioritised (BOQ/RA, subcontractors, AI Engine, GRN/muster,
+  theme/Mica, Tools, release signing, L8).
+
+### Completed items archived from the old roadmap “in progress” section
+
+These were already shipped; they no longer clutter ROADMAP:
+
+- WinUI **U0–U6** + U7 partial (ribbon, masters, money, charts, Controls/GST/
+  Accounting/Look-ahead, Tools, persona menus, mechanical a11y, nav-complete).
+- Packaging: backend auto-launch, `ACO.Backend.exe` sidecar, **dev-signed MSIX**.
+- Cloud **C0–C14** and **CT-1…CT-10** (entire headless backlog closed).
+- Multi-company client (picker, title book name, in-session reconnect).
+- CT-6/7/9 client wiring (rich tables, AccountingPage, LookaheadPage).
+- Browser/LAN parity, enterprise PM surfaces on all three shells, real-display
+  GUI check (see older entries below).
+
+## 2026-07-23 — Precision gates + empty-state honesty
+
+Acting on the research programme (`docs/RESEARCH-*`):
+
+- **Tests:** `TestAssistantSqlSafety` (single read-only SELECT only);
+  `test_bills_previous_excludes_draft` (Draft excluded from previous billed).
+- **WinUI:** `ApiException.UserMessage` distinguishes 404 / 403 / 401 / 5xx —
+  never a blank grid that reads as “zero work”.
+- **PartiesPage:** receivables ageing buckets from `/api/ageing`.
+
+## 2026-07-23 — Audit fixes: Assistant, Cash Flow, Cash & Parties (P0)
+
+- **AssistantPage** — `GET /api/assistant/quick` + `POST /api/assistant`
+  (text-to-SQL; honest error if engine off). API **u0.12**.
+- **CashFlowPage** — dedicated forecast over `/api/cashflow` (chart + negative
+  week flag); no longer the payments list.
+- **PartiesPage** — `GET /api/parties` + pure `parties_store` (per-party baaki).
+- NavRoute: specific Cash Flow / Parties / Assistant routes win over broad
+  Cash/Capture matchers.
+
+## 2026-07-23 — Deep-dive audit & research pack (reports only)
+
+No product code — documentation honesty + strategy (later trimmed in doc
+cleanup; pending work lives in `ROADMAP.md`):
+
+- Completeness audit, competitive case study, optimisation programme, Fluent UI
+  deep dive (competitive + Fluent research **kept**; audit/optimisation index
+  later folded into ROADMAP).
+- Softened ROADMAP U5/U7 “parity” language; CT-9 why-clause; linked from CLAUDE.
 
 ## 2026-07-23 — Cloud CT-6…CT-10: rich tables, P&L/BS, GST cols, look-ahead, company audit
 

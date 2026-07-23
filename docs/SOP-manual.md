@@ -2,9 +2,8 @@
 
 **Ready-to-use standard operating procedures for a small/mid civil contractor.**
 _Report deliverable — no code. Written to be adopted as-is by a T2/T3 firm, and
-to describe the process Construction OS supports (or should enforce). Companions:
-`docs/RESEARCH-construction-management-sops.md` and
-`docs/REPORT-sop-gap-analysis.md`._
+to describe the process Construction OS supports (or should enforce). Companion
+research: [`RESEARCH.md`](RESEARCH.md) §3. Status: [`ROADMAP.md`](ROADMAP.md)._
 
 Each SOP is one page: **Purpose · Scope · Roles · Procedure · Hold points (gates)
 · Records · App screen**. "App screen" notes where the step lives in Construction

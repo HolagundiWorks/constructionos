@@ -33,23 +33,19 @@ cd construction_app && python -m compileall -q .
 - Run the app headless via the web server: `cd construction_app && python web_main.py`.
 
 ## Current direction (in progress)
+- **Single status board:** [`docs/ROADMAP.md`](docs/ROADMAP.md) — completed vs
+  pending (P0–P4). History: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 - **UI replatform to native WinUI 3** (Windows-only, C#/.NET, **stock Fluent
   components only, no custom items**) — an *owner-approved* departure from the
   tkinter/cross-platform/no-pip constraints **for the front-end only**. The
   **Python domain core + tests stay** and are reused as a **localhost backend
-  service** (a JSON API the WinUI 3 client calls). Spec:
+  service** (JSON API **u0.12**). Spec:
   [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md).
-- **Two development environments** — the actionable split lives in
-  [`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md)
-  §5A / §5B:
-  - **Cloud (this agent, headless Python):** domain/data/backend, JSON API
-    (**U0 `webapi.py` — built**), purity fixes, signal feed / event hooks /
-    audit origin (C3–C6), unit tests, docs. **No display, no .NET, no ML
-    models.**
-  - **Local (Windows + display + .NET):** residual tkinter Controls / Process /
-    persona **shipped** (smoke on a display still L0); WinUI 3 client scaffolds
-    (**U1–U6** — build/run/MSIX on Windows); model sidecars under `sidecars/`
-    (install weights locally). Field capture: browser `/m/capture`.
+- **Two development environments:**
+  - **Cloud (this agent, headless Python):** domain/API/tests/docs. Cloud CT
+    backlog is **closed** (ROADMAP §1.3). **No display, no .NET, no ML.**
+  - **Local (Windows + display + .NET):** WinUI workflow depth (ROADMAP §2),
+    MSIX release signing, sidecars/weights, tkinter smoke.
 
 ## Watch out
 - **Flat 159-module namespace** invites filename collisions — `lessons.py`
@@ -63,12 +59,12 @@ cd construction_app && python -m compileall -q .
   floors + JSON API) is complete; remaining roadmap work is local/Windows.
 
 ## Key docs
-Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM +
-roadmap: `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`
-· Execution (risk/opportunity/KPIs): `docs/EXECUTION-PART2.md` · AI:
-`docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform:
-`docs/WINUI3-MIGRATION.md` · UI principles (Fluent / WinUI):
-`docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3 coding standard (auto-applied):
-`.github/instructions/winui3.instructions.md` · Product & scope: `docs/PRODUCT.md`
-· Brand identity (mark/wordmark/assets): `docs/BRAND.md` (regenerate art with
-`branding/make-brand.ps1`).
+**Status (done vs pending):** `docs/ROADMAP.md` · History: `docs/CHANGELOG.md` ·
+Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM
+design: `docs/ENTERPRISE-PM-SOLUTION.md` · Execution (risk/opportunity/KPIs):
+`docs/EXECUTION-PART2.md` · AI: `docs/AI-DRAWING-TAKEOFF.md`,
+`docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform: `docs/WINUI3-MIGRATION.md` ·
+UI principles (Fluent / WinUI): `docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3
+coding standard: `.github/instructions/winui3.instructions.md` · Product:
+`docs/PRODUCT.md` · Brand: `docs/BRAND.md` · Research (single report):
+`docs/RESEARCH.md`.

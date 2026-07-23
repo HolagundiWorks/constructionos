@@ -256,7 +256,7 @@ the tree for non-Windows use or delete per a later call.
 
 | Phase | Deliverable | Where verifiable |
 |---|---|---|
-| **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.1** |
+| **U0** | **Backend JSON API** (`webapi.py`) over the domain + DTO contract; tests | **✅ Done — u0.11** |
 | **U1** | WinUI 3 solution + shell from `/api/menu`, theme (light/dark), Segoe Fluent Icons | **✅ Built + runs** — **Excel-style ribbon** shell: a row of `ToggleButton`s is the section tab strip, and picking a section fills a command **band** with that section's tabs as icon-over-label `AppBarButton`s (Segoe MDL2 glyphs via `RibbonIcons`) — no dropdowns. Always-on + Settings are leaf tabs that navigate directly. Search palette + offline fallback + `NavRoute`. Built from the simplest stock primitives after `NavigationView`-Top and `SelectorBar` both native-crashed here (see fix 7) |
 | **U2** | Masters + generic **ListView** CRUD page bound to the API (replaces `CrudFrame`) | **✅ Built** — `Views/MastersPage.*`, one metadata-driven page (list + add/edit/delete) for every master, on the shared **`FieldForm`** helper with **FK pickers** (a related-master `ComboBox` from the API's `{id,label}` options, not a typed id) |
 | **U3** | Money/Billing/Purchases pages; forms with stock inputs; `CommandBar` | **✅ built (create+list)** — one **generic `MoneyPage`** (doc table = nav parameter) serves **every** money document the API exposes — **Payments**, **Tax Invoice**, **Vendor Invoices**, **Running Bills** — through the shared **`FieldForm`** (`CommandBar` + `ContentDialog`, `POST` → 201 posting through the backend engine, FK pickers for Client/Vendor/Contract, gated follow-ups in an `InfoBar`). Title + fields + rows all come from `GET /api/<doc>`; verified live (Tax Invoice create dialog renders the Client FK + 5 inputs). Capture + Import pages built. RA-bill create (needs measurement context) and record-view/print remain follow-ups |
@@ -399,4 +399,4 @@ Fluent Windows application over the unchanged, still-tested business core.
 _Migration architecture & implementation spec. U0 (backend API) is buildable and
 testable in the current environment; the WinUI 3 client (U1–U7) is specified for a
 Windows/.NET build. Read with [`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) (the
-layers reused as the backend) and [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+layers reused as the backend) and [`ROADMAP.md`](ROADMAP.md) (status)._

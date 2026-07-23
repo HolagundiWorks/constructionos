@@ -57,14 +57,15 @@ double-clicking one folder.
 > **domain/backend** work (which the WinUI move does *not* relax). Development
 > now spans **two environments** — a cloud agent (headless Python) and a local
 > Windows box (WinUI 3 / GUI); the roadmap is split accordingly
-> ([`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md) §5A/§5B).
+> Living status: [`docs/ROADMAP.md`](docs/ROADMAP.md). Cloud vs local split and
+> pending work are listed there (§1 / §2).
 > Local WinUI work follows the UI principles doc; cloud agents do not invent
 > custom chrome or claim WinUI screenshots from Linux.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**159 Python modules** (~99 of them tkinter-free), **85 tables**, **61
-indexes**, and **667 passing tests** (5 skipped without display). Rather than a
+**180 Python modules** (**117** of them AST tkinter-free), **85 tables**, **61
+indexes**, and **728 passing tests** (5 skipped without display). Rather than a
 feature checklist that
 rots, the honest summary is:
 
@@ -112,9 +113,9 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — ~99 of them. This is
-  the testable core; extend it there rather than burying new maths inside GUI
-  callbacks.
+- **Business maths lives in pure, tkinter-free modules** — **117** AST-pure
+  (includes web). This is the testable core; extend it there rather than burying
+  new maths inside GUI callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
   rule). Add to it whenever you touch maths.
 
@@ -128,7 +129,7 @@ python main.py
 The full sweep used to validate changes, from the repo root:
 
 ```bash
-python -m unittest discover -s tests               # ~642 tests (GUI smoke needs display)
+python -m unittest discover -s tests               # 728 tests (GUI smoke needs display)
 cd construction_app && python -m compileall -q .   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
@@ -152,7 +153,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The ~99 tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The **117** tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
