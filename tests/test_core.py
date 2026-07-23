@@ -6504,5 +6504,47 @@ class TestInr(unittest.TestCase):
         self.assertEqual(inr.compact(-15000000), '-' + inr.RUPEE + '1.5 Cr')
 
 
+class TestAssistantSqlSafety(unittest.TestCase):
+    """Precision gate (research §10): the assistant only ever runs ONE read-only
+    SELECT — writes, injection and multi-statement are refused before execution."""
+
+    def test_allows_plain_select_and_caps_rows(self):
+        ok, cleaned = assistant.validate_sql('SELECT name FROM sites')
+        self.assertTrue(ok)
+        self.assertIn('LIMIT 500', cleaned)            # auto-capped
+
+    def test_allows_with_cte(self):
+        ok, _ = assistant.validate_sql('WITH x AS (SELECT 1 AS a) SELECT a FROM x')
+        self.assertTrue(ok)
+
+    def test_keeps_an_explicit_limit(self):
+        ok, cleaned = assistant.validate_sql('SELECT 1 LIMIT 3')
+        self.assertTrue(ok)
+        self.assertNotIn('LIMIT 500', cleaned)
+
+    def test_blocks_every_write_verb(self):
+        for bad in ('INSERT INTO sites VALUES (1)', 'UPDATE sites SET name=1',
+                    'DELETE FROM sites', 'DROP TABLE sites',
+                    'ALTER TABLE sites ADD x', 'CREATE TABLE t (a)',
+                    'REPLACE INTO sites VALUES (1)', 'PRAGMA table_info(sites)',
+                    'ATTACH DATABASE ":memory:" AS m', 'VACUUM'):
+            ok, _ = assistant.validate_sql(bad)
+            self.assertFalse(ok, bad)
+
+    def test_blocks_injection_dressed_as_select(self):
+        # A write keyword anywhere (even in a subquery) is refused...
+        self.assertFalse(assistant.validate_sql('SELECT (DELETE FROM sites)')[0])
+        # ...and a piggy-backed statement is refused as multi-statement.
+        self.assertFalse(assistant.validate_sql('SELECT 1; DROP TABLE sites')[0])
+
+    def test_blocks_multi_statement(self):
+        self.assertFalse(assistant.validate_sql('SELECT 1; SELECT 2')[0])
+
+    def test_blocks_non_select_and_empty(self):
+        self.assertFalse(assistant.validate_sql('EXPLAIN SELECT 1')[0])
+        self.assertFalse(assistant.validate_sql('')[0])
+        self.assertFalse(assistant.validate_sql('   ')[0])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

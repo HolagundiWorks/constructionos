@@ -895,6 +895,48 @@ class TestWebApi(unittest.TestCase):
         self.assertEqual(recv[0]['outstanding'], 70000.0)     # baaki
         self.assertEqual(body['total_receivable'], 70000.0)
 
+    def test_bills_previous_excludes_draft(self):
+        """Precision gate (research §4.1): only Approved/Paid bills count as
+        previously billed — a Draft bill must not inflate previous_billed, or the
+        next RA bill would double-count the work."""
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        hdr = {'X-CSRF-Token': csrf}
+        resp = self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=ck,
+            json_body={'name': 'Client A'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        cl = self._json(resp)['id']
+        resp = self.webapp.handle(self._req(
+            '/api/contracts', 'POST', cookies=ck,
+            json_body={'client_id': cl, 'contract_no': 'C-9',
+                       'contract_value': 500000}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        cid = self._json(resp)['id']
+        # An Approved bill counts toward previous_billed.
+        resp = self.webapp.handle(self._req(
+            '/api/bills', 'POST', cookies=ck,
+            json_body={'bill_no': 'RB-1', 'contract_id': cid,
+                       'bill_date': '2026-07-01', 'work_done_value': 100000,
+                       'previous_billed': 0, 'retention_pct': 5,
+                       'status': 'Approved'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        resp = self.webapp.handle(self._req(
+            '/api/bills/previous', cookies=ck, query={'contract_id': str(cid)}))
+        approved_prev = self._json(resp)['previous_billed']
+        self.assertGreater(approved_prev, 0)
+        # A Draft bill must NOT change previous_billed.
+        resp = self.webapp.handle(self._req(
+            '/api/bills', 'POST', cookies=ck,
+            json_body={'bill_no': 'RB-2', 'contract_id': cid,
+                       'bill_date': '2026-07-15', 'work_done_value': 200000,
+                       'previous_billed': approved_prev, 'retention_pct': 5,
+                       'status': 'Draft'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        resp = self.webapp.handle(self._req(
+            '/api/bills/previous', cookies=ck, query={'contract_id': str(cid)}))
+        self.assertEqual(self._json(resp)['previous_billed'], approved_prev)
+
     def test_assistant_quick_and_ask(self):
         """Assistant endpoints — exact quick answers (no model) + the ask turn
         (returns a friendly error when the AI engine is off, never a fake answer)."""
