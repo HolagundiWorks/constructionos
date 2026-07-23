@@ -178,9 +178,10 @@ internal static class Ui
             });
         for (var i = 0; i < cols.Count; i++)
         {
+            var text = value(cols[i]);
             var tb = new TextBlock
             {
-                Text = value(cols[i]),
+                Text = text,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap,
             };
@@ -190,6 +191,13 @@ internal static class Ui
                 tb.FontWeight = FontWeights.SemiBold;
                 tb.Foreground = (Microsoft.UI.Xaml.Media.Brush)
                     Application.Current.Resources["TextFillColorSecondaryBrush"];
+            }
+            // Right-align numeric data cells (amounts/quantities read better on
+            // the right). No reformatting — mangling years/pincodes/ids is worse
+            // than plain numbers. The "id" column stays left with the header.
+            else if (cols[i] != "id" && IsNumber(text))
+            {
+                tb.TextAlignment = TextAlignment.Right;
             }
             Grid.SetColumn(tb, i);
             g.Children.Add(tb);
@@ -226,6 +234,11 @@ internal static class Ui
         JsonValueKind.Null => "",
         _ => v.ToString(),
     };
+
+    private static bool IsNumber(string s) =>
+        !string.IsNullOrEmpty(s)
+        && double.TryParse(s, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out _);
 
     // "net_payable" → "Net payable".
     private static string Pretty(string key)

@@ -13,6 +13,7 @@ public static class NavRoute
     {
         (t => Eq(t, "Home") || t.Length == 0, typeof(HomePage)),
         (t => Has(t, "GST"), typeof(GstPage)),
+        (t => Has(t, "Review"), typeof(ReviewPage)),
         (t => Has(t, "Risk"), typeof(RisksPage)),
         (t => Has(t, "Opportun"), typeof(OpportunitiesPage)),
         (t => Has(t, "Lesson"), typeof(LessonsPage)),
