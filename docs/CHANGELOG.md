@@ -6,6 +6,13 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI: loading states on the data pages
+
+- `DataTablePage` (the ~21 read-only register tabs) and `MoneyPage` (money docs)
+  now show a centered `ProgressRing` (`Ui.Loading()`) while their API call is in
+  flight, then swap in the table — so the stage isn't blank on first load or a
+  cold backend. (Coding-standard "empty/loading/error states handled".)
+
 ## 2026-07-23 — WinUI (U7): accessibility pass — headings + names
 
 - **Page headings.** A new `PageTitleStyle` (based on `TitleTextBlockStyle` +

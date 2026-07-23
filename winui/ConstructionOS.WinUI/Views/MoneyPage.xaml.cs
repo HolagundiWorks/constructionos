@@ -40,6 +40,8 @@ public sealed partial class MoneyPage : Page
     private async Task LoadAsync()
     {
         Notice.IsOpen = false;
+        Host.Children.Clear();
+        Host.Children.Add(Ui.Loading());
         try
         {
             var data = await ApiClient.Default.GetJsonAsync("api/" + _table);

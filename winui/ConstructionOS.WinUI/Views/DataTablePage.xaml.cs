@@ -39,6 +39,8 @@ public sealed partial class DataTablePage : Page
     {
         TitleText.Text = _title;
         if (string.IsNullOrEmpty(_path)) return;
+        Host.Children.Clear();
+        Host.Children.Add(Ui.Loading());
         try
         {
             var data = await ApiClient.Default.GetJsonAsync("api/" + _path);

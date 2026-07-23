@@ -205,6 +205,18 @@ internal static class Ui
         return g;
     }
 
+    /// <summary>A centered progress ring for the "loading…" state while an API
+    /// call is in flight (put it in the page's content host before the await).</summary>
+    public static FrameworkElement Loading() => new ProgressRing
+    {
+        IsActive = true,
+        Width = 32,
+        Height = 32,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Top,
+        Margin = new Thickness(0, 48, 0, 0),
+    };
+
     private static FrameworkElement Empty(string message) => new TextBlock
     {
         Text = message,
