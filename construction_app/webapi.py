@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.8'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.9'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -1018,15 +1018,16 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.8',
+        'api': 'u0.9',
         'auth': {
-            'login': 'POST /api/login',
+            'login': 'POST /api/login {username,password,company?}',
+            'companies': 'GET /api/companies (public)',
             'session_cookie': 'cosid',
             'csrf_header': 'X-CSRF-Token',
             'me': 'GET /api/me',
         },
         'reads': [
-            'GET /api/health', 'GET /api/contract',
+            'GET /api/health', 'GET /api/contract', 'GET /api/companies',
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',

@@ -10,6 +10,9 @@
       <TextBox x:Name="BaseUrlBox" Header="API base URL" PlaceholderText="http://127.0.0.1:8080"/>
       <TextBox x:Name="UserBox" Header="Username"/>
       <PasswordBox x:Name="PasswordBox" Header="Password"/>
+      <TextBox x:Name="CompanyBox"
+               Header="Company (registry name — blank uses active)"
+               PlaceholderText="e.g. Main / FY 2025-26"/>
       <ComboBox x:Name="PersonaBox" Header="Persona" HorizontalAlignment="Stretch"/>
       <NumberBox x:Name="TimeoutBox" Header="Timeout (seconds)" Minimum="5" Maximum="120"
                  SpinButtonPlacementMode="Inline"/>

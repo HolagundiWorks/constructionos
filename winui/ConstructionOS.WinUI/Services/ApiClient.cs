@@ -18,16 +18,18 @@ public sealed class ApiClient : IDisposable
     private string? _csrf;
     private readonly string _username;
     private readonly string _password;
+    private readonly string _company;
     private bool _disposed;
 
     public string BaseAddress { get; }
 
     public ApiClient(string baseAddress, string? username = null, string? password = null,
-                     int timeoutSeconds = 30)
+                     int timeoutSeconds = 30, string? company = null)
     {
         BaseAddress = baseAddress.Trim().TrimEnd('/') + "/";
         _username = string.IsNullOrWhiteSpace(username) ? "admin" : username.Trim();
         _password = password ?? "";
+        _company = company?.Trim() ?? "";
         var handler = new HttpClientHandler { CookieContainer = _cookies };
         _http = new HttpClient(handler)
         {
@@ -46,7 +48,8 @@ public sealed class ApiClient : IDisposable
             settings.BaseUrl,
             settings.Username,
             settings.Password,
-            settings.TimeoutSeconds);
+            settings.TimeoutSeconds,
+            settings.Company);
     }
 
     /// <summary>Replace <see cref="Default"/> from current settings (after Save).</summary>
@@ -69,7 +72,14 @@ public sealed class ApiClient : IDisposable
     public async Task EnsureSessionAsync(CancellationToken ct = default)
     {
         if (_csrf != null) return;
-        var body = JsonSerializer.Serialize(new { username = _username, password = _password });
+        var payload = new Dictionary<string, string>
+        {
+            ["username"] = _username,
+            ["password"] = _password,
+        };
+        if (!string.IsNullOrWhiteSpace(_company))
+            payload["company"] = _company;
+        var body = JsonSerializer.Serialize(payload);
         using var content = new StringContent(body, Encoding.UTF8, "application/json");
         var resp = await _http.PostAsync("api/login", content, ct).ConfigureAwait(false);
         var doc = await ReadJsonOrThrowAsync(resp, ct).ConfigureAwait(false);

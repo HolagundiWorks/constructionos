@@ -3390,6 +3390,112 @@ class TestCompanyRegistry(unittest.TestCase):
         self.assertEqual(company.next_year_label('2099-00'), '2100-01')
         self.assertEqual(company.next_year_label('junk'), '')
 
+    def test_list_entries_marks_active_and_exists(self):
+        data = company.load(self.reg)
+        present = os.path.join(self.dir, 'live.db')
+        missing = os.path.join(self.dir, 'gone.db')
+        open(present, 'w').close()
+        company.add(data, 'Live', present, make_active=True)
+        company.add(data, 'Gone', missing)
+        company.save(data, self.reg)
+        rows = company.list_entries(company.load(self.reg))
+        by_name = {r['name']: r for r in rows}
+        self.assertTrue(by_name['Live']['active'])
+        self.assertTrue(by_name['Live']['exists'])
+        self.assertFalse(by_name['Gone']['active'])
+        self.assertFalse(by_name['Gone']['exists'])
+
+    def test_apply_active_points_db_and_registers_default(self):
+        class FakeDb:
+            DB_PATH = os.path.join(self.dir, 'boot.db')
+        open(FakeDb.DB_PATH, 'w').close()
+        chosen = company.apply_active(
+            db_module=FakeDb, registry_path=self.reg,
+            default_path=FakeDb.DB_PATH)
+        self.assertEqual(chosen, FakeDb.DB_PATH)
+        self.assertEqual(FakeDb.DB_PATH, chosen)
+        back = company.load(self.reg)
+        self.assertTrue(back['active'].endswith('boot.db'))
+        self.assertEqual(len(back['files']), 1)
+
+    def test_apply_active_honours_registered_active(self):
+        class FakeDb:
+            DB_PATH = os.path.join(self.dir, 'default.db')
+        a = os.path.join(self.dir, 'a.db')
+        b = os.path.join(self.dir, 'b.db')
+        open(a, 'w').close()
+        open(b, 'w').close()
+        data = company.load(self.reg)
+        company.add(data, 'A', a)
+        company.add(data, 'B', b, make_active=True)
+        company.save(data, self.reg)
+        chosen = company.apply_active(
+            db_module=FakeDb, registry_path=self.reg)
+        self.assertTrue(chosen.endswith('b.db'))
+        self.assertEqual(FakeDb.DB_PATH, chosen)
+
+    def test_select_company_rejects_missing(self):
+        class FakeDb:
+            DB_PATH = os.path.join(self.dir, 'x.db')
+        ok, msg = company.select_company(
+            os.path.join(self.dir, 'nope.db'),
+            db_module=FakeDb, registry_path=self.reg)
+        self.assertFalse(ok)
+        self.assertIn('missing', msg.lower())
+
+    def test_export_and_import_round_trip(self):
+        import db as dbmod
+        src = os.path.join(self.dir, 'src.db')
+        export_path = os.path.join(self.dir, 'out', 'copy.db')
+        orig = dbmod.DB_PATH
+        try:
+            dbmod.DB_PATH = src
+            dbmod.init_db()
+            ok, msg = company.export_company(src, export_path)
+            self.assertTrue(ok, msg)
+            self.assertTrue(os.path.exists(export_path))
+            ok, msg, new_path = company.import_company(
+                export_path, name='Imported Co', folder=self.dir,
+                make_active=True, db_module=dbmod, registry_path=self.reg)
+            self.assertTrue(ok, msg)
+            self.assertTrue(os.path.exists(new_path))
+            self.assertEqual(dbmod.DB_PATH, new_path)
+            data = company.load(self.reg)
+            self.assertEqual(company.find(data, new_path)['name'], 'Imported Co')
+        finally:
+            dbmod.DB_PATH = orig
+
+    def test_import_rejects_non_sqlite(self):
+        junk = os.path.join(self.dir, 'not.db')
+        with open(junk, 'w', encoding='utf-8') as fh:
+            fh.write('hello')
+        class FakeDb:
+            DB_PATH = os.path.join(self.dir, 'x.db')
+        ok, msg, path = company.import_company(
+            junk, folder=self.dir, db_module=FakeDb, registry_path=self.reg)
+        self.assertFalse(ok)
+        self.assertIsNone(path)
+        self.assertIn('company file', msg.lower())
+
+    def test_create_company_fresh_book(self):
+        import db as dbmod
+        orig = dbmod.DB_PATH
+        try:
+            ok, msg, path = company.create_company(
+                'Acme Builders', folder=self.dir, make_active=True,
+                db_module=dbmod, registry_path=self.reg)
+            self.assertTrue(ok, msg)
+            self.assertTrue(os.path.exists(path))
+            self.assertEqual(dbmod.DB_PATH, path)
+            conn = dbmod.get_conn()
+            try:
+                n = conn.execute('SELECT COUNT(*) FROM accounts').fetchone()[0]
+            finally:
+                conn.close()
+            self.assertGreater(n, 0)
+        finally:
+            dbmod.DB_PATH = orig
+
 
 class TestCarryForward(unittest.TestCase):
     """Starting a new year must copy the setup and none of the history."""

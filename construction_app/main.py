@@ -20,6 +20,7 @@ import menu
 import assets
 import auth
 import branding
+import company
 import session
 import i18n
 import errors
@@ -234,16 +235,11 @@ def _section(parent, get, title, items):
 
 
 def main():
+    # Honour the last-selected company file before opening the schema.
+    company.apply_active()
     db.init_db()
 
     get = db.get_conn
-
-    # Optional login gate: only when security is enabled and users exist.
-    conn = get()
-    try:
-        require_login = auth.security_enabled(conn) and auth.user_count(conn) > 0
-    finally:
-        conn.close()
 
     root = tk.Tk()
     root.title(branding.WINDOW_TITLE)
@@ -258,15 +254,22 @@ def main():
     finally:
         conn.close()
 
-    if require_login:
-        root.withdraw()                      # hide until authenticated
-        dialog = LoginDialog(root, get)
-        if not dialog.ok:
-            root.destroy()
-            return
-        root.deiconify()
+    # Always: pick company, then sign in (or Continue when security is off).
+    root.withdraw()
+    dialog = LoginDialog(root, get)
+    if not dialog.ok:
+        root.destroy()
+        return
+    root.deiconify()
+    if session.is_authenticated():
         root.title('{} — {} ({})'.format(
             branding.APP_NAME, session.username(), session.role()))
+    else:
+        # Show which company is open when there is no signed-in user.
+        entries = company.list_entries()
+        label = next((e['name'] for e in entries if e['active']), None)
+        if label:
+            root.title('{} — {}'.format(branding.APP_NAME, label))
 
     # First-run wizard on a fresh book (empty masters, not previously done).
     maybe_run_setup(root, get)

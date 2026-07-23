@@ -13,6 +13,8 @@ public sealed class AppSettings
     public string BaseUrl { get; set; } = "http://127.0.0.1:8080";
     public string Username { get; set; } = "admin";
     public string Password { get; set; } = "BuildSite#2026";
+    /// <summary>Optional company path or display name for POST /api/login.</summary>
+    public string Company { get; set; } = "";
     public string Persona { get; set; } = "Owner";
     public int TimeoutSeconds { get; set; } = 30;
 
@@ -85,6 +87,7 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(Username))
             Username = "admin";
         Password ??= "";
+        Company = (Company ?? "").Trim();
         Persona = string.IsNullOrWhiteSpace(Persona) ? "Owner" : Persona.Trim();
         if (TimeoutSeconds < 5) TimeoutSeconds = 5;
         if (TimeoutSeconds > 120) TimeoutSeconds = 120;
