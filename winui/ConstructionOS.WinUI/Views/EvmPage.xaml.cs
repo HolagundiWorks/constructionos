@@ -58,7 +58,8 @@ public sealed partial class EvmPage : Page
                     Int(p, "over_cost"), Int(p, "behind_schedule"));
             }
 
-            Grid.ItemsSource = Ui.Lines(data, "rows");
+            Detail.Children.Clear();
+            Detail.Children.Add(Ui.Table(data, "rows"));   // per-project EVM table
             Status.Text = names.Count == 0
                 ? "No projects with a contract value or budget yet — add one to "
                   + "measure earned value against it."

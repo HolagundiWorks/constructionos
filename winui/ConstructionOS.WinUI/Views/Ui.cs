@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Text;
+using ConstructionOS.WinUI.Services;
 
 namespace ConstructionOS.WinUI.Views;
 
@@ -9,28 +10,11 @@ namespace ConstructionOS.WinUI.Views;
 /// Shared UI helpers for turning an /api items array into a readable, aligned
 /// columnar table (stock controls only — a header <see cref="Grid"/> over a
 /// <see cref="ListView"/> of row grids, since CommunityToolkit DataGrid is
-/// UWP-only and crashes WinUI 3). <see cref="Lines"/> is kept for the few call
-/// sites that still want one string per row.
+/// UWP-only and crashes WinUI 3).
 /// </summary>
 internal static class Ui
 {
     private const int MaxCols = 10;
-
-    /// <summary>One "key: value    …" string per row (legacy list rendering).</summary>
-    public static List<string> Lines(JsonElement data, params string[] keys)
-    {
-        var rows = new List<string>();
-        if (!TryItems(data, keys, out var items)) return rows;
-        foreach (var item in items.EnumerateArray())
-        {
-            var parts = new List<string>();
-            foreach (var p in item.EnumerateObject())
-                if (p.Value.ValueKind != JsonValueKind.Null)
-                    parts.Add($"{p.Name}: {Cell(p.Value)}");
-            rows.Add(string.Join("    ", parts));
-        }
-        return rows;
-    }
 
     /// <summary>
     /// An aligned columnar table for the items array in <paramref name="data"/>.
@@ -288,6 +272,33 @@ internal static class Ui
         return g;
     }
 
+    /// <summary>The standard "live register" page body: fetch an endpoint, show a
+    /// loading ring, then render its items as a columnar table (or a friendly
+    /// error). Keeps the register pages to a couple of lines each.</summary>
+    public static async Task LoadTableAsync(Panel host, string endpoint,
+                                            params string[] keys)
+    {
+        host.Children.Clear();
+        host.Children.Add(Loading());
+        try
+        {
+            var data = await ApiClient.Default.GetJsonAsync(endpoint);
+            host.Children.Clear();
+            host.Children.Add(Table(data, keys));
+        }
+        catch (Exception ex)
+        {
+            host.Children.Clear();
+            host.Children.Add(new TextBlock
+            {
+                Text = ApiException.UserMessage(ex),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    Application.Current.Resources["TextFillColorSecondaryBrush"],
+            });
+        }
+    }
+
     /// <summary>A centered progress ring for the "loading…" state while an API
     /// call is in flight (put it in the page's content host before the await).</summary>
     public static FrameworkElement Loading() => new ProgressRing
@@ -307,6 +318,47 @@ internal static class Ui
             Application.Current.Resources["TextFillColorSecondaryBrush"],
         Margin = new Thickness(4, 12, 4, 4),
     };
+
+    /// <summary>A headline stat card — a big value over a caption. The value is
+    /// tinted with the brand accent when <paramref name="accent"/>.</summary>
+    public static FrameworkElement Stat(string caption, string value, bool accent = false)
+    {
+        var stack = new StackPanel { Spacing = 2 };
+        stack.Children.Add(new TextBlock
+        {
+            Text = value,
+            Style = (Style)Application.Current.Resources["TitleTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[
+                accent ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush"],
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = caption,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                Application.Current.Resources["TextFillColorSecondaryBrush"],
+        });
+        return new Border
+        {
+            Child = stack,
+            Background = (Microsoft.UI.Xaml.Media.Brush)
+                Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            BorderBrush = (Microsoft.UI.Xaml.Media.Brush)
+                Application.Current.Resources["CardStrokeColorDefaultBrush"],
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16, 12, 16, 12),
+            MinWidth = 130,
+        };
+    }
+
+    /// <summary>A horizontal strip of stat cards.</summary>
+    public static FrameworkElement StatStrip(IEnumerable<(string Caption, string Value)> stats)
+    {
+        var host = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        foreach (var (c, v) in stats) host.Children.Add(Stat(c, v));
+        return host;
+    }
 
     private static bool TryItems(JsonElement data, string[] keys, out JsonElement items)
     {

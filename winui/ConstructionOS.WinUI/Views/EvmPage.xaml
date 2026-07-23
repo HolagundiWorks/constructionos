@@ -17,7 +17,7 @@
       </Border>
       <TextBlock x:Name="Status" TextWrapping="Wrap"
                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-      <ListView x:Name="Grid" SelectionMode="Single"/>
+      <StackPanel x:Name="Detail"/>
     </StackPanel>
   </ScrollViewer>
 </Page>
