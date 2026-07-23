@@ -107,14 +107,14 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U2** | Masters — one generic register page: columnar tables + `FieldForm` CRUD with FK pickers | ✅ built + runs |
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
-| **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages; honest placeholders for the rest | ✅ built + runs |
+| **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **every catalog tab wired** to tables/forms/charts/reports (no placeholders left); **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages | ✅ built + runs |
 | **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **signed MSIX ✅** (`build-msix.ps1`: assets → publish → `makeappx` → `signtool`, no VS) | ✅ built (dev-signed) |
-| **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **parity pass ✅** (every catalog tab wired incl. **Tools** → firm details + module on/off); remaining: interactive a11y walkthrough, retire tkinter on Windows | 🚧 in progress |
+| **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **parity pass ✅** (every catalog tab is a live page — Tools, Controls registers, EVM/Portfolio/Productivity all real, no placeholders); remaining: interactive a11y walkthrough, retire tkinter on Windows | 🚧 in progress |
 
 **Shipped on the local track since the last update:**
 - **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
 - **Excel-style ribbon** replacing the top `NavigationView` (both NavigationView-Top and `SelectorBar` native-crash on this SDK); decluttered top bar (utilities as a right-hand icon cluster, Fluent "<8 peers").
-- **Generic columnar data tables** (`Ui.Table`) for masters, money docs and **~21 read-only registers**; a generic `DataTablePage`; honest `InfoPage` placeholders so no tab dead-ends.
+- **Generic columnar data tables** (`Ui.Table`) for masters, money docs and **~21 read-only registers**; a generic `DataTablePage`. **Every menu tab now resolves to a live, API-backed page** — the crude text-dump pages (Risk/Opportunity/Lessons/Submittals, EVM detail, Portfolio, Productivity) were replaced with real tables + headline cards, and no `InfoPage` placeholder is reachable from the menu.
 - **Multi-company** in the client: a **company picker** in Settings (editable ComboBox from `/api/companies`) whose choice is sent on login (`AppSettings.Company` → `/api/login`), and the **active book shown in the window title** (`ACO — <book>`).
 - **In-session company/connection switch** — Settings → Save re-logs in and rebuilds the shell in place (`App.MainWindow.ReloadShell()`), landing on Home.
 - **Startup native crash** (`0xc000027b` heap corruption) cut to ~0–1/16 via a timer-deferred shell build.
