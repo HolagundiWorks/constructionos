@@ -5,8 +5,8 @@ delivery — mapped to the system**
 
 _Document type: Reference / Solution design (documentation only — describes code)_
 _Version: 1.0 · Last updated: 2026-07-21 · Prepared by: Human Centric Works_
-_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) and
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md).
+Status: [`ROADMAP.md`](ROADMAP.md)._
 
 ---
 
@@ -228,5 +228,5 @@ decision.**
 
 _Reference/design document. The maths and persistence described here are built
 and unit-tested; the on-screen tabs remain the display-dependent next step. Read
-alongside [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)
+alongside [`ROADMAP.md`](ROADMAP.md)
 and [`ROADMAP.md`](ROADMAP.md). Architecture: [`../AGENTS.md`](../AGENTS.md)._

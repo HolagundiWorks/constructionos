@@ -6,18 +6,30 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — Doc cleanup: one ROADMAP, remove stray audits/roadmaps
+
+Removed competing / closed status docs (pending already in `ROADMAP.md`;
+history already in this changelog):
+
+- `CLOUD-TASKS.md` (all CT ✅)
+- `COMPLETENESS-AUDIT.md` (findings → ROADMAP §2)
+- `ENTERPRISE-PM-GAP-AND-ROADMAP.md` (stray roadmap; keep `ENTERPRISE-PM-SOLUTION.md`)
+- `REPORT-sop-gap-analysis.md` (gaps closed 2026-07-21)
+- `SPEC-submittals-register.md` (submittals shipped)
+- `RESEARCH-OPTIMISATION-AND-PRECISION.md` + `RESEARCH-INDEX.md` (pending → ROADMAP)
+
+Kept research that is not a status board: competitive case study, Fluent UI deep
+dive, SOP research + primary sources. Fixed links in README / CLAUDE / AGENTS /
+adjacent specs.
+
 ## 2026-07-23 — Single roadmap: status here → CHANGELOG archive
 
 - **`docs/ROADMAP.md` rewritten** as the **one** status doc: Completed (§1) vs
   Pending P0–P4 (§2) vs Non-goals (§3). Removed long “shipped narrative” lists
   that duplicated this changelog.
 - **API baseline noted as u0.12** (assistant + parties endpoints).
-- Pending WinUI work prioritised from completeness audit + Fluent/optimisation
-  research (BOQ/RA, subcontractors, AI Engine, GRN/muster, theme/Mica, Tools,
-  release signing, L8).
-- [`CLOUD-TASKS.md`](CLOUD-TASKS.md) and
-  [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) marked
-  as **historical / detail specs** — status lives only in ROADMAP.
+- Pending WinUI work prioritised (BOQ/RA, subcontractors, AI Engine, GRN/muster,
+  theme/Mica, Tools, release signing, L8).
 
 ### Completed items archived from the old roadmap “in progress” section
 

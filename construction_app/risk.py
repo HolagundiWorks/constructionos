@@ -1,7 +1,7 @@
 """Risk scoring — the deterministic heart of the risk register (E0 foundation).
 
 No tkinter, no database. The enterprise roadmap
-(``docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md``) makes risk a first-class capability;
+(``docs/ENTERPRISE-PM-SOLUTION.md`` / ``docs/ROADMAP.md``) makes risk a first-class capability;
 the register's *storage* and *screen* come later, but the **maths must be pure,
 explainable and testable** first, because a risk score that quietly
 mis-classifies an exposure is as dangerous as a wrong money figure.

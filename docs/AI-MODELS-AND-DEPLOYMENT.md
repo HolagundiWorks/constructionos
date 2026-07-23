@@ -5,9 +5,8 @@ topology runs them**
 
 _Document type: Reference / Solution design (documentation only — no code changes)_
 _Version: 1.0 · Last updated: 2026-07-21 · Prepared by: Human Centric Works_
-_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md),
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md), and
-[`AI-DRAWING-TAKEOFF.md`](AI-DRAWING-TAKEOFF.md)._
+_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) and
+[`AI-DRAWING-TAKEOFF.md`](AI-DRAWING-TAKEOFF.md). Status: [`ROADMAP.md`](ROADMAP.md)._
 
 ---
 

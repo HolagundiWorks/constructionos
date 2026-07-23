@@ -34,7 +34,7 @@ cd construction_app && python -m compileall -q .
 
 ## Current direction (in progress)
 - **Single status board:** [`docs/ROADMAP.md`](docs/ROADMAP.md) — completed vs
-  pending (P0–P4). Changelog for history; research pack for evidence.
+  pending (P0–P4). History: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 - **UI replatform to native WinUI 3** (Windows-only, C#/.NET, **stock Fluent
   components only, no custom items**) — an *owner-approved* departure from the
   tkinter/cross-platform/no-pip constraints **for the front-end only**. The
@@ -43,7 +43,7 @@ cd construction_app && python -m compileall -q .
   [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md).
 - **Two development environments:**
   - **Cloud (this agent, headless Python):** domain/API/tests/docs. Cloud CT
-    backlog is **closed** (see ROADMAP §1.3). **No display, no .NET, no ML.**
+    backlog is **closed** (ROADMAP §1.3). **No display, no .NET, no ML.**
   - **Local (Windows + display + .NET):** WinUI workflow depth (ROADMAP §2),
     MSIX release signing, sidecars/weights, tkinter smoke.
 
@@ -61,13 +61,10 @@ cd construction_app && python -m compileall -q .
 ## Key docs
 **Status (done vs pending):** `docs/ROADMAP.md` · History: `docs/CHANGELOG.md` ·
 Architecture & menu/workflow: `docs/APP-ARCHITECTURE.md` · Enterprise AI PM
-detail: `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`
-· Execution (risk/opportunity/KPIs): `docs/EXECUTION-PART2.md` · AI:
-`docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform:
-`docs/WINUI3-MIGRATION.md` · UI principles (Fluent / WinUI):
-`docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3 coding standard (auto-applied):
-`.github/instructions/winui3.instructions.md` · Product & scope: `docs/PRODUCT.md`
-· Brand identity (mark/wordmark/assets): `docs/BRAND.md` (regenerate art with
-`branding/make-brand.ps1`) · **Audit & research pack:** `docs/RESEARCH-INDEX.md`
-(completeness audit, competitive case study, optimisation/precision, **Fluent UI
-deep dive**).
+design: `docs/ENTERPRISE-PM-SOLUTION.md` · Execution (risk/opportunity/KPIs):
+`docs/EXECUTION-PART2.md` · AI: `docs/AI-DRAWING-TAKEOFF.md`,
+`docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform: `docs/WINUI3-MIGRATION.md` ·
+UI principles (Fluent / WinUI): `docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3
+coding standard: `.github/instructions/winui3.instructions.md` · Product:
+`docs/PRODUCT.md` · Brand: `docs/BRAND.md` · Research (not status):
+`docs/RESEARCH-UI-FLUENT-DEEP-DIVE.md`, `docs/RESEARCH-COMPETITIVE-CASE-STUDY.md`.

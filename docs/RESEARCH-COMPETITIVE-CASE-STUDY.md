@@ -8,8 +8,8 @@ optimise for power and precision without copying the wrong market.
 material, Quora billing-engineer threads, contractor-software review sites.
 Prices and rankings move quickly — treat figures as **order-of-magnitude**.
 
-Companion: [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md),
-[`RESEARCH-OPTIMISATION-AND-PRECISION.md`](RESEARCH-OPTIMISATION-AND-PRECISION.md).
+Companion: [`ROADMAP.md`](ROADMAP.md) (status),
+[`RESEARCH-UI-FLUENT-DEEP-DIVE.md`](RESEARCH-UI-FLUENT-DEEP-DIVE.md).
 
 ---
 

@@ -1,7 +1,7 @@
 """Earned Value Management (EVM) — the money+schedule forecast, as pure maths.
 
 No tkinter, no database. This is the E0 foundation the enterprise roadmap
-(``docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md``) leans on: it turns three numbers the
+(``docs/ENTERPRISE-PM-SOLUTION.md`` / ``docs/ROADMAP.md``) leans on: it turns three numbers the
 app already knows into the standard cost/schedule performance indices and a
 forecast-at-completion, so a KPI board can say not just *where we are* but *where
 this is heading*.

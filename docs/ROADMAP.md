@@ -4,8 +4,8 @@ _Product: **ACO** (Accelerated Construction Operations)._
 _Last updated: 2026-07-23 · Baseline: API **u0.12**_
 
 **This is the single status document.** What changed and where →
-[`CHANGELOG.md`](CHANGELOG.md). Research / audits → [`RESEARCH-INDEX.md`](RESEARCH-INDEX.md).
-Engineering specs stay in their docs (linked below) but **do not track status**.
+[`CHANGELOG.md`](CHANGELOG.md). Engineering / product specs are listed in §5 —
+they are **not** status boards.
 
 **Audience test:** does this help a solo T2/T3 Indian contractor bill, get paid,
 pay labour, and stay in control — offline, on their PC, with minimal typing?
@@ -21,7 +21,7 @@ pay labour, and stay in control — offline, on their PC, with minimal typing?
 |---|---|
 | Desktop ERP (tkinter) + pure domain + SQLite | ✅ Complete product |
 | Browser / LAN (stdlib) | ✅ Read + money/masters write |
-| JSON API (`webapi.py`) | ✅ **u0.12** (C0–C14, CT-1…CT-10) |
+| JSON API (`webapi.py`) | ✅ **u0.12** (C0–C14, CT-1…CT-10 closed) |
 | WinUI 3 client | 🚧 **Nav-complete**; workflow depth in progress |
 | MSIX packaging | ✅ Dev-signed; ⏳ release cert + clean-box proof |
 | OCR / STT / VLM sidecars (L8) | ⏳ Stub only (weights local) |
@@ -34,7 +34,7 @@ pay labour, and stay in control — offline, on their PC, with minimal typing?
 
 Full ERP surface for the audience — money, civil billing, labour, procurement,
 quality/HSE, PM, AI assistant, takeoff, multi-company books. Detail lives in
-[`CHANGELOG.md`](CHANGELOG.md) (historical phases) and `AGENTS.md`.
+[`CHANGELOG.md`](CHANGELOG.md) and `AGENTS.md`.
 
 | Area | Done |
 |---|---|
@@ -56,14 +56,10 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 
 ### 1.3 Cloud / API track (headless) — **closed**
 
-All cloud backlog items are **done**. Task write-ups archived in
-[`CLOUD-TASKS.md`](CLOUD-TASKS.md) (historical).
-
 | Track | Delivered |
 |---|---|
-| **C0–C14 / U0.x** | Domain purity, `/api/*` through u0.11 features, events, signals, capture floors, GRN/vendor confirm, Tools `/api/firm` + `/api/modules` |
-| **CT-1…CT-5** | Pure `gst.py`, `/api/gst`, measurements CRUD, chart `labels`/`values`, audit sweep |
-| **CT-6…CT-10** | Rich table metadata, `/api/pnl` + `/api/balance_sheet`, GST `cols`, `/api/lookahead`, company audit/role-gates |
+| **C0–C14 / U0.x** | Domain purity, `/api/*` through Tools settings, events, signals, capture floors |
+| **CT-1…CT-10** | Pure GST, measurements API, chart shapes, rich tables, P&L/BS, lookahead, company audit |
 | **u0.12** | `/api/assistant/quick`, `POST /api/assistant`, `/api/parties` |
 
 ### 1.4 WinUI track — phases done
@@ -79,33 +75,22 @@ All cloud backlog items are **done**. Task write-ups archived in
 | **U6** | Backend auto-launch + PyInstaller sidecar + **dev-signed MSIX** | ✅ |
 | **U7** (partial) | Persona menus, mechanical a11y, Tools page | ✅ so far |
 
-**Also done on WinUI (post-audit):** dedicated **AssistantPage**, **CashFlowPage**,
-**PartiesPage** (baaki + ageing buckets); empty/error honesty (`ApiException`);
-₹ / lakh-crore formatting; precision test gates (assistant SQL safety; Draft
-excluded from previous billed). Blow-by-blow → changelog.
-
-### 1.5 Research / honesty (docs)
-
-✅ Completeness audit, competitive case study, optimisation programme, Fluent UI
-deep dive — [`RESEARCH-INDEX.md`](RESEARCH-INDEX.md).
+**Also done on WinUI:** dedicated **AssistantPage**, **CashFlowPage**,
+**PartiesPage** (baaki + ageing); empty/error honesty; ₹ formatting; precision
+test gates. Blow-by-blow → changelog.
 
 ---
 
 ## 2. Pending
 
-Priorities aligned with
-[`RESEARCH-OPTIMISATION-AND-PRECISION.md`](RESEARCH-OPTIMISATION-AND-PRECISION.md)
-and [`RESEARCH-UI-FLUENT-DEEP-DIVE.md`](RESEARCH-UI-FLUENT-DEEP-DIVE.md).
-Evidence of gaps: [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md).
-
 ### 2.1 P0 — WinUI workflow honesty (local)
 
 | Item | Why pending |
 |---|---|
-| **BOQ / RA / Measurement Book** page | Still lands on Import-style flow — need purpose-built MB → RA → print |
+| **BOQ / RA / Measurement Book** page | Still Import-style — need MB → RA → print |
 | **Subcontractors** (work orders + sub bills) | Still masters `thekedars` — need WO API + page |
 | **AI Engine** page | Still CapturePage — Foundry Start/Stop surface |
-| **Goods Receipt / three-way match** UX | Import/table proxies — match colours + confirm |
+| **Goods Receipt / three-way match** UX | Import/table proxies — match + confirm |
 | **Muster → payout** grid | DataTable — site+date Active labour workflow |
 
 ### 2.2 P1 — WinUI depth & Tools
@@ -125,7 +110,7 @@ Evidence of gaps: [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md).
 |---|---|
 | **Light / Dark / System** theme setting | Forced Light today |
 | Safe **Mica** (or documented deferral) | Removed for crash risk |
-| Accent-only CTAs; shared empty/loading recipe everywhere | Partial |
+| Accent-only CTAs; shared empty/loading recipe | Partial |
 | Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired |
 
 ### 2.4 P3 — Precision / money / CA bridge
@@ -133,7 +118,7 @@ Evidence of gaps: [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md).
 | Item | Why pending |
 |---|---|
 | GST/TDS **export pack** (CA handoff) | Registers exist; export bundle thin |
-| PPC **binary Done + reason codes** depth on LookaheadPage | API/page exist; LPS honesty to deepen |
+| PPC **binary Done + reason codes** depth on LookaheadPage | API/page exist; deepen LPS honesty |
 | Risk **accept-from-detect** one-click | Detection exists |
 | Home aggregate `/api/home` (fewer round-trips) | Optional perf |
 
@@ -173,12 +158,18 @@ Evidence of gaps: [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md).
 | Doc | Role |
 |---|---|
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed (append-only history) |
-| [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | WinUI engineering notes |
-| [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) | Fluent checklist |
-| [`CLOUD-TASKS.md`](CLOUD-TASKS.md) | Historical CT backlog (all ✅) |
-| [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) | PM gap analysis detail |
-| [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) | Solution design |
-| [`API.md`](API.md) | JSON API contract |
-| [`RESEARCH-INDEX.md`](RESEARCH-INDEX.md) | Audits & strategy research |
 | [`PRODUCT.md`](PRODUCT.md) | Who we build for |
 | [`BRAND.md`](BRAND.md) | Visual identity |
+| [`API.md`](API.md) | JSON API contract |
+| [`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) | Structure, menu, workflow |
+| [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | WinUI engineering notes |
+| [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) | Fluent checklist |
+| [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) | Enterprise PM / AI solution design |
+| [`EXECUTION-PART2.md`](EXECUTION-PART2.md) | Risk / opportunity / KPI execution |
+| [`LAN.md`](LAN.md) | Browser / LAN server |
+| [`SOP-manual.md`](SOP-manual.md) | Contractor SOPs |
+| [`TEST_PLAN.md`](TEST_PLAN.md) | Test layers |
+| [`RESEARCH-UI-FLUENT-DEEP-DIVE.md`](RESEARCH-UI-FLUENT-DEEP-DIVE.md) | Fluent colour / appearance / workflow research |
+| [`RESEARCH-COMPETITIVE-CASE-STUDY.md`](RESEARCH-COMPETITIVE-CASE-STUDY.md) | Competitor & forum research |
+| [`RESEARCH-construction-management-sops.md`](RESEARCH-construction-management-sops.md) | SOP practice research |
+| [`RESEARCH-sop-primary-sources.md`](RESEARCH-sop-primary-sources.md) | CPWD/CPWA primary sources |

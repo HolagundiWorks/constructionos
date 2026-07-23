@@ -399,4 +399,4 @@ Fluent Windows application over the unchanged, still-tested business core.
 _Migration architecture & implementation spec. U0 (backend API) is buildable and
 testable in the current environment; the WinUI 3 client (U1–U7) is specified for a
 Windows/.NET build. Read with [`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) (the
-layers reused as the backend) and [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+layers reused as the backend) and [`ROADMAP.md`](ROADMAP.md) (status)._

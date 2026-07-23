@@ -6,7 +6,7 @@ flow like a native Windows 11 app while staying ACO (cash-first, Radiant Orange,
 stock controls only).  
 **Canonical Microsoft hub:** [Design Windows apps](https://learn.microsoft.com/en-us/windows/apps/design/)  
 **Companion:** [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
-(implementation checklist) · [`BRAND.md`](BRAND.md) · [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md)
+(implementation checklist) · [`BRAND.md`](BRAND.md) · [`ROADMAP.md`](ROADMAP.md)
 
 When this research and Microsoft Learn disagree on a **Fluent mechanic**,
 **Microsoft wins**. When they disagree on **product voice** (baaki, cash-first),

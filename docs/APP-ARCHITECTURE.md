@@ -7,7 +7,7 @@ _Document type: Architecture research & target design (documentation only)_
 _Version: 1.0 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
 _Baseline: `main` — 143 Python modules in `construction_app/`._
 _Read with [`../AGENTS.md`](../AGENTS.md) (conventions) and
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+[`ROADMAP.md`](ROADMAP.md) (status)._
 
 ---
 
@@ -507,4 +507,4 @@ _Architecture research & target design. Describes and proposes; changes no code.
 The per-module mapping (§3.2), menu & workflow model (§5), configuration surface
 (§6), and the phased migration (§7.3) are the actionable core. Read with
 [`../AGENTS.md`](../AGENTS.md) (current file map & conventions) and
-[`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md)._
+[`ROADMAP.md`](ROADMAP.md)._
