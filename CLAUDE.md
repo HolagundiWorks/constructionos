@@ -66,5 +66,5 @@ design: `docs/ENTERPRISE-PM-SOLUTION.md` · Execution (risk/opportunity/KPIs):
 `docs/AI-MODELS-AND-DEPLOYMENT.md` · UI replatform: `docs/WINUI3-MIGRATION.md` ·
 UI principles (Fluent / WinUI): `docs/UI-PRINCIPLES-AND-GUIDELINES.md` · WinUI 3
 coding standard: `.github/instructions/winui3.instructions.md` · Product:
-`docs/PRODUCT.md` · Brand: `docs/BRAND.md` · Research (not status):
-`docs/RESEARCH-UI-FLUENT-DEEP-DIVE.md`, `docs/RESEARCH-COMPETITIVE-CASE-STUDY.md`.
+`docs/PRODUCT.md` · Brand: `docs/BRAND.md` · Research (single report):
+`docs/RESEARCH.md`.

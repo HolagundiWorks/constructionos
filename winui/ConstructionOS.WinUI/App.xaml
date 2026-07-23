@@ -1,8 +1,10 @@
 <Application
     x:Class="ConstructionOS.WinUI.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    RequestedTheme="Light">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- No forced RequestedTheme: the app honours the user's choice (Light / Dark
+       / follow Windows), applied to the window root at runtime from AppSettings.
+       Default is Light (see AppSettings.Theme) so nothing changes unless opted in. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>

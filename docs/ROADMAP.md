@@ -77,7 +77,8 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 
 **Also done on WinUI:** dedicated **AssistantPage**, **CashFlowPage**,
 **PartiesPage** (baaki + ageing); empty/error honesty; ₹ formatting; precision
-test gates. Blow-by-blow → changelog.
+test gates; **Light / Dark / System** appearance (Settings). Blow-by-blow →
+changelog.
 
 ---
 
@@ -104,13 +105,12 @@ test gates. Blow-by-blow → changelog.
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 
-### 2.3 P2 — Fluent appearance & theme
+### 2.3 P2 — Fluent appearance
 
 | Item | Why pending |
 |---|---|
-| **Light / Dark / System** theme setting | Forced Light today |
 | Safe **Mica** (or documented deferral) | Removed for crash risk |
-| Accent-only CTAs; shared empty/loading recipe | Partial |
+| Accent-only CTAs everywhere; shared empty/loading recipe | Partial |
 | Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired |
 
 ### 2.4 P3 — Precision / money / CA bridge
@@ -167,9 +167,6 @@ test gates. Blow-by-blow → changelog.
 | [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) | Enterprise PM / AI solution design |
 | [`EXECUTION-PART2.md`](EXECUTION-PART2.md) | Risk / opportunity / KPI execution |
 | [`LAN.md`](LAN.md) | Browser / LAN server |
-| [`SOP-manual.md`](SOP-manual.md) | Contractor SOPs |
+| [`SOP-manual.md`](SOP-manual.md) | Contractor SOP checklists |
 | [`TEST_PLAN.md`](TEST_PLAN.md) | Test layers |
-| [`RESEARCH-UI-FLUENT-DEEP-DIVE.md`](RESEARCH-UI-FLUENT-DEEP-DIVE.md) | Fluent colour / appearance / workflow research |
-| [`RESEARCH-COMPETITIVE-CASE-STUDY.md`](RESEARCH-COMPETITIVE-CASE-STUDY.md) | Competitor & forum research |
-| [`RESEARCH-construction-management-sops.md`](RESEARCH-construction-management-sops.md) | SOP practice research |
-| [`RESEARCH-sop-primary-sources.md`](RESEARCH-sop-primary-sources.md) | CPWD/CPWA primary sources |
+| [`RESEARCH.md`](RESEARCH.md) | **Single** research report (market, CPWD/SOP, Fluent) |

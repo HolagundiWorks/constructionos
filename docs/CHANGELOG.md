@@ -6,6 +6,13 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — Single RESEARCH.md; merge PR track into main
+
+- Replaced four research files (competitive, Fluent UI, SOP practice, CPWD
+  primary sources) with one [`docs/RESEARCH.md`](RESEARCH.md).
+- ROADMAP: Light/Dark/System theme marked **done** (main UI audit).
+- Removed duplicate research docs; links retargeted.
+
 ## 2026-07-23 — Doc cleanup: one ROADMAP, remove stray audits/roadmaps
 
 Removed competing / closed status docs (pending already in `ROADMAP.md`;

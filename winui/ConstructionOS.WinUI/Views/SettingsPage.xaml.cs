@@ -12,6 +12,12 @@ public sealed partial class SettingsPage : Page
         "Owner", "Commercial / QS", "Site Engineer", "Accountant", "Storekeeper",
     };
 
+    // Display label -> stored AppSettings.Theme value.
+    static readonly (string Label, string Value)[] Themes =
+    {
+        ("Light", "Light"), ("Dark", "Dark"), ("Use Windows setting", "System"),
+    };
+
     public SettingsPage()
     {
         InitializeComponent();
@@ -33,6 +39,9 @@ public sealed partial class SettingsPage : Page
         PersonaBox.SelectedItem = DefaultPersonas.Contains(s.Persona)
             ? s.Persona
             : DefaultPersonas[0];
+        ThemeBox.ItemsSource = Themes.Select(t => t.Label).ToList();
+        ThemeBox.SelectedItem =
+            Themes.FirstOrDefault(t => t.Value == s.Theme).Label ?? Themes[0].Label;
         Status.Text = "Settings path: " + AppSettings.SettingsPath;
         _ = TryLoadPersonasAsync();
         _ = TryLoadCompaniesAsync();
@@ -113,6 +122,8 @@ public sealed partial class SettingsPage : Page
             Password = PasswordBox.Password,
             Company = CompanyBox.Text?.Trim() ?? "",
             Persona = PersonaBox.SelectedItem?.ToString() ?? "Owner",
+            Theme = Themes.FirstOrDefault(
+                t => t.Label == ThemeBox.SelectedItem?.ToString()).Value ?? "Light",
             TimeoutSeconds = (int)TimeoutBox.Value,
             AutoStartBackend = AutoStartBox.IsOn,
             BackendCommand = BackendCmdBox.Text?.Trim() ?? "",
@@ -123,8 +134,9 @@ public sealed partial class SettingsPage : Page
             s.Save();
             ApiClient.ResetDefault();
             Status.Text = "Saved — reconnecting…";
-            // Re-log in to the (possibly new) company and rebuild the shell in
-            // place, instead of asking the user to re-navigate. Lands on Home.
+            // Apply the appearance choice immediately, then re-log in to the
+            // (possibly new) company and rebuild the shell in place. Lands on Home.
+            App.MainWindow?.ApplyTheme();
             App.MainWindow?.ReloadShell();
         }
         catch (Exception ex)

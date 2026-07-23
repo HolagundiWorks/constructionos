@@ -15,6 +15,7 @@
                 PlaceholderText="e.g. Main / FY 2025-26"
                 HorizontalAlignment="Stretch"/>
       <ComboBox x:Name="PersonaBox" Header="Persona" HorizontalAlignment="Stretch"/>
+      <ComboBox x:Name="ThemeBox" Header="Appearance" HorizontalAlignment="Stretch"/>
       <NumberBox x:Name="TimeoutBox" Header="Timeout (seconds)" Minimum="5" Maximum="120"
                  SpinButtonPlacementMode="Inline"/>
       <ToggleSwitch x:Name="AutoStartBox" Header="Auto-start the local backend"

@@ -16,6 +16,10 @@ public sealed class AppSettings
     /// <summary>Optional company path or display name for POST /api/login.</summary>
     public string Company { get; set; } = "";
     public string Persona { get; set; } = "Owner";
+    /// <summary>UI theme: "Light" | "Dark" | "System" (follow Windows). Default
+    /// Light so the app looks unchanged unless the user opts in (Fluent
+    /// "Personal" — a genuine choice, not a forced theme).</summary>
+    public string Theme { get; set; } = "Light";
     public int TimeoutSeconds { get; set; } = 30;
 
     /// <summary>If the localhost backend isn't already running when the app
