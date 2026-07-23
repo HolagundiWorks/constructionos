@@ -171,8 +171,10 @@ These UWP patterns are **wrong** for WinUI 3 desktop apps. Always use the Window
 
 These record where ACO's shipped `winui/` client **deliberately** deviates, so a
 reviewer doesn't "fix" an intentional choice. See
-[`docs/WINUI3-MIGRATION.md`](../../docs/WINUI3-MIGRATION.md) and
-[`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](../../docs/UI-PRINCIPLES-AND-GUIDELINES.md).
+[`docs/WINUI3-MIGRATION.md`](../../docs/WINUI3-MIGRATION.md),
+[`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](../../docs/UI-PRINCIPLES-AND-GUIDELINES.md),
+and living status in [`docs/ROADMAP.md`](../../docs/ROADMAP.md). Research context:
+[`docs/RESEARCH.md`](../../docs/RESEARCH.md) §4 (Fluent).
 
 - **Navigation shell:** the "use `NavigationView` for primary navigation" rule is
   intentionally not followed. The owner asked for an **Excel-style ribbon**
@@ -187,6 +189,13 @@ reviewer doesn't "fix" an intentional choice. See
   bump deliberately, not incidentally.
 - **Bindings:** pages are code-behind + metadata-driven (`FieldForm`), not
   `{x:Bind}` MVVM yet — acceptable per WINUI3-MIGRATION (ViewModels harden later).
-- **Settings:** unpackaged, so settings persist as JSON under
-  `%LOCALAPPDATA%\ACO` (see `Services/AppSettings.cs`) — correct per "unpackaged"
-  guidance above.
+- **Settings / theme:** unpackaged settings persist as JSON under
+  `%LOCALAPPDATA%\ACO` (`Services/AppSettings.cs`). Appearance is
+  **Light | Dark | System** (Fluent *Personal*) — do not re-force
+  `RequestedTheme="Light"` on `App.xaml` without an owner decision.
+- **Accent:** Radiant Orange `#FF4F18` via `SystemAccentColor` ramp — CTA /
+  selection only; leave severity brushes alone.
+- **Maths:** never reimplement GST/TDS/EVM/wages in C# — call the localhost
+  JSON API (`webapi.py`, **u0.12**).
+- **Workflow pending:** BOQ/MB/RA, subcontractors, AI Engine, GRN match, muster
+  payout remain shallow vs desktop — see ROADMAP §2; do not claim parity.
