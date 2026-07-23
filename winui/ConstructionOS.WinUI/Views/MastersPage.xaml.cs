@@ -74,12 +74,16 @@ public sealed partial class MastersPage : Page
     // order matches _rows, so Grid.SelectedIndex still indexes _rows.
     private void RenderTable()
     {
-        var cols = new List<string> { "id" };
+        // Columns follow the form fields — using their real labels (and money
+        // formatting for amount fields) rather than raw keys.
+        var cols = new List<Ui.Col> { new("id", "ID", false, true, false) };
         foreach (var f in _fields)
-            if (!cols.Contains(f.Key) && cols.Count < 10) cols.Add(f.Key);
+            if (!cols.Any(c => c.Key == f.Key) && cols.Count < 10)
+                cols.Add(Ui.Column(f.Key, f.Label, f.Kind));
         if (cols.Count == 1 && _rows.Count > 0)
             foreach (var k in _rows[0].Keys)
-                if (!cols.Contains(k) && cols.Count < 10) cols.Add(k);
+                if (!cols.Any(c => c.Key == k) && cols.Count < 10)
+                    cols.Add(Ui.Column(k, null));
 
         HeaderHost.Child = Ui.HeaderRow(cols);
         Grid.Items.Clear();

@@ -57,15 +57,16 @@ internal static class Ui
             rows.Add(row);
         }
         if (rows.Count == 0) return Empty("No records yet.");
-        // Columns: prefer the server's curated [{key,label,align}] (CT-6 — real
-        // names, ordered, right-aligned numbers); else auto-derive from row keys.
-        var spec = ServerColumns(data);
+        // Columns: prefer the server's curated [{key,label,align,type}] (CT-6),
+        // else the form-field labels (masters / money docs from web_docs/web_masters),
+        // else auto-derive from the row keys.
+        var spec = ServerColumns(data) ?? FieldColumns(data);
         if (spec is null)
         {
             if (cols.Remove("id")) cols.Insert(0, "id");
-            // No server type metadata (e.g. money docs from web_docs) — infer money
-            // columns from the key so payments/invoices still render in rupees.
-            spec = cols.ConvertAll(k => new ColSpec(k, Pretty(k), false, true, IsMoneyKey(k)));
+            // No metadata at all — infer money columns from the key so amounts
+            // still render in rupees.
+            spec = cols.ConvertAll(k => Column(k, null));
         }
 
         var root = new Grid();
@@ -96,21 +97,32 @@ internal static class Ui
         return root;
     }
 
-    // One rendered column: server key + label + right-align + money flag, or
-    // auto (Pretty label, per-cell numeric right-align).
-    private sealed record ColSpec(string Key, string Label, bool Right,
-                                  bool AutoNumeric, bool Money);
+    /// <summary>One rendered column: display key, human label, right-align,
+    /// per-cell numeric auto-align, and a money flag (rupee formatting).</summary>
+    public sealed record Col(string Key, string Label, bool Right,
+                             bool AutoNumeric, bool Money);
+
+    /// <summary>Build a column from a master/register field: the field's own
+    /// label, right-aligned for numeric kinds, and money-formatted when the key
+    /// names an amount. Null label falls back to a prettified key.</summary>
+    public static Col Column(string key, string? label, string? kind = null)
+    {
+        var money = IsMoneyKey(key);
+        var numeric = money || kind == "number";
+        return new Col(key, string.IsNullOrEmpty(label) ? Pretty(key) : label!,
+                       numeric, false, money);
+    }
 
     // Parse the server's curated columns [{key,label,align}] (CT-6 uses "columns";
     // the look-ahead report uses "cols" — accept either). Null if none.
-    private static List<ColSpec>? ServerColumns(JsonElement data)
+    private static List<Col>? ServerColumns(JsonElement data)
     {
         if ((!data.TryGetProperty("columns", out var cs) || cs.ValueKind != JsonValueKind.Array)
             && (!data.TryGetProperty("cols", out cs) || cs.ValueKind != JsonValueKind.Array))
             return null;
         if (cs.GetArrayLength() == 0)
             return null;
-        var spec = new List<ColSpec>();
+        var spec = new List<Col>();
         foreach (var c in cs.EnumerateArray())
         {
             if (c.ValueKind != JsonValueKind.Object) continue;
@@ -122,15 +134,38 @@ internal static class Ui
                 && a.ValueKind == JsonValueKind.String && a.GetString() == "right";
             var money = c.TryGetProperty("type", out var ty)
                 && ty.ValueKind == JsonValueKind.String && ty.GetString() == "money";
-            spec.Add(new ColSpec(key!, label, right || money, false, money));
+            spec.Add(new Col(key!, label, right || money, false, money));
         }
         return spec.Count > 0 ? spec : null;
     }
 
+    // Derive columns from a form-field array [{key,label,kind}] (masters / money
+    // docs) — real field labels + money formatting, id first. Null if no fields.
+    private static List<Col>? FieldColumns(JsonElement data)
+    {
+        if (!data.TryGetProperty("fields", out var fs)
+            || fs.ValueKind != JsonValueKind.Array || fs.GetArrayLength() == 0)
+            return null;
+        var spec = new List<Col> { new("id", "ID", false, true, false) };
+        foreach (var f in fs.EnumerateArray())
+        {
+            if (f.ValueKind != JsonValueKind.Object) continue;
+            var key = f.TryGetProperty("key", out var k) ? k.GetString() : null;
+            if (string.IsNullOrEmpty(key) || spec.Any(c => c.Key == key)) continue;
+            var label = f.TryGetProperty("label", out var l)
+                && l.ValueKind == JsonValueKind.String ? l.GetString() : null;
+            var kind = f.TryGetProperty("kind", out var kd)
+                && kd.ValueKind == JsonValueKind.String ? kd.GetString() : null;
+            spec.Add(Column(key!, label, kind));
+            if (spec.Count >= MaxCols) break;
+        }
+        return spec.Count > 1 ? spec : null;
+    }
+
     // A grid row from a column spec (header labels or data values). Star columns
     // (id fixed narrow) so rows align; right-aligns numeric/marked columns.
-    private static Grid SpecRow(IReadOnlyList<ColSpec> spec,
-                                Func<ColSpec, string> text, bool isHeader)
+    private static Grid SpecRow(IReadOnlyList<Col> spec,
+                                Func<Col, string> text, bool isHeader)
     {
         var g = new Grid { ColumnSpacing = 12 };
         foreach (var s in spec)
@@ -234,62 +269,22 @@ internal static class Ui
         return root;
     }
 
-    /// <summary>Header row (bold, prettified column titles) for a columnar list
-    /// whose data rows are built with <see cref="DataRow"/> using the same
-    /// <paramref name="cols"/> — so columns align.</summary>
-    public static Grid HeaderRow(IReadOnlyList<string> cols)
+    /// <summary>Header row (bold labels; money columns get a "… (₹)" head) for a
+    /// columnar list whose data rows are built with <see cref="DataRow"/> using
+    /// the same <paramref name="cols"/> — so columns align.</summary>
+    public static Grid HeaderRow(IReadOnlyList<Col> cols)
     {
-        var g = RowGrid(cols, Pretty, isHeader: true);
+        var g = SpecRow(cols, c => c.Label, isHeader: true);
         g.Padding = new Thickness(12, 6, 12, 6);
         return g;
     }
 
-    /// <summary>One data row for a columnar list (see <see cref="HeaderRow"/>).</summary>
-    public static Grid DataRow(IReadOnlyList<string> cols, IReadOnlyDictionary<string, string> row)
+    /// <summary>One data row for a columnar list (see <see cref="HeaderRow"/>) —
+    /// money cells rendered in rupees with Indian grouping.</summary>
+    public static Grid DataRow(IReadOnlyList<Col> cols, IReadOnlyDictionary<string, string> row)
     {
-        var g = RowGrid(cols, c => row.TryGetValue(c, out var v) ? v : "", isHeader: false);
+        var g = SpecRow(cols, c => row.TryGetValue(c.Key, out var v) ? v : "", isHeader: false);
         g.Padding = new Thickness(12, 2, 12, 2);
-        return g;
-    }
-
-    // A single grid row (header or data) with star columns so they align.
-    private static Grid RowGrid(IReadOnlyList<string> cols, Func<string, string> value,
-                                bool isHeader)
-    {
-        var g = new Grid { ColumnSpacing = 12 };
-        for (var i = 0; i < cols.Count; i++)
-            g.ColumnDefinitions.Add(new ColumnDefinition
-            {
-                Width = cols[i] == "id"
-                    ? new GridLength(56)
-                    : new GridLength(1, GridUnitType.Star),
-            });
-        for (var i = 0; i < cols.Count; i++)
-        {
-            var text = value(cols[i]);
-            var tb = new TextBlock
-            {
-                Text = text,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                TextWrapping = TextWrapping.NoWrap,
-            };
-            if (isHeader)
-            {
-                tb.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-                tb.FontWeight = FontWeights.SemiBold;
-                tb.Foreground = (Microsoft.UI.Xaml.Media.Brush)
-                    Application.Current.Resources["TextFillColorSecondaryBrush"];
-            }
-            // Right-align numeric data cells (amounts/quantities read better on
-            // the right). No reformatting — mangling years/pincodes/ids is worse
-            // than plain numbers. The "id" column stays left with the header.
-            else if (cols[i] != "id" && IsNumber(text))
-            {
-                tb.TextAlignment = TextAlignment.Right;
-            }
-            Grid.SetColumn(tb, i);
-            g.Children.Add(tb);
-        }
         return g;
     }
 
