@@ -195,11 +195,30 @@ def apply_active(db_module=None, registry_path=None, default_path=None):
     return chosen
 
 
-def select_company(db_path, name=None, db_module=None, registry_path=None):
+def _audit_in_book(db_module, actor, action, entity_id=None, detail=None):
+    """Write an audit row into the currently open company file. Best-effort."""
+    if not actor:
+        return
+    try:
+        import auth
+        conn = db_module.get_conn()
+        try:
+            auth.audit(conn, actor, action, 'company', entity_id, detail,
+                       origin=auth.ORIGIN_MANUAL)
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+
+
+def select_company(db_path, name=None, db_module=None, registry_path=None,
+                   actor=None):
     """Register (if needed), mark active, and set ``db.DB_PATH``.
 
     Does not restart the process — callers that already built UI should still
-    ask for a reopen. Returns ``(ok, message)``.
+    ask for a reopen. Returns ``(ok, message)``. Viewers may select; create /
+    import stay write-gated at the UI/API layer. Audits when ``actor`` is set.
     """
     if db_module is None:
         import db as db_module
@@ -215,6 +234,7 @@ def select_company(db_path, name=None, db_module=None, registry_path=None):
     if not save(data, reg):
         return False, 'Could not update the company list.'
     db_module.DB_PATH = db_path
+    _audit_in_book(db_module, actor, 'company_select', db_path, label)
     return True, db_path
 
 
@@ -239,11 +259,12 @@ def export_company(src_path, dest_path):
 
 
 def import_company(src_path, name=None, folder=None, make_active=False,
-                   db_module=None, registry_path=None):
+                   db_module=None, registry_path=None, actor=None):
     """Copy an external ``.db`` into the data folder and register it.
 
     Returns ``(ok, message, new_path)``. Never overwrites an existing book —
-    ``suggest_path`` picks a free name.
+    ``suggest_path`` picks a free name. When ``actor`` is set, audits into the
+    imported book.
     """
     import shutil
     if db_module is None:
@@ -273,16 +294,21 @@ def import_company(src_path, name=None, folder=None, make_active=False,
     data = load(reg)
     add(data, label, dest, make_active=make_active)
     save(data, reg)
-    if make_active:
-        db_module.DB_PATH = dest
+    prev = getattr(db_module, 'DB_PATH', None)
+    db_module.DB_PATH = dest
+    _audit_in_book(db_module, actor, 'company_import', dest,
+                   'from={} name={}'.format(src_path, label))
+    if not make_active and prev is not None:
+        db_module.DB_PATH = prev
     return True, dest, dest
 
 
 def create_company(name, folder=None, carry_from=None, make_active=True,
-                   db_module=None, registry_path=None):
+                   db_module=None, registry_path=None, actor=None):
     """Create a fresh company book, optionally carrying masters forward.
 
-    Returns ``(ok, message, new_path)``.
+    Returns ``(ok, message, new_path)``. When ``actor`` is set, audits create
+    (and carry-forward) into the new book.
     """
     import sqlite3
     if db_module is None:
@@ -302,7 +328,7 @@ def create_company(name, folder=None, carry_from=None, make_active=True,
             src.row_factory = sqlite3.Row
             dst = db_module.get_conn()
             try:
-                carry_forward(src, dst)
+                carry_forward(src, dst, actor=actor, source_path=carry_from)
             finally:
                 src.close()
                 dst.close()
@@ -319,6 +345,7 @@ def create_company(name, folder=None, carry_from=None, make_active=True,
     data = load(reg)
     add(data, name, path, make_active=make_active)
     save(data, reg)
+    _audit_in_book(db_module, actor, 'company_create', path, name)
     if not make_active and prev is not None:
         db_module.DB_PATH = prev
     return True, path, path
@@ -364,7 +391,7 @@ def _columns(conn, table):
     return [d[0] for d in cur.description]
 
 
-def carry_forward(src_conn, dst_conn, tables=None):
+def carry_forward(src_conn, dst_conn, tables=None, actor=None, source_path=None):
     """Copy master rows from one company file into another.
 
     ``dst_conn`` should already have the schema (call ``db.init_db()`` first).
@@ -375,6 +402,9 @@ def carry_forward(src_conn, dst_conn, tables=None):
     Only transaction-free masters are copied, so the new file opens with the
     same setup and an empty ledger. Table names come from ``MASTER_TABLES``
     (hardcoded, never user input), so the f-string SQL is safe.
+
+    When ``actor`` is set, appends an audit row on ``dst_conn`` noting
+    ``source_path``.
     """
     tables = list(tables or MASTER_TABLES)
     copied = {}
@@ -398,5 +428,14 @@ def carry_forward(src_conn, dst_conn, tables=None):
                     table, ', '.join(use), ', '.join(['?'] * len(use))),
                 [tuple(r[c] for c in use) for r in rows])
         copied[table] = len(rows)
+    if actor:
+        try:
+            import auth
+            auth.audit(
+                dst_conn, actor, 'company_carry_forward', 'company',
+                source_path, 'tables={}'.format(','.join(sorted(copied))),
+                origin=auth.ORIGIN_MANUAL)
+        except Exception:
+            pass
     dst_conn.commit()
     return copied

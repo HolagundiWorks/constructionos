@@ -11,6 +11,18 @@ Used by the desktop ``tab_gst``, the browser ``/gst`` view, and ``GET /api/gst``
 
 import finance
 
+# Ordered headers for each report section — keep in sync with the tuple order
+# each function appends. Exposed so ``/api/gst`` can return ``cols`` without
+# hardcoding in the transport or WinUI client.
+COLS = {
+    'outward': ['Source', 'Doc No', 'Date', 'Party', 'Taxable',
+                'CGST', 'SGST', 'IGST', 'Total'],
+    'hsn': ['HSN/SAC', 'Taxable', 'CGST', 'SGST', 'IGST', 'Tax'],
+    'inward': ['Invoice No', 'Date', 'Party', 'Taxable',
+               'CGST', 'SGST', 'IGST', 'Total'],
+    'tds': ['Invoice No', 'Date', 'Party', 'Taxable', 'TDS %', 'TDS Amount'],
+}
+
 
 def _fmt(v):
     return '{:,.2f}'.format(float(v or 0))

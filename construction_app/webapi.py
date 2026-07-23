@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.9'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.10'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -155,6 +155,15 @@ def handle(request, sess):
 
     if path == 'gst' and method == 'GET':
         return _gst_report(request)
+
+    if path == 'pnl' and method == 'GET':
+        return _pnl_report(request)
+
+    if path in ('balance_sheet', 'balancesheet') and method == 'GET':
+        return _balance_sheet_report(request)
+
+    if path in ('lookahead', 'look-ahead') and method == 'GET':
+        return _lookahead_report(request)
 
     if path == 'bills/previous' and method == 'GET':
         return _bills_previous(request)
@@ -1018,7 +1027,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.9',
+        'api': 'u0.10',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1034,6 +1043,8 @@ def _api_contract():
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
             'GET /api/gst?month=',
+            'GET /api/pnl?period=', 'GET /api/balance_sheet?as_of=',
+            'GET /api/lookahead?project_id=&weeks=',
             'GET /api/bills/previous?contract_id=',
             'GET /api/boq_items?contract_id=',
             'GET /api/allocations?payment_id=',
@@ -1044,6 +1055,7 @@ def _api_contract():
             'GET /api/search?q=', 'GET /api/narrative?kind=',
             'GET /api/sidecar/status',
             'GET /api/{master}', 'GET /api/{doc}',
+            'GET /api/{register}  (label+columns+FK names)',
         ],
         'writes': [
             'POST/PUT/DELETE /api/risks[/{id}]',
@@ -1138,7 +1150,9 @@ def _filings_feed(request):
 
 def _list_ops_table(table):
     """Read-only list of a whitelisted register table (newest first when the
-    table has an ``id``; otherwise natural order). No writes here."""
+    table has an ``id``; otherwise natural order). Returns curated ``label`` /
+    ``columns`` and FK-resolved ``items`` via ``web_tables`` (CT-6)."""
+    import web_tables
     conn = _conn()
     try:
         try:
@@ -1149,7 +1163,14 @@ def _list_ops_table(table):
             rows = conn.execute(
                 'SELECT * FROM "{}" LIMIT 500'.format(table)
             ).fetchall()
-        return _ok({'table': table, 'items': _rows(rows)})
+        items = _rows(rows)
+        label, columns, enriched = web_tables.enrich(conn, table, items)
+        return _ok({
+            'table': table,
+            'label': label,
+            'columns': columns,
+            'items': enriched,
+        })
     finally:
         conn.close()
 
@@ -1293,11 +1314,75 @@ def _gst_report(request):
         tds_rows, tds_tot = gst.tds_register(conn, month)
         return _ok({
             'month': month,
-            'outward': {'rows': [list(r) for r in out_rows], 'totals': out_tot},
-            'hsn': {'rows': [list(r) for r in hsn_rows], 'totals': hsn_tot},
-            'inward': {'rows': [list(r) for r in in_rows], 'totals': in_tot},
-            'tds': {'rows': [list(r) for r in tds_rows], 'total': tds_tot},
+            'outward': {
+                'cols': list(gst.COLS['outward']),
+                'rows': [list(r) for r in out_rows],
+                'totals': out_tot,
+            },
+            'hsn': {
+                'cols': list(gst.COLS['hsn']),
+                'rows': [list(r) for r in hsn_rows],
+                'totals': hsn_tot,
+            },
+            'inward': {
+                'cols': list(gst.COLS['inward']),
+                'rows': [list(r) for r in in_rows],
+                'totals': in_tot,
+            },
+            'tds': {
+                'cols': list(gst.COLS['tds']),
+                'rows': [list(r) for r in tds_rows],
+                'total': tds_tot,
+            },
         })
+    finally:
+        conn.close()
+
+
+def _pnl_report(request):
+    """GET /api/pnl?period=YYYY-MM|FY|YYYY-YY — P&L over posted ledger."""
+    import reports_store
+    period = ((request.query or {}).get('period') or '').strip()
+    conn = _conn()
+    try:
+        return _ok(reports_store.pnl_payload(conn, period=period or None))
+    finally:
+        conn.close()
+
+
+def _balance_sheet_report(request):
+    """GET /api/balance_sheet?as_of=YYYY-MM-DD&period= — Balance Sheet."""
+    import reports_store
+    q = request.query or {}
+    as_of = (q.get('as_of') or '').strip() or None
+    period = (q.get('period') or '').strip() or None
+    conn = _conn()
+    try:
+        return _ok(reports_store.balance_sheet_payload(
+            conn, as_of=as_of, period=period))
+    finally:
+        conn.close()
+
+
+def _lookahead_report(request):
+    """GET /api/lookahead?project_id=&weeks= — weekly look-ahead + PPC."""
+    import lookahead_store
+    q = request.query or {}
+    project_id = q.get('project_id') or None
+    site_id = q.get('site_id') or None
+    weeks = q.get('weeks') or None
+    try:
+        project_id = int(project_id) if project_id not in (None, '') else None
+    except (TypeError, ValueError):
+        return _err('project_id must be an integer', 400)
+    try:
+        site_id = int(site_id) if site_id not in (None, '') else None
+    except (TypeError, ValueError):
+        return _err('site_id must be an integer', 400)
+    conn = _conn()
+    try:
+        return _ok(lookahead_store.lookahead(
+            conn, project_id=project_id, site_id=site_id, weeks=weeks))
     finally:
         conn.close()
 

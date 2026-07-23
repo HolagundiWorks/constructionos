@@ -348,12 +348,11 @@ def _api_companies():
     company.apply_active()
     items = []
     for e in company.list_entries():
-        if not e['exists']:
-            continue
         items.append({
             'name': e['name'],
             'path': e['path'],
             'active': e['active'],
+            'exists': e['exists'],
         })
     body = json.dumps({
         'items': items,
@@ -410,6 +409,11 @@ def _api_login(request):
             role = user['role']
         token = _new_session(username, role)
         sess = _session(token)
+        try:
+            import company as co
+            co._audit_in_book(db, username, 'company_select', db.DB_PATH, None)
+        except Exception:
+            pass
         body = json.dumps({
             'username': username,
             'role': role,
@@ -458,6 +462,11 @@ def _login(request):
                                        selected=db.DB_PATH)
                 role = user['role']
             token = _new_session(username, role)
+            try:
+                import company as co
+                co._audit_in_book(db, username, 'company_select', db.DB_PATH, None)
+            except Exception:
+                pass
             resp = _redirect('/')
             resp.set_cookie('cosid', token)
             return resp
