@@ -113,9 +113,8 @@ gap from this document's silence; grep first.
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
 - **Business maths lives in pure, tkinter-free modules** — **117** AST-pure
-  (includes web). This is
- the testable core; extend it there rather than burying new maths inside GUI
- callbacks.
+  (includes web). This is the testable core; extend it there rather than burying
+  new maths inside GUI callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
   rule). Add to it whenever you touch maths.
 
