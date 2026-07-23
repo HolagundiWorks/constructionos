@@ -15,6 +15,10 @@ public static class NavRoute
         (t => Has(t, "GST"), typeof(GstPage)),
         (t => Has(t, "Accounting"), typeof(AccountingPage)),
         (t => Has(t, "Look-ahead") || Has(t, "Lookahead"), typeof(LookaheadPage)),
+        // More specific than the broad "Cash"/"Assistant" routes below — must win.
+        (t => Has(t, "Cash Flow") || Has(t, "Cashflow"), typeof(CashFlowPage)),
+        (t => Has(t, "Parties"), typeof(PartiesPage)),
+        (t => Has(t, "Assistant"), typeof(AssistantPage)),
         (t => Has(t, "Review"), typeof(ReviewPage)),
         (t => Has(t, "Risk"), typeof(RisksPage)),
         (t => Has(t, "Opportun"), typeof(OpportunitiesPage)),
@@ -28,8 +32,7 @@ public static class NavRoute
             typeof(ChartsPage)),
         (t => Has(t, "Cash") || Has(t, "Payment") || Has(t, "Money")
               || Has(t, "Ageing") || Has(t, "Retention"), typeof(MoneyPage)),
-        (t => Has(t, "Capture") || Has(t, "AI Engine") || Has(t, "Assistant"),
-            typeof(CapturePage)),
+        (t => Has(t, "Capture") || Has(t, "AI Engine"), typeof(CapturePage)),
         (t => Has(t, "Import") || Has(t, "Goods Receipt") || Has(t, "BOQ")
               || Has(t, "Requisition") || Has(t, "Sourcing"), typeof(ImportPage)),
         (t => Has(t, "Settings"), typeof(SettingsPage)),

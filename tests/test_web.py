@@ -848,6 +848,124 @@ class TestWebApi(unittest.TestCase):
             '/api/risks/{}'.format(rid), cookies=cookies))
         self.assertEqual(resp.status, 404)
 
+    def test_parties_balances(self):
+        """Cash & Parties — per-party receivable/payable balances + totals.
+
+        A client billed via an Approved RA bill and partly received shows the
+        remaining outstanding = billed - settled (the "baaki")."""
+        import json as _json
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        # Fresh DB -> the shape is right and everything is zero.
+        resp = self.webapp.handle(self._req('/api/parties', cookies=ck))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        for k in ('receivable', 'payable', 'total_receivable', 'total_payable'):
+            self.assertIn(k, body)
+        self.assertEqual(body['receivable'], [])
+        self.assertEqual(body['total_receivable'], 0.0)
+
+        # Seed a client + contract + approved RA bill + a part receipt.
+        conn = self.db.get_conn()
+        try:
+            cid = conn.execute(
+                "INSERT INTO clients (name) VALUES ('Acme Infra')").lastrowid
+            ctr = conn.execute(
+                "INSERT INTO contracts (client_id, contract_no, contract_value) "
+                "VALUES (?, 'C-1', 500000)", (cid,)).lastrowid
+            conn.execute(
+                "INSERT INTO ra_bills (contract_id, bill_date, net_payable, status) "
+                "VALUES (?, '2026-07-01', 100000, 'Approved')", (ctr,))
+            conn.execute(
+                "INSERT INTO payments (pay_date, direction, party_type, party_id, "
+                "party_name, mode, amount) VALUES "
+                "('2026-07-10', 'Receipt', 'Client', ?, 'Acme Infra', 'Bank', 30000)",
+                (cid,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        resp = self.webapp.handle(self._req('/api/parties', cookies=ck))
+        body = self._json(resp)
+        recv = body['receivable']
+        self.assertEqual(len(recv), 1)
+        self.assertEqual(recv[0]['party'], 'Acme Infra')
+        self.assertEqual(recv[0]['billed'], 100000.0)
+        self.assertEqual(recv[0]['settled'], 30000.0)
+        self.assertEqual(recv[0]['outstanding'], 70000.0)     # baaki
+        self.assertEqual(body['total_receivable'], 70000.0)
+
+    def test_bills_previous_excludes_draft(self):
+        """Precision gate (research §4.1): only Approved/Paid bills count as
+        previously billed — a Draft bill must not inflate previous_billed, or the
+        next RA bill would double-count the work."""
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        hdr = {'X-CSRF-Token': csrf}
+        resp = self.webapp.handle(self._req(
+            '/api/clients', 'POST', cookies=ck,
+            json_body={'name': 'Client A'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        cl = self._json(resp)['id']
+        resp = self.webapp.handle(self._req(
+            '/api/contracts', 'POST', cookies=ck,
+            json_body={'client_id': cl, 'contract_no': 'C-9',
+                       'contract_value': 500000}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        cid = self._json(resp)['id']
+        # An Approved bill counts toward previous_billed.
+        resp = self.webapp.handle(self._req(
+            '/api/bills', 'POST', cookies=ck,
+            json_body={'bill_no': 'RB-1', 'contract_id': cid,
+                       'bill_date': '2026-07-01', 'work_done_value': 100000,
+                       'previous_billed': 0, 'retention_pct': 5,
+                       'status': 'Approved'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        resp = self.webapp.handle(self._req(
+            '/api/bills/previous', cookies=ck, query={'contract_id': str(cid)}))
+        approved_prev = self._json(resp)['previous_billed']
+        self.assertGreater(approved_prev, 0)
+        # A Draft bill must NOT change previous_billed.
+        resp = self.webapp.handle(self._req(
+            '/api/bills', 'POST', cookies=ck,
+            json_body={'bill_no': 'RB-2', 'contract_id': cid,
+                       'bill_date': '2026-07-15', 'work_done_value': 200000,
+                       'previous_billed': approved_prev, 'retention_pct': 5,
+                       'status': 'Draft'}, headers=hdr))
+        self.assertEqual(resp.status, 201, resp.body)
+        resp = self.webapp.handle(self._req(
+            '/api/bills/previous', cookies=ck, query={'contract_id': str(cid)}))
+        self.assertEqual(self._json(resp)['previous_billed'], approved_prev)
+
+    def test_assistant_quick_and_ask(self):
+        """Assistant endpoints — exact quick answers (no model) + the ask turn
+        (returns a friendly error when the AI engine is off, never a fake answer)."""
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        resp = self.webapp.handle(self._req('/api/assistant/quick', cookies=ck))
+        self.assertEqual(resp.status, 200, resp.body)
+        items = self._json(resp)['items']
+        labels = [i['label'] for i in items]
+        self.assertIn('Cash in Hand', labels)
+        self.assertIn('Receivables (clients owe)', labels)
+        for i in items:
+            self.assertIsInstance(i['value'], (int, float))
+
+        # Ask needs a question.
+        resp = self.webapp.handle(self._req(
+            '/api/assistant', 'POST', cookies=ck, json_body={'question': ''},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 400)
+        # A real question: with no AI engine in the test env, an honest {error}
+        # (never a fabricated answer). Read-only either way.
+        resp = self.webapp.handle(self._req(
+            '/api/assistant', 'POST', cookies=ck,
+            json_body={'question': 'total cash in hand'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertTrue('error' in body or 'sql' in body)
+
     def test_firm_and_modules_settings(self):
         """Tools endpoints — firm letterhead + module on/off, CSRF-gated."""
         sid, csrf, _ = self._login()
@@ -1045,7 +1163,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.11')
+        self.assertEqual(c['api'], 'u0.12')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1053,8 +1171,11 @@ class TestWebApi(unittest.TestCase):
         # Tools settings endpoints are advertised in the contract.
         self.assertIn('GET /api/firm', c['reads'])
         self.assertIn('GET /api/modules', c['reads'])
+        self.assertIn('GET /api/assistant/quick', c['reads'])
+        self.assertIn('GET /api/parties', c['reads'])
         self.assertIn('POST /api/firm', c['writes'])
         self.assertIn('POST /api/modules', c['writes'])
+        self.assertIn('POST /api/assistant', c['writes'])
 
         resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
         self.assertEqual(resp.status, 200)

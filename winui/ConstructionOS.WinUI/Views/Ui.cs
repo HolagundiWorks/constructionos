@@ -413,7 +413,8 @@ internal static class Ui
     {
         "amount", "amt", "total", "rate", "gross", "deduction", "net", "debit",
         "credit", "value", "payable", "price", "cost", "balance", "wage", "wages",
-        "salary", "subtotal", "tax",
+        "salary", "subtotal", "tax", "billed", "settled", "outstanding",
+        "receivable", "payable",
     };
 
     private static bool IsMoneyKey(string key)

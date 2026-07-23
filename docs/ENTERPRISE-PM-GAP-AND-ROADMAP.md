@@ -2,13 +2,16 @@
 
 **From today's solo-contractor product to the enterprise PM + AI target**
 
-_Document type: Gap analysis + Implementation roadmap (living status — update with the tree)_
-_Version: 1.2 · Last updated: 2026-07-22 · Prepared by: Human Centric Works_
+> **Living status (✅ / 🚧 / ⏳) lives only in [`ROADMAP.md`](ROADMAP.md).**  
+> This file is the **gap analysis + design detail** companion. When you finish
+> work, update ROADMAP (and CHANGELOG); treat status columns here as historical
+> context unless you deliberately refresh them in the same commit.
+
+_Document type: Gap analysis + implementation detail (not the primary status board)_
+_Version: 1.3 · Last updated: 2026-07-23 · Prepared by: Human Centric Works_
 _Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) (the target
-architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
-Baseline (this branch, 2026-07-22): **177** Python modules (**114** tkinter-free
-by AST), **85** tables, **61** indexes, **708** headless-runnable tests
-(**5** GUI smoke skips without display)._
+architecture & AI strategy) and [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md)._
+_Baseline counts: see [`ROADMAP.md`](ROADMAP.md) snapshot / `AGENTS.md` §0._
 
 ---
 

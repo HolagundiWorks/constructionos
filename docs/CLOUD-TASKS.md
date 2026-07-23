@@ -1,5 +1,11 @@
 # Cloud-agent task backlog
 
+> **Status:** all CT tasks below are **✅ shipped**. Living “what’s pending”
+> is only in [`ROADMAP.md`](ROADMAP.md). This file is kept as the **historical
+> task write-up** (acceptance criteria + module names) for the closed cloud
+> track — do not treat unchecked narrative in the “Why” sections as current UI
+> state.
+
 **For the cloud/headless agent only** (the "C" track — headless Python:
 domain/data/backend, the JSON API, purity, unit tests, docs). **No display, no
 .NET/WinUI, no ML model weights.** The local/Windows agent owns the WinUI client
@@ -150,9 +156,9 @@ equals each row's length; `docs/API.md` notes the `cols` contract.
 **Status:** shipped — `gst.COLS` on each `/api/gst` block; P&L/BS sections include `cols`.
 
 ### CT-9 — Look-ahead / PPC endpoint (read) ✅
-**Why:** the `Look-ahead` tab (weekly planning + PPC) needed a JSON API so the
-WinUI `LookaheadPage` can show PPC + weekly trend (now shipped — no longer a
-placeholder).
+**Why:** the `Look-ahead` tab (weekly planning + PPC) needed a JSON API. Now
+shipped and consumed by the WinUI **`LookaheadPage`** (PPC + weekly trend +
+misses) — no placeholder.
 **Do:** expose `GET /api/lookahead?project_id=&weeks=` over the **existing pure
 look-ahead / PPC module** (behind the desktop's weekly look-ahead + PPC),
 returning planned-vs-done tasks + the PPC figure. If that compute isn't already

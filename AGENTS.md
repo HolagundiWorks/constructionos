@@ -57,7 +57,7 @@ double-clicking one folder.
 > **domain/backend** work (which the WinUI move does *not* relax). Development
 > now spans **two environments** — a cloud agent (headless Python) and a local
 > Windows box (WinUI 3 / GUI); the roadmap is split accordingly
-> ([`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md) §5A/§5B).
+> Living status: [`docs/ROADMAP.md`](docs/ROADMAP.md). Detail: [`docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md`](docs/ENTERPRISE-PM-GAP-AND-ROADMAP.md) §5A/§5B.
 > Local WinUI work follows the UI principles doc; cloud agents do not invent
 > custom chrome or claim WinUI screenshots from Linux.
 ### What is built

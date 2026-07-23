@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.11'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.12'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -166,6 +166,9 @@ def handle(request, sess):
 
     if path == 'cashflow' and method == 'GET':
         return _cashflow(request)
+
+    if path == 'parties' and method == 'GET':
+        return _parties()
 
     if path == 'gst' and method == 'GET':
         return _gst_report(request)
@@ -269,6 +272,15 @@ def handle(request, sess):
 
     if path == 'drift' and method == 'POST':
         return _post_drift(request)
+
+    # Assistant — read-only text-to-SQL over the user's own data. Quick answers
+    # are exact and need no model; the ask endpoint runs the RAG pipeline (which
+    # needs the local AI engine, else returns a friendly {error}). Read-only.
+    if path == 'assistant/quick' and method == 'GET':
+        return _assistant_quick()
+
+    if path == 'assistant' and method == 'POST':
+        return _assistant_answer(request)
 
     if path == 'events' and method == 'POST':
         return _post_event(request, sess)
@@ -1041,7 +1053,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.11',
+        'api': 'u0.12',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1054,7 +1066,8 @@ def _api_contract():
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',
-            'GET /api/firm', 'GET /api/modules',
+            'GET /api/firm', 'GET /api/modules', 'GET /api/assistant/quick',
+            'GET /api/parties',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
             'GET /api/gst?month=',
@@ -1090,7 +1103,7 @@ def _api_contract():
             'POST /api/sidecar/extract',
             'POST /api/purchase_orders',
             'POST /api/allocations',
-            'POST /api/firm', 'POST /api/modules',
+            'POST /api/firm', 'POST /api/modules', 'POST /api/assistant',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -1360,6 +1373,47 @@ def _ageing_summary(request):
         })
     finally:
         conn.close()
+
+
+def _assistant_quick():
+    """GET /api/assistant/quick — the exact, no-model quick answers (cash in
+    hand, receivables, payables, billed this month) as labelled money items."""
+    import assistant
+    conn = _conn()
+    try:
+        qa = assistant.quick_answers(conn)
+    finally:
+        conn.close()
+    return _ok({'items': [{'label': k, 'value': v} for k, v in qa.items()]})
+
+
+def _assistant_answer(request):
+    """POST /api/assistant {question, history?} — one RAG turn over the user's
+    data. Returns {sql, columns, rows, summary} or {error} (e.g. AI engine off).
+    Read-only: the pipeline validates the SQL is a single SELECT before running."""
+    import assistant
+    body = _payload(request)
+    question = (body.get('question') or '').strip()
+    if not question:
+        return _err('question is required', 400)
+    history = body.get('history') if isinstance(body.get('history'), list) else None
+    return _ok(assistant.answer(question, history=history))
+
+
+def _parties():
+    """GET /api/parties — per-party balances (receivable + payable) with totals,
+    from ``parties_store`` (billed vs settled = the "baaki"). The internal
+    ``party_id`` is dropped from the display rows."""
+    import parties_store
+    conn = _conn()
+    try:
+        s = parties_store.summary(conn)
+    finally:
+        conn.close()
+    for side in ('receivable', 'payable'):
+        s[side] = [{k: v for k, v in r.items() if k != 'party_id'}
+                   for r in s[side]]
+    return _ok(s)
 
 
 def _cashflow(request):
