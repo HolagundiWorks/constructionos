@@ -89,6 +89,8 @@ public sealed partial class LookaheadPage : Page
             Padding = new Thickness(16, 12, 16, 12),
             MinWidth = 130,
         };
+        // Read the pair as one item ("PPC (this plan): 66%") rather than two.
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"{caption}: {value}");
         var stack = new StackPanel { Spacing = 2 };
         stack.Children.Add(new TextBlock
         {
@@ -135,6 +137,9 @@ public sealed partial class LookaheadPage : Page
                 Minimum = 0, Maximum = 100, Value = val,
                 VerticalAlignment = VerticalAlignment.Center,
             };
+            // A bare progress bar reads as an anonymous "NN%"; name it with the week.
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                bar, $"Week {week} PPC {Pct(ppc.ValueKind == JsonValueKind.Number ? val : (double?)null)}");
             var num = new TextBlock
             {
                 Text = Pct(ppc.ValueKind == JsonValueKind.Number ? val : (double?)null),

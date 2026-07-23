@@ -18,6 +18,7 @@
       <primitives:ToggleButton x:Name="JournalTab" Content="Journal"
                                Click="OnPickView" Tag="journal"/>
       <TextBox x:Name="PeriodBox" Width="150" PlaceholderText="Period (e.g. 2025-26)"
+               AutomationProperties.Name="Reporting period"
                ToolTipService.ToolTip="YYYY-MM, a financial year (2025-26), FY, or blank for all"
                KeyDown="OnPeriodKeyDown" VerticalAlignment="Center"/>
       <Button Content="Refresh" Click="OnRefresh" VerticalAlignment="Center"/>
