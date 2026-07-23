@@ -18,12 +18,32 @@ localhost sidecar into a signed MSIX. **It does not build on Linux.**
   `hook-workflow.py` that collides with our `workflow.py`. **Verified end-to-end:**
   killed the Python backend → the app launched the bundled `ACO.Backend.exe`
   (backend process = `ACO.Backend`, not python) and loaded.
-- 🚧 **Packaging project (step 3)** + signing (step 6) — **scaffolded**: a
-  pre-filled `ConstructionOS.Package/Package.appxmanifest` (ACO branding,
-  `runFullTrust`, sidecar notes) + step-by-step `ConstructionOS.Package/README.md`.
-  **Finish in VS 2022** (generate the `.wapproj` + visual assets, reference the
-  WinUI app, bundle `Backend\ACO.Backend.exe`, sign). Not buildable/verifiable
-  headlessly.
+- ✅ **Packaging (step 3) + signing (step 6) — done, headless.**
+  `winui/build-msix.ps1` builds a signed MSIX **without Visual Studio**: it
+  generates the visual assets from `construction_app/resources/logo_*.png`,
+  publishes the self-contained Release app, bundles `Backend\ACO.Backend.exe`,
+  materialises a concrete `AppxManifest.xml` from the checked-in scaffold
+  (resolving the `.wapproj` `$targetnametoken$` / `$targetentrypoint$` tokens),
+  packs with `makeappx.exe`, and signs with `signtool.exe` using a self-signed
+  code-signing cert whose subject matches the manifest `Publisher`. Output +
+  exported public `.cer` land in `%LOCALAPPDATA%\ConstructionOS-build\msix`.
+  **Verified:** produces a ~77 MB signed `ACO_1.0.0.0_x64.msix`
+  (`CN=Human Centric Works`).
+
+  ```powershell
+  pwsh winui/build-sidecar.ps1   # once, to freeze ACO.Backend.exe
+  pwsh winui/build-msix.ps1      # -> signed MSIX + dev .cer
+  ```
+
+  **Install the dev build** (trust the self-signed cert once — needs admin):
+  ```powershell
+  Import-Certificate -FilePath <..>\ACO-dev-cert.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+  Add-AppxPackage      <..>\ACO_1.0.0.0_x64.msix
+  ```
+  For **release**, sign with a real code-signing cert instead (re-run with
+  `-CertSubject` matching your cert, or re-sign the produced `.msix`). Building
+  the `.wapproj` in VS 2022 remains a supported alternative (see
+  `ConstructionOS.Package/README.md`).
 
 ## Intended layout (local Windows)
 

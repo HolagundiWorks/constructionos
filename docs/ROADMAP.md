@@ -108,7 +108,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
 | **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages; honest placeholders for the rest | ✅ built + runs |
-| **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **MSIX manifest scaffolded ✅**; the `.wapproj`/assets/signing finish in VS 2022 ⏳ | 🚧 in progress |
+| **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **signed MSIX ✅** (`build-msix.ps1`: assets → publish → `makeappx` → `signtool`, no VS) | ✅ built (dev-signed) |
 | **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
 
 **Shipped on the local track since the last update:**
@@ -120,7 +120,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 - **Startup native crash** (`0xc000027b` heap corruption) cut to ~0–1/16 via a timer-deferred shell build.
 
 **Local track — next:**
-- 🚧 **U6 packaging** — backend **auto-launch + PyInstaller sidecar shipped** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed); still to do: the **MSIX package project** (VS 2022) + signing.
+- ✅ **U6 packaging** — backend **auto-launch + PyInstaller sidecar** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed) **and a signed MSIX**: `winui/build-msix.ps1` generates the visual assets, publishes self-contained, bundles the sidecar, packs with `makeappx` and signs with `signtool` — no Visual Studio. Produces a ~77 MB `ACO_1.0.0.0_x64.msix` (dev-signed `CN=Human Centric Works`). **Remaining for release:** swap the self-signed dev cert for a real code-signing cert, and a test install/launch on a clean box.
 - ✅ **Wired the richer data the cloud track adds** — CT-6 table metadata (`Ui.Table` honours the server's `columns`/`cols`: labelled, ordered, right-aligned, FK names), CT-7 **AccountingPage** (P&L / Balance Sheet / Journal), CT-9 **LookaheadPage** (PPC + weekly trend + misses).
 - 🚧 **Accessibility** — page headings (`PageTitleStyle` → `HeadingLevel`), search + control names, decorative icons `Raw` shipped; remaining: keyboard-nav audit, contrast check in the forced-light theme.
 - ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.

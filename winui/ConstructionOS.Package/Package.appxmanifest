@@ -2,11 +2,14 @@
 <!--
   ACO — MSIX package manifest (U6 scaffold).
 
-  Pre-filled for the Windows Application Packaging Project that wraps the WinUI 3
-  client + the PyInstaller backend sidecar. This file is a scaffold: create the
-  packaging project in VS 2022 (it generates its own default manifest + Images),
-  then REPLACE its manifest with this one and finish the TODOs below. It has not
-  been built or signed from the headless dev environment — see README.md.
+  The source manifest that wraps the WinUI 3 client + the PyInstaller backend
+  sidecar into a signed MSIX. winui/build-msix.ps1 reads THIS file and, at pack
+  time, resolves the .wapproj tokens below ($targetnametoken$ -> the app exe,
+  $targetentrypoint$ -> Windows.FullTrustApplication) and adds
+  ProcessorArchitecture="x64" into a concrete AppxManifest.xml, so it builds and
+  signs headlessly (verified). The tokens are kept here so the file also works
+  unchanged as a Windows Application Packaging Project manifest in VS 2022. See
+  README.md for both paths.
 
   Key choices:
     * rescap:runFullTrust — the WinUi client is a full-trust desktop app and it
