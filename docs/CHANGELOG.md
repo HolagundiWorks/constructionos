@@ -6,6 +6,22 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — Deep-dive audit & research pack (reports only)
+
+No product code — documentation honesty + strategy:
+
+- **`docs/RESEARCH-INDEX.md`** — entry point for the pack.
+- **`docs/COMPLETENESS-AUDIT.md`** — docs vs `main@22e4006` (180 modules / 85
+  tables / 728 tests / API u0.11); WinUI **nav-complete ≠ workflow parity**;
+  miswire inventory (Assistant/BOQ/Cash Flow/etc.).
+- **`docs/RESEARCH-COMPETITIVE-CASE-STUDY.md`** — India (Tally, CONWORX,
+  BuildNext, ProjectsNext, ERPLax-class…) + global (Procore/Buildertrend…) +
+  Lean/LPS forum themes → ACO implications.
+- **`docs/RESEARCH-OPTIMISATION-AND-PRECISION.md`** — P0–P5 programme to deepen
+  power and precision without abandoning the T2 offline wedge.
+- Softened `ROADMAP.md` U5/U7 “parity” language; fixed `CLOUD-TASKS.md` CT-9
+  stale “placeholder” why-clause; linked pack from `CLAUDE.md`.
+
 ## 2026-07-23 — Cloud CT-6…CT-10: rich tables, P&L/BS, GST cols, look-ahead, company audit
 
 Headless backlog from `docs/CLOUD-TASKS.md` Round 2 (no WinUI / display):

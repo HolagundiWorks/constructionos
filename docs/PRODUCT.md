@@ -34,13 +34,16 @@ connection, or a monthly subscription.
 - Low-to-medium computer skill. Needs big, obvious buttons and few fields.
 
 ### NOT our user (explicit non-goals)
-- **Not corporates / large builders / EPC firms.** No multi-branch, no
-  role-based access control, no approval hierarchies, no ERP integrations, no
+- **Not corporates / large builders / EPC firms.** No multi-branch corporate
+  hierarchy as the primary design, no mandatory approval chains, no
   SAP/Tally-grade double-entry-first accounting as the primary experience.
+  *(Opt-in Admin/Operator/Viewer roles exist when security is turned on in
+  Tools — they are for a small office, not enterprise IAM.)*
 - **Not accountants** as the primary user. A CA may _use_ the exports, but the
   contractor must be able to run the whole thing alone.
 - **Not a cloud SaaS.** No login servers, no per-seat pricing assumptions, no
-  "your data lives on our servers." Their data is one file on their PC.
+  "your data lives on our servers." Their data is one file on their PC
+  (optional LAN/browser on the same book is fine).
 
 ## 3. What they actually struggle with (jobs to be done)
 
