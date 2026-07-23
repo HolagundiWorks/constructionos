@@ -63,7 +63,9 @@ internal static class Ui
         if (spec is null)
         {
             if (cols.Remove("id")) cols.Insert(0, "id");
-            spec = cols.ConvertAll(k => new ColSpec(k, Pretty(k), false, true));
+            // No server type metadata (e.g. money docs from web_docs) — infer money
+            // columns from the key so payments/invoices still render in rupees.
+            spec = cols.ConvertAll(k => new ColSpec(k, Pretty(k), false, true, IsMoneyKey(k)));
         }
 
         var root = new Grid();
@@ -94,9 +96,10 @@ internal static class Ui
         return root;
     }
 
-    // One rendered column: server key + label + right-align, or auto (Pretty
-    // label, per-cell numeric right-align).
-    private sealed record ColSpec(string Key, string Label, bool Right, bool AutoNumeric);
+    // One rendered column: server key + label + right-align + money flag, or
+    // auto (Pretty label, per-cell numeric right-align).
+    private sealed record ColSpec(string Key, string Label, bool Right,
+                                  bool AutoNumeric, bool Money);
 
     // Parse the server's curated columns [{key,label,align}] (CT-6 uses "columns";
     // the look-ahead report uses "cols" — accept either). Null if none.
@@ -117,7 +120,9 @@ internal static class Ui
                 && l.ValueKind == JsonValueKind.String ? l.GetString()! : Pretty(key!);
             var right = c.TryGetProperty("align", out var a)
                 && a.ValueKind == JsonValueKind.String && a.GetString() == "right";
-            spec.Add(new ColSpec(key!, label, right, false));
+            var money = c.TryGetProperty("type", out var ty)
+                && ty.ValueKind == JsonValueKind.String && ty.GetString() == "money";
+            spec.Add(new ColSpec(key!, label, right || money, false, money));
         }
         return spec.Count > 0 ? spec : null;
     }
@@ -140,21 +145,30 @@ internal static class Ui
             var value = text(s);
             var tb = new TextBlock
             {
-                Text = value,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap,
             };
             if (isHeader)
             {
+                // Money columns carry the rupee sign in the header, so the cells
+                // stay clean lakh/crore-grouped numbers.
+                tb.Text = s.Money ? value + "  (₹)" : value;
                 tb.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
                 tb.FontWeight = FontWeights.SemiBold;
                 tb.Foreground = (Microsoft.UI.Xaml.Media.Brush)
                     Application.Current.Resources["TextFillColorSecondaryBrush"];
                 if (s.Right) tb.TextAlignment = TextAlignment.Right;
             }
-            else if (s.Key != "id" && (s.Right || (s.AutoNumeric && IsNumber(value))))
+            else if (s.Money && TryNum(value, out var mv))
             {
+                tb.Text = Grouped(mv);              // 1,00,000.00 (Indian grouping)
                 tb.TextAlignment = TextAlignment.Right;
+            }
+            else
+            {
+                tb.Text = value;
+                if (s.Key != "id" && (s.Right || (s.AutoNumeric && IsNumber(value))))
+                    tb.TextAlignment = TextAlignment.Right;
             }
             Grid.SetColumn(tb, i);
             g.Children.Add(tb);
@@ -325,6 +339,42 @@ internal static class Ui
         !string.IsNullOrEmpty(s)
         && double.TryParse(s, System.Globalization.NumberStyles.Any,
             System.Globalization.CultureInfo.InvariantCulture, out _);
+
+    // Indian English culture: the rupee sign + lakh/crore grouping (3;2), so
+    // 1234567.5 renders 12,34,567.50 / ₹12,34,567.50 without a hand-rolled grouper.
+    private static readonly System.Globalization.CultureInfo InIn =
+        System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+
+    /// <summary>A rupee amount with the sign and Indian lakh/crore grouping
+    /// (₹1,00,000.00) — for standalone figures (KPI cards, summary lines).</summary>
+    public static string Rupees(double d) => d.ToString("C2", InIn);
+
+    /// <summary>Rupees with the sign, or the raw string if it isn't numeric.</summary>
+    public static string Rupees(string s) => TryNum(s, out var d) ? Rupees(d) : s;
+
+    // Lakh/crore-grouped number, two decimals, no sign (money table cells; the
+    // column header carries the ₹).
+    private static string Grouped(double d) => d.ToString("N2", InIn);
+
+    private static bool TryNum(string s, out double d) =>
+        double.TryParse(s, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out d);
+
+    // Money-like column keys (token match, so "generated_at" isn't caught by
+    // "rate"). Mirrors web_tables._MONEY_HINTS for endpoints without type metadata.
+    private static readonly HashSet<string> MoneyWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "amount", "amt", "total", "rate", "gross", "deduction", "net", "debit",
+        "credit", "value", "payable", "price", "cost", "balance", "wage", "wages",
+        "salary", "subtotal", "tax",
+    };
+
+    private static bool IsMoneyKey(string key)
+    {
+        foreach (var tok in key.Split('_'))
+            if (MoneyWords.Contains(tok)) return true;
+        return false;
+    }
 
     // "net_payable" → "Net payable".
     private static string Pretty(string key)

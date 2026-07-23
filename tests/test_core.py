@@ -6473,5 +6473,36 @@ class TestTabModuleImports(unittest.TestCase):
                     '{}.py uses {}. but never imports it'.format(stem, mod))
 
 
+class TestInr(unittest.TestCase):
+    """Indian Rupee formatting -- lakh/crore grouping and the compact form."""
+
+    def test_group_digits_indian_system(self):
+        import inr
+        self.assertEqual(inr.group_digits('100'), '100')
+        self.assertEqual(inr.group_digits('1000'), '1,000')
+        self.assertEqual(inr.group_digits('100000'), '1,00,000')        # 1 lakh
+        self.assertEqual(inr.group_digits('10000000'), '1,00,00,000')   # 1 crore
+        self.assertEqual(inr.group_digits('123456789'), '12,34,56,789')
+        self.assertEqual(inr.group_digits('007'), '7')
+
+    def test_rupees_symbol_grouping_and_sign(self):
+        import inr
+        self.assertEqual(inr.rupees(100000), inr.RUPEE + '1,00,000.00')
+        self.assertEqual(inr.rupees(2500, paise=False), inr.RUPEE + '2,500')
+        self.assertEqual(inr.rupees(-5000), '-' + inr.RUPEE + '5,000.00')
+        self.assertEqual(inr.rupees(None), inr.RUPEE + '0.00')
+        self.assertEqual(inr.rupees(''), inr.RUPEE + '0.00')
+        self.assertEqual(inr.rupees(1234.5), inr.RUPEE + '1,234.50')
+        self.assertEqual(inr.rupees(100000, symbol=False), '1,00,000.00')
+
+    def test_compact_lakh_crore(self):
+        import inr
+        self.assertEqual(inr.compact(15000000), inr.RUPEE + '1.5 Cr')
+        self.assertEqual(inr.compact(20000000), inr.RUPEE + '2 Cr')
+        self.assertEqual(inr.compact(150000), inr.RUPEE + '1.5 L')
+        self.assertEqual(inr.compact(45000), inr.RUPEE + '45,000')
+        self.assertEqual(inr.compact(-15000000), '-' + inr.RUPEE + '1.5 Cr')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

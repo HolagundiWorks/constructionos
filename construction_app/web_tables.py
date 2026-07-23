@@ -23,8 +23,28 @@ _FK = {
 }
 
 
-def _c(key, label, align='left'):
-    return {'key': key, 'label': label, 'align': align}
+# Key fragments that mark a right-aligned column as MONEY (rendered with the
+# rupee sign + lakh/crore grouping); other right-aligned numbers are 'num'.
+_MONEY_HINTS = ('amount', 'total', 'rate', 'gross', 'deduction', 'net',
+                'debit', 'credit', 'value', 'payable', 'price', 'cost',
+                'balance', 'wage', 'salary')
+
+
+def _col_type(key, align):
+    if align != 'right':
+        return 'text'
+    k = key.lower()
+    if any(h in k for h in _MONEY_HINTS):
+        return 'money'
+    return 'num'
+
+
+def _c(key, label, align='left', type=None):
+    """A column spec: display ``key``, human ``label``, text ``align`` and a
+    semantic ``type`` (``money`` | ``num`` | ``text``) the client formats by.
+    ``type`` is inferred from the key/alignment when not given."""
+    return {'key': key, 'label': label, 'align': align,
+            'type': type or _col_type(key, align)}
 
 
 # Per-table curated specs. Keys prefer resolved FK names over raw ids.

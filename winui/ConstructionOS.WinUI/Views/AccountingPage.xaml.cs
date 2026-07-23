@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -231,11 +230,11 @@ public sealed partial class AccountingPage : Page
         _ => v.ToString(),
     };
 
-    // Rupee amount, thousands-grouped, two decimals. Blank for a null cell.
+    // Rupee amount with the sign and Indian lakh/crore grouping (₹1,00,000.00).
+    // Blank for a null cell.
     private static string Money(JsonElement v) => v.ValueKind == JsonValueKind.Number
         ? Money(v.GetDouble())
         : v.ValueKind == JsonValueKind.Null ? "" : Scalar(v);
 
-    private static string Money(double d) =>
-        d.ToString("N2", CultureInfo.InvariantCulture);
+    private static string Money(double d) => Ui.Rupees(d);
 }
