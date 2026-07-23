@@ -6,6 +6,20 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — Multi-company: select company, then login (+ export/import)
+
+- **Boot flow:** desktop always opens a company picker, then Sign in / Continue
+  (`tab_login.LoginDialog`). `company.apply_active()` runs before `init_db` so
+  the last-chosen book is the default. New… and Import… from the login screen.
+- **Pure helpers** in `company.py`: `list_entries`, `apply_active`,
+  `select_company`, `create_company`, `export_company`, `import_company`
+  (SQLite sniff; never overwrites an existing book).
+- **Tools:** Export… / Import… beside the firm list; create uses the pure helper.
+- **Web / JSON API u0.9:** login form has a company `<select>`; public
+  `GET /api/companies`; `POST /api/login` accepts `company` (path or name) and
+  returns the open path. One active book per server process.
+- **WinUI:** Settings **Company** field → login payload; `AppSettings.Company`.
+
 ## 2026-07-22 — WinUI 3 coding standard + conformance pass
 
 - Added **`.github/instructions/winui3.instructions.md`** — a WinUI 3 / Windows

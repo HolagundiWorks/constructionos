@@ -700,12 +700,56 @@ class TestWebApi(unittest.TestCase):
         sid, csrf, me = self._login()
         self.assertEqual(me['role'], 'Admin')
         self.assertTrue(me['can_write'])
+        self.assertIn('company', me)
         resp = self.webapp.handle(self._req(
             '/api/me', cookies={'cosid': sid}))
         self.assertEqual(resp.status, 200)
         body = self._json(resp)
         self.assertEqual(body['username'], 'admin')
         self.assertEqual(body['csrf'], csrf)
+
+    def test_api_companies_public_and_login_selects_company(self):
+        import company
+        other = os.path.join(tempfile.mkdtemp(), 'other.db')
+        orig_reg = company.REGISTRY_PATH
+        reg = os.path.join(os.path.dirname(self.path), 'companies.json')
+        company.REGISTRY_PATH = reg
+        try:
+            # Register the setUp DB and a second book.
+            data = company.load(reg)
+            company.add(data, 'Main', self.path, make_active=True)
+            company.save(data, reg)
+            self.db.DB_PATH = other
+            self.db.init_db()
+            data = company.load(reg)
+            company.add(data, 'Other', other)
+            company.save(data, reg)
+            # Point process back at Main before login.
+            self.db.DB_PATH = self.path
+
+            resp = self.webapp.handle(self._req('/api/companies'))
+            self.assertEqual(resp.status, 200)
+            payload = self._json(resp)
+            names = {i['name'] for i in payload['items']}
+            self.assertIn('Main', names)
+            self.assertIn('Other', names)
+
+            resp = self.webapp.handle(self._req(
+                '/api/login', 'POST',
+                json_body={'username': 'admin', 'password': STRONG,
+                           'company': 'Other'}))
+            self.assertEqual(resp.status, 200, resp.body)
+            body = self._json(resp)
+            self.assertTrue(body['company'].endswith('other.db'))
+            self.assertTrue(self.db.DB_PATH.endswith('other.db'))
+        finally:
+            company.REGISTRY_PATH = orig_reg
+            self.db.DB_PATH = self.path
+            for p in (other, other + '-wal', other + '-shm'):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
 
     def test_dashboard_menu_workflow_evm(self):
         sid, _csrf, _ = self._login()
@@ -931,7 +975,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.8')
+        self.assertEqual(c['api'], 'u0.9')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])

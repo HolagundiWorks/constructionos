@@ -191,7 +191,8 @@ Know these before touching anything:
 |---|---|
 | `db.py` | The entire schema in one `SCHEMA` string + `get_conn()` + `init_db()` + CoA seed + indexes + column migrations (§10). |
 | `modules.py` | `SECTIONS_CATALOG` — the **single source of truth** for section→tab grouping, shared by `main.py` and the Tools toggle panel (§11). |
-| `main.py` | Entry point: DB init, optional login, theme, wizard, then the rail. `BUILDERS` maps each module label to its widget. |
+| `main.py` | Entry point: `company.apply_active()`, DB init, company+login dialog, theme, wizard, then the rail. `BUILDERS` maps each module label to its widget. |
+| `company.py` | Multi-firm registry (`companies.json`), create/export/import, carry-forward, `apply_active` / `select_company`. |
 | `shell.py` | `RailStage` — the rail + stage shell. **The app is not a top-level Notebook** (§24). |
 | `crud_frame.py` | `CrudFrame` + `Field` — the list+form widget behind every simple tab (§4). |
 | `tab_documents.py` | `DocumentFrame` — header + line-items documents (§5). |
@@ -721,12 +722,14 @@ python -c "import wages as w; \
 
 ## 20. Security & robustness (opt-in login, roles, audit)
 
-**Opt-in by design.** The app ships with security **off** — it opens straight
-in, single-user, so the solo contractor keeps zero-friction access. An office
-with staff turns it on in **Tools › Users & Security**; that requires at least
+**Opt-in by design.** The app ships with security **off** — credentials are
+optional so the solo contractor keeps zero-friction access. An office with
+staff turns security on in **Tools › Users & Security**; that requires at least
 one active **Admin** first (`auth` won't let you enable login or demote/
-deactivate the last admin). `main.py` shows the login dialog only when
-`auth.security_enabled` **and** at least one user exists.
+deactivate the last admin). `main.py` **always** shows the boot dialog so the
+user can **select a company** (registry in `companies.json` via `company.py`),
+then Sign in when that book has security on, or **Continue** when it does not.
+`company.apply_active()` runs before `init_db` so the last-chosen file opens.
 
 - **Passwords** (`security.py`): salted, **versioned** PBKDF2-HMAC-SHA256 at
   **600,000 iterations** (OWASP 2023 floor), constant-time verify via

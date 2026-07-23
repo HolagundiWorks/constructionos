@@ -7,9 +7,10 @@ browser — no client to install, no desktop window:
     python web_main.py --port 9000
     python web_main.py --host 127.0.0.1 --port 8080   # this machine only
 
-It serves the SAME database the desktop app uses (``%LOCALAPPDATA%\\Construction
-OS\\construction.db`` when installed, or the file beside the code from source).
-Login is required; the first visit creates the administrator.
+It serves the SAME database the desktop app uses (``%LOCALAPPDATA%\\ACO\\`` —
+or the active company file from ``companies.json`` — when installed, or the
+file beside the code from source). Login asks for **company then credentials**;
+the first visit can create the administrator.
 """
 
 import branding
@@ -29,6 +30,8 @@ def main(argv=None):
                         help='port (default 8080)')
     args = parser.parse_args(argv)
 
+    import company
+    company.apply_active()
     db.init_db()      # make sure the schema exists before the first request
 
     print(branding.APP_NAME + ' — web / LAN server')

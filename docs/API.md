@@ -6,20 +6,28 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.8` (`GET /api/health` → `{"api":"u0.8","service":"aco"}`)  
+**Version:** `u0.9` (`GET /api/health` → `{"api":"u0.9","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
 | Step | Call |
 |---|---|
-| Login / first-run admin | `POST /api/login` `{"username","password"}` → sets `cosid` cookie, returns `{csrf, role, can_write}` |
+| Companies (public) | `GET /api/companies` → `{items:[{name,path,active}], active}` |
+| Login / first-run admin | `POST /api/login` `{"username","password","company?"}` → sets `cosid` cookie, returns `{csrf, role, can_write, company}` |
 | Session | `GET /api/me` |
 | Writes | Header `X-CSRF-Token: <csrf>` (or body/`form` `csrf`) · Viewers → 403 |
+
+`company` on login is a registered **path** or **display name** from the
+registry (`companies.json`). Selecting a company switches the server process's
+open book (`db.DB_PATH`) and resets sessions — **one active book per server
+process** (fine for a small office LAN). Omit `company` to use the registry
+active file.
 
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.8` |
+| GET | `/api/health` | Auth except login; reports `api: u0.9` |
+| GET | `/api/companies` | **Public** company picker list |
 | GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
@@ -77,4 +85,6 @@ List with `GET /api/measurements?contract_id=`.
   `/api/ageing`, and `/api/evm` (detail keys unchanged). Cashflow also exposes
   `series.{in,out,balance}`. See `GET /api/contract` → `chart_bind`.
 - GST/TDS: bind `GET /api/gst?month=` (same maths as browser `/gst` and desktop).
+- Login: optional Settings **Company** → `POST /api/login` `company` field;
+  list choices from `GET /api/companies`.
 - Money docs stay **create-only** by design (AGENTS.md §14).

@@ -74,22 +74,25 @@ browser — phone, tablet or PC.
 
 ## Which database it serves
 
-Whatever the app is currently using:
+The registry active file from `companies.json` (via `company.apply_active()`),
+falling back to the default book:
 
-* **installed build** → `%LOCALAPPDATA%\Construction OS\construction.db`
-* **from source** → `construction.db` beside the code
+* **installed build** → `%LOCALAPPDATA%\ACO\` (legacy `Construction OS` still opened)
+* **from source** → beside the code
 
-If you switch company files in the desktop app, the web server follows (each
-request opens the current file). SQLite is in WAL mode with a busy timeout, so
-many browser clients can read at once alongside the desktop app.
+At **login**, the browser (and `POST /api/login`) lets you **pick a company**;
+that switches the server process to that SQLite file for subsequent requests —
+**one active book per server process**. SQLite is in WAL mode with a busy
+timeout, so many browser clients can read at once alongside the desktop app.
 
 ## Sign-in and roles
 
 Login is **always required** on the web — the books should never be one URL away
-from anyone on the network. It reuses the desktop accounts:
+from anyone on the network. Flow: **select company → credentials**. It reuses
+the desktop accounts for that company file:
 
-* The **first visit** to a fresh database asks you to **create the administrator**.
-* After that, everyone signs in with their own account.
+* The **first visit** to a fresh company asks you to **create the administrator**.
+* After that, everyone signs in with their own account on that book.
 * Roles carry over: **Admin** / **Operator** / **Viewer**. Viewers are
   read-only; the write flows (as they land) gate on Operator/Admin.
 

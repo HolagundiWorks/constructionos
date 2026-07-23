@@ -150,6 +150,180 @@ def active_path(data):
     return None
 
 
+def list_entries(data=None):
+    """UI-friendly rows: ``[{name, path, active, exists}, …]``."""
+    data = data if data is not None else load()
+    active = data.get('active')
+    out = []
+    for f in data.get('files', []):
+        path = f['path']
+        out.append({
+            'name': f.get('name') or os.path.basename(path),
+            'path': path,
+            'active': bool(active and _same(active, path)),
+            'exists': os.path.exists(path),
+        })
+    return out
+
+
+def apply_active(db_module=None, registry_path=None, default_path=None):
+    """Point ``db.DB_PATH`` at the registry's active file before ``init_db``.
+
+    If nothing is active (or the file is missing), keeps ``default_path`` /
+    the module's current ``DB_PATH`` and ensures that path is registered so
+    the next boot has something to select. Returns the path now in use.
+    """
+    if db_module is None:
+        import db as db_module
+    reg = registry_path or REGISTRY_PATH
+    data = load(reg)
+    chosen = active_path(data)
+    if chosen is None:
+        chosen = default_path or getattr(db_module, 'DB_PATH', None)
+    if not chosen:
+        return None
+    db_module.DB_PATH = chosen
+    # Keep the open file on the list (and active) so the login picker sees it.
+    name = None
+    existing = find(data, chosen)
+    if existing is not None:
+        name = existing.get('name')
+    else:
+        name = os.path.splitext(os.path.basename(chosen))[0] or 'Main'
+    add(data, name, chosen, make_active=True)
+    save(data, reg)
+    return chosen
+
+
+def select_company(db_path, name=None, db_module=None, registry_path=None):
+    """Register (if needed), mark active, and set ``db.DB_PATH``.
+
+    Does not restart the process — callers that already built UI should still
+    ask for a reopen. Returns ``(ok, message)``.
+    """
+    if db_module is None:
+        import db as db_module
+    if not db_path:
+        return False, 'No company file selected.'
+    if not os.path.exists(db_path):
+        return False, 'That company file is missing:\n{}'.format(db_path)
+    reg = registry_path or REGISTRY_PATH
+    data = load(reg)
+    label = name or (find(data, db_path) or {}).get('name') \
+        or os.path.splitext(os.path.basename(db_path))[0] or 'Company'
+    add(data, label, db_path, make_active=True)
+    if not save(data, reg):
+        return False, 'Could not update the company list.'
+    db_module.DB_PATH = db_path
+    return True, db_path
+
+
+def export_company(src_path, dest_path):
+    """Copy a company SQLite file to ``dest_path``. Returns ``(ok, message)``."""
+    import shutil
+    if not src_path or not os.path.exists(src_path):
+        return False, 'Nothing to export — the company file was not found.'
+    if not dest_path:
+        return False, 'Choose where to save the export.'
+    try:
+        # Avoid exporting into the live file.
+        if _same(src_path, dest_path):
+            return False, 'Pick a different location than the live company file.'
+        folder = os.path.dirname(os.path.abspath(dest_path))
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        shutil.copy2(src_path, dest_path)
+    except OSError as exc:
+        return False, 'Export failed: {}'.format(exc)
+    return True, dest_path
+
+
+def import_company(src_path, name=None, folder=None, make_active=False,
+                   db_module=None, registry_path=None):
+    """Copy an external ``.db`` into the data folder and register it.
+
+    Returns ``(ok, message, new_path)``. Never overwrites an existing book —
+    ``suggest_path`` picks a free name.
+    """
+    import shutil
+    if db_module is None:
+        import db as db_module
+    if not src_path or not os.path.exists(src_path):
+        return False, 'That file was not found.', None
+    # Cheap SQLite sniff — refuse obvious non-DB uploads.
+    try:
+        with open(src_path, 'rb') as fh:
+            head = fh.read(16)
+    except OSError as exc:
+        return False, 'Could not read that file: {}'.format(exc), None
+    if not head.startswith(b'SQLite format 3'):
+        import branding
+        return False, 'That does not look like an {} company file (.db).'.format(
+            branding.APP_NAME), None
+    folder = folder or os.path.dirname(os.path.abspath(
+        getattr(db_module, 'DB_PATH', paths.data_path('construction.db'))))
+    label = (name or '').strip() or os.path.splitext(os.path.basename(src_path))[0] \
+        or 'Imported'
+    dest = suggest_path(folder, label)
+    try:
+        shutil.copy2(src_path, dest)
+    except OSError as exc:
+        return False, 'Import failed: {}'.format(exc), None
+    reg = registry_path or REGISTRY_PATH
+    data = load(reg)
+    add(data, label, dest, make_active=make_active)
+    save(data, reg)
+    if make_active:
+        db_module.DB_PATH = dest
+    return True, dest, dest
+
+
+def create_company(name, folder=None, carry_from=None, make_active=True,
+                   db_module=None, registry_path=None):
+    """Create a fresh company book, optionally carrying masters forward.
+
+    Returns ``(ok, message, new_path)``.
+    """
+    import sqlite3
+    if db_module is None:
+        import db as db_module
+    name = (name or '').strip()
+    if not name:
+        return False, 'Enter a name for the new company.', None
+    folder = folder or os.path.dirname(os.path.abspath(
+        getattr(db_module, 'DB_PATH', paths.data_path('construction.db'))))
+    path = suggest_path(folder, name)
+    prev = getattr(db_module, 'DB_PATH', None)
+    try:
+        db_module.DB_PATH = path
+        db_module.init_db()
+        if carry_from and os.path.exists(carry_from):
+            src = sqlite3.connect(carry_from)
+            src.row_factory = sqlite3.Row
+            dst = db_module.get_conn()
+            try:
+                carry_forward(src, dst)
+            finally:
+                src.close()
+                dst.close()
+    except Exception as exc:  # noqa: BLE001 — surfaced to the caller
+        if prev is not None:
+            db_module.DB_PATH = prev
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+        return False, 'Could not create the company file: {}'.format(exc), None
+    reg = registry_path or REGISTRY_PATH
+    data = load(reg)
+    add(data, name, path, make_active=make_active)
+    save(data, reg)
+    if not make_active and prev is not None:
+        db_module.DB_PATH = prev
+    return True, path, path
+
+
 def safe_filename(name):
     """Turn a firm/year label into a portable .db filename.
 

@@ -24,6 +24,7 @@ public sealed partial class SettingsPage : Page
         BaseUrlBox.Text = s.BaseUrl;
         UserBox.Text = s.Username;
         PasswordBox.Password = s.Password;
+        CompanyBox.Text = s.Company;
         TimeoutBox.Value = s.TimeoutSeconds;
         PersonaBox.ItemsSource = DefaultPersonas;
         PersonaBox.SelectedItem = DefaultPersonas.Contains(s.Persona)
@@ -69,6 +70,7 @@ public sealed partial class SettingsPage : Page
             BaseUrl = BaseUrlBox.Text,
             Username = UserBox.Text,
             Password = PasswordBox.Password,
+            Company = CompanyBox.Text?.Trim() ?? "",
             Persona = PersonaBox.SelectedItem?.ToString() ?? "Owner",
             TimeoutSeconds = (int)TimeoutBox.Value,
         };
@@ -94,7 +96,8 @@ public sealed partial class SettingsPage : Page
                 BaseUrlBox.Text,
                 UserBox.Text,
                 PasswordBox.Password,
-                (int)TimeoutBox.Value);
+                (int)TimeoutBox.Value,
+                CompanyBox.Text?.Trim() ?? "");
             var health = await probe.HealthAsync();
             var api = health.TryGetProperty("api", out var v) ? v.ToString() : "?";
             Status.Text = $"OK — api={api} at {probe.BaseAddress}";

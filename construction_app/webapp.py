@@ -24,6 +24,7 @@ top route by route.
 
 import branding
 
+import os
 import secrets
 import sqlite3
 import threading
@@ -256,9 +257,11 @@ def handle(request):
     if path in ('/favicon.ico',):
         return Response('', status=204)
 
-    # JSON API login is public (creates the session); other /api/* need auth.
+    # JSON API login + company list are public; other /api/* need auth.
     if path == '/api/login':
         return _api_login(request)
+    if path == '/api/companies' and (request.method or 'GET').upper() == 'GET':
+        return _api_companies()
 
     if path == '/login':
         return _login(request)
@@ -298,21 +301,95 @@ def _api_unauthorized():
                     content_type='application/json; charset=utf-8')
 
 
+def _resolve_company_choice(raw):
+    """Map a login ``company`` field (path or display name) to an absolute path."""
+    import company
+    raw = (raw or '').strip()
+    entries = [e for e in company.list_entries() if e['exists']]
+    if not entries:
+        company.apply_active()
+        entries = [e for e in company.list_entries() if e['exists']]
+    if not raw:
+        # Default: active, else first, else current DB_PATH.
+        for e in entries:
+            if e['active']:
+                return e['path']
+        if entries:
+            return entries[0]['path']
+        return db.DB_PATH
+    for e in entries:
+        if company._same(e['path'], raw) or e['name'] == raw:
+            return e['path']
+    if os.path.exists(raw):
+        return raw
+    return None
+
+
+def _activate_company_for_request(raw):
+    """Switch the process DB to the chosen company. Returns (ok, error_msg)."""
+    import company
+    path = _resolve_company_choice(raw)
+    if not path:
+        return False, 'Unknown company.'
+    ok, msg = company.select_company(path)
+    if not ok:
+        return False, msg
+    # New book may need schema; cheap and idempotent.
+    try:
+        db.init_db()
+    except Exception as exc:  # noqa: BLE001
+        return False, 'Could not open that company: {}'.format(exc)
+    return True, path
+
+
+def _api_companies():
+    """GET /api/companies — public list for the login company picker."""
+    import company
+    company.apply_active()
+    items = []
+    for e in company.list_entries():
+        if not e['exists']:
+            continue
+        items.append({
+            'name': e['name'],
+            'path': e['path'],
+            'active': e['active'],
+        })
+    body = json.dumps({
+        'items': items,
+        'active': db.DB_PATH,
+    })
+    return Response(body, status=200,
+                    content_type='application/json; charset=utf-8')
+
+
 def _api_login(request):
-    """POST /api/login — JSON {username, password} → session cookie + me."""
+    """POST /api/login — JSON {username, password, company?} → session + me.
+
+    ``company`` is a registered path or display name. Selecting a company
+    switches the server's open book for subsequent requests (one active book
+    per process — suited to a small office LAN).
+    """
     if request.method != 'POST':
         body = json.dumps({'error': 'POST required'})
         return Response(body, status=405,
                         content_type='application/json; charset=utf-8')
     data = request.json_body if isinstance(request.json_body, dict) else {}
     if not data:
-        # Allow form-encoded too for curl convenience.
         data = {
             'username': request.form.get('username', ''),
             'password': request.form.get('password', ''),
+            'company': request.form.get('company', ''),
         }
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
+    ok, msg = _activate_company_for_request(data.get('company') or '')
+    if not ok:
+        body = json.dumps({'error': msg})
+        return Response(body, status=400,
+                        content_type='application/json; charset=utf-8')
+    # Switching books invalidates prior sessions (they pointed at another DB).
+    reset_sessions()
     conn = db.get_conn()
     try:
         first_run = auth.user_count(conn) == 0
@@ -338,6 +415,7 @@ def _api_login(request):
             'role': role,
             'csrf': sess['csrf'],
             'can_write': can_write(role),
+            'company': db.DB_PATH,
         })
         resp = Response(body, status=200,
                         content_type='application/json; charset=utf-8')
@@ -347,45 +425,64 @@ def _api_login(request):
         conn.close()
 
 
-
 def _login(request):
-    conn = db.get_conn()
-    try:
-        first_run = auth.user_count(conn) == 0
-        if request.method == 'POST':
-            cookie_csrf = request.cookies.get('coscsrf', '')
-            form_csrf = request.form.get('csrf', '')
-            if not cookie_csrf or cookie_csrf != form_csrf:
-                return _login_form('Your session expired — try again.', first_run)
+    import company
+    companies = [e for e in company.list_entries() if e['exists']]
+    if request.method == 'POST':
+        cookie_csrf = request.cookies.get('coscsrf', '')
+        form_csrf = request.form.get('csrf', '')
+        if not cookie_csrf or cookie_csrf != form_csrf:
+            return _login_form('Your session expired — try again.',
+                               companies=companies)
+        ok, msg = _activate_company_for_request(request.form.get('company') or '')
+        if not ok:
+            return _login_form(msg, companies=companies,
+                               selected=request.form.get('company') or '')
+        reset_sessions()
+        conn = db.get_conn()
+        try:
+            first_run = auth.user_count(conn) == 0
             username = (request.form.get('username') or '').strip()
             password = request.form.get('password') or ''
             if first_run:
                 ok, msg = auth.create_user(conn, username, password,
                                            role='Admin', actor='web-setup')
                 if not ok:
-                    return _login_form(msg, first_run=True)
+                    return _login_form(msg, first_run=True, companies=companies,
+                                       selected=db.DB_PATH)
                 role = 'Admin'
             else:
                 ok, msg, user = auth.authenticate(conn, username, password)
                 if not ok:
-                    return _login_form(msg, first_run=False)
+                    return _login_form(msg, first_run=False, companies=companies,
+                                       selected=db.DB_PATH)
                 role = user['role']
             token = _new_session(username, role)
             resp = _redirect('/')
             resp.set_cookie('cosid', token)
             return resp
-        # GET
-        return _login_form('', first_run)
+        finally:
+            conn.close()
+    # GET
+    company.apply_active()
+    companies = [e for e in company.list_entries() if e['exists']]
+    conn = db.get_conn()
+    try:
+        first_run = auth.user_count(conn) == 0
     finally:
         conn.close()
+    return _login_form('', first_run=first_run, companies=companies,
+                       selected=db.DB_PATH)
 
 
-def _login_form(error, first_run):
+def _login_form(error, first_run=False, companies=None, selected=''):
     csrf = secrets.token_urlsafe(18)
     note = ('This login travels over your local network in the clear — use it '
             'on a trusted LAN, or put it behind HTTPS for anything wider.')
-    resp = Response(R.login_page(error=error, first_run=first_run, csrf=csrf,
-                                 host_note=note))
+    companies = companies or []
+    resp = Response(R.login_page(
+        error=error, first_run=first_run, csrf=csrf, host_note=note,
+        companies=companies, selected=selected or db.DB_PATH))
     resp.set_cookie('coscsrf', csrf, http_only=False)
     return resp
 

@@ -432,6 +432,8 @@ class ToolsTab(ttk.Frame):
         ttk.Button(btns, text='New Firm…', command=self.new_firm).pack(side='left', padx=2)
         ttk.Button(btns, text='New Financial Year…', command=self.new_year).pack(side='left', padx=2)
         ttk.Button(btns, text='Add Existing…', command=self.add_existing_company).pack(side='left', padx=2)
+        ttk.Button(btns, text='Export…', command=self.export_company).pack(side='left', padx=2)
+        ttk.Button(btns, text='Import…', command=self.import_company).pack(side='left', padx=2)
         ttk.Button(btns, text='Remove From List', command=self.forget_company).pack(side='left', padx=2)
         ttk.Button(btns, text='Load Sample Data…',
                    command=self.load_sample_data).pack(side='left', padx=2)
@@ -496,31 +498,13 @@ class ToolsTab(ttk.Frame):
     def _create_company(self, name, carry_from=None):
         """Create a new company file, optionally carrying masters forward."""
         folder = os.path.dirname(os.path.abspath(db.DB_PATH))
-        path = company.suggest_path(folder, name)
-        prev = db.DB_PATH
-        try:
-            db.DB_PATH = path
-            db.init_db()
-            if carry_from and os.path.exists(carry_from):
-                src = sqlite3.connect(carry_from)
-                src.row_factory = sqlite3.Row
-                dst = db.get_conn()
-                try:
-                    copied = company.carry_forward(src, dst)
-                finally:
-                    src.close(); dst.close()
-                total = sum(copied.values())
-                self.status_var.set(
-                    'Carried forward {} master records into {}.'.format(total, name))
-        except Exception as exc:                      # noqa: BLE001 - user-facing
-            db.DB_PATH = prev
-            messagebox.showerror(
-                'Could not create the file',
-                'The new company file could not be created:\n\n{}'.format(exc))
+        ok, msg, path = company.create_company(
+            name, folder=folder, carry_from=carry_from, make_active=True)
+        if not ok:
+            messagebox.showerror('Could not create the file', msg)
             return None
-        data = company.load()
-        company.add(data, name, path, make_active=True)
-        company.save(data)
+        if carry_from:
+            self.status_var.set('Created {} (masters carried forward).'.format(name))
         return path
 
     def new_firm(self):
@@ -531,6 +515,64 @@ class ToolsTab(ttk.Frame):
         path = self._create_company(name.strip())
         if path:
             self.refresh_companies()
+            self._switch_to(path, created=True)
+
+    def export_company(self):
+        """Save a copy of the selected (or current) company file."""
+        if not can_write():
+            return
+        path = self._selected_company_path() or db.DB_PATH
+        if not path or not os.path.exists(path):
+            messagebox.showinfo('Nothing to export',
+                                'Select a company file that exists on disk.')
+            return
+        data = company.load()
+        entry = company.find(data, path)
+        label = (entry or {}).get('name') or os.path.splitext(
+            os.path.basename(path))[0] or 'company'
+        stamp = datetime.now().strftime('%Y%m%d')
+        default = '{}_export_{}.db'.format(
+            company.safe_filename(label)[:-3], stamp)
+        dest = filedialog.asksaveasfilename(
+            title='Export company file',
+            defaultextension='.db',
+            initialfile=default,
+            filetypes=[(branding.APP_NAME + ' data', '*.db'),
+                       ('All files', '*.*')])
+        if not dest:
+            return
+        ok, msg = company.export_company(path, dest)
+        if not ok:
+            messagebox.showerror('Export failed', msg)
+            return
+        self.status_var.set('Exported to {}'.format(dest))
+        messagebox.showinfo('Export complete', 'Saved:\n{}'.format(dest))
+
+    def import_company(self):
+        """Copy an external .db into the data folder and add it to the list."""
+        if not can_write():
+            return
+        src = filedialog.askopenfilename(
+            title='Import a company file',
+            filetypes=[(branding.APP_NAME + ' data', '*.db'),
+                       ('All files', '*.*')])
+        if not src:
+            return
+        name = simpledialog.askstring(
+            'Name', 'Name for this company:',
+            initialvalue=os.path.splitext(os.path.basename(src))[0],
+            parent=self)
+        ok, msg, path = company.import_company(
+            src, name=(name or '').strip() or None, make_active=False)
+        if not ok:
+            messagebox.showerror('Import failed', msg)
+            return
+        self.refresh_companies()
+        self.status_var.set('Imported {}'.format(path))
+        if messagebox.askyesno(
+                'Switch now?',
+                'Imported:\n{}\n\nSwitch to this company now? '
+                '(The app will ask you to reopen.)'.format(path)):
             self._switch_to(path, created=True)
 
     def new_year(self):
@@ -738,7 +780,8 @@ class ToolsTab(ttk.Frame):
         if not folder:
             return
         stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        dest = os.path.join(folder, 'contractor_os_backup_{}.db'.format(stamp))
+        dest = os.path.join(folder, '{}_backup_{}.db'.format(
+            branding.APP_NAME.lower().replace(' ', '_'), stamp))
         try:
             shutil.copy2(db.DB_PATH, dest)
         except OSError as exc:

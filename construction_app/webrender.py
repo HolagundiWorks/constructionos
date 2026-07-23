@@ -298,18 +298,32 @@ def post_button(action, csrf, label, *, confirm='', ghost=True):
              label=esc(label))
 
 
-def login_page(*, error='', first_run=False, csrf='', host_note=''):
+def login_page(*, error='', first_run=False, csrf='', host_note='',
+               companies=None, selected=''):
     title = 'Create the first admin' if first_run else 'Sign in'
     intro = ('No accounts yet — create the administrator to secure LAN access.'
-             if first_run else 'Sign in to {}.'.format(BRAND))
+             if first_run else 'Select a company, then sign in to {}.'.format(BRAND))
     err = '<div class="err">{}</div>'.format(esc(error)) if error else ''
     note = ('<p class="muted" style="font-size:12px;margin-top:16px">{}</p>'
             .format(esc(host_note)) if host_note else '')
+    companies = companies or []
+    if companies:
+        opts = []
+        for c in companies:
+            sel = ' selected' if c.get('path') == selected else ''
+            opts.append('<option value="{}"{}>{}</option>'.format(
+                esc(c.get('path') or ''), sel, esc(c.get('name') or c.get('path') or '')))
+        company_field = (
+            '<div class="field"><label>Company</label>'
+            '<select name="company">{}</select></div>'.format(''.join(opts)))
+    else:
+        company_field = ''
     body = (
         '<div class="login"><form class="loginbox" method="post" action="/login">'
         '<div class="brand" style="padding:0 0 6px"><span class="dot"></span>{brand}</div>'
         '<h1>{title}</h1><p class="muted">{intro}</p>'
         '<input type="hidden" name="csrf" value="{csrf}">'
+        '{company_field}'
         '<div class="field"><label>Username</label>'
         '<input type="text" name="username" autofocus autocomplete="username"></div>'
         '<div class="field"><label>Password</label>'
@@ -318,5 +332,6 @@ def login_page(*, error='', first_run=False, csrf='', host_note=''):
         '<div class="field"><button class="btn" type="submit" style="width:100%">'
         '{cta}</button></div>{note}</form></div>'
     ).format(brand=esc(BRAND), title=esc(title), intro=esc(intro), csrf=esc(csrf),
+             company_field=company_field,
              err=err, cta='Create admin' if first_run else 'Sign in', note=note)
     return _doc(title, body)
