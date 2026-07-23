@@ -1,6 +1,7 @@
-# Construction OS — Roadmap
+# ACO — Roadmap
 
-_Last updated: 2026-07-22_
+_Product: **ACO** (Accelerated Construction Operations; formerly Construction OS)._
+_Last updated: 2026-07-23_
 
 **Audience:** small civil contractors in tier-2 / tier-3 Indian cities (see
 `PRODUCT.md`). Every item is judged by one question: _does this help a solo
@@ -74,7 +75,7 @@ with minimal typing?_
 ### Platform
 - **One HCW-UI design system** across desktop + web from a pure `tokens.py` (guard-tested so the two can't drift).
 - **Optional login** (Admin / Operator / Viewer, lockout, audit log), per-tab write-gating for Viewers; WAL + enforced foreign keys + hot-path indexes.
-- **Multi-year / multi-firm** company files; one-click and synced-folder (cloud) backup; guarded restore.
+- **Multi-year / multi-firm** company files — a registry of books with **carry-forward** (masters copied into a fresh year, empty ledger) and a **company-select login** (pick the book, then sign in — web + `/api/login`/`/api/companies`); one-click and synced-folder backup; guarded restore.
 - **Windows installer** (PyInstaller + Inno Setup, per-user, no admin); **AGPL-3.0**.
 
 ---
@@ -82,22 +83,59 @@ with minimal typing?_
 ## 🚧 In progress · ⏳ Next
 
 > **Two platform tracks (owner-approved).** Beyond the shipped tkinter/browser
-> product, development now runs on two parallel tracks, each with its own phased
-> roadmap:
-> - **Local — native WinUI 3 client** (`U` phases): replatform the desktop UI to
->   stock Fluent controls over the Python domain, kept as a localhost JSON API.
->   **U0** (API) built; **U1/U2 built and run** on Windows (shell + Masters
->   ListView CRUD); **U3–U5** pages partial (money/EVM/charts/Controls/Process).
->   See [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9.
-> - **Cloud — headless services** (`C` phases): AI-origin audit, signal feed,
->   event hooks, capture/field intake and the JSON API that the clients share.
->   **C0–C13 / U0.6 complete**; tracked in the changelog and gap roadmap §5A.
+> product, development runs on two parallel tracks:
+> - **Local — native WinUI 3 client** (`winui/`, `U` phases): the desktop UI
+>   replatformed to **stock Fluent controls** over the Python domain (kept as a
+>   localhost JSON API). Windows-only, C#/.NET — an owner-approved departure from
+>   the stdlib/cross-platform rule **for the front-end only**.
+> - **Cloud — headless services** (`C` / `CT` tasks): the shared JSON API,
+>   purity, audit/event hooks, tests, docs. No display, no .NET, no ML weights.
+>   Backlog in [`CLOUD-TASKS.md`](CLOUD-TASKS.md).
 
-- ✅ **Enterprise PM backbone — fully surfaced.** Deterministic EVM, risk, forecast, opportunity, execution KPIs and narration / review-pack: the pure modules landed and every one now has a screen — **lessons-learned**, **submittals**, the **risk register**, **Earned Value**, the **opportunity register** and the assembled **Weekly Review** (desktop + browser). Design and provenance tracked in [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md) and [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
-- ✅ **Cloud track (C0–C14 / U0.7)** — JSON API thickened for WinUI forms (FK options, contracts, cashflow, allocations). See gap roadmap §5A.
-- ⏳ **Local track** — **L0** tkinter display smoke; finish **U3–U5** / **L7** MSIX; **L8** OCR/STT/VLM weights over `sidecars/stub_server.py`.
-- ✅ **Browser / LAN — parity complete.** RA-bill statutory documents (Form 23 MB, Form 26 abstract) viewable + printable; **per-item measurement entry** now writable in the browser (quantity = Nos×L×B×D derived on save, a blank dimension staying "not applicable" = factor 1, never a zeroing 0); the **compliance-filings** register is writable (obligation stored as its stable key); the **GST / TDS** register (outward / HSN / inward / TDS for a month) is a read-only browser view over the desktop's own `tab_gst` compute (a computed report, so view-only by design). Everything a solo contractor does day-to-day is now browser-reachable.
-- ✅ **Real-display GUI render check — done.** Run on a Windows 11 box with tkinter + a display: the full suite is **713 tests, 0 skipped, all green** — the GUI smoke tests that skip headlessly all run and pass here (**every tab builds under both light and dark themes**, the action dock resolves contextually, the project-overview drill-down gathers on real data). Headless CI still skips those 3 (no Tk); the ~708 pure-logic tests are the headless floor.
+### Local track — WinUI 3 client (`winui/`)
+
+Builds + **runs** on Windows (.NET 10 SDK + Windows App SDK 1.5, self-contained
+unpackaged exe). Build output is redirected out of OneDrive; launch with
+`winui/run.ps1`. Engineering notes: [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §9,
+Fluent rules: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md),
+coding standard: `.github/instructions/winui3.instructions.md`.
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| **U0** | Backend JSON API (`webapi.py`) over the domain | ✅ shipped (u0.8) |
+| **U1** | Shell from `/api/menu`; **Excel-style ribbon** (ToggleButton tab strip + AppBarButton icon band, no dropdowns); search palette | ✅ built + runs |
+| **U2** | Masters — one generic register page: columnar tables + `FieldForm` CRUD with FK pickers | ✅ built + runs |
+| **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
+| **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
+| **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS** + **Weekly Review** report pages; honest placeholders for the rest | ✅ built + runs |
+| **U6** | Packaging: PyInstaller backend sidecar inside **MSIX**; launch/stop lifecycle; signing | ⏳ next |
+| **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
+
+**Shipped on the local track since the last update:**
+- **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
+- **Excel-style ribbon** replacing the top `NavigationView` (both NavigationView-Top and `SelectorBar` native-crash on this SDK); decluttered top bar (utilities as a right-hand icon cluster, Fluent "<8 peers").
+- **Generic columnar data tables** (`Ui.Table`) for masters, money docs and **~21 read-only registers**; a generic `DataTablePage`; honest `InfoPage` placeholders so no tab dead-ends.
+- **Multi-company** setting sent on login (`AppSettings.Company` → `/api/login`).
+- **Startup native crash** (`0xc000027b` heap corruption) cut to ~0–1/16 via a timer-deferred shell build.
+
+**Local track — next:**
+- ⏳ **U6 MSIX packaging** + PyInstaller sidecar (bundle + launch the Python backend).
+- ⏳ **Company picker** in the WinUI (dropdown from `/api/companies`) + active company shown in the shell.
+- ⏳ **Wire the richer data the cloud track adds** — CT-6 table metadata (labelled columns + FK names), CT-7 Accounting P&L/BS page, CT-9 Look-ahead page.
+- ⏳ **Accessibility pass** (`AutomationProperties.Name`/`HeadingLevel`) per the coding standard.
+- ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.
+
+### Cloud track — headless services
+
+- ✅ **C0–C14 / API u0.8** — masters, money docs, EVM, cashflow, ageing, GST, review, chart shapes, the read-only register whitelist (`_API_TABLES`), event hooks, audit origin, signal feed.
+- ✅ **Multi-company backend** — registry + carry-forward + company-select login (web + `/api/login` / `/api/companies`).
+- ⏳ **CT-6 … CT-10** queued in [`CLOUD-TASKS.md`](CLOUD-TASKS.md): rich register-table metadata (FK names), `/api/pnl` + `/api/balance_sheet`, `cols` headers on reports, `/api/lookahead`, multi-company audit/role hardening.
+
+### Cross-cutting (both tracks)
+- ✅ **Enterprise PM backbone — fully surfaced** (EVM, risk, opportunity, forecast, KPIs, narration/review-pack) on desktop + browser + WinUI. See [`ENTERPRISE-PM-GAP-AND-ROADMAP.md`](ENTERPRISE-PM-GAP-AND-ROADMAP.md), [`EXECUTION-PART2.md`](EXECUTION-PART2.md).
+- ✅ **Browser / LAN parity** — RA-bill statutory docs (Form 23 MB, Form 26 abstract), per-item measurement entry, compliance register, GST/TDS view.
+- ✅ **Real-display GUI render check** — full tkinter suite green on a Windows box with a display (see [`CHANGELOG.md`](CHANGELOG.md)); headless CI skips the 3 GUI smokes (no Tk).
+- ⏳ **L8** OCR/STT/VLM model sidecars over `sidecars/stub_server.py` (install weights locally).
 
 ---
 
