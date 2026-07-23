@@ -62,7 +62,9 @@ public sealed partial class MainWindow : Window
         ["Approvals"] = "approvals|Approvals",
         ["Retention"] = "retention_releases|Retention releases",
         ["Compliance"] = "filings/feed|Compliance calendar|events",
-        ["Accounting"] = "journal_entries|Journal entries",
+        // "Accounting" and "Look-ahead" resolve to their own pages (AccountingPage
+        // combines P&L / Balance Sheet / Journal; LookaheadPage adds PPC + trend)
+        // via NavRoute — not the generic single-table view.
     };
 
     // Money-document menu tabs → the API doc table the one generic MoneyPage

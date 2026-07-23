@@ -1,0 +1,30 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.AccountingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
+  <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock x:Name="TitleText" Grid.Row="0" Text="Accounting"
+               Style="{StaticResource PageTitleStyle}"/>
+
+    <!-- View picker (stock ToggleButtons — the segmented/SelectorBar controls
+         native-crash on this SDK build) plus a period box for the two reports. -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8"
+                VerticalAlignment="Center">
+      <primitives:ToggleButton x:Name="PnlTab" Content="Profit &amp; Loss"
+                               Click="OnPickView" Tag="pnl"/>
+      <primitives:ToggleButton x:Name="BsTab" Content="Balance Sheet"
+                               Click="OnPickView" Tag="balance_sheet"/>
+      <primitives:ToggleButton x:Name="JournalTab" Content="Journal"
+                               Click="OnPickView" Tag="journal"/>
+      <TextBox x:Name="PeriodBox" Width="150" PlaceholderText="Period (e.g. 2025-26)"
+               ToolTipService.ToolTip="YYYY-MM, a financial year (2025-26), FY, or blank for all"
+               KeyDown="OnPeriodKeyDown" VerticalAlignment="Center"/>
+      <Button Content="Refresh" Click="OnRefresh" VerticalAlignment="Center"/>
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="2">
+      <StackPanel x:Name="Host" Spacing="8"/>
+    </ScrollViewer>
+  </Grid>
+</Page>

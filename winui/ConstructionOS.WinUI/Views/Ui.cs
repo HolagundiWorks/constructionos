@@ -98,11 +98,14 @@ internal static class Ui
     // label, per-cell numeric right-align).
     private sealed record ColSpec(string Key, string Label, bool Right, bool AutoNumeric);
 
-    // Parse the server's curated columns [{key,label,align}] (CT-6). Null if none.
+    // Parse the server's curated columns [{key,label,align}] (CT-6 uses "columns";
+    // the look-ahead report uses "cols" — accept either). Null if none.
     private static List<ColSpec>? ServerColumns(JsonElement data)
     {
-        if (!data.TryGetProperty("columns", out var cs)
-            || cs.ValueKind != JsonValueKind.Array || cs.GetArrayLength() == 0)
+        if ((!data.TryGetProperty("columns", out var cs) || cs.ValueKind != JsonValueKind.Array)
+            && (!data.TryGetProperty("cols", out cs) || cs.ValueKind != JsonValueKind.Array))
+            return null;
+        if (cs.GetArrayLength() == 0)
             return null;
         var spec = new List<ColSpec>();
         foreach (var c in cs.EnumerateArray())
