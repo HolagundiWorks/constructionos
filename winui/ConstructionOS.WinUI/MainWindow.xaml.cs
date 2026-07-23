@@ -113,6 +113,10 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            // Make sure the localhost backend is up (auto-launch the sidecar if
+            // configured/bundled) before anything talks to it. No-op if already
+            // running or the API is remote.
+            await BackendLauncher.EnsureAsync();
             // Log in FIRST — /api/menu (and /api/health) need a session; probing
             // health before login 401s and would abort the whole ribbon build.
             await ApiClient.Default.EnsureSessionAsync();

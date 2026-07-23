@@ -1,7 +1,19 @@
-# Construction OS — MSIX packaging scaffold (U6)
+# ACO — MSIX packaging scaffold (U6)
 
 Windows-only. This folder documents how to wrap the WinUI client + Python
 localhost sidecar into a signed MSIX. **It does not build on Linux.**
+
+## Status
+- ✅ **Backend auto-launch (step 4) — done.** `Services/BackendLauncher.cs` starts
+  the localhost backend before the shell loads if it isn't already up: a bundled
+  sidecar `Backend\ACO.Backend.exe` next to the app (packaged), else the dev
+  command from Settings (`Auto-start the local backend` toggle + a python path +
+  the `construction_app` working dir). No-op if the port is already listening or
+  the API is remote. Verified in a dev run (killed the backend → the app started
+  it and loaded).
+- ⏳ **PyInstaller sidecar (step 2)** — build `web_main.py` → `ACO.Backend.exe`
+  via `installer/build.ps1`, drop it under the package's `Backend\`.
+- ⏳ **Packaging project (step 3)** + signing (steps 6) — add in VS 2022.
 
 ## Intended layout (local Windows)
 

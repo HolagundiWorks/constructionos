@@ -17,6 +17,14 @@
       <ComboBox x:Name="PersonaBox" Header="Persona" HorizontalAlignment="Stretch"/>
       <NumberBox x:Name="TimeoutBox" Header="Timeout (seconds)" Minimum="5" Maximum="120"
                  SpinButtonPlacementMode="Inline"/>
+      <ToggleSwitch x:Name="AutoStartBox" Header="Auto-start the local backend"
+                    OnContent="On" OffContent="Off"/>
+      <TextBox x:Name="BackendCmdBox"
+               Header="Backend command (dev — blank uses a bundled sidecar)"
+               PlaceholderText="e.g. C:\...\python.exe"/>
+      <TextBox x:Name="BackendDirBox"
+               Header="Backend working dir (folder with web_main.py)"
+               PlaceholderText="e.g. C:\...\construction_app"/>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Save &amp; reconnect" Click="Save_Click" Style="{StaticResource AccentButtonStyle}"/>
         <Button Content="Test health" Click="Health_Click"/>

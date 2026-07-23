@@ -18,6 +18,18 @@ public sealed class AppSettings
     public string Persona { get; set; } = "Owner";
     public int TimeoutSeconds { get; set; } = 30;
 
+    /// <summary>If the localhost backend isn't already running when the app
+    /// starts, try to launch it (a bundled sidecar next to the exe, or the
+    /// configured command below). U6 packaging bundles the sidecar; in a dev run
+    /// set <see cref="BackendCommand"/>+<see cref="BackendWorkingDir"/>.</summary>
+    public bool AutoStartBackend { get; set; } = true;
+    /// <summary>Explicit backend launcher (dev): e.g. a python.exe path. Blank =
+    /// use a bundled sidecar if present, else don't auto-start.</summary>
+    public string BackendCommand { get; set; } = "";
+    /// <summary>Working directory for <see cref="BackendCommand"/> — the folder
+    /// holding <c>web_main.py</c> (e.g. …\construction_app).</summary>
+    public string BackendWorkingDir { get; set; } = "";
+
     public static AppSettings Current { get; private set; } = Load();
 
     static string DataFolder
@@ -88,6 +100,8 @@ public sealed class AppSettings
             Username = "admin";
         Password ??= "";
         Company = (Company ?? "").Trim();
+        BackendCommand = (BackendCommand ?? "").Trim();
+        BackendWorkingDir = (BackendWorkingDir ?? "").Trim();
         Persona = string.IsNullOrWhiteSpace(Persona) ? "Owner" : Persona.Trim();
         if (TimeoutSeconds < 5) TimeoutSeconds = 5;
         if (TimeoutSeconds > 120) TimeoutSeconds = 120;

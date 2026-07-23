@@ -26,6 +26,9 @@ public sealed partial class SettingsPage : Page
         PasswordBox.Password = s.Password;
         CompanyBox.Text = s.Company;
         TimeoutBox.Value = s.TimeoutSeconds;
+        AutoStartBox.IsOn = s.AutoStartBackend;
+        BackendCmdBox.Text = s.BackendCommand;
+        BackendDirBox.Text = s.BackendWorkingDir;
         PersonaBox.ItemsSource = DefaultPersonas;
         PersonaBox.SelectedItem = DefaultPersonas.Contains(s.Persona)
             ? s.Persona
@@ -111,6 +114,9 @@ public sealed partial class SettingsPage : Page
             Company = CompanyBox.Text?.Trim() ?? "",
             Persona = PersonaBox.SelectedItem?.ToString() ?? "Owner",
             TimeoutSeconds = (int)TimeoutBox.Value,
+            AutoStartBackend = AutoStartBox.IsOn,
+            BackendCommand = BackendCmdBox.Text?.Trim() ?? "",
+            BackendWorkingDir = BackendDirBox.Text?.Trim() ?? "",
         };
         try
         {

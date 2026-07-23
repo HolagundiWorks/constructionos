@@ -6,6 +6,17 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI (U6): app auto-launches the Python backend sidecar
+
+- New `Services/BackendLauncher.cs` — before the shell loads, if the localhost
+  backend isn't already listening it **starts one**: a bundled sidecar
+  (`Backend\ACO.Backend.exe` next to the app, as the MSIX will ship) or, in a dev
+  run, the command configured in Settings (**Auto-start the local backend** toggle
+  + a python path + the `construction_app` working dir), then waits for the port.
+  No-op if already up or the API is remote (a LAN server). So the user no longer
+  has to start the backend by hand. Verified: killed the backend → the app started
+  it and loaded (`ACO — construction (api u0.9)`). See `winui/PACKAGING.md`.
+
 ## 2026-07-23 — WinUI: in-session company/connection switch + active book in title
 
 - **Switch company without re-navigating.** Settings → "Save & reconnect" now
