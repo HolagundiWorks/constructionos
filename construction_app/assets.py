@@ -23,6 +23,10 @@ LOGO_RECT = os.path.join(RES_DIR, 'logo_rectangle.png')
 # from one source, branding/make-brand.ps1.
 LOGO_SQUARE_WHITE = os.path.join(RES_DIR, 'logo_square_white.png')
 LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
+# Vertical lockup (mark over the stacked wordmark) for tall / square contexts —
+# splash, document headers, share cards.
+LOGO_VERTICAL = os.path.join(RES_DIR, 'logo_vertical.png')
+LOGO_VERTICAL_WHITE = os.path.join(RES_DIR, 'logo_vertical_white.png')
 # The bare gauge-C mark (Radiant Orange on transparent) for light surfaces, and
 # the browser-tab favicon (orange mark on white).
 LOGO_MARK = os.path.join(RES_DIR, 'logo_mark.png')

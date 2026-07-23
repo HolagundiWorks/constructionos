@@ -35,7 +35,9 @@ name:
 ```
 
 Horizontal lockups: `logo_rectangle.png` (ink text on light) and
-`logo_rectangle_white.png` (white text on dark). Initials stay orange in both.
+`logo_rectangle_white.png` (white text on dark). A **vertical lockup** — mark
+over the same stacked wordmark, for tall / square contexts — is
+`logo_vertical.png` / `logo_vertical_white.png`. Initials stay orange in all.
 
 ## Colour
 | Token | Hex | Use |
@@ -62,6 +64,8 @@ Use it for the mark, headings and accents, never for body copy.
 | `logo_mark.png` | orange mark on transparent — documents, light surfaces |
 | `logo_rectangle.png` | horizontal lockup, ink text (light backgrounds) |
 | `logo_rectangle_white.png` | horizontal lockup, white text (dark backgrounds) |
+| `logo_vertical.png` | vertical lockup (mark over wordmark), ink text |
+| `logo_vertical_white.png` | vertical lockup, white text (dark backgrounds) |
 | `app.ico` | multi-size icon (16–256) — WinUI exe / window / taskbar |
 | `favicon.png` | 64px orange mark on white — browser tab |
 

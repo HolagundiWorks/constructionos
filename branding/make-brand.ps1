@@ -162,6 +162,54 @@ function Make-Lockup($markColor, $bodyColor, [string]$name) {
     $font.Dispose(); $g.Dispose(); $bmp.Dispose()
 }
 
+# ---- vertical lockup: mark on top, stacked wordmark centred beneath ---------
+# The three words sit as a left-aligned block (so the A/C/O initials still align
+# down the left edge) that is itself centred under the mark.
+function Make-VerticalLockup($markColor, $bodyColor, [string]$name) {
+    $words = @('ACCELERATED', 'CONSTRUCTION', 'OPERATIONS')
+    $fontPx = 66.0
+    $lineStep = $fontPx * 1.30
+    $font = New-Object System.Drawing.Font('BankGothic Md BT', [single]$fontPx,
+        [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $sf = [System.Drawing.StringFormat]::GenericTypographic
+    $sf.FormatFlags = [System.Drawing.StringFormatFlags]::MeasureTrailingSpaces
+
+    $m = New-Canvas 8 8; $mg = $m[1]
+    $maxW = 0.0
+    foreach ($w in $words) {
+        $ww = $mg.MeasureString($w, $font, [int]4000, $sf).Width
+        if ($ww -gt $maxW) { $maxW = $ww }
+    }
+    $m[0].Dispose()
+
+    $markVis = 0.62 * $maxW           # mark a touch narrower than the wordmark
+    $markS = $markVis / 0.72
+    $padX = 44.0; $padTop = 40.0; $gap = 46.0; $padBot = 44.0
+    $textH = $lineStep * $words.Count
+    $W = [int]([Math]::Max($markVis, $maxW) + 2 * $padX)
+    $H = [int]($padTop + $markVis + $gap + $textH + $padBot)
+    $c = New-Canvas $W $H; $bmp = $c[0]; $g = $c[1]
+
+    Draw-Mark $g ([single]($W / 2)) ([single]($padTop + $markVis / 2)) $markS $markColor
+
+    $blockX = ($W - $maxW) / 2.0
+    $orange = New-Object System.Drawing.SolidBrush($ORANGE)
+    $body = New-Object System.Drawing.SolidBrush($bodyColor)
+    $y = $padTop + $markVis + $gap
+    foreach ($w in $words) {
+        $first = $w.Substring(0, 1)
+        $rest = $w.Substring(1)
+        $g.DrawString($first, $font, $orange, [single]$blockX, [single]$y, $sf)
+        $fw = $g.MeasureString($first, $font, [int]4000, $sf).Width
+        $g.DrawString($rest, $font, $body, [single]($blockX + $fw), [single]$y, $sf)
+        $y += $lineStep
+    }
+    $orange.Dispose(); $body.Dispose()
+
+    Save-Png $bmp $name
+    $font.Dispose(); $g.Dispose(); $bmp.Dispose()
+}
+
 # ---- multi-size .ico from freshly rendered squares -------------------------
 function Make-Ico([int[]]$sizes, [string]$name) {
     $entries = @()
@@ -207,6 +255,8 @@ Write-Host "Generating ACO brand assets into $OutDir" -ForegroundColor Cyan
 (Make-Mark 512 $ORANGE 'logo_mark.png').Dispose()
 Make-Lockup $ORANGE $INK   'logo_rectangle.png'
 Make-Lockup $WHITE  $WHITE 'logo_rectangle_white.png'
+Make-VerticalLockup $ORANGE $INK   'logo_vertical.png'
+Make-VerticalLockup $WHITE  $WHITE 'logo_vertical_white.png'
 Make-Ico @(16, 24, 32, 48, 64, 128, 256) 'app.ico'
 Make-Favicon 64 'favicon.png'
 Write-Host "Done." -ForegroundColor Green
