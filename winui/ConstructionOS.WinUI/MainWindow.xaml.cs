@@ -141,7 +141,32 @@ public sealed partial class MainWindow : Window
                     sectionList.Add((title, tabs));
                 }
 
-            Title = $"ACO (api {apiVer})";
+            // Active company (multi-company): show which book is open in the
+            // title. /api/companies (public) returns the registry's friendly names
+            // + the active book. Best-effort — never block the shell on it.
+            var book = "";
+            try
+            {
+                var co = await ApiClient.Default.GetJsonAsync("api/companies");
+                if (co.TryGetProperty("items", out var items)
+                    && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    foreach (var it in items.EnumerateArray())
+                        if (it.TryGetProperty("active", out var a)
+                            && a.ValueKind == System.Text.Json.JsonValueKind.True
+                            && it.TryGetProperty("name", out var n))
+                            { book = (n.GetString() ?? "").Trim(); break; }
+            if (book.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+                book = book[..^3];   // registry names sometimes keep the extension
+                if (book.Length == 0
+                    && co.TryGetProperty("active", out var act)
+                    && act.ValueKind == System.Text.Json.JsonValueKind.String)
+                    book = System.IO.Path.GetFileNameWithoutExtension(act.GetString() ?? "");
+            }
+            catch { /* company is cosmetic in the title */ }
+
+            Title = string.IsNullOrEmpty(book)
+                ? $"ACO (api {apiVer})"
+                : $"ACO — {book} (api {apiVer})";
             // Build the whole shell only AFTER the window has actually rendered a
             // few frames. Mutating the visual tree in this async continuation (or
             // even on a Low-priority enqueue, which can fire mid-composition)
