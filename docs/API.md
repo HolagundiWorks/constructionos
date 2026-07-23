@@ -6,13 +6,13 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.9` (`GET /api/health` → `{"api":"u0.9","service":"aco"}`)  
+**Version:** `u0.10` (`GET /api/health` → `{"api":"u0.10","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
 | Step | Call |
 |---|---|
-| Companies (public) | `GET /api/companies` → `{items:[{name,path,active}], active}` |
+| Companies (public) | `GET /api/companies` → `{items:[{name,path,active,exists}], active}` |
 | Login / first-run admin | `POST /api/login` `{"username","password","company?"}` → sets `cosid` cookie, returns `{csrf, role, can_write, company}` |
 | Session | `GET /api/me` |
 | Writes | Header `X-CSRF-Token: <csrf>` (or body/`form` `csrf`) · Viewers → 403 |
@@ -21,13 +21,15 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 registry (`companies.json`). Selecting a company switches the server process's
 open book (`db.DB_PATH`) and resets sessions — **one active book per server
 process** (fine for a small office LAN). Omit `company` to use the registry
-active file.
+active file. Successful login audits `company_select` into that book.
+Create/import/new-year are **write-gated** on the desktop (Viewer may select
+but not create).
 
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.9` |
-| GET | `/api/companies` | **Public** company picker list |
+| GET | `/api/health` | Auth except login; reports `api: u0.10` |
+| GET | `/api/companies` | **Public** company picker list (`exists` included) |
 | GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
 | GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
 | GET | `/api/review` | Weekly review pack |
@@ -35,11 +37,14 @@ active file.
 | GET | `/api/menu?persona=Owner` | Sections/tabs for NavigationView |
 | GET | `/api/productivity` | Crew/plant utilisation from muster + plant logs |
 | GET | `/api/filings/feed` | Overdue/due-soon → gated FILING_DUE drafts |
-| GET | `/api/purchase_orders`, `/api/goods_receipts` | Procurement lists |
+| GET | `/api/purchase_orders`, `/api/goods_receipts` | Procurement lists (`label`/`columns`/FK names) |
 | GET | `/api/match?tolerance=` | Three-way match + narration |
 | GET | `/api/ageing` | Receivables ageing + `buckets` + chart `labels`/`values` |
 | GET | `/api/cashflow?periods=&mode=week\|month` | Forecast `buckets` + `labels`/`values`/`series` |
-| GET | `/api/gst?month=YYYY-MM` | Outward / HSN / inward / TDS over pure `gst.py` |
+| GET | `/api/gst?month=YYYY-MM` | Outward / HSN / inward / TDS; each block has **`cols`** |
+| GET | `/api/pnl?period=YYYY-MM\|FY\|YYYY-YY` | P&L sections + `grand_total` (net profit) |
+| GET | `/api/balance_sheet?as_of=YYYY-MM-DD` | Balance sheet; `balanced` bool |
+| GET | `/api/lookahead?project_id=&weeks=` | Weekly commitments + PPC (`planning.py`) |
 | GET | `/api/bills/previous?contract_id=` | Approved/Paid running-bill sum |
 | GET | `/api/boq_items?contract_id=` | BOQ lines for a contract |
 | GET | `/api/allocations?payment_id=` | Payment↔bill allocation lines |
@@ -51,7 +56,19 @@ active file.
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
 | GET | `/api/audit?origin=ai` | Audit trail (`manual` includes legacy NULL) |
 | GET | `/api/{master}` | includes **contracts**, **measurements** (`?contract_id=`); FK `options` |
+| GET | `/api/{register}` | Read-only ops tables: `{table,label,columns,items}` with FK names |
 | GET | `/api/{doc}` | payments, tax_invoices, vendor_invoices, bills, ra_bills (+ FK options) |
+
+### Register tables (`label` + `columns` + FK names)
+Whitelisted in `webapi._API_TABLES` (attendance, payroll, ncrs, …). Specs in
+`web_tables.py`. Each column is `{key, label, align}`. FK ids stay on the row;
+display names are added as `site` / `labor` / `vendor` / `client` / `project` /
+`contract` / `material` / …
+
+### Report `cols` contract
+Array-of-arrays reports (`/api/gst`, and each P&L/BS section) include an ordered
+**`cols`** header list whose length matches each row. Prefer `cols` over
+hardcoding in the client.
 
 ## Writes
 | Method | Path | Notes |
@@ -80,11 +97,14 @@ List with `GET /api/measurements?contract_id=`.
 
 ## Notes for WinUI
 - Master/doc list payloads include **resolved FK `options`** — do not run `fk_sql` in C#.
+- Register tables: bind `columns` + `items` (FK display keys); do not hardcode headers.
 - Search record hits include `nav` / `tag` (`Section/Tab`) for `NavigationView` routing.
 - Charts: bind LiveCharts to parallel **`labels` + `values`** on `/api/cashflow`,
   `/api/ageing`, and `/api/evm` (detail keys unchanged). Cashflow also exposes
   `series.{in,out,balance}`. See `GET /api/contract` → `chart_bind`.
-- GST/TDS: bind `GET /api/gst?month=` (same maths as browser `/gst` and desktop).
+- GST/TDS: bind `GET /api/gst?month=` using each section's **`cols`**.
+- Accounting: prefer `/api/pnl` + `/api/balance_sheet` over raw `journal_entries`.
+- Look-ahead: `/api/lookahead?project_id=` (resolves via `projects.site_id`).
 - Login: optional Settings **Company** → `POST /api/login` `company` field;
   list choices from `GET /api/companies`.
 - Money docs stay **create-only** by design (AGENTS.md §14).

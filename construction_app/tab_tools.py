@@ -466,12 +466,14 @@ class ToolsTab(ttk.Frame):
 
         Connections are short-lived, so the next operation opens the new file —
         but views already on screen still hold the old data, so a restart is
-        the honest way to apply it (same as Restore).
+        the honest way to apply it (same as Restore). Viewers may select.
         """
-        data = company.load()
-        company.set_active(data, path)
-        company.save(data)
-        db.DB_PATH = path
+        import session
+        ok, msg = company.select_company(
+            path, actor=session.username() or None)
+        if not ok:
+            messagebox.showerror('Could not switch', msg)
+            return
         self.refresh()
         self.status_var.set('Now using: {}'.format(path))
         messagebox.showinfo(
@@ -497,9 +499,13 @@ class ToolsTab(ttk.Frame):
 
     def _create_company(self, name, carry_from=None):
         """Create a new company file, optionally carrying masters forward."""
+        if not can_write():
+            return None
+        import session
         folder = os.path.dirname(os.path.abspath(db.DB_PATH))
         ok, msg, path = company.create_company(
-            name, folder=folder, carry_from=carry_from, make_active=True)
+            name, folder=folder, carry_from=carry_from, make_active=True,
+            actor=session.username() or 'operator')
         if not ok:
             messagebox.showerror('Could not create the file', msg)
             return None
@@ -508,6 +514,8 @@ class ToolsTab(ttk.Frame):
         return path
 
     def new_firm(self):
+        if not can_write():
+            return
         name = simpledialog.askstring(
             'New firm', 'Name of the new firm:', parent=self)
         if not name or not name.strip():
@@ -552,6 +560,7 @@ class ToolsTab(ttk.Frame):
         """Copy an external .db into the data folder and add it to the list."""
         if not can_write():
             return
+        import session
         src = filedialog.askopenfilename(
             title='Import a company file',
             filetypes=[(branding.APP_NAME + ' data', '*.db'),
@@ -563,7 +572,8 @@ class ToolsTab(ttk.Frame):
             initialvalue=os.path.splitext(os.path.basename(src))[0],
             parent=self)
         ok, msg, path = company.import_company(
-            src, name=(name or '').strip() or None, make_active=False)
+            src, name=(name or '').strip() or None, make_active=False,
+            actor=session.username() or 'operator')
         if not ok:
             messagebox.showerror('Import failed', msg)
             return
@@ -577,6 +587,8 @@ class ToolsTab(ttk.Frame):
 
     def new_year(self):
         """Start a fresh file for the next financial year, carrying masters."""
+        if not can_write():
+            return
         current = ''
         conn = self.db_getter()
         try:
@@ -605,6 +617,8 @@ class ToolsTab(ttk.Frame):
             self._switch_to(path, created=True)
 
     def add_existing_company(self):
+        if not can_write():
+            return
         path = filedialog.askopenfilename(
             title='Choose an existing company file',
             filetypes=[(branding.APP_NAME + ' data', '*.db'), ('All files', '*.*')])

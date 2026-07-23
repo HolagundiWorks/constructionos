@@ -989,7 +989,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.9')
+        self.assertEqual(c['api'], 'u0.10')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1492,6 +1492,10 @@ class TestWebApi(unittest.TestCase):
         self.assertEqual(g['month'], '2026-07')
         for block in ('outward', 'hsn', 'inward', 'tds'):
             self.assertIn(block, g)
+            self.assertIn('cols', g[block], block)
+            if g[block]['rows']:
+                self.assertEqual(
+                    len(g[block]['cols']), len(g[block]['rows'][0]), block)
         self.assertEqual(g['outward']['totals']['taxable'], 10000.0)
         self.assertEqual(g['inward']['totals']['taxable'], 5000.0)
         self.assertEqual(g['tds']['total'], 100.0)
@@ -1555,10 +1559,12 @@ class TestWebApi(unittest.TestCase):
             '/api/kpi', '/api/review', '/api/portfolio',
             '/api/productivity', '/api/filings/feed', '/api/purchase_orders',
             '/api/goods_receipts', '/api/match', '/api/ageing', '/api/cashflow',
-            '/api/gst', '/api/workflow', '/api/evm', '/api/risks',
+            '/api/gst', '/api/pnl', '/api/balance_sheet', '/api/lookahead',
+            '/api/workflow', '/api/evm', '/api/risks',
             '/api/opportunities', '/api/lessons', '/api/submittals',
             '/api/audit', '/api/sidecar/status',
             '/api/measurements', '/api/sites', '/api/contracts',
+            '/api/attendance', '/api/ncrs',
         ]
         for path in read_paths:
             resp = self.webapp.handle(self._req(path, cookies=cookies))
@@ -1570,6 +1576,136 @@ class TestWebApi(unittest.TestCase):
             resp = self.webapp.handle(self._req(
                 path, cookies=cookies, query=query))
             self.assertEqual(resp.status, 200, path)
+
+
+    def test_ct6_ct10_tables_reports_lookahead_company(self):
+        """CT-6..CT-10 — rich table metadata, P&L/BS, lookahead, company audit."""
+        import journal_post
+        import company
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        H = {'X-CSRF-Token': csrf}
+
+        # --- CT-6: curated columns + FK name on attendance ---
+        self.webapp.handle(self._req(
+            '/api/sites', 'POST', cookies=cookies,
+            json_body={'name': 'Site Alpha'}, headers=H))
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO labor (name, daily_wage, status) "
+                     "VALUES ('Ramu', 700, 'Active')")
+        conn.execute(
+            "INSERT INTO attendance (labor_id, att_date, status, hours) "
+            "VALUES (1, '2026-07-01', 'Present', 8)")
+        conn.commit()
+        conn.close()
+        resp = self.webapp.handle(self._req('/api/attendance', cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertEqual(body['label'], 'Attendance')
+        self.assertTrue(body['columns'])
+        self.assertEqual(body['columns'][0]['key'], 'att_date')
+        self.assertEqual(body['items'][0]['labor'], 'Ramu')
+
+        # Fallback never 500 — purchase_orders already has a spec; use a
+        # whitelist table and assert shape keys always present.
+        resp = self.webapp.handle(self._req('/api/approvals', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        a = self._json(resp)
+        self.assertIn('label', a)
+        self.assertIn('columns', a)
+        self.assertIn('items', a)
+
+        # --- CT-7: P&L + Balance Sheet after posting an RA bill ---
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO clients (name) VALUES ('PWD')")
+        conn.execute(
+            "INSERT INTO contracts (contract_no, site_id, client_id, "
+            "contract_value) VALUES ('C-1', 1, 1, 1000000)")
+        conn.execute(
+            "INSERT INTO ra_bills (contract_id, bill_no, bill_date, status, "
+            "this_bill_value, previous_value, cumulative_value, retention_pct, "
+            "retention_amt, other_deductions, net_payable) "
+            "VALUES (1, 'RA-1', '2026-07-10', 'Approved', 150000, 0, 150000, "
+            "5, 7500, 2000, 140500)")
+        conn.commit()
+        n = journal_post.post_all(conn)
+        self.assertGreaterEqual(n, 1)
+        conn.close()
+
+        resp = self.webapp.handle(self._req('/api/pnl', cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        pl = self._json(resp)
+        self.assertTrue(pl['sections'])
+        self.assertEqual(pl['sections'][0]['cols'], ['Particulars', 'Amount'])
+        self.assertGreater(pl['total_income'], 0)
+
+        resp = self.webapp.handle(self._req(
+            '/api/balance_sheet', cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        bs = self._json(resp)
+        self.assertTrue(bs['balanced'], bs)
+        self.assertIn('sections', bs)
+
+        # --- CT-9: look-ahead / PPC ---
+        conn = self.db.get_conn()
+        conn.execute(
+            "INSERT INTO projects (name, site_id) VALUES ('Proj A', 1)")
+        conn.execute(
+            "INSERT INTO commitments (site_id, week_start, task, status) "
+            "VALUES (1, '2026-07-07', 'Pour slab', 'Done')")
+        conn.execute(
+            "INSERT INTO commitments (site_id, week_start, task, status, "
+            "reason) VALUES (1, '2026-07-07', 'Fix formwork', 'Not done', "
+            "'Material not available')")
+        conn.commit()
+        conn.close()
+        resp = self.webapp.handle(self._req(
+            '/api/lookahead', cookies=cookies,
+            query={'project_id': '1', 'weeks': '4'}))
+        self.assertEqual(resp.status, 200, resp.body)
+        la = self._json(resp)
+        self.assertEqual(la['promised'], 2)
+        self.assertEqual(la['done'], 1)
+        self.assertEqual(la['ppc'], 50.0)
+        self.assertTrue(la['cols'])
+        self.assertEqual(len(la['items']), 2)
+
+        # --- CT-10: companies exists flags + audited create ---
+        orig_reg = company.REGISTRY_PATH
+        reg = os.path.join(tempfile.mkdtemp(), 'companies.json')
+        company.REGISTRY_PATH = reg
+        try:
+            data = company.load(reg)
+            company.add(data, 'Main', self.path, make_active=True)
+            missing = os.path.join(os.path.dirname(self.path), 'gone.db')
+            company.add(data, 'Gone', missing)
+            company.save(data, reg)
+
+            resp = self.webapp.handle(self._req('/api/companies'))
+            self.assertEqual(resp.status, 200)
+            payload = self._json(resp)
+            by_name = {i['name']: i for i in payload['items']}
+            self.assertTrue(by_name['Main']['exists'])
+            self.assertIn('exists', by_name['Gone'])
+            self.assertFalse(by_name['Gone']['exists'])
+
+            ok, msg, path = company.create_company(
+                'Audited Co', folder=os.path.dirname(self.path),
+                make_active=True, db_module=self.db, registry_path=reg,
+                actor='admin')
+            self.assertTrue(ok, msg)
+            conn = self.db.get_conn()
+            try:
+                rows = conn.execute(
+                    "SELECT action, username FROM audit_log "
+                    "WHERE action = 'company_create'").fetchall()
+            finally:
+                conn.close()
+            self.assertTrue(rows)
+            self.assertEqual(rows[0]['username'], 'admin')
+        finally:
+            company.REGISTRY_PATH = orig_reg
+            self.db.DB_PATH = self.path
 
 
 if __name__ == '__main__':

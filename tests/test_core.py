@@ -3483,16 +3483,49 @@ class TestCompanyRegistry(unittest.TestCase):
         try:
             ok, msg, path = company.create_company(
                 'Acme Builders', folder=self.dir, make_active=True,
-                db_module=dbmod, registry_path=self.reg)
+                db_module=dbmod, registry_path=self.reg, actor='tester')
             self.assertTrue(ok, msg)
             self.assertTrue(os.path.exists(path))
             self.assertEqual(dbmod.DB_PATH, path)
             conn = dbmod.get_conn()
             try:
                 n = conn.execute('SELECT COUNT(*) FROM accounts').fetchone()[0]
+                audit = conn.execute(
+                    "SELECT action FROM audit_log WHERE action='company_create'"
+                ).fetchone()
             finally:
                 conn.close()
             self.assertGreater(n, 0)
+            self.assertIsNotNone(audit)
+        finally:
+            dbmod.DB_PATH = orig
+
+    def test_carry_forward_empty_source_and_missing_table(self):
+        import db as dbmod
+        orig = dbmod.DB_PATH
+        try:
+            src = os.path.join(self.dir, 'empty_src.db')
+            dst = os.path.join(self.dir, 'empty_dst.db')
+            dbmod.DB_PATH = src
+            dbmod.init_db()
+            src_conn = dbmod.get_conn()
+            dbmod.DB_PATH = dst
+            dbmod.init_db()
+            dst_conn = dbmod.get_conn()
+            try:
+                copied = company.carry_forward(
+                    src_conn, dst_conn,
+                    tables=['clients', 'no_such_table'],
+                    actor='tester', source_path=src)
+                self.assertEqual(copied.get('clients'), 0)
+                self.assertNotIn('no_such_table', copied)
+                row = dst_conn.execute(
+                    "SELECT action, detail FROM audit_log "
+                    "WHERE action='company_carry_forward'").fetchone()
+                self.assertIsNotNone(row)
+            finally:
+                src_conn.close()
+                dst_conn.close()
         finally:
             dbmod.DB_PATH = orig
 

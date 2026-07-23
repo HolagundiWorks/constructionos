@@ -6,6 +6,23 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — Cloud CT-6…CT-10: rich tables, P&L/BS, GST cols, look-ahead, company audit
+
+Headless backlog from `docs/CLOUD-TASKS.md` Round 2 (no WinUI / display):
+
+- **CT-6.** `web_tables.py` — curated `label` + `columns` + FK name resolution;
+  `GET /api/{register}` returns `{table, label, columns, items}`.
+- **CT-7.** `GET /api/pnl?period=` and `GET /api/balance_sheet?as_of=` over
+  `reports_store` → existing `reports.profit_and_loss` / `balance_sheet`.
+- **CT-8.** `cols` on each `/api/gst` section (`gst.COLS`); report sections
+  include `cols` too.
+- **CT-9.** `GET /api/lookahead?project_id=&weeks=` via `lookahead_store` +
+  `planning.ppc`.
+- **CT-10.** Company create/import/select/carry-forward audited into the
+  **target** book; Tools write-gates create/import/new-year (Viewer may still
+  select); `GET /api/companies` includes `exists`.
+- API **u0.10**.
+
 ## 2026-07-23 — WinUI (U6): MSIX manifest scaffold
 
 - `winui/ConstructionOS.Package/Package.appxmanifest` — a pre-filled MSIX manifest
