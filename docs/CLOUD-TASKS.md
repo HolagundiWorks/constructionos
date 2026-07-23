@@ -150,8 +150,8 @@ equals each row's length; `docs/API.md` notes the `cols` contract.
 **Status:** shipped — `gst.COLS` on each `/api/gst` block; P&L/BS sections include `cols`.
 
 ### CT-9 — Look-ahead / PPC endpoint (read) ✅
-**Why:** the `Look-ahead` tab (weekly planning + PPC) is the last section with no
-JSON API, so the WinUI shows a placeholder.
+**Why:** the `Look-ahead` tab (weekly planning + PPC) needed a JSON API so
+WinUI (and mobile) are not stuck on a placeholder.
 **Do:** expose `GET /api/lookahead?project_id=&weeks=` over the **existing pure
 look-ahead / PPC module** (behind the desktop's weekly look-ahead + PPC),
 returning planned-vs-done tasks + the PPC figure. If that compute isn't already
@@ -159,26 +159,13 @@ tkinter-free, extract a pure module with a unit test first (standing rules).
 Session-gated read.
 **Done when:** `TestWebApi` asserts 200 with look-ahead rows + PPC on a seeded
 project; `docs/API.md` updated.
-**Status:** shipped — `lookahead_store.py` + `GET /api/lookahead`.
-
-### CT-10 — Multi-company hardening: audit + role-gate + tests ✅
-**Why:** the company-select login + registry (`company.py`) just merged. Create /
-import / switch / carry-forward move whole books — they must be **audited** and
-**role-gated**, and the flow needs coverage beyond the happy path.
-**Do:**
-- Audit every company operation (`auth.audit`, `origin='manual'`): create,
-  import, switch/select, carry-forward — into the **target** book's `audit_log`
-  (note the source path for carry-forward).
-- Gate create/import/switch to write-capable roles (`ui_guard`); a Viewer may
-  *select* a company (read) but not *create* one.
-- Tests: carry-forward edge cases (table missing in source, empty source,
-  re-register renames rather than duplicates), the `active`/`exists` flags in
-  `GET /api/companies`, and an audited create.
-**Done when:** the new tests are green; `docs/API.md` + `docs/CHANGELOG.md` note
-the audit + role behaviour.
-**Status:** shipped — audited create/import/select/carry-forward; Tools write-gates create/import/new-year; Viewer may still select.
+**Status:** shipped — `lookahead_store.py` + `GET /api/lookahead` (WinUI
+`LookaheadPage` consumes it).
 
 ---
+
+For a full inventory of remaining WinUI miswires / stubs vs complete layers, see
+[`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md).
 
 ## Not for the cloud agent (local/Windows only)
 WinUI `winui/**` (needs .NET SDK + Windows App SDK), the tkinter GUI smoke tests

@@ -6,6 +6,13 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — Completeness audit (placeholders, stubs, remaining work)
+
+- New **`docs/COMPLETENESS-AUDIT.md`**: inventory of fake/sample/stub surfaces,
+  WinUI miswires (Assistant/AI Engine/BOQ-RA/Subcontractors/Cash Flow, etc.),
+  evidence-backed complete layers (domain + API u0.11 + desktop), and a
+  prioritised “needs coding” backlog (P0–P4). No product code changes.
+
 ## 2026-07-23 — Cloud CT-6…CT-10: rich tables, P&L/BS, GST cols, look-ahead, company audit
 
 Headless backlog from `docs/CLOUD-TASKS.md` Round 2 (no WinUI / display):

@@ -109,7 +109,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
 | **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages; honest placeholders for the rest | ✅ built + runs |
 | **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **signed MSIX ✅** (`build-msix.ps1`: assets → publish → `makeappx` → `signtool`, no VS) | ✅ built (dev-signed) |
-| **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **parity pass ✅** (every catalog tab wired incl. **Tools** → firm details + module on/off); remaining: interactive a11y walkthrough, retire tkinter on Windows | 🚧 in progress |
+| **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **nav parity ✅** (every catalog tab resolves to *a* page incl. **Tools**); **not full desktop-feature parity** — see [`COMPLETENESS-AUDIT.md`](COMPLETENESS-AUDIT.md) for miswires (Assistant→Capture, BOQ/RA→Import, Subcontractors→thekedars, Cash Flow→payments, etc.). Remaining: interactive a11y walkthrough, deepen or honest-InfoPage those tabs, retire tkinter on Windows | 🚧 in progress |
 
 **Shipped on the local track since the last update:**
 - **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
