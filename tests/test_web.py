@@ -848,6 +848,35 @@ class TestWebApi(unittest.TestCase):
             '/api/risks/{}'.format(rid), cookies=cookies))
         self.assertEqual(resp.status, 404)
 
+    def test_assistant_quick_and_ask(self):
+        """Assistant endpoints — exact quick answers (no model) + the ask turn
+        (returns a friendly error when the AI engine is off, never a fake answer)."""
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        resp = self.webapp.handle(self._req('/api/assistant/quick', cookies=ck))
+        self.assertEqual(resp.status, 200, resp.body)
+        items = self._json(resp)['items']
+        labels = [i['label'] for i in items]
+        self.assertIn('Cash in Hand', labels)
+        self.assertIn('Receivables (clients owe)', labels)
+        for i in items:
+            self.assertIsInstance(i['value'], (int, float))
+
+        # Ask needs a question.
+        resp = self.webapp.handle(self._req(
+            '/api/assistant', 'POST', cookies=ck, json_body={'question': ''},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 400)
+        # A real question: with no AI engine in the test env, an honest {error}
+        # (never a fabricated answer). Read-only either way.
+        resp = self.webapp.handle(self._req(
+            '/api/assistant', 'POST', cookies=ck,
+            json_body={'question': 'total cash in hand'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        self.assertTrue('error' in body or 'sql' in body)
+
     def test_firm_and_modules_settings(self):
         """Tools endpoints — firm letterhead + module on/off, CSRF-gated."""
         sid, csrf, _ = self._login()
@@ -1045,7 +1074,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.11')
+        self.assertEqual(c['api'], 'u0.12')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1053,8 +1082,10 @@ class TestWebApi(unittest.TestCase):
         # Tools settings endpoints are advertised in the contract.
         self.assertIn('GET /api/firm', c['reads'])
         self.assertIn('GET /api/modules', c['reads'])
+        self.assertIn('GET /api/assistant/quick', c['reads'])
         self.assertIn('POST /api/firm', c['writes'])
         self.assertIn('POST /api/modules', c['writes'])
+        self.assertIn('POST /api/assistant', c['writes'])
 
         resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
         self.assertEqual(resp.status, 200)
