@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.13'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.14'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -109,6 +109,18 @@ def handle(request, sess):
 
     if path == 'contract' and method == 'GET':
         return _api_contract()
+
+    if path == 'agents' and method == 'GET':
+        return _agents_list()
+    if path == 'agents/workflows' and method == 'GET':
+        return _agents_workflows_list()
+    if path == 'agents/ask' and method == 'POST':
+        return _agents_ask(request, sess)
+    if path == 'agents/workflow' and method == 'POST':
+        return _agents_workflow_run(request, sess)
+    m = re.match(r'^agents/([a-z_]+)$', path)
+    if m and method == 'GET':
+        return _agents_get(m.group(1))
 
     if path == 'dashboard' and method == 'GET':
         return _dashboard()
@@ -1127,7 +1139,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.13',
+        'api': 'u0.14',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1143,6 +1155,7 @@ def _api_contract():
             'GET /api/productivity', 'GET /api/filings/feed',
             'GET /api/firm', 'GET /api/modules', 'GET /api/assistant/quick',
             'GET /api/parties',
+            'GET /api/agents', 'GET /api/agents/{id}', 'GET /api/agents/workflows',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/work_orders', 'GET /api/sub_bills',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
@@ -1165,6 +1178,7 @@ def _api_contract():
             'GET /api/{register}  (label+columns+FK names)',
         ],
         'writes': [
+            'POST /api/agents/ask', 'POST /api/agents/workflow',
             'POST/PUT/DELETE /api/risks[/{id}]',
             'POST /api/risks/detect', 'POST /api/risks/accept',
             'POST/PUT/DELETE /api/opportunities[/{id}]',
@@ -3353,3 +3367,86 @@ def _muster_payout_record(request, sess):
         return _ok(result, status=201)
     finally:
         conn.close()
+
+# ------------------------------------- Foundry multi-agent (u0.14)
+def _agents_list():
+    import agent_workflows
+    import agents_catalog
+    return _ok({
+        'items': agents_catalog.list_agents(),
+        'workflows': agent_workflows.list_workflows(),
+        'note': (
+            'Agents propose only. Foundry Local narrates when running; '
+            'Azure AI Foundry cloud Agents are Phase C (opt-in).'
+        ),
+        'doc': 'docs/AI-FOUNDRY-AGENTS.md',
+    })
+
+
+def _agents_get(agent_id):
+    import agents_catalog
+    row = agents_catalog.get(agent_id)
+    if row is None:
+        return _err('Agent not found', 404)
+    return _ok(row)
+
+
+def _agents_workflows_list():
+    import agent_workflows
+    return _ok({'items': agent_workflows.list_workflows()})
+
+
+def _agents_ask(request, sess):
+    """POST /api/agents/ask — {question, agent_id?, use_model?, multi?}."""
+    import agent_runtime
+    body = _payload(request)
+    question = (body.get('question') or body.get('q') or '').strip()
+    if not question:
+        return _err('question is required', 400)
+    use_model = body.get('use_model', True)
+    if isinstance(use_model, str):
+        use_model = use_model.lower() in ('1', 'true', 'yes')
+    conn = _conn()
+    try:
+        if body.get('multi'):
+            ids = body.get('agent_ids') or body.get('agents')
+            result = agent_runtime.ask_multi(
+                conn, question, agent_ids=ids, use_model=bool(use_model))
+        else:
+            result = agent_runtime.ask(
+                conn, question,
+                agent_id=body.get('agent_id') or body.get('agent'),
+                use_model=bool(use_model))
+        auth.audit(conn, sess['username'], 'agent_ask', 'agents',
+                   result.get('agent_id'),
+                   detail=(question[:120]),
+                   origin=auth.ORIGIN_AI)
+        conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _agents_workflow_run(request, sess):
+    """POST /api/agents/workflow — {workflow_id, context?} multi-agent pack."""
+    import agent_workflows
+    body = _payload(request)
+    wid = (body.get('workflow_id') or body.get('workflow') or '').strip()
+    if not wid:
+        return _err('workflow_id is required', 400)
+    context = body.get('context') if isinstance(body.get('context'), dict) else {}
+    if body.get('notes') and 'notes' not in context:
+        context = dict(context)
+        context['notes'] = body.get('notes')
+    conn = _conn()
+    try:
+        result = agent_workflows.run(conn, wid, context=context)
+        if not result.get('ok'):
+            return _err(result.get('error') or 'Workflow failed', 400)
+        auth.audit(conn, sess['username'], 'agent_workflow', 'agents',
+                   wid, detail=wid, origin=auth.ORIGIN_AI)
+        conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
+

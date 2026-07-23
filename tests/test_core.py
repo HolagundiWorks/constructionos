@@ -6546,5 +6546,67 @@ class TestAssistantSqlSafety(unittest.TestCase):
         self.assertFalse(assistant.validate_sql('   ')[0])
 
 
+class TestFoundryAgents(unittest.TestCase):
+    """Multi-agent catalog / runtime / workflows (Foundry Phase A)."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self.orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self.orig
+        for ext in ('', '-wal', '-shm'):
+            try:
+                os.remove(self.path + ext)
+            except OSError:
+                pass
+
+    def test_catalog_ten_agents(self):
+        import agents_catalog
+        items = agents_catalog.list_agents()
+        self.assertEqual(len(items), 10)
+        self.assertEqual(agents_catalog.get('finance')['audience'], 'Owner / CA')
+        self.assertIsNone(agents_catalog.get('nope'))
+
+    def test_knowledge_retrieve(self):
+        import knowledge_base
+        hits = knowledge_base.retrieve('human must approve money')
+        self.assertTrue(hits)
+        self.assertEqual(hits[0]['id'], 'rule-approve')
+
+    def test_route_and_ask_deterministic(self):
+        import agent_runtime
+        self.assertEqual(agent_runtime.route('critical path delay'), 'planning')
+        self.assertEqual(agent_runtime.route('open RFIs'), 'document')
+        conn = self.db.get_conn()
+        try:
+            out = agent_runtime.ask(
+                conn, 'cash position?', agent_id='finance', use_model=False)
+        finally:
+            conn.close()
+        self.assertTrue(out['ok'])
+        self.assertIn('money_snapshot', out['tools'])
+        self.assertEqual(out['provider'], 'deterministic')
+
+    def test_variation_workflow_seven_steps(self):
+        import agent_workflows
+        conn = self.db.get_conn()
+        try:
+            out = agent_workflows.run(
+                conn, 'variation_impact',
+                context={'notes': 'AAC instead of block'})
+        finally:
+            conn.close()
+        self.assertTrue(out['ok'])
+        self.assertEqual(len(out['steps']), 7)
+        self.assertGreaterEqual(out['gated_count'], 1)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

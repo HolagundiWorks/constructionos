@@ -6,7 +6,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.13` (`GET /api/health` → `{"api":"u0.13","service":"aco"}`)  
+**Version:** `u0.14` (`GET /api/health` → `{"api":"u0.14","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -28,7 +28,7 @@ but not create).
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.13` |
+| GET | `/api/health` | Auth except login; reports `api: u0.14` |
 | GET | `/api/companies` | **Public** company picker list (`exists` included) |
 | GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
 | GET | `/api/dashboard` | Snapshot + advisories |
@@ -60,6 +60,9 @@ but not create).
 | GET | `/api/workflow?infer=1` | Flow graphs + progress (book-inferred by default) |
 | GET | `/api/search?q=` | Tabs + records with `nav`/`tag` for WinUI |
 | GET | `/api/narrative?kind=kpi\|risk` | Plain-language briefing (`narrative.py`) |
+| GET | `/api/agents` | Multi-agent catalog + workflow list |
+| GET | `/api/agents/{id}` | One agent (tools + examples) |
+| GET | `/api/agents/workflows` | Multi-agent workflow recipes |
 | GET | `/api/sidecar/status` | OCR/STT/VLM stub + live probe |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value; portfolio adds `labels`/`values` (SPI) |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
@@ -82,6 +85,9 @@ hardcoding in the client.
 ## Writes
 | Method | Path | Notes |
 |---|---|---|
+| POST | `/api/assistant` | NL→SQL ask (Foundry Local; read-only) |
+| POST | `/api/agents/ask` | Persona agent ask `{question, agent_id?, use_model?}` — **proposals only** |
+| POST | `/api/agents/workflow` | Multi-agent handoff `{workflow_id, context?}` |
 | POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters (incl. contracts, **measurements**) |
 | POST | `/api/risks/detect` | Live snapshot → detected risks; `{apply:true}` persists drafts |
 | POST | `/api/risks/accept` | `{ids}` and/or `{detect_and_apply:true}` → Accepted |
@@ -122,6 +128,8 @@ List with `GET /api/measurements?contract_id=`.
 - GST/TDS: bind `GET /api/gst?month=` using each section's **`cols`**.
 - Accounting: prefer `/api/pnl` + `/api/balance_sheet` over raw `journal_entries`.
 - Look-ahead: `/api/lookahead?project_id=` (resolves via `projects.site_id`).
+- Agents: `GET /api/agents*` + `POST /api/agents/ask|workflow` (proposals only;
+  see `docs/AI-FOUNDRY-AGENTS.md`).
 - Login: optional Settings **Company** → `POST /api/login` `company` field;
   list choices from `GET /api/companies`.
 - Money docs stay **create-only** by design (AGENTS.md §14).

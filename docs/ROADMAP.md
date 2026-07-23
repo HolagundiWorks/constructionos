@@ -1,7 +1,7 @@
 # ACO — Roadmap
 
 _Product: **ACO** (Accelerated Construction Operations)._  
-_Last updated: 2026-07-23 · Baseline: API **u0.13**_
+_Last updated: 2026-07-23 · Baseline: API **u0.14**_
 
 **This is the single status document.** What changed and where →
 [`CHANGELOG.md`](CHANGELOG.md). Engineering / product specs are listed in §5 —
@@ -21,7 +21,7 @@ pay labour, and stay in control — offline, on their PC, with minimal typing?
 |---|---|
 | Desktop ERP (tkinter) + pure domain + SQLite | ✅ Complete product |
 | Browser / LAN (stdlib) | ✅ Read + money/masters write |
-| JSON API (`webapi.py`) | ✅ **u0.13** (cloud P0–P3 domain/API closed) |
+| JSON API (`webapi.py`) | ✅ **u0.14** (agents Phase A + P0–P3 cloud APIs) |
 | WinUI 3 client | 🚧 **Nav-complete**; workflow pages still need local UI |
 | MSIX packaging | ✅ Dev-signed; ⏳ release cert + clean-box proof |
 | OCR / STT / VLM sidecars (L8) | ⏳ Stub only (weights local) |
@@ -62,12 +62,13 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 | **CT-1…CT-10** | Pure GST, measurements API, chart shapes, rich tables, P&L/BS, lookahead, company audit |
 | **u0.12** | `/api/assistant/quick`, `POST /api/assistant`, `/api/parties` |
 | **u0.13** | Home aggregate; GST/TDS export pack; RA generate; work orders + sub bills; muster grid/payout; commitments CRUD + PPC reason codes; risk detect/accept; timeline/CPM read; Key Numbers vs Insight split |
+| **u0.14** | Foundry multi-agent Phase A — catalog, tools, workflows, `/api/agents*` ([`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md)) |
 
 ### 1.4 WinUI track — phases done
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| **U0** | JSON API for the client | ✅ u0.13 |
+| **U0** | JSON API for the client | ✅ u0.14 |
 | **U1** | Ribbon shell + search (stock controls) | ✅ |
 | **U2** | Masters CRUD (`FieldForm`, FK pickers) | ✅ |
 | **U3** | Money docs create+list | ✅ |
@@ -129,6 +130,9 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 
 | Item | Why pending |
 |---|---|
+| **Foundry Agents Phase B** — WinUI Agents / workflow UI | API ready (`/api/agents*`); local Windows |
+| **Foundry Agents Phase C** — Azure AI Foundry cloud + Entra (opt-in) | Provider adapter behind same draft/confirm seam |
+| **Foundry Agents Phase D** — Drawing/VLM depth | L8 weights + takeoff polish |
 | **L8** OCR/STT/VLM weights over `sidecars/stub_server.py` | Local Windows + models |
 | Takeoff polish on WinUI | Desktop takeoff ships; WinUI thin |
 | **Retire tkinter on Windows** | Product call after Tools + civil spine parity |
@@ -172,4 +176,5 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 | [`LAN.md`](LAN.md) | Browser / LAN server |
 | [`SOP-manual.md`](SOP-manual.md) | Contractor SOP checklists |
 | [`TEST_PLAN.md`](TEST_PLAN.md) | Test layers |
+| [`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md) | Multi-agent Foundry plan (Local → Azure) |
 | [`RESEARCH.md`](RESEARCH.md) | **Single** research report (market, CPWD/SOP, Fluent) |

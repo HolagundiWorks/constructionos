@@ -6,6 +6,25 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — Foundry multi-agent Phase A (API u0.14)
+
+Plan: [`docs/AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md). ERP stays system of
+record; Foundry is the AI operating platform (Local today, Azure Agents later).
+
+**Phase A (cloud, shipped):**
+- Catalog of 10 domain agents (estimation → executive)
+- `agent_tools` (read-only / draft tools over existing pure modules)
+- `knowledge_base` TF-IDF snippets (approve-before-write, GST, PPC, …)
+- `agent_runtime` route + ask (deterministic floor; optional Foundry Local
+  summarize)
+- `agent_workflows`: `variation_impact`, `procurement_30d`, `executive_brief`,
+  `site_daily`
+- API: `GET /api/agents`, `GET /api/agents/{id}`, `GET /api/agents/workflows`,
+  `POST /api/agents/ask`, `POST /api/agents/workflow` — **u0.14**
+
+**Still later:** WinUI Agents page (Phase B); Azure AI Foundry cloud Agents +
+Entra (Phase C); drawing VLM depth (Phase D / L8).
+
 ## 2026-07-23 — API u0.13: cloud-doable roadmap (P0–P3 domain)
 
 Cloud (headless) closed the API/domain side of pending P0–P3 items. WinUI pages

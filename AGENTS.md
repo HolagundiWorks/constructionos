@@ -48,7 +48,7 @@ double-clicking one folder.
 > components) — an *explicit, approved* departure from the tkinter /
 > cross-platform / no-pip constraints **for the front-end only**. The **Python
 > domain core + its tests stay** and are reused as a **localhost backend
-> service** (JSON API **u0.13**) the WinUI 3 client calls. See
+> service** (JSON API **u0.14**) the WinUI 3 client calls. See
 > [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
 > [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
 > (Fluent / Windows 11 principles), and
@@ -69,8 +69,8 @@ double-clicking one folder.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**191 Python modules** (**128** of them AST tkinter-free), **85 tables**, **61
-indexes**, and **739 passing tests** (5 skipped without display). Rather than a
+**196 Python modules** (**133** of them AST tkinter-free), **85 tables**, **61
+indexes**, and **744 passing tests** (5 skipped without display). Rather than a
 feature checklist that
 rots, the honest summary is:
 
@@ -118,7 +118,7 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — **128** AST-pure
+- **Business maths lives in pure, tkinter-free modules** — **133** AST-pure
   (includes web). This is the testable core; extend it there rather than burying
   new maths inside GUI callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
@@ -134,7 +134,7 @@ python main.py
 The full sweep used to validate changes, from the repo root:
 
 ```bash
-python -m unittest discover -s tests               # 739 tests (GUI smoke needs display)
+python -m unittest discover -s tests               # 744 tests (GUI smoke needs display)
 cd construction_app && python -m compileall -q .   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
@@ -158,7 +158,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The **128** tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The **133** tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
@@ -806,6 +806,20 @@ Rules for extending:
   back with `after`. Keep it off the UI thread.
 - `capture.py` is the draft-and-confirm scaffold under AI-assisted entry —
   nothing the model produces is written without the user confirming.
+
+### Multi-agent copilots (Foundry platform)
+
+Beside the general Assistant, ACO exposes **persona agents** (estimation, BOQ,
+drawing, procurement, planning, finance, document, site, safety, executive)
+orchestrated in stdlib:
+
+- `agents_catalog.py` — roster; `agent_tools.py` — read-only / draft tools;
+  `knowledge_base.py` — TF-IDF grounding snippets; `agent_runtime.py` — route +
+  ask; `agent_workflows.py` — multi-agent handoffs (`variation_impact`, …).
+- JSON: `GET /api/agents`, `POST /api/agents/ask`, `POST /api/agents/workflow`.
+- Plan: [`docs/AI-FOUNDRY-AGENTS.md`](docs/AI-FOUNDRY-AGENTS.md). Phase A is
+  local orchestration; Azure AI Foundry cloud Agents are **opt-in Phase C**
+  behind the same propose/confirm seam — never silent money writes.
 
 ## 22. Project management & programme
 

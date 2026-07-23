@@ -1165,7 +1165,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.13')
+        self.assertEqual(c['api'], 'u0.14')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1176,6 +1176,8 @@ class TestWebApi(unittest.TestCase):
         self.assertIn('GET /api/assistant/quick', c['reads'])
         self.assertIn('GET /api/home', c['reads'])
         self.assertIn('GET /api/gst/export?month=', c['reads'])
+        self.assertIn('GET /api/agents', c['reads'])
+        self.assertIn('POST /api/agents/ask', c['writes'])
         self.assertIn('POST /api/ra_bills/generate', c['writes'])
         self.assertIn('POST /api/risks/accept', c['writes'])
         self.assertIn('GET /api/parties', c['reads'])
@@ -2102,7 +2104,69 @@ class TestWebApi(unittest.TestCase):
 
         # Health version
         resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
-        self.assertEqual(self._json(resp)['api'], 'u0.13')
+        self.assertEqual(self._json(resp)['api'], 'u0.14')
+
+    def test_u014_foundry_agents_api(self):
+        """u0.14 — multi-agent catalog, ask (deterministic), workflow handoffs."""
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        headers = {'X-CSRF-Token': csrf}
+
+        resp = self.webapp.handle(self._req('/api/agents', cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        ids = {a['id'] for a in body['items']}
+        self.assertIn('estimation', ids)
+        self.assertIn('executive', ids)
+        self.assertTrue(body['workflows'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/agents/finance', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['id'], 'finance')
+
+        resp = self.webapp.handle(self._req(
+            '/api/agents/ask', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'question': 'How much cash and receivable do I have?',
+                'agent_id': 'finance',
+                'use_model': False,
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        ask = self._json(resp)
+        self.assertTrue(ask['ok'])
+        self.assertEqual(ask['agent_id'], 'finance')
+        self.assertIn('money_snapshot', ask['tools'])
+        self.assertTrue(ask['summary'])
+        self.assertFalse(ask['model_used'])
+        self.assertEqual(ask['provider'], 'deterministic')
+
+        # Auto-route without agent_id
+        resp = self.webapp.handle(self._req(
+            '/api/agents/ask', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'question': 'Which POs are over-invoiced without a GRN?',
+                'use_model': False,
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertEqual(self._json(resp)['agent_id'], 'procurement')
+
+        resp = self.webapp.handle(self._req(
+            '/api/agents/workflow', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'workflow_id': 'variation_impact',
+                'context': {'notes': 'Change 200mm block to AAC'},
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        wf = self._json(resp)
+        self.assertTrue(wf['ok'])
+        self.assertEqual(len(wf['steps']), 7)
+        self.assertGreaterEqual(wf['gated_count'], 1)
+        self.assertEqual(wf['steps'][0]['agent'], 'drawing')
+        self.assertEqual(wf['steps'][-1]['agent'], 'executive')
 
 
 if __name__ == '__main__':

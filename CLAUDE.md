@@ -8,7 +8,7 @@ is the short, always-loaded memory.
 a full **ERP for Indian construction contractors**: pure **Python standard
 library**, **tkinter** desktop UI, optional **stdlib web/LAN** front-end, a
 single **SQLite** file, **no pip dependencies**. Business maths lives in
-**~128** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
+**~133** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
 mark = existing logo geometry in **Radiant Orange** (`branding.py` /
 `tokens` accent `#FF4F18`).
 
@@ -51,9 +51,9 @@ cd construction_app && python -m compileall -q .
 ## Watch out
 - **Flat ~191-module namespace** — `lessons.py` (rate realisation) ≠
   `lessons_register.py` / `tab_lessons_learned.py`. Grep before adding a module.
-- Catalog: **8 sections / 52 modules**; API **u0.13**. Headline counts (verify
+-   Catalog: **8 sections / 52 modules**; API **u0.14**. Headline counts (verify
   before quoting): **191** modules / **128** AST-pure / **85** tables / **61**
-  indexes / **739** tests (5 skipped headless).
+  indexes / **739** tests (5 skipped headless) — re-check after agent modules.
 - Keep this file and `AGENTS.md` accurate in the **same commit** as the change
   they describe.
 
@@ -68,5 +68,5 @@ cd construction_app && python -m compileall -q .
 | API | `docs/API.md` |
 | WinUI | `docs/WINUI3-MIGRATION.md`, `docs/UI-PRINCIPLES-AND-GUIDELINES.md` |
 | Enterprise PM design | `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/EXECUTION-PART2.md` |
-| AI design | `docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` |
+| AI design | `docs/AI-FOUNDRY-AGENTS.md`, `docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` |
 | LAN / SOPs / tests | `docs/LAN.md`, `docs/SOP-manual.md`, `docs/TEST_PLAN.md` |
