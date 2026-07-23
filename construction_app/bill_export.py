@@ -20,6 +20,7 @@ import branding
 import einvoice
 import estimate as estimate_calc
 import finance
+import inr
 import mb
 import muster
 import numwords
@@ -32,11 +33,15 @@ def _logo_tag():
 
 
 def _money(value):
-    """Format a number as a grouped 2-decimal amount (e.g. 1,234.50)."""
+    """A 2-decimal amount in the Indian numbering system (e.g. 1,00,000.00).
+
+    No rupee sign here -- the document templates carry the ₹ in the column head.
+    """
     try:
-        return '{:,.2f}'.format(float(value or 0))
+        float(value or 0)
     except (TypeError, ValueError):
         return '0.00'
+    return inr.rupees(value, paise=True, symbol=False)
 
 
 def _text(value):
@@ -841,7 +846,7 @@ def build_muster_roll_html(lines, dates, start, end, site_name='',
             '<td class="num">{}</td><td class="sign"></td></tr>'.format(
                 idx, _text(l['name']), _text(l['father_name'] or '—'),
                 _text(l['skill']), cells,
-                '{:,.2f}'.format(l['daily_wage']),
+                _money(l['daily_wage']),
                 '{:g}'.format(l['days']), _money(l['gross']),
                 _money(l['deduction']), _money(l['net'])))
     rows_html = ''.join(body) or (

@@ -14,6 +14,7 @@ responsive. Everything is inlined so there are no extra asset requests.
 import html
 
 import branding
+import inr
 import tokens
 
 BRAND = branding.APP_NAME
@@ -25,10 +26,14 @@ def esc(value):
 
 
 def money(value):
+    """Rupees in the Indian numbering system (₹1,00,000). Non-numeric -> escaped
+    as-is. Whole rupees (the web convention); ``inr.rupees`` keeps the paise for
+    documents that need them."""
     try:
-        return '₹ {:,.0f}'.format(round(float(value or 0)))
+        float(value if value not in (None, '') else 0)
     except (TypeError, ValueError):
         return esc(value)
+    return inr.rupees(value, paise=False)
 
 
 # ── CSS variables generated from the shared design tokens ─────────────────────
