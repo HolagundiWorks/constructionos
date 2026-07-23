@@ -48,7 +48,7 @@ double-clicking one folder.
 > components) — an *explicit, approved* departure from the tkinter /
 > cross-platform / no-pip constraints **for the front-end only**. The **Python
 > domain core + its tests stay** and are reused as a **localhost backend
-> service** (JSON API **u0.12**) the WinUI 3 client calls. See
+> service** (JSON API **u0.13**) the WinUI 3 client calls. See
 > [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
 > [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
 > (Fluent / Windows 11 principles), and

@@ -770,7 +770,9 @@ class TestWebApi(unittest.TestCase):
         cookies = {'cosid': sid}
         for path, key in (('/api/health', 'ok'),
                           ('/api/dashboard', 'snapshot'),
-                          ('/api/kpi', 'advisories'),
+                          ('/api/kpi', 'rows'),
+                          ('/api/insight', 'site_profitability'),
+                          ('/api/home', 'blocks'),
                           ('/api/workflow', 'workflows'),
                           ('/api/evm', 'portfolio'),
                           ('/api/review', 'narrative'),
@@ -1163,7 +1165,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.12')
+        self.assertEqual(c['api'], 'u0.13')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1172,6 +1174,10 @@ class TestWebApi(unittest.TestCase):
         self.assertIn('GET /api/firm', c['reads'])
         self.assertIn('GET /api/modules', c['reads'])
         self.assertIn('GET /api/assistant/quick', c['reads'])
+        self.assertIn('GET /api/home', c['reads'])
+        self.assertIn('GET /api/gst/export?month=', c['reads'])
+        self.assertIn('POST /api/ra_bills/generate', c['writes'])
+        self.assertIn('POST /api/risks/accept', c['writes'])
         self.assertIn('GET /api/parties', c['reads'])
         self.assertIn('POST /api/firm', c['writes'])
         self.assertIn('POST /api/modules', c['writes'])
@@ -1890,5 +1896,215 @@ class TestWebApi(unittest.TestCase):
             self.db.DB_PATH = self.path
 
 
+    def test_u013_cloud_roadmap_apis(self):
+        """u0.13 — home, GST export, RA generate, WO/sub bills, muster, commitments, timeline, risks accept."""
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        headers = {'X-CSRF-Token': csrf}
+
+        # Home aggregate
+        resp = self.webapp.handle(self._req('/api/home', cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        home = self._json(resp)
+        self.assertIn('snapshot', home)
+        self.assertIn('advisories', home)
+        self.assertIn('blocks', home)
+        self.assertIn('match', home['blocks'])
+
+        # GST export pack
+        resp = self.webapp.handle(self._req(
+            '/api/gst/export', cookies=cookies, query={'month': '2026-07'}))
+        self.assertEqual(resp.status, 200)
+        pack = self._json(resp)
+        self.assertIn('csv', pack)
+        self.assertIn('Outward GST', pack['csv'])
+        self.assertIn('html', pack)
+
+        # Key numbers vs insight split
+        resp = self.webapp.handle(self._req('/api/kpi', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        kpi = self._json(resp)
+        self.assertIn('rows', kpi)
+        self.assertTrue(kpi['cols'])
+        resp = self.webapp.handle(self._req('/api/insight', cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertIn('site_profitability', self._json(resp))
+
+        # Seed site + labour + contract/BOQ/MB for remaining flows
+        conn = self.db.get_conn()
+        conn.execute("INSERT INTO sites (name) VALUES ('Site A')")
+        site_id = conn.execute('SELECT id FROM sites').fetchone()['id']
+        conn.execute(
+            "INSERT INTO labor (name, site_id, daily_wage, status) "
+            "VALUES ('Ram', ?, 700, 'Active')", (site_id,))
+        labor_id = conn.execute('SELECT id FROM labor').fetchone()['id']
+        conn.execute(
+            "INSERT INTO vendors (name) VALUES ('Sub Co')")
+        vendor_id = conn.execute('SELECT id FROM vendors').fetchone()['id']
+        conn.execute(
+            "INSERT INTO contracts (contract_no, site_id, contract_value) "
+            "VALUES ('C/U13', ?, 1000000)", (site_id,))
+        cid = conn.execute('SELECT id FROM contracts').fetchone()['id']
+        conn.execute(
+            "INSERT INTO boq_items (contract_id, item_no, description, unit, "
+            "qty, rate, amount) VALUES (?, '1', 'PCC', 'cum', 100, 500, 50000)",
+            (cid,))
+        bid = conn.execute('SELECT id FROM boq_items').fetchone()['id']
+        conn.execute(
+            "INSERT INTO measurements (boq_item_id, contract_id, mb_date, "
+            "mb_ref, nos, length, breadth, depth, quantity) "
+            "VALUES (?, ?, '2026-07-01', 'MB-1', 10, 1, 1, 1, 10)",
+            (bid, cid))
+        conn.execute(
+            "INSERT INTO projects (name, site_id, start_date, status) "
+            "VALUES ('P1', ?, '2026-06-01', 'Active')", (site_id,))
+        pid = conn.execute('SELECT id FROM projects').fetchone()['id']
+        conn.execute(
+            "INSERT INTO timeline_tasks (project_id, task_name, start_date, "
+            "end_date, duration_days, dependency) "
+            "VALUES (?, 'Clear', '2026-06-01', '2026-06-05', 5, '')", (pid,))
+        conn.execute(
+            "INSERT INTO timeline_tasks (project_id, task_name, start_date, "
+            "end_date, duration_days, dependency) "
+            "VALUES (?, 'Excavate', '2026-06-06', '2026-06-12', 7, 'Clear')",
+            (pid,))
+        conn.commit()
+        conn.close()
+
+        # RA generate from MB
+        resp = self.webapp.handle(self._req(
+            '/api/ra_bills/generate', 'POST', cookies=cookies, headers=headers,
+            json_body={'contract_id': cid, 'bill_date': '2026-07-10',
+                       'retention_pct': 5, 'csrf': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        ra = self._json(resp)
+        self.assertEqual(ra['bill_no'], 'RA-1')
+        self.assertEqual(ra['line_count'], 1)
+        self.assertAlmostEqual(ra['totals']['this_bill_value'], 5000.0, places=2)
+
+        # Work order + sub bill
+        resp = self.webapp.handle(self._req(
+            '/api/work_orders', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'wo_no': 'WO-1', 'vendor_id': vendor_id, 'site_id': site_id,
+                'retention_pct': 5, 'tds_pct': 1,
+                'items': [{'description': 'Earthwork', 'unit': 'cum',
+                           'qty': 10, 'rate': 200}],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 201, resp.body)
+        wo = self._json(resp)
+        self.assertEqual(wo['total_amount'], 2000.0)
+        resp = self.webapp.handle(self._req(
+            '/api/sub_bills', 'POST', cookies=cookies, headers=headers,
+            json_body={'work_order_id': wo['id'], 'bill_no': 'SB-1',
+                       'bill_date': '2026-07-15', 'this_bill_value': 1000,
+                       'csrf': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        sb = self._json(resp)
+        self.assertAlmostEqual(sb['net_payable'], 1000 - 50 - 10, places=2)
+
+        # Muster grid + save + payout
+        resp = self.webapp.handle(self._req(
+            '/api/muster', cookies=cookies,
+            query={'site_id': str(site_id), 'att_date': '2026-07-01'}))
+        self.assertEqual(resp.status, 200, resp.body)
+        grid = self._json(resp)
+        self.assertEqual(len(grid['rows']), 1)
+        resp = self.webapp.handle(self._req(
+            '/api/muster', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'site_id': site_id, 'att_date': '2026-07-01',
+                'rows': [{'labor_id': labor_id, 'status': 'Present', 'hours': 8}],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertEqual(self._json(resp)['saved'], 1)
+        # Mark rest of week present for payout
+        for d in ('2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05',
+                  '2026-07-06', '2026-07-07'):
+            self.webapp.handle(self._req(
+                '/api/muster', 'POST', cookies=cookies, headers=headers,
+                json_body={
+                    'site_id': site_id, 'att_date': d,
+                    'rows': [{'labor_id': labor_id, 'status': 'Present',
+                              'hours': 8}],
+                    'csrf': csrf,
+                }))
+        resp = self.webapp.handle(self._req(
+            '/api/muster/payout', cookies=cookies,
+            query={'site_id': str(site_id), 'week_start': '2026-07-01'}))
+        self.assertEqual(resp.status, 200, resp.body)
+        pay = self._json(resp)
+        self.assertEqual(pay['payable_count'], 1)
+        self.assertAlmostEqual(pay['total_net'], 4900.0, places=2)  # 7*700
+        resp = self.webapp.handle(self._req(
+            '/api/muster/payout', 'POST', cookies=cookies, headers=headers,
+            json_body={'site_id': site_id, 'week_start': '2026-07-01',
+                       'csrf': csrf}))
+        self.assertEqual(resp.status, 201, resp.body)
+        rec = self._json(resp)
+        self.assertEqual(rec['recorded'], 1)
+        # Idempotent second run
+        resp = self.webapp.handle(self._req(
+            '/api/muster/payout', 'POST', cookies=cookies, headers=headers,
+            json_body={'site_id': site_id, 'week_start': '2026-07-01',
+                       'csrf': csrf}))
+        self.assertEqual(self._json(resp)['skipped'], 1)
+
+        # Commitments + lookahead reasons
+        resp = self.webapp.handle(self._req(
+            '/api/commitments', 'POST', cookies=cookies, headers=headers,
+            json_body={
+                'site_id': site_id, 'week_start': '2026-07-20',
+                'task': 'Pour slab', 'status': 'Not done',
+                'reason': 'Material not available', 'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 201, resp.body)
+        cm = self._json(resp)
+        resp = self.webapp.handle(self._req(
+            '/api/lookahead', cookies=cookies,
+            query={'site_id': str(site_id)}))
+        self.assertEqual(resp.status, 200)
+        la = self._json(resp)
+        self.assertIn('reasons', la)
+        self.assertIn('Material not available', la['reasons'])
+        self.assertIn('ppc_note', la)
+        resp = self.webapp.handle(self._req(
+            '/api/commitments/{}'.format(cm['id']), 'POST',
+            cookies=cookies, headers=headers,
+            json_body={'done': True, 'csrf': csrf}))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['status'], 'Done')
+
+        # Timeline / CPM
+        resp = self.webapp.handle(self._req(
+            '/api/timeline', cookies=cookies,
+            query={'project_id': str(pid)}))
+        self.assertEqual(resp.status, 200, resp.body)
+        tl = self._json(resp)
+        self.assertTrue(tl['summary']['ok'])
+        self.assertEqual(len(tl['tasks']), 2)
+
+        # Risk detect (no apply required) + accept path with empty ids is ok
+        resp = self.webapp.handle(self._req(
+            '/api/risks/detect', 'POST', cookies=cookies, headers=headers,
+            json_body={'apply': False, 'csrf': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertIn('detected', self._json(resp))
+        resp = self.webapp.handle(self._req(
+            '/api/risks/accept', 'POST', cookies=cookies, headers=headers,
+            json_body={'detect_and_apply': True, 'status': 'Accepted',
+                       'csrf': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        acc = self._json(resp)
+        self.assertIn('accepted_ids', acc)
+
+        # Health version
+        resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
+        self.assertEqual(self._json(resp)['api'], 'u0.13')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+

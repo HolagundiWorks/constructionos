@@ -6,7 +6,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.10` (`GET /api/health` → `{"api":"u0.10","service":"aco"}`)  
+**Version:** `u0.13` (`GET /api/health` → `{"api":"u0.13","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -28,23 +28,32 @@ but not create).
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.10` |
+| GET | `/api/health` | Auth except login; reports `api: u0.13` |
 | GET | `/api/companies` | **Public** company picker list (`exists` included) |
 | GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
-| GET | `/api/dashboard`, `/api/kpi` | Snapshot + advisories |
+| GET | `/api/dashboard` | Snapshot + advisories |
+| GET | `/api/home` | Dashboard + companion blocks (one round-trip) |
+| GET | `/api/kpi` | Key Numbers rows (`kpi_store`) |
+| GET | `/api/insight` | Site profit / progress / material budget |
 | GET | `/api/review` | Weekly review pack |
 | GET | `/api/portfolio` | Current-file roll-up; `?paths=` federates; includes advisories |
 | GET | `/api/menu?persona=Owner` | Sections/tabs for NavigationView |
 | GET | `/api/productivity` | Crew/plant utilisation from muster + plant logs |
 | GET | `/api/filings/feed` | Overdue/due-soon → gated FILING_DUE drafts |
 | GET | `/api/purchase_orders`, `/api/goods_receipts` | Procurement lists (`label`/`columns`/FK names) |
+| GET | `/api/work_orders`, `/api/sub_bills` | Subcontractor WO + running bills |
 | GET | `/api/match?tolerance=` | Three-way match + narration |
 | GET | `/api/ageing` | Receivables ageing + `buckets` + chart `labels`/`values` |
 | GET | `/api/cashflow?periods=&mode=week\|month` | Forecast `buckets` + `labels`/`values`/`series` |
 | GET | `/api/gst?month=YYYY-MM` | Outward / HSN / inward / TDS; each block has **`cols`** |
+| GET | `/api/gst/export?month=` | CA CSV/HTML GST/TDS export pack |
 | GET | `/api/pnl?period=YYYY-MM\|FY\|YYYY-YY` | P&L sections + `grand_total` (net profit) |
 | GET | `/api/balance_sheet?as_of=YYYY-MM-DD` | Balance sheet; `balanced` bool |
-| GET | `/api/lookahead?project_id=&weeks=` | Weekly commitments + PPC (`planning.py`) |
+| GET | `/api/lookahead?project_id=&weeks=` | Weekly commitments + PPC + **`reasons`** catalogue |
+| GET | `/api/commitments` | Commitment rows (+ reason codes) |
+| GET | `/api/timeline?project_id=` | CPM schedule + baseline position |
+| GET | `/api/muster?site_id=&att_date=` | Active labour attendance grid |
+| GET | `/api/muster/payout?site_id=&week_start=` | 7-day wage compute |
 | GET | `/api/bills/previous?contract_id=` | Approved/Paid running-bill sum |
 | GET | `/api/boq_items?contract_id=` | BOQ lines for a contract |
 | GET | `/api/allocations?payment_id=` | Payment↔bill allocation lines |
@@ -74,14 +83,22 @@ hardcoding in the client.
 | Method | Path | Notes |
 |---|---|---|
 | POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters (incl. contracts, **measurements**) |
+| POST | `/api/risks/detect` | Live snapshot → detected risks; `{apply:true}` persists drafts |
+| POST | `/api/risks/accept` | `{ids}` and/or `{detect_and_apply:true}` → Accepted |
 | POST | `/api/{doc}` | Money docs — **create only**; payments may return gated `followups` |
 | POST | `/api/purchase_orders` | Header + `items[]`; `total_amount` = sum of line amounts |
+| POST | `/api/work_orders` | Header + `items[]`; subcontractor WO |
+| POST | `/api/sub_bills` | Sub running bill; totals via `subcontract.sub_bill_totals` |
+| POST | `/api/ra_bills/generate` | MB → Draft RA (`ra_generate`) |
 | POST | `/api/allocations` | Replace lines for a payment (`payment_id`, `lines`) |
 | POST | `/api/capture/draft` | Stage extraction for human review |
 | POST | `/api/capture/confirm` | Confirm → `work_done` / `daily_progress` / `ncr` / `snag` |
 | POST | `/api/text/extract` | Free-text → draft fields (`text_extract`) |
 | POST | `/api/muster/draft` | Name list → labour match drafts |
 | POST | `/api/muster/confirm` | Write attendance rows |
+| GET\|POST | `/api/muster` | Day grid load / save for Active labour |
+| GET\|POST | `/api/muster/payout` | Compute / record weekly wages (idempotent) |
+| POST/PUT/DELETE | `/api/commitments[/{id}]` | Look-ahead promises; POST id marks Done |
 | POST | `/api/boq/import/draft` | CSV/TSV/plain → BOQ line drafts |
 | POST | `/api/boq/import/confirm` | Write `boq_items` for a contract |
 | POST | `/api/grn/draft` \| `/api/grn/confirm` | Challan paste → Draft GRN (no stock post) |

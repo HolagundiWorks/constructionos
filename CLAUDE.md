@@ -40,20 +40,19 @@ cd construction_app && python -m compileall -q .
   Pending P0–P4 (§2). Do not invent a second roadmap.
 - **WinUI 3 replatform** (Windows-only, C#/.NET, **stock Fluent only**) — approved
   front-end departure. Python domain + tests stay as **localhost JSON API
-  (u0.12)**. Specs: `docs/WINUI3-MIGRATION.md`,
+  (u0.13)**. Specs: `docs/WINUI3-MIGRATION.md`,
   `docs/UI-PRINCIPLES-AND-GUIDELINES.md`, `.github/instructions/winui3.instructions.md`.
 - **Two environments:**
   - **Cloud (this agent):** domain / API / tests / docs. Cloud CT backlog
-    **closed** (ROADMAP §1.3). No display, no .NET, no ML weights.
+    **closed** (ROADMAP §1.3); u0.13 closed cloud-doable P0–P3 APIs.
   - **Local (Windows):** WinUI workflow depth (ROADMAP §2), MSIX release
     signing, sidecars/weights, tkinter smoke.
 
 ## Watch out
-- **Flat ~181-module namespace** — `lessons.py` (rate realisation) ≠
+- **Flat ~191-module namespace** — `lessons.py` (rate realisation) ≠
   `lessons_register.py` / `tab_lessons_learned.py`. Grep before adding a module.
-- Catalog: **8 sections / 52 modules**; API **u0.12**. Headline counts (verify
-  before quoting): **181** modules / **118** AST-pure / **85** tables / **61**
-  indexes / **738** tests (5 skipped headless).
+- Catalog: **8 sections / 52 modules**; API **u0.13**. Headline counts (verify
+  before quoting): run the §25 re-check commands in `AGENTS.md`.
 - Keep this file and `AGENTS.md` accurate in the **same commit** as the change
   they describe.
 

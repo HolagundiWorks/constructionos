@@ -768,63 +768,23 @@ class RABillFrame(ttk.Frame):
                 'Security deposit, TDS, cess and deductions must be numbers.')
             return
 
+        import ra_generate
         conn = self.db_getter()
         try:
-            boq = conn.execute('SELECT id, rate FROM boq_items WHERE contract_id = ?',
-                               (cid,)).fetchall()
-            if not boq:
-                messagebox.showinfo('No BOQ', 'This contract has no BOQ items.')
+            try:
+                result = ra_generate.generate(
+                    conn, cid, bill_date=bill_date,
+                    retention_pct=retention_pct, tds_pct=tds_pct,
+                    cess_pct=cess_pct, other_deductions=other)
+            except ValueError as exc:
+                messagebox.showinfo('Cannot generate', str(exc))
                 return
-            lines = []
-            for b in boq:
-                upto = conn.execute(
-                    "SELECT COALESCE(SUM(quantity), 0) AS q FROM measurements "
-                    "WHERE boq_item_id = ? AND (mb_date <= ? OR mb_date IS NULL "
-                    "OR mb_date = '')",
-                    (b['id'], bill_date or '9999-12-31')).fetchone()['q']
-                previous = conn.execute(
-                    "SELECT COALESCE(SUM(ri.current_qty), 0) AS q "
-                    "FROM ra_bill_items ri JOIN ra_bills rb ON rb.id = ri.ra_bill_id "
-                    "WHERE ri.boq_item_id = ? AND rb.status IN ('Approved', 'Paid')",
-                    (b['id'],)).fetchone()['q']
-                current, amount = civil.ra_current(upto, previous, b['rate'])
-                lines.append((b['id'], upto, previous, current, b['rate'], amount))
-
-            this_bill_value = round(sum(ln[5] for ln in lines), 2)
-            previous_value = conn.execute(
-                "SELECT COALESCE(SUM(this_bill_value), 0) AS v FROM ra_bills "
-                "WHERE contract_id = ? AND status IN ('Approved', 'Paid')",
-                (cid,)).fetchone()['v']
-            totals = civil.ra_bill_totals(this_bill_value, previous_value,
-                                          retention_pct, other,
-                                          tds_pct=tds_pct, cess_pct=cess_pct)
-            count = conn.execute('SELECT COUNT(*) AS c FROM ra_bills WHERE contract_id = ?',
-                                 (cid,)).fetchone()['c']
-            bill_no = 'RA-{}'.format(count + 1)
-
-            cur = conn.execute(
-                'INSERT INTO ra_bills (contract_id, bill_no, bill_date, status, '
-                'this_bill_value, previous_value, cumulative_value, retention_pct, '
-                'retention_amt, tds_pct, tds_amt, cess_pct, cess_amt, '
-                'other_deductions, net_payable) '
-                "VALUES (?, ?, ?, 'Draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (cid, bill_no, bill_date, totals['this_bill_value'],
-                 totals['previous_value'], totals['cumulative_value'],
-                 retention_pct, totals['retention_amt'],
-                 tds_pct, totals['tds_amt'], cess_pct, totals['cess_amt'],
-                 other, totals['net_payable']))
-            ra_id = cur.lastrowid
-            conn.executemany(
-                'INSERT INTO ra_bill_items (ra_bill_id, boq_item_id, upto_qty, '
-                'previous_qty, current_qty, rate, current_amount) '
-                'VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [(ra_id,) + ln for ln in lines])
-            conn.commit()
         finally:
             conn.close()
         messagebox.showinfo('RA Bill generated',
                             '{} generated: net payable {:.2f}.'.format(
-                                bill_no, totals['net_payable']))
+                                result['bill_no'],
+                                result['totals']['net_payable']))
         self.refresh_bills()
 
     def apply_part_rate(self):

@@ -6,6 +6,31 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — API u0.13: cloud-doable roadmap (P0–P3 domain)
+
+Cloud (headless) closed the API/domain side of pending P0–P3 items. WinUI pages
+remain local work — backends are ready.
+
+**New pure modules:** `home_store`, `gst_export`, `ra_generate`,
+`work_orders_store`, `muster_ops`, `commitments_store`, `timeline_store`,
+`kpi_store`, `insight_store`, `risk_accept`.
+
+**Endpoints (API `u0.13`):**
+- `GET /api/home` — dashboard + workflow/match/risks/lookahead/evm blocks
+- `GET /api/gst/export` — CA CSV/HTML GST/TDS pack
+- `GET /api/kpi` — Key Numbers rows (no longer a dashboard alias)
+- `GET /api/insight` — site profit / contract progress / material budget
+- `POST /api/ra_bills/generate` — MB snapshot → Draft RA (desktop tab now calls
+  `ra_generate` too)
+- `GET|POST|PUT|DELETE /api/work_orders`, `/api/sub_bills`
+- `GET|POST /api/muster`, `GET|POST /api/muster/payout` (idempotent wage record)
+- `GET|POST|PUT|DELETE /api/commitments` (+ Done toggle); lookahead returns
+  `reasons` / binary PPC note
+- `GET /api/timeline?project_id=` — CPM + programme position
+- `POST /api/risks/detect`, `POST /api/risks/accept`
+
+Tests: `TestWebApi.test_u013_cloud_roadmap_apis`. Docs: `ROADMAP`, `API.md`.
+
 ## 2026-07-23 — Agent rules & guidelines refresh
 
 - **`CLAUDE.md`** — accurate counts (181 / 118 / 738 / API u0.12); docs map rule

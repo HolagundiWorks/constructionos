@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.12'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.13'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -114,7 +114,13 @@ def handle(request, sess):
         return _dashboard()
 
     if path == 'kpi' and method == 'GET':
-        return _dashboard()  # same snapshot; client picks the KPI band
+        return _key_numbers()
+
+    if path == 'insight' and method == 'GET':
+        return _insight()
+
+    if path == 'home' and method == 'GET':
+        return _home(request)
 
     if path == 'review' and method == 'GET':
         return _review()
@@ -173,6 +179,9 @@ def handle(request, sess):
     if path == 'gst' and method == 'GET':
         return _gst_report(request)
 
+    if path == 'gst/export' and method == 'GET':
+        return _gst_export(request)
+
     if path == 'pnl' and method == 'GET':
         return _pnl_report(request)
 
@@ -181,6 +190,66 @@ def handle(request, sess):
 
     if path in ('lookahead', 'look-ahead') and method == 'GET':
         return _lookahead_report(request)
+
+    if path == 'commitments' and method == 'GET':
+        return _list_commitments(request)
+    if path == 'commitments' and method == 'POST':
+        return _create_commitment(request, sess)
+    m = re.match(r'^commitments/(\d+)$', path)
+    if m:
+        cid = int(m.group(1))
+        if method == 'GET':
+            return _get_commitment(cid)
+        if method == 'PUT':
+            return _update_commitment(request, sess, cid)
+        if method == 'DELETE':
+            return _delete_commitment(request, sess, cid)
+        if method == 'POST':
+            # POST /api/commitments/{id} with {done:true|false, reason?}
+            return _mark_commitment(request, sess, cid)
+
+    if path == 'timeline' and method == 'GET':
+        return _timeline(request)
+
+    if path == 'ra_bills/generate' and method == 'POST':
+        return _ra_generate(request, sess)
+
+    if path == 'work_orders' and method == 'GET':
+        return _list_work_orders()
+    if path == 'work_orders' and method == 'POST':
+        return _create_work_order(request, sess)
+    m = re.match(r'^work_orders/(\d+)$', path)
+    if m:
+        wid = int(m.group(1))
+        if method == 'GET':
+            return _get_work_order(wid)
+        if method == 'PUT':
+            return _update_work_order(request, sess, wid)
+        if method == 'DELETE':
+            return _delete_work_order(request, sess, wid)
+
+    if path == 'sub_bills' and method == 'GET':
+        return _list_sub_bills(request)
+    if path == 'sub_bills' and method == 'POST':
+        return _create_sub_bill(request, sess)
+    m = re.match(r'^sub_bills/(\d+)$', path)
+    if m:
+        bid = int(m.group(1))
+        if method == 'GET':
+            return _get_sub_bill(bid)
+        if method == 'PUT':
+            return _update_sub_bill(request, sess, bid)
+        if method == 'DELETE':
+            return _delete_sub_bill(request, sess, bid)
+
+    if path == 'muster' and method == 'GET':
+        return _muster_grid(request)
+    if path == 'muster' and method == 'POST':
+        return _muster_save(request, sess)
+    if path == 'muster/payout' and method == 'GET':
+        return _muster_payout_compute(request)
+    if path == 'muster/payout' and method == 'POST':
+        return _muster_payout_record(request, sess)
 
     if path == 'bills/previous' and method == 'GET':
         return _bills_previous(request)
@@ -320,6 +389,11 @@ def handle(request, sess):
             return _update_lesson(request, sess, lid)
         if method == 'DELETE':
             return _delete_lesson(request, sess, lid)
+
+    if path == 'risks/detect' and method == 'POST':
+        return _risks_detect(request, sess)
+    if path == 'risks/accept' and method == 'POST':
+        return _risks_accept(request, sess)
 
     if path == 'risks':
         if method == 'GET':
@@ -1053,7 +1127,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.12',
+        'api': 'u0.13',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1063,16 +1137,21 @@ def _api_contract():
         },
         'reads': [
             'GET /api/health', 'GET /api/contract', 'GET /api/companies',
-            'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
+            'GET /api/dashboard', 'GET /api/home', 'GET /api/kpi', 'GET /api/insight',
+            'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',
             'GET /api/firm', 'GET /api/modules', 'GET /api/assistant/quick',
             'GET /api/parties',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
+            'GET /api/work_orders', 'GET /api/sub_bills',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
-            'GET /api/gst?month=',
+            'GET /api/gst?month=', 'GET /api/gst/export?month=',
             'GET /api/pnl?period=', 'GET /api/balance_sheet?as_of=',
             'GET /api/lookahead?project_id=&weeks=',
+            'GET /api/commitments', 'GET /api/timeline?project_id=',
+            'GET /api/muster?site_id=&att_date=',
+            'GET /api/muster/payout?site_id=&week_start=',
             'GET /api/bills/previous?contract_id=',
             'GET /api/boq_items?contract_id=',
             'GET /api/allocations?payment_id=',
@@ -1087,13 +1166,19 @@ def _api_contract():
         ],
         'writes': [
             'POST/PUT/DELETE /api/risks[/{id}]',
+            'POST /api/risks/detect', 'POST /api/risks/accept',
             'POST/PUT/DELETE /api/opportunities[/{id}]',
             'POST/PUT/DELETE /api/lessons[/{id}]',
             'POST/PUT/DELETE /api/submittals[/{id}]',
             'POST /api/capture/draft', 'POST /api/capture/confirm',
             'POST /api/text/extract',
             'POST /api/muster/draft', 'POST /api/muster/confirm',
+            'GET|POST /api/muster', 'GET|POST /api/muster/payout',
             'POST /api/boq/import/draft', 'POST /api/boq/import/confirm',
+            'POST /api/ra_bills/generate',
+            'POST/PUT/DELETE /api/work_orders[/{id}]',
+            'POST/PUT/DELETE /api/sub_bills[/{id}]',
+            'POST/PUT/DELETE /api/commitments[/{id}]',
             'POST /api/grn/draft', 'POST /api/grn/confirm',
             'POST /api/vendor_invoice/draft', 'POST /api/vendor_invoice/confirm',
             'POST /api/pdf/extract',
@@ -1514,6 +1599,7 @@ def _balance_sheet_report(request):
 
 def _lookahead_report(request):
     """GET /api/lookahead?project_id=&weeks= — weekly look-ahead + PPC."""
+    import commitments_store
     import lookahead_store
     q = request.query or {}
     project_id = q.get('project_id') or None
@@ -1529,8 +1615,9 @@ def _lookahead_report(request):
         return _err('site_id must be an integer', 400)
     conn = _conn()
     try:
-        return _ok(lookahead_store.lookahead(
-            conn, project_id=project_id, site_id=site_id, weeks=weeks))
+        payload = lookahead_store.lookahead(
+            conn, project_id=project_id, site_id=site_id, weeks=weeks)
+        return _ok(commitments_store.enrich_lookahead(payload))
     finally:
         conn.close()
 
@@ -2734,5 +2821,535 @@ def _confirm_snag(sess, record, draft, origin):
             'followups': reacted.get('followups') or [],
             'gated_count': reacted.get('gated_count', 0),
         }, status=201)
+    finally:
+        conn.close()
+
+
+# ------------------------------------- u0.13 cloud roadmap handlers
+def _home(request):
+    """GET /api/home — dashboard + companion blocks in one round-trip."""
+    import home_store
+    q = request.query or {}
+    raw = (q.get('include') or '').strip()
+    include = [p.strip() for p in raw.split(',') if p.strip()] or None
+    conn = _conn()
+    try:
+        return _ok(home_store.assemble(conn, include=include))
+    finally:
+        conn.close()
+
+
+def _key_numbers():
+    """GET /api/kpi — Key Numbers rows (split from Insight / dashboard)."""
+    import kpi_store
+    conn = _conn()
+    try:
+        return _ok(kpi_store.collect(conn))
+    finally:
+        conn.close()
+
+
+def _insight():
+    """GET /api/insight — site profit / progress / material budget."""
+    import insight_store
+    conn = _conn()
+    try:
+        return _ok(insight_store.assemble(conn))
+    finally:
+        conn.close()
+
+
+def _gst_export(request):
+    """GET /api/gst/export?month=YYYY-MM — CA CSV/HTML pack."""
+    import gst_export
+    month = ((request.query or {}).get('month') or '').strip()
+    conn = _conn()
+    try:
+        return _ok(gst_export.pack(conn, month))
+    finally:
+        conn.close()
+
+
+def _risks_detect(request, sess):
+    """POST /api/risks/detect — {apply?} run risk_detect over live snapshot."""
+    import risk_accept
+    body = _payload(request)
+    apply = bool(body.get('apply'))
+    if apply:
+        denied = _require_write(request, sess)
+        if denied:
+            return denied
+    conn = _conn()
+    try:
+        result = risk_accept.detect(
+            conn, apply=apply, username=sess['username'])
+        if apply and result.get('applied_ids'):
+            auth.audit(conn, sess['username'], 'risk_detect_apply', 'risks',
+                       None, detail='applied={}'.format(
+                           len(result['applied_ids'])),
+                       origin=auth.ORIGIN_AI)
+            conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _risks_accept(request, sess):
+    """POST /api/risks/accept — {ids?} and/or {detect_and_apply:true}."""
+    import risk_accept
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    ids = body.get('ids') or body.get('risk_ids') or []
+    detect_and_apply = bool(body.get('detect_and_apply'))
+    status = (body.get('status') or 'Accepted').strip() or 'Accepted'
+    conn = _conn()
+    try:
+        result = risk_accept.accept(
+            conn, risk_ids=ids, detect_and_apply=detect_and_apply,
+            username=sess['username'], status=status)
+        auth.audit(conn, sess['username'], 'risk_accept', 'risks', None,
+                   detail='accepted={}'.format(len(result['accepted_ids'])),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _list_commitments(request):
+    import lookahead_store
+    q = request.query or {}
+    project_id = q.get('project_id') or None
+    site_id = q.get('site_id') or None
+    weeks = q.get('weeks') or None
+    try:
+        project_id = int(project_id) if project_id not in (None, '') else None
+    except (TypeError, ValueError):
+        return _err('project_id must be an integer', 400)
+    try:
+        site_id = int(site_id) if site_id not in (None, '') else None
+    except (TypeError, ValueError):
+        return _err('site_id must be an integer', 400)
+    conn = _conn()
+    try:
+        items = lookahead_store.load_commitments(
+            conn, project_id=project_id, site_id=site_id, weeks=weeks)
+        import commitments_store
+        return _ok({
+            'items': items,
+            'reasons': commitments_store.reasons(),
+            'statuses': ['Done', 'Not done'],
+        })
+    finally:
+        conn.close()
+
+
+def _get_commitment(cid):
+    import commitments_store
+    conn = _conn()
+    try:
+        row = commitments_store.get(conn, cid)
+        if row is None:
+            return _err('Commitment not found', 404)
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _create_commitment(request, sess):
+    import commitments_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    conn = _conn()
+    try:
+        row = commitments_store.create(conn, body)
+        auth.audit(conn, sess['username'], 'api_create', 'commitments',
+                   row['id'], origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row, status=201)
+    finally:
+        conn.close()
+
+
+def _update_commitment(request, sess, cid):
+    import commitments_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    conn = _conn()
+    try:
+        row = commitments_store.update(conn, cid, body)
+        if row is None:
+            return _err('Commitment not found', 404)
+        auth.audit(conn, sess['username'], 'api_update', 'commitments',
+                   cid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _delete_commitment(request, sess, cid):
+    import commitments_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        if commitments_store.get(conn, cid) is None:
+            return _err('Commitment not found', 404)
+        commitments_store.delete(conn, cid)
+        auth.audit(conn, sess['username'], 'api_delete', 'commitments',
+                   cid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'deleted': cid})
+    finally:
+        conn.close()
+
+
+def _mark_commitment(request, sess, cid):
+    import commitments_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    done = body.get('done')
+    if done is None:
+        done = (body.get('status') or '') == 'Done'
+    conn = _conn()
+    try:
+        row = commitments_store.mark_done(
+            conn, cid, done=bool(done), reason=body.get('reason') or '')
+        if row is None:
+            return _err('Commitment not found', 404)
+        auth.audit(conn, sess['username'], 'api_update', 'commitments',
+                   cid, detail='mark_done={}'.format(bool(done)),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _timeline(request):
+    """GET /api/timeline?project_id= — CPM + baseline position."""
+    import timeline_store
+    q = request.query or {}
+    try:
+        pid = int(q.get('project_id') or 0)
+    except (TypeError, ValueError):
+        return _err('project_id required', 400)
+    if pid <= 0:
+        return _err('project_id required', 400)
+    conn = _conn()
+    try:
+        payload = timeline_store.assemble(conn, pid)
+        if payload is None:
+            return _err('Project not found', 404)
+        return _ok(payload)
+    finally:
+        conn.close()
+
+
+def _ra_generate(request, sess):
+    """POST /api/ra_bills/generate — MB snapshot → Draft RA bill."""
+    import ra_generate
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    try:
+        cid = int(body.get('contract_id') or 0)
+    except (TypeError, ValueError):
+        return _err('contract_id required', 400)
+    if cid <= 0:
+        return _err('contract_id required', 400)
+    conn = _conn()
+    try:
+        try:
+            result = ra_generate.generate(
+                conn, cid,
+                bill_date=body.get('bill_date') or '',
+                retention_pct=body.get('retention_pct') or 0,
+                tds_pct=body.get('tds_pct') or 0,
+                cess_pct=body.get('cess_pct') or 0,
+                other_deductions=body.get('other_deductions') or 0)
+        except ValueError as exc:
+            return _err(str(exc), 400)
+        auth.audit(conn, sess['username'], 'ra_generate', 'ra_bills',
+                   result['id'], origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(result, status=201)
+    finally:
+        conn.close()
+
+
+def _list_work_orders():
+    import work_orders_store
+    conn = _conn()
+    try:
+        return _ok({'items': work_orders_store.list_work_orders(conn)})
+    finally:
+        conn.close()
+
+
+def _get_work_order(wid):
+    import work_orders_store
+    conn = _conn()
+    try:
+        row = work_orders_store.get_work_order(conn, wid)
+        if row is None:
+            return _err('Work order not found', 404)
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _create_work_order(request, sess):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    items = body.get('items') if isinstance(body.get('items'), list) else []
+    conn = _conn()
+    try:
+        row = work_orders_store.create_work_order(conn, body, items)
+        auth.audit(conn, sess['username'], 'api_create', 'work_orders',
+                   row['id'], origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row, status=201)
+    finally:
+        conn.close()
+
+
+def _update_work_order(request, sess, wid):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    items = body.get('items') if 'items' in body else None
+    if items is not None and not isinstance(items, list):
+        return _err('items must be a list', 400)
+    conn = _conn()
+    try:
+        row = work_orders_store.update_work_order(conn, wid, body, items)
+        if row is None:
+            return _err('Work order not found', 404)
+        auth.audit(conn, sess['username'], 'api_update', 'work_orders',
+                   wid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _delete_work_order(request, sess, wid):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        if work_orders_store.get_work_order(conn, wid) is None:
+            return _err('Work order not found', 404)
+        work_orders_store.delete_work_order(conn, wid)
+        auth.audit(conn, sess['username'], 'api_delete', 'work_orders',
+                   wid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'deleted': wid})
+    finally:
+        conn.close()
+
+
+def _list_sub_bills(request):
+    import work_orders_store
+    q = request.query or {}
+    wo = q.get('work_order_id') or None
+    try:
+        wo = int(wo) if wo not in (None, '') else None
+    except (TypeError, ValueError):
+        return _err('work_order_id must be an integer', 400)
+    conn = _conn()
+    try:
+        return _ok({'items': work_orders_store.list_sub_bills(conn, wo)})
+    finally:
+        conn.close()
+
+
+def _get_sub_bill(bid):
+    import work_orders_store
+    conn = _conn()
+    try:
+        row = work_orders_store.get_sub_bill(conn, bid)
+        if row is None:
+            return _err('Sub bill not found', 404)
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _create_sub_bill(request, sess):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    conn = _conn()
+    try:
+        try:
+            row = work_orders_store.create_sub_bill(conn, body)
+        except ValueError as exc:
+            return _err(str(exc), 400)
+        auth.audit(conn, sess['username'], 'api_create', 'sub_bills',
+                   row['id'], origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row, status=201)
+    finally:
+        conn.close()
+
+
+def _update_sub_bill(request, sess, bid):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    conn = _conn()
+    try:
+        row = work_orders_store.update_sub_bill(conn, bid, body)
+        if row is None:
+            return _err('Sub bill not found', 404)
+        auth.audit(conn, sess['username'], 'api_update', 'sub_bills',
+                   bid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(row)
+    finally:
+        conn.close()
+
+
+def _delete_sub_bill(request, sess, bid):
+    import work_orders_store
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        if work_orders_store.get_sub_bill(conn, bid) is None:
+            return _err('Sub bill not found', 404)
+        work_orders_store.delete_sub_bill(conn, bid)
+        auth.audit(conn, sess['username'], 'api_delete', 'sub_bills',
+                   bid, origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok({'deleted': bid})
+    finally:
+        conn.close()
+
+
+def _muster_grid(request):
+    """GET /api/muster?site_id=&att_date= — Active labour grid for a day."""
+    import muster_ops
+    q = request.query or {}
+    try:
+        site_id = int(q.get('site_id') or 0)
+    except (TypeError, ValueError):
+        return _err('site_id required', 400)
+    att_date = (q.get('att_date') or '').strip()
+    if site_id <= 0 or not att_date:
+        return _err('site_id and att_date required', 400)
+    conn = _conn()
+    try:
+        try:
+            return _ok(muster_ops.load_grid(conn, site_id, att_date))
+        except ValueError as exc:
+            return _err(str(exc), 400)
+    finally:
+        conn.close()
+
+
+def _muster_save(request, sess):
+    """POST /api/muster — {site_id, att_date, rows:[{labor_id,status,hours}]}."""
+    import muster_ops
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    try:
+        site_id = int(body.get('site_id') or 0)
+    except (TypeError, ValueError):
+        return _err('site_id required', 400)
+    att_date = (body.get('att_date') or '').strip()
+    rows = body.get('rows') if isinstance(body.get('rows'), list) else None
+    if site_id <= 0 or not att_date or rows is None:
+        return _err('site_id, att_date and rows required', 400)
+    conn = _conn()
+    try:
+        try:
+            result = muster_ops.save_grid(conn, site_id, att_date, rows)
+        except ValueError as exc:
+            return _err(str(exc), 400)
+        auth.audit(conn, sess['username'], 'muster_save', 'attendance',
+                   None, detail='saved={}'.format(result['saved']),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
+
+
+def _muster_payout_compute(request):
+    """GET /api/muster/payout?site_id=&week_start= — 7-day wage compute."""
+    import muster_ops
+    q = request.query or {}
+    try:
+        site_id = int(q.get('site_id') or 0)
+    except (TypeError, ValueError):
+        return _err('site_id required', 400)
+    week_start = (q.get('week_start') or '').strip()
+    if site_id <= 0 or not week_start:
+        return _err('site_id and week_start required', 400)
+    conn = _conn()
+    try:
+        try:
+            return _ok(muster_ops.compute_payout(conn, site_id, week_start))
+        except ValueError as exc:
+            return _err(str(exc), 400)
+    finally:
+        conn.close()
+
+
+def _muster_payout_record(request, sess):
+    """POST /api/muster/payout — record cash wage payments (idempotent)."""
+    import muster_ops
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    try:
+        site_id = int(body.get('site_id') or 0)
+    except (TypeError, ValueError):
+        return _err('site_id required', 400)
+    week_start = (body.get('week_start') or '').strip()
+    if site_id <= 0 or not week_start:
+        return _err('site_id and week_start required', 400)
+    rows = body.get('rows') if isinstance(body.get('rows'), list) else None
+    conn = _conn()
+    try:
+        try:
+            result = muster_ops.record_payout(
+                conn, site_id, week_start, rows=rows)
+        except ValueError as exc:
+            return _err(str(exc), 400)
+        auth.audit(conn, sess['username'], 'muster_payout', 'payments',
+                   None, detail='recorded={}'.format(result['recorded']),
+                   origin=auth.ORIGIN_MANUAL)
+        conn.commit()
+        return _ok(result, status=201)
     finally:
         conn.close()
