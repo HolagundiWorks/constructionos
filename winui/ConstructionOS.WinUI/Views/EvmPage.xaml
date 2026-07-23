@@ -5,7 +5,7 @@
     xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI">
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12">
-      <TextBlock Text="Earned Value" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="Earned Value" Style="{StaticResource PageTitleStyle}"/>
       <TextBlock x:Name="Summary" TextWrapping="Wrap"
                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <!-- Per-project cost (CPI) and schedule (SPI) performance. 1.0 = on plan;

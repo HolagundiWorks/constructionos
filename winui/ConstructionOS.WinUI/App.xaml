@@ -23,6 +23,13 @@
       <Color x:Key="SystemAccentColorDark1">#CC3F13</Color>
       <Color x:Key="SystemAccentColorDark2">#992F0E</Color>
       <Color x:Key="SystemAccentColorDark3">#66200A</Color>
+
+      <!-- Page titles: same look as TitleTextBlockStyle, plus a Level-1 heading
+           so screen readers can navigate the shell by page (accessibility). -->
+      <Style x:Key="PageTitleStyle" TargetType="TextBlock"
+             BasedOn="{StaticResource TitleTextBlockStyle}">
+        <Setter Property="AutomationProperties.HeadingLevel" Value="Level1"/>
+      </Style>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

@@ -8,7 +8,7 @@
        for all ten masters. Stock ListView (no DataGrid). -->
   <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
     <TextBlock x:Name="TitleText" Text="Masters"
-               Style="{StaticResource TitleTextBlockStyle}"/>
+               Style="{StaticResource PageTitleStyle}"/>
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
                 HorizontalAlignment="Left" Background="Transparent" IsOpen="False">
       <AppBarButton x:Name="NewButton" Label="New" Click="OnNew">

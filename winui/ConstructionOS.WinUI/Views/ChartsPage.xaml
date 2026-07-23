@@ -8,7 +8,7 @@
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12">
       <TextBlock Text="Charts / Key Numbers"
-                 Style="{StaticResource TitleTextBlockStyle}"/>
+                 Style="{StaticResource PageTitleStyle}"/>
       <TextBlock x:Name="Caption" TextWrapping="Wrap"
                  Text="Money snapshot from GET /api/kpi."/>
       <Border Height="340" Padding="4"

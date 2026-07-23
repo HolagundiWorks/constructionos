@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
     <TextBlock x:Name="TitleText" Grid.Row="0" Text="Weekly review"
-               Style="{StaticResource TitleTextBlockStyle}"/>
+               Style="{StaticResource PageTitleStyle}"/>
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
                 HorizontalAlignment="Left" Background="Transparent">
       <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>

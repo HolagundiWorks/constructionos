@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer>
     <StackPanel Spacing="14" Padding="8">
-      <TextBlock Text="Home" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="Home" Style="{StaticResource PageTitleStyle}"/>
       <TextBlock x:Name="Status"
                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <!-- KPI stat cards (money snapshot from /api/kpi), built in code-behind

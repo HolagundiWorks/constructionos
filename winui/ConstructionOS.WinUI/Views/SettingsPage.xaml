@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12" MaxWidth="520">
-      <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="Settings" Style="{StaticResource PageTitleStyle}"/>
       <TextBlock TextWrapping="Wrap"
                  Text="Localhost API connection. Saved under LocalApplicationData\ACO\winui-settings.json."/>
       <TextBox x:Name="BaseUrlBox" Header="API base URL" PlaceholderText="http://127.0.0.1:8080"/>

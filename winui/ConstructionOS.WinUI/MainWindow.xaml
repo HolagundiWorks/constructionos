@@ -37,6 +37,7 @@
 
       <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="220"
                       PlaceholderText="Search…" VerticalAlignment="Center"
+                      AutomationProperties.Name="Search tabs"
                       TextChanged="Search_TextChanged"
                       SuggestionChosen="Search_SuggestionChosen"
                       QuerySubmitted="Search_QuerySubmitted"/>

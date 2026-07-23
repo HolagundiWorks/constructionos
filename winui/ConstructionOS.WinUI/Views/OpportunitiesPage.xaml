@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid RowDefinitions="Auto,*" Padding="8">
-    <TextBlock Text="Opportunity Register" Style="{StaticResource TitleTextBlockStyle}"/>
+    <TextBlock Text="Opportunity Register" Style="{StaticResource PageTitleStyle}"/>
     <ListView x:Name="Grid" Grid.Row="1" Margin="0,8,0,0" SelectionMode="Single"/>
   </Grid>
 </Page>

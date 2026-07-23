@@ -122,7 +122,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 **Local track — next:**
 - 🚧 **U6 packaging** — backend **auto-launch + PyInstaller sidecar shipped** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed); still to do: the **MSIX package project** (VS 2022) + signing.
 - ⏳ **Wire the richer data the cloud track adds** — CT-6 table metadata (labelled columns + FK names), CT-7 Accounting P&L/BS page, CT-9 Look-ahead page.
-- ⏳ **Accessibility pass** (`AutomationProperties.Name`/`HeadingLevel`) per the coding standard.
+- 🚧 **Accessibility** — page headings (`PageTitleStyle` → `HeadingLevel`), search + control names, decorative icons `Raw` shipped; remaining: keyboard-nav audit, contrast check in the forced-light theme.
 - ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.
 
 ### Cloud track — headless services

@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer Padding="8">
     <StackPanel Spacing="12">
-      <TextBlock Text="Import / capture drafts" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="Import / capture drafts" Style="{StaticResource PageTitleStyle}"/>
       <TextBlock TextWrapping="Wrap"
                  Text="Paste challan, BOQ CSV, or free text. Sidecar OCR/STT is optional — drafts always need human confirm."/>
       <TextBox x:Name="PasteBox" AcceptsReturn="True" Height="160" TextWrapping="Wrap"/>

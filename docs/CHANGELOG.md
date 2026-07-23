@@ -6,6 +6,17 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI (U7): accessibility pass — headings + names
+
+- **Page headings.** A new `PageTitleStyle` (based on `TitleTextBlockStyle` +
+  `AutomationProperties.HeadingLevel=Level1`) is applied to all 19 page titles, so
+  screen readers can navigate the shell by heading. Verified pages still render.
+- **Accessible names.** The search box gets `AutomationProperties.Name="Search
+  tabs"`; the utility icon buttons (Assistant/Process/Tools/Settings) already
+  carry names; ribbon commands + CommandBar buttons expose their `Content`/`Label`.
+- **Decorative icons** (InfoPage glyph) marked `AccessibilityView="Raw"` so
+  they're skipped by assistive tech. Per `.github/instructions/winui3.instructions.md`.
+
 ## 2026-07-23 — WinUI (U6): PyInstaller backend sidecar (ACO.Backend.exe)
 
 - New `winui/build-sidecar.ps1` freezes `web_main.py` into a standalone

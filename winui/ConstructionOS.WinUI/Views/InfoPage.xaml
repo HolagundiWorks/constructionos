@@ -4,10 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid Padding="8" RowDefinitions="Auto,*">
     <TextBlock x:Name="TitleText" Grid.Row="0" Text="Section"
-               Style="{StaticResource TitleTextBlockStyle}"/>
+               Style="{StaticResource PageTitleStyle}"/>
     <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
                 MaxWidth="440" Spacing="12">
       <FontIcon Glyph="&#xE946;" FontSize="32"
+                AutomationProperties.AccessibilityView="Raw"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <TextBlock x:Name="Message" TextWrapping="Wrap" TextAlignment="Center"
                  Style="{StaticResource BodyTextBlockStyle}"

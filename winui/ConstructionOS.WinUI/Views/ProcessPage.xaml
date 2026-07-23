@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer>
     <StackPanel Spacing="8" Padding="8">
-      <TextBlock Text="What's next" Style="{StaticResource TitleTextBlockStyle}"/>
+      <TextBlock Text="What's next" Style="{StaticResource PageTitleStyle}"/>
       <TextBlock x:Name="Status" Text="Loading workflow…"/>
       <ItemsControl x:Name="Flows"/>
     </StackPanel>
