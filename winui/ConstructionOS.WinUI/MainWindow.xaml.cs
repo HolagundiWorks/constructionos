@@ -34,9 +34,35 @@ public sealed partial class MainWindow : Window
     // master, money doc, or a dedicated page.
     private static readonly Dictionary<string, string> TableTabs = new()
     {
+        // Purchases
         ["Purchase Orders"] = "purchase_orders|Purchase orders",
         ["Goods Receipt"] = "goods_receipts|Goods receipts",
+        ["Sourcing"] = "material_requisitions|Requisitions / sourcing",
+        // Operations
+        ["Warehouse"] = "material_ledger|Stock ledger",
+        ["Muster & Wages"] = "attendance|Attendance",
+        ["Labour Ops"] = "payroll|Payroll",
+        ["Equipment Hire"] = "equipment_hire|Equipment hire",
+        ["Plant"] = "plant_logs|Plant logs",
+        ["Consumption"] = "consumption_norms|Consumption norms",
+        ["Site Reports"] = "daily_progress|Daily progress",
+        ["Quality"] = "ncrs|NCRs / quality",
+        ["Safety"] = "incidents|Safety incidents",
+        ["Closeout"] = "snags|Snag list",
+        // Billing
+        ["Rate Analysis"] = "rate_analysis|Rate analysis",
+        ["Takeoff"] = "takeoffs|Takeoffs",
+        ["Bid / No Bid"] = "bid_assessments|Bid / no-bid",
+        ["Quotations"] = "quotations|Quotations",
+        ["Estimates"] = "estimates|Estimates",
+        ["Variations"] = "variations|Variations",
+        // Project Management
+        ["Timeline"] = "timeline_tasks|Timeline",
+        // Money · Accounts
+        ["Approvals"] = "approvals|Approvals",
+        ["Retention"] = "retention_releases|Retention releases",
         ["Compliance"] = "filings/feed|Compliance calendar|events",
+        ["Accounting"] = "journal_entries|Journal entries",
     };
 
     // Money-document menu tabs → the API doc table the one generic MoneyPage

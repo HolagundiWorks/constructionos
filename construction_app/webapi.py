@@ -63,6 +63,18 @@ _API_MASTERS = (
 # Money documents: create + list/get (no edit — records of fact).
 _API_DOCS = tuple(web_docs.DOCS.keys())
 
+# Read-only register tables the WinUI client surfaces as data tables (list only,
+# newest first). A curated whitelist of existing DB tables — no writes, no
+# arbitrary-table access. These back the Operations / Billing / Purchases /
+# Accounts tabs that aren't a master, money doc, or a dedicated computed report.
+_API_TABLES = (
+    'attendance', 'payroll', 'equipment_hire', 'plant_logs', 'consumption_norms',
+    'daily_progress', 'ncrs', 'incidents', 'snags', 'rate_analysis', 'takeoffs',
+    'bid_assessments', 'quotations', 'estimates', 'variations',
+    'material_requisitions', 'approvals', 'retention_releases', 'journal_entries',
+    'timeline_tasks', 'material_ledger',
+)
+
 _RISK_ID = re.compile(r'^risks/(\d+)$')
 _OPP_ID = re.compile(r'^opportunities/(\d+)$')
 _LESSON_ID = re.compile(r'^lessons/(\d+)$')
@@ -124,6 +136,10 @@ def handle(request, sess):
 
     if path == 'goods_receipts' and method == 'GET':
         return _list_ops_table('goods_receipts')
+
+    # Read-only register tables (Operations/Billing/Purchases/Accounts).
+    if path in _API_TABLES and method == 'GET':
+        return _list_ops_table(path)
 
     if path == 'match' and method == 'GET':
         return _three_way_match(request)
@@ -1120,11 +1136,18 @@ def _filings_feed(request):
 
 
 def _list_ops_table(table):
+    """Read-only list of a whitelisted register table (newest first when the
+    table has an ``id``; otherwise natural order). No writes here."""
     conn = _conn()
     try:
-        rows = conn.execute(
-            'SELECT * FROM "{}" ORDER BY id DESC LIMIT 500'.format(table)
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                'SELECT * FROM "{}" ORDER BY id DESC LIMIT 500'.format(table)
+            ).fetchall()
+        except Exception:  # noqa: BLE001 — table without an ``id`` column
+            rows = conn.execute(
+                'SELECT * FROM "{}" LIMIT 500'.format(table)
+            ).fetchall()
         return _ok({'table': table, 'items': _rows(rows)})
     finally:
         conn.close()

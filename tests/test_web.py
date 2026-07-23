@@ -730,6 +730,25 @@ class TestWebApi(unittest.TestCase):
         titles = [s['title'] for s in menu['sections']]
         self.assertIn('Project Management', titles)
 
+    def test_readonly_register_tables(self):
+        # Every whitelisted read-only register table lists cleanly (200 + items),
+        # even when empty. Writes are rejected (list-only).
+        import webapi
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        self.assertTrue(webapi._API_TABLES)
+        for table in webapi._API_TABLES:
+            resp = self.webapp.handle(self._req('/api/' + table, cookies=cookies))
+            self.assertEqual(resp.status, 200, table)
+            body = self._json(resp)
+            self.assertIn('items', body, table)
+            self.assertIsInstance(body['items'], list, table)
+            # No write route for these tables.
+            resp = self.webapp.handle(self._req(
+                '/api/' + table, 'POST', cookies=cookies,
+                headers={'X-CSRF-Token': csrf}, json_body={'x': 1}))
+            self.assertIn(resp.status, (404, 405), table)
+
     def test_risk_crud_and_csrf(self):
         sid, csrf, _ = self._login()
         cookies = {'cosid': sid}
