@@ -92,6 +92,89 @@ measurements endpoint (CT-3) and asserts the `api_*` rows appear in
 
 ---
 
+## Round 2 — unblock the WinUI client (read-tables + reports + multi-company)
+
+> Context: the WinUI client now renders **columnar data tables** for every
+> endpoint-backed tab and honest placeholders for the rest. It reads the new
+> read-only register whitelist `webapi._API_TABLES` (via `GET /api/<table>` →
+> `_list_ops_table`) as **raw `SELECT *`**, so columns are cryptic and foreign
+> keys show ids. These tasks make those tables/reports first-class and harden the
+> freshly-merged multi-company flow. All headless Python — no `winui/**`.
+
+### CT-6 — Rich metadata for the read-only register tables (read) ⏳
+**Why:** `DataTablePage` renders the `_API_TABLES` registers (`attendance`,
+`payroll`, `plant_logs`, `ncrs`, `incidents`, `snags`, `rate_analysis`,
+`takeoffs`, `estimates`, `quotations`, `variations`, `approvals`,
+`retention_releases`, `journal_entries`, `timeline_tasks`, `material_ledger`, …)
+from raw `SELECT *` — cryptic keys and FK **ids** (`project_id`, `contract_id`,
+`vendor_id`) instead of names. Clients shouldn't hardcode columns or resolve FKs.
+**Do:**
+- Add a pure `construction_app/web_tables.py` with a per-table spec: a human
+  **`label`** and an ordered, curated **`columns`** list
+  (`[{key, label, align:'left'|'right'}]`) for each name in `_API_TABLES`.
+- Resolve foreign keys to display names — reuse the `web_masters.enrich_fields`
+  `fk_sql` idea (add a resolved `project`/`contract`/`vendor`/… name to each row,
+  or map the id→name in place).
+- `webapi._list_ops_table` returns `{table, label, columns, items}` (items with
+  FK names filled). A table absent from the spec falls back to today's raw
+  columns — **never 500**.
+**Done when:** `TestWebApi` asserts a couple of tables return an ordered, labelled
+`columns` list and that an FK column resolves to a name on a seeded row; the raw
+fallback still 200s for an unlisted table; `docs/API.md` documents the shape.
+
+### CT-7 — Accounting reports as JSON: P&L + Balance Sheet (read) ⏳
+**Why:** the WinUI `Accounting` tab currently shows the raw `journal_entries`
+table; the real value is the **P&L** and **Balance Sheet** the desktop already
+computes from the double-entry ledger.
+**Do:** add `GET /api/pnl?period=YYYY-MM|FY` and
+`GET /api/balance_sheet?as_of=YYYY-MM-DD` in `webapi.py`, delegating to the
+**existing pure P&L / Balance-Sheet compute** (the module behind the desktop
+Accounting — reuse it, do **not** reimplement double-entry). Return sectioned
+rows + totals, e.g. `{sections:[{title, cols, rows, total}], grand_total}`.
+Session-gated reads, no writes.
+**Done when:** `TestWebApi` seeds a few documents posted via
+`journal_post.post_all` and asserts the P&L income/expense totals and that the
+Balance Sheet balances (assets = liabilities + equity); `docs/API.md` lists both.
+
+### CT-8 — Column headers on report endpoints (read, thin) ⏳
+**Why:** `/api/gst` returns array-of-arrays with **no headers**, so the WinUI
+`GstPage` hardcodes the column order — brittle if `gst.py` row order changes.
+**Do:** add a `cols` (ordered header names) array to each section of
+`GET /api/gst` (`outward`/`hsn`/`inward`/`tds`), matching the tuple order in
+`gst.py`; do the same for any array-of-arrays report added in CT-7. Pure
+serialisation — no maths.
+**Done when:** `TestWebApi` asserts each GST section has a `cols` whose length
+equals each row's length; `docs/API.md` notes the `cols` contract.
+
+### CT-9 — Look-ahead / PPC endpoint (read) ⏳
+**Why:** the `Look-ahead` tab (weekly planning + PPC) is the last section with no
+JSON API, so the WinUI shows a placeholder.
+**Do:** expose `GET /api/lookahead?project_id=&weeks=` over the **existing pure
+look-ahead / PPC module** (behind the desktop's weekly look-ahead + PPC),
+returning planned-vs-done tasks + the PPC figure. If that compute isn't already
+tkinter-free, extract a pure module with a unit test first (standing rules).
+Session-gated read.
+**Done when:** `TestWebApi` asserts 200 with look-ahead rows + PPC on a seeded
+project; `docs/API.md` updated.
+
+### CT-10 — Multi-company hardening: audit + role-gate + tests ⏳
+**Why:** the company-select login + registry (`company.py`) just merged. Create /
+import / switch / carry-forward move whole books — they must be **audited** and
+**role-gated**, and the flow needs coverage beyond the happy path.
+**Do:**
+- Audit every company operation (`auth.audit`, `origin='manual'`): create,
+  import, switch/select, carry-forward — into the **target** book's `audit_log`
+  (note the source path for carry-forward).
+- Gate create/import/switch to write-capable roles (`ui_guard`); a Viewer may
+  *select* a company (read) but not *create* one.
+- Tests: carry-forward edge cases (table missing in source, empty source,
+  re-register renames rather than duplicates), the `active`/`exists` flags in
+  `GET /api/companies`, and an audited create.
+**Done when:** the new tests are green; `docs/API.md` + `docs/CHANGELOG.md` note
+the audit + role behaviour.
+
+---
+
 ## Not for the cloud agent (local/Windows only)
 WinUI `winui/**` (needs .NET SDK + Windows App SDK), the tkinter GUI smoke tests
 (need a display), MSIX packaging, and installing ML sidecar weights. Those are the
