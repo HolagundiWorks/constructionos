@@ -6,7 +6,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.14` (`GET /api/health` → `{"api":"u0.14","service":"aco"}`)  
+**Version:** `u0.15` (`GET /api/health` → `{"api":"u0.15","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -28,7 +28,7 @@ but not create).
 ## Reads
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | Auth except login; reports `api: u0.14` |
+| GET | `/api/health` | Auth except login; reports `api: u0.15` |
 | GET | `/api/companies` | **Public** company picker list (`exists` included) |
 | GET | `/api/contract` | Endpoint catalogue for clients; includes `chart_bind` |
 | GET | `/api/dashboard` | Snapshot + advisories |
@@ -63,6 +63,8 @@ but not create).
 | GET | `/api/agents` | Multi-agent catalog + workflow list |
 | GET | `/api/agents/{id}` | One agent (tools + examples) |
 | GET | `/api/agents/workflows` | Multi-agent workflow recipes |
+| GET | `/api/agents/provider` | Foundry Local / Azure Foundry status |
+| GET | `/api/agents/eval` | Golden-question catalogue |
 | GET | `/api/sidecar/status` | OCR/STT/VLM stub + live probe |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value; portfolio adds `labels`/`values` (SPI) |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
@@ -88,6 +90,7 @@ hardcoding in the client.
 | POST | `/api/assistant` | NL→SQL ask (Foundry Local; read-only) |
 | POST | `/api/agents/ask` | Persona agent ask `{question, agent_id?, use_model?}` — **proposals only** |
 | POST | `/api/agents/workflow` | Multi-agent handoff `{workflow_id, context?}` |
+| POST | `/api/agents/eval` | Run golden suite `{use_model?}` |
 | POST/PUT/DELETE | `/api/risks[/{id}]` etc. | Registers + masters (incl. contracts, **measurements**) |
 | POST | `/api/risks/detect` | Live snapshot → detected risks; `{apply:true}` persists drafts |
 | POST | `/api/risks/accept` | `{ids}` and/or `{detect_and_apply:true}` → Accepted |

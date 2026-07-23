@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.14'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.15'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -114,6 +114,12 @@ def handle(request, sess):
         return _agents_list()
     if path == 'agents/workflows' and method == 'GET':
         return _agents_workflows_list()
+    if path == 'agents/provider' and method == 'GET':
+        return _agents_provider()
+    if path == 'agents/eval' and method == 'GET':
+        return _agents_eval_cases()
+    if path == 'agents/eval' and method == 'POST':
+        return _agents_eval_run(request, sess)
     if path == 'agents/ask' and method == 'POST':
         return _agents_ask(request, sess)
     if path == 'agents/workflow' and method == 'POST':
@@ -1139,7 +1145,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.14',
+        'api': 'u0.15',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1156,6 +1162,7 @@ def _api_contract():
             'GET /api/firm', 'GET /api/modules', 'GET /api/assistant/quick',
             'GET /api/parties',
             'GET /api/agents', 'GET /api/agents/{id}', 'GET /api/agents/workflows',
+            'GET /api/agents/provider', 'GET /api/agents/eval',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/work_orders', 'GET /api/sub_bills',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
@@ -1179,6 +1186,7 @@ def _api_contract():
         ],
         'writes': [
             'POST /api/agents/ask', 'POST /api/agents/workflow',
+            'POST /api/agents/eval',
             'POST/PUT/DELETE /api/risks[/{id}]',
             'POST /api/risks/detect', 'POST /api/risks/accept',
             'POST/PUT/DELETE /api/opportunities[/{id}]',
@@ -3368,7 +3376,7 @@ def _muster_payout_record(request, sess):
     finally:
         conn.close()
 
-# ------------------------------------- Foundry multi-agent (u0.14)
+# ------------------------------------- Foundry multi-agent (u0.14 / u0.15)
 def _agents_list():
     import agent_workflows
     import agents_catalog
@@ -3394,6 +3402,42 @@ def _agents_get(agent_id):
 def _agents_workflows_list():
     import agent_workflows
     return _ok({'items': agent_workflows.list_workflows()})
+
+
+def _agents_provider():
+    """GET /api/agents/provider — Foundry Local / Azure Foundry status."""
+    import agent_provider
+    conn = _conn()
+    try:
+        return _ok(agent_provider.status(conn))
+    finally:
+        conn.close()
+
+
+def _agents_eval_cases():
+    """GET /api/agents/eval — list golden questions (no run)."""
+    import agent_eval
+    return _ok({'cases': agent_eval.list_cases()})
+
+
+def _agents_eval_run(request, sess):
+    """POST /api/agents/eval — run golden suite ``{use_model?}``."""
+    import agent_eval
+    body = _payload(request)
+    use_model = body.get('use_model', False)
+    if isinstance(use_model, str):
+        use_model = use_model.lower() in ('1', 'true', 'yes')
+    conn = _conn()
+    try:
+        result = agent_eval.run_suite(conn, use_model=bool(use_model))
+        auth.audit(conn, sess['username'], 'agent_eval', 'agents', None,
+                   detail='passed={}/{}'.format(
+                       result.get('passed'), result.get('total')),
+                   origin=auth.ORIGIN_AI)
+        conn.commit()
+        return _ok(result)
+    finally:
+        conn.close()
 
 
 def _agents_ask(request, sess):

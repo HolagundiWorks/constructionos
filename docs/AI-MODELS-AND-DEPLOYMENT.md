@@ -1,12 +1,21 @@
-# Construction OS — Open-Source AI Models & Server/LAN Deployment
+# ACO — Open-Source AI Models & Server/LAN Deployment
 
 **Which open models do the work, and how the desktop-as-server + browser-on-LAN
 topology runs them**
 
-_Document type: Reference / Solution design (documentation only — no code changes)_
-_Version: 1.0 · Last updated: 2026-07-21 · Prepared by: Human Centric Works_
-_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md) and
-[`AI-DRAWING-TAKEOFF.md`](AI-DRAWING-TAKEOFF.md). Status: [`ROADMAP.md`](ROADMAP.md)._
+_Document type: Reference / Solution design_  
+_Version: 1.1 · Last updated: 2026-07-23 · Prepared by: Human Centric Works_  
+_Companion to [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md),
+[`AI-DRAWING-TAKEOFF.md`](AI-DRAWING-TAKEOFF.md), and
+[`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md). Status: [`ROADMAP.md`](ROADMAP.md)._
+
+> **Runtime note (2026-07-22+):** the shipped NL→SQL assistant uses **Microsoft
+> Foundry Local** (OpenAI-compatible localhost daemon + `qwen2.5-coder-1.5b`),
+> not Ollama. Ollama modules were removed. Multi-agent orchestration is
+> documented in [`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md). Sections below
+> that still say “Ollama” describe the *sidecar pattern* historically — treat
+> Foundry Local as the current text/SQL runtime; OCR/STT/VLM remain separate
+> localhost sidecars under `sidecars/`.
 
 ---
 
@@ -57,7 +66,8 @@ this document:
 > **Run the model as a separate local "sidecar" service, and let the pure-stdlib
 > app talk to it over localhost HTTP (`urllib`).**
 
-That is exactly how the shipped AI assistant works: a local **Ollama** server runs
+That is exactly how the shipped AI assistant works: a local **Foundry Local**
+daemon (OpenAI-compatible; formerly Ollama) runs
 the model; the app sends it prompts over `http://localhost:11434` with stdlib
 `urllib` — **no pip dependency crosses into the core** (`assistant.py`,
 `ollama_client.py`). The Windows installer even bundles a model (`qwen2.5-coder:

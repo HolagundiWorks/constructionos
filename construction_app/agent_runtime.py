@@ -1,15 +1,13 @@
 """Agent runtime — route a question to one or more ACO agents and run tools.
 
-No tkinter. Deterministic by default (tools + knowledge retrieve). When Foundry
-Local is available, optionally asks the model for a short plain-language
-summary grounded in tool results — never for writes.
+No tkinter. Deterministic by default (tools + knowledge retrieve). When a
+provider is available (Foundry Local, or Azure Foundry if configured),
+optionally asks for a short plain-language summary — never for writes.
 
-Cloud Azure AI Foundry Agents (Phase C) should implement the same
-``summarize(system, prompt)`` seam as ``foundry_client.generate``.
+See ``agent_provider.py`` and ``docs/AI-FOUNDRY-AGENTS.md``.
 """
 
-import json
-
+import agent_provider
 import agent_tools
 import agents_catalog as catalog
 import knowledge_base
@@ -30,7 +28,7 @@ _ROUTE_HINTS = (
       'delay', 'ld exposure', 'programme'),
      catalog.PLANNING),
     (('cash', 'gst', 'tds', 'invoice', 'retention', 'ageing', 'cash flow',
-      'budget variance', 'payable', 'receivable'),
+      'budget variance', 'payable', 'receivable', 'pnl', 'p&l'),
      catalog.FINANCE),
     (('rfi', 'submittal', 'contract document', 'method statement',
       'correspondence'),
@@ -59,32 +57,6 @@ def route(question, agent_id=None):
     return catalog.EXECUTIVE
 
 
-def _foundry_summarize(agent, question, tool_results, knowledge):
-    """Best-effort Foundry Local narrative; None if engine off / fails."""
-    try:
-        import foundry_client
-        if not foundry_client.available(timeout=0.8):
-            return None
-        system = (
-            'You are the {name} for an Indian construction ERP (ACO). '
-            'Use ONLY the tool JSON and knowledge snippets. Be concise. '
-            'If data is missing, say so. Never invent rupees or dates. '
-            'Remind that money/date actions need human approval.'
-        ).format(name=agent['name'])
-        prompt = (
-            'Question: {q}\n\nKnowledge:\n{k}\n\nTool results (JSON):\n{t}\n\n'
-            'Write 3–8 short sentences for the {audience}.'
-        ).format(
-            q=question or '',
-            k='\n'.join('- ' + s['text'] for s in knowledge) or '(none)',
-            t=json.dumps(tool_results, default=str)[:6000],
-            audience=agent.get('audience') or 'user',
-        )
-        return foundry_client.generate(prompt, system=system, timeout=60)
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def _deterministic_summary(agent, question, tool_results):
     """Offline floor — bullet the tool bases and any headline numbers."""
     lines = [
@@ -101,11 +73,10 @@ def _deterministic_summary(agent, question, tool_results):
             lines.append('• {} — unavailable ({})'.format(
                 name, result.get('error') or 'error'))
             continue
-        # Pull a few scalar headlines when present
         bits = []
         for key in ('cash', 'receivable', 'payable', 'total', 'count',
                     'at_risk', 'ppc', 'first_time_pass_pct',
-                    'attendance_rows_7d', 'takeoff_count'):
+                    'attendance_rows_7d', 'takeoff_count', 'ltifr'):
             if key in result and result[key] is not None:
                 bits.append('{}={}'.format(key, result[key]))
         if 'items' in result and isinstance(result['items'], list):
@@ -122,7 +93,7 @@ def _deterministic_summary(agent, question, tool_results):
 def ask(conn, question, agent_id=None, use_model=True):
     """Run one agent turn: route → tools → knowledge → summary.
 
-    Returns a payload safe for ``GET/POST /api/agents/ask``.
+    Returns a payload safe for ``POST /api/agents/ask``.
     """
     aid = route(question, agent_id=agent_id)
     agent = catalog.get(aid)
@@ -135,15 +106,18 @@ def ask(conn, question, agent_id=None, use_model=True):
         tool_results[tool] = agent_tools.run_tool(tool, conn)
 
     summary = None
+    provider_name = 'deterministic'
     model_used = False
     if use_model:
-        summary = _foundry_summarize(agent, question, tool_results, knowledge)
-        model_used = summary is not None
+        summary, provider_name = agent_provider.summarize(
+            conn, agent, question, tool_results, knowledge)
+        model_used = summary is not None and provider_name != 'none'
     if not summary:
         summary = _deterministic_summary(agent, question, tool_results)
+        if not model_used:
+            provider_name = 'deterministic'
 
     gated = []
-    # Suggest confirm paths when tools mention gated actions
     for result in tool_results.values():
         if isinstance(result, dict) and result.get('gated'):
             gated.append({
@@ -163,19 +137,15 @@ def ask(conn, question, agent_id=None, use_model=True):
         'model_used': model_used,
         'followups': gated,
         'gated_count': len(gated),
-        'provider': 'foundry_local' if model_used else 'deterministic',
+        'provider': provider_name if model_used else 'deterministic',
     }
 
 
 def ask_multi(conn, question, agent_ids=None, use_model=False):
-    """Run several agents (explicit ids or auto route + executive).
-
-    ``use_model`` defaults False here to keep multi-ask cheap offline.
-    """
+    """Run several agents (explicit ids or auto route + executive)."""
     ids = list(agent_ids or [])
     if not ids:
         ids = [route(question), catalog.EXECUTIVE]
-    # Dedupe preserving order
     seen, ordered = set(), []
     for i in ids:
         if i not in seen and catalog.get(i):

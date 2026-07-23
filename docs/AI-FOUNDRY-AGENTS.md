@@ -1,7 +1,7 @@
 # ACO — Azure AI Foundry multi-agent plan
 
 _Product: ACO (Accelerated Construction Operations)._  
-_Status: Phase A (local orchestration) **in progress** · Azure cloud Agents **planned**._  
+_Status: Phase A **done** · Phase A+ (provider + eval) **done** · Phase B/C/D pending._  
 _Related: [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md),
 [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md), [`ROADMAP.md`](ROADMAP.md)._
 
@@ -60,7 +60,7 @@ persona agents sit **beside** it and reuse the same read-only / draft rules.
 
 ## 4. Phased delivery
 
-### Phase A — Local orchestration (this cloud track) ✅ implement now
+### Phase A — Local orchestration ✅
 
 Stdlib domain + API, no Azure subscription required:
 
@@ -70,12 +70,20 @@ Stdlib domain + API, no Azure subscription required:
 3. **Knowledge** — `knowledge_base.py` curated snippets (schema + SOP/product)
    for TF-IDF retrieve (same style as `assistant.SCHEMA_DOCS`).
 4. **Runtime** — `agent_runtime.py`: route question → agent → run tools →
-   assemble answer; optional Foundry Local summarize when engine is up.
-5. **Workflows** — `agent_workflows.py`: multi-agent recipes
-   (`variation_impact`, `procurement_30d`, `executive_brief`).
+   assemble answer; optional model summarize via provider seam.
+5. **Workflows** — `agent_workflows.py`: `variation_impact`, `procurement_30d`,
+   `executive_brief`, `site_daily`, `cash_chase`, `quality_closeout`,
+   `sourcing_award`.
 6. **API** — `GET /api/agents`, `GET /api/agents/{id}`,
    `POST /api/agents/ask`, `POST /api/agents/workflow`.
 7. **Tests + docs** — unit tests; ROADMAP / CHANGELOG / API.md.
+
+### Phase A+ — Provider seam + evaluation ✅ (cloud)
+
+1. **`agent_provider.py`** — `foundry_local` | `azure_foundry` | `none` /
+   `auto`. Azure uses stdlib HTTP + env `ACO_AZURE_FOUNDRY_KEY` (opt-in).
+2. **`agent_eval.py`** — golden questions (routing + tool ok); no model required.
+3. **API** — `GET /api/agents/provider`, `GET|POST /api/agents/eval` (u0.15).
 
 ### Phase B — WinUI surfaces (local Windows)
 

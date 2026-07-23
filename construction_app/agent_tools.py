@@ -379,16 +379,32 @@ def muster_hint(conn):
 
 def incident_summary(conn):
     def run():
+        # Schema has no status column — severity / lost_days / description.
         rows = [dict(r) for r in conn.execute(
-            'SELECT id, incident_date, severity, status, description '
+            'SELECT id, incident_date, severity, description, lost_days '
             'FROM incidents ORDER BY id DESC LIMIT 20')]
         return {'items': rows, 'count': len(rows)}
     return _safe(run, 'Recent HSE incidents')
 
 
+def ltifr_summary(conn):
+    def run():
+        import hse
+        incidents = conn.execute('SELECT * FROM incidents').fetchall()
+        # Hours worked: optional setting or attendance hours as proxy.
+        hours = 0.0
+        try:
+            hours = float(conn.execute(
+                "SELECT COALESCE(SUM(hours),0) FROM attendance"
+            ).fetchone()[0] or 0)
+        except Exception:  # noqa: BLE001
+            hours = 0.0
+        return hse.summarise(incidents, hours_worked=hours)
+    return _safe(run, 'HSE summarise incl. LTIFR when hours known')
+
+
 def open_permits(conn):
     def run():
-        # work_permits table if present
         try:
             rows = [dict(r) for r in conn.execute(
                 "SELECT id, permit_no, status, valid_to FROM work_permits "
@@ -397,6 +413,46 @@ def open_permits(conn):
             rows = []
         return {'items': rows, 'count': len(rows)}
     return _safe(run, 'Open work permits')
+
+
+def quote_compare(conn):
+    def run():
+        import sourcing
+        req = conn.execute(
+            'SELECT requisition_id AS id, COUNT(*) AS n FROM quotes '
+            'GROUP BY requisition_id ORDER BY n DESC, requisition_id DESC '
+            'LIMIT 1').fetchone()
+        if not req:
+            return {'items': [], 'note': 'No quotes recorded yet'}
+        quotes = [dict(r) for r in conn.execute(
+            'SELECT q.*, v.name AS vendor FROM quotes q '
+            'LEFT JOIN vendors v ON v.id = q.vendor_id '
+            'WHERE q.requisition_id = ?', (req['id'],))]
+        compared = sourcing.compare_quotes(quotes)
+        best, note = sourcing.recommendation(quotes)
+        # Ranked may be dict-like quote rows — coerce for JSON.
+        ranked = []
+        for q in (compared.get('ranked') or []):
+            ranked.append(dict(q) if hasattr(q, 'keys') else q)
+        best_out = None
+        if best is not None:
+            best_out = dict(best) if hasattr(best, 'keys') else best
+        return {
+            'requisition_id': req['id'],
+            'priced': compared.get('priced'),
+            'spread': compared.get('spread'),
+            'ranked': ranked,
+            'recommendation': best_out,
+            'note': note,
+        }
+    return _safe(run, 'Quote comparison for busiest requisition')
+
+
+def pnl_hint(conn):
+    def run():
+        import reports_store
+        return reports_store.pnl_payload(conn, period=None)
+    return _safe(run, 'P&L snapshot (current / default period)')
 
 
 def top_risks(conn):
@@ -455,7 +511,10 @@ TOOLS = {
     'inspection_pass_rate': inspection_pass_rate,
     'muster_hint': muster_hint,
     'incident_summary': incident_summary,
+    'ltifr_summary': ltifr_summary,
     'open_permits': open_permits,
+    'quote_compare': quote_compare,
+    'pnl_hint': pnl_hint,
     'top_risks': top_risks,
     'advisories': advisories,
 }

@@ -96,13 +96,74 @@ WORKFLOWS = {
              'title': 'Site status'},
             {'agent': catalog.DOCUMENT, 'tools': ('open_rfis',),
              'title': 'Blocking RFIs'},
-            {'agent': catalog.SAFETY, 'tools': ('incident_summary', 'open_permits'),
+            {'agent': catalog.SAFETY, 'tools': ('incident_summary', 'open_permits',
+                                               'ltifr_summary'),
              'title': 'Safety'},
         ),
         'gated_followups': (
             {
                 'action': 'Save today’s muster / DPR after review',
                 'where': 'Operations › Muster',
+                'gated': True,
+            },
+        ),
+    },
+    'cash_chase': {
+        'name': 'Cash chase',
+        'summary': 'Receivables ageing + retention due + cash forecast.',
+        'steps': (
+            {'agent': catalog.FINANCE, 'tools': ('money_snapshot', 'ageing_summary',
+                                                 'retention_due', 'cashflow_hint'),
+             'title': 'Money pressure'},
+            {'agent': catalog.DOCUMENT, 'tools': ('contract_list',),
+             'title': 'Contracts to bill against'},
+            {'agent': catalog.EXECUTIVE, 'tools': ('advisories',),
+             'title': 'Owner actions'},
+        ),
+        'gated_followups': (
+            {
+                'action': 'Draft collection calls / RA bill generation for review',
+                'where': 'Billing › RA Bills',
+                'gated': True,
+            },
+        ),
+    },
+    'quality_closeout': {
+        'name': 'Quality close-out',
+        'summary': 'NCRs, snags, inspections, then executive risk view.',
+        'steps': (
+            {'agent': catalog.SITE, 'tools': ('open_ncrs', 'open_snags',
+                                              'inspection_pass_rate'),
+             'title': 'Quality register'},
+            {'agent': catalog.SAFETY, 'tools': ('incident_summary',),
+             'title': 'Related HSE pressure'},
+            {'agent': catalog.EXECUTIVE, 'tools': ('top_risks', 'advisories'),
+             'title': 'Board brief'},
+        ),
+        'gated_followups': (
+            {
+                'action': 'Close NCRs / snags after site sign-off',
+                'where': 'Operations › Quality / Closeout',
+                'gated': True,
+            },
+        ),
+    },
+    'sourcing_award': {
+        'name': 'Sourcing award pack',
+        'summary': 'Quote compare + vendor flags + cash check before PO.',
+        'steps': (
+            {'agent': catalog.PROCUREMENT, 'tools': ('quote_compare', 'vendor_flags',
+                                                     'requisition_open'),
+             'title': 'Sourcing'},
+            {'agent': catalog.FINANCE, 'tools': ('money_snapshot', 'cashflow_hint'),
+             'title': 'Can we pay?'},
+            {'agent': catalog.EXECUTIVE, 'tools': ('advisories',),
+             'title': 'Approve award'},
+        ),
+        'gated_followups': (
+            {
+                'action': 'Mark selected quote and draft PO for human confirm',
+                'where': 'Purchases › Sourcing / Purchase Orders',
                 'gated': True,
             },
         ),

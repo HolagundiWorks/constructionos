@@ -6607,6 +6607,19 @@ class TestFoundryAgents(unittest.TestCase):
         self.assertEqual(len(out['steps']), 7)
         self.assertGreaterEqual(out['gated_count'], 1)
 
+    def test_provider_status_and_eval_suite(self):
+        import agent_eval
+        import agent_provider
+        conn = self.db.get_conn()
+        try:
+            st = agent_provider.status(conn)
+            self.assertIn(st['active'], ('none', 'foundry_local', 'azure_foundry'))
+            suite = agent_eval.run_suite(conn, use_model=False)
+        finally:
+            conn.close()
+        self.assertEqual(suite['failed'], 0, suite['results'])
+        self.assertEqual(suite['passed'], suite['total'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

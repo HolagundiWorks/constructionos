@@ -59,7 +59,7 @@ AGENTS = (
         'audience': 'Buyer',
         'summary': 'PO / GRN match, vendor risk, next-period demand hints.',
         'tools': ('match_summary', 'open_pos', 'vendor_flags',
-                  'requisition_open'),
+                  'requisition_open', 'quote_compare'),
         'examples': (
             'Prepare procurement for the next 30 days.',
             'Which POs are over-invoiced without a GRN?',
@@ -82,7 +82,7 @@ AGENTS = (
         'audience': 'Owner / CA',
         'summary': 'Cash, ageing, cash-flow, GST/TDS, retention due.',
         'tools': ('money_snapshot', 'ageing_summary', 'cashflow_hint',
-                  'gst_totals', 'retention_due'),
+                  'gst_totals', 'retention_due', 'pnl_hint'),
         'examples': (
             'Expected cash flow next month?',
             'How much retention is due for release?',
@@ -116,7 +116,7 @@ AGENTS = (
         'name': 'Safety Agent',
         'audience': 'HSE',
         'summary': 'Incidents, permits, safety headlines.',
-        'tools': ('incident_summary', 'open_permits'),
+        'tools': ('incident_summary', 'ltifr_summary', 'open_permits'),
         'examples': (
             'Summarise recent incidents.',
             'Any open work permits?',

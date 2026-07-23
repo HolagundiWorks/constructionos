@@ -6,6 +6,18 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — Foundry agents Phase A+ (API u0.15)
+
+Continuation of multi-agent work:
+
+- **`agent_provider.py`** — provider seam (`foundry_local` / `azure_foundry` /
+  `none` / `auto`). Azure is opt-in via settings + `ACO_AZURE_FOUNDRY_KEY`.
+- **`agent_eval.py`** — golden routing + tool harness (model optional).
+- Extra tools: `quote_compare`, `ltifr_summary`, `pnl_hint`.
+- Extra workflows: `cash_chase`, `quality_closeout`, `sourcing_award`.
+- API: `GET /api/agents/provider`, `GET|POST /api/agents/eval` — **u0.15**.
+- Docs: `AI-FOUNDRY-AGENTS.md` Phase A+; `AI-MODELS-AND-DEPLOYMENT.md` Foundry note.
+
 ## 2026-07-23 — Foundry multi-agent Phase A (API u0.14)
 
 Plan: [`docs/AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md). ERP stays system of
