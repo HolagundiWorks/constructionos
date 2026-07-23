@@ -167,6 +167,9 @@ def handle(request, sess):
     if path == 'cashflow' and method == 'GET':
         return _cashflow(request)
 
+    if path == 'parties' and method == 'GET':
+        return _parties()
+
     if path == 'gst' and method == 'GET':
         return _gst_report(request)
 
@@ -1064,6 +1067,7 @@ def _api_contract():
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',
             'GET /api/firm', 'GET /api/modules', 'GET /api/assistant/quick',
+            'GET /api/parties',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
             'GET /api/gst?month=',
@@ -1394,6 +1398,22 @@ def _assistant_answer(request):
         return _err('question is required', 400)
     history = body.get('history') if isinstance(body.get('history'), list) else None
     return _ok(assistant.answer(question, history=history))
+
+
+def _parties():
+    """GET /api/parties — per-party balances (receivable + payable) with totals,
+    from ``parties_store`` (billed vs settled = the "baaki"). The internal
+    ``party_id`` is dropped from the display rows."""
+    import parties_store
+    conn = _conn()
+    try:
+        s = parties_store.summary(conn)
+    finally:
+        conn.close()
+    for side in ('receivable', 'payable'):
+        s[side] = [{k: v for k, v in r.items() if k != 'party_id'}
+                   for r in s[side]]
+    return _ok(s)
 
 
 def _cashflow(request):

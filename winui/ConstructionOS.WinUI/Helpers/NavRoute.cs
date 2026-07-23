@@ -17,6 +17,7 @@ public static class NavRoute
         (t => Has(t, "Look-ahead") || Has(t, "Lookahead"), typeof(LookaheadPage)),
         // More specific than the broad "Cash"/"Assistant" routes below — must win.
         (t => Has(t, "Cash Flow") || Has(t, "Cashflow"), typeof(CashFlowPage)),
+        (t => Has(t, "Parties"), typeof(PartiesPage)),
         (t => Has(t, "Assistant"), typeof(AssistantPage)),
         (t => Has(t, "Review"), typeof(ReviewPage)),
         (t => Has(t, "Risk"), typeof(RisksPage)),

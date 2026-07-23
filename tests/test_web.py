@@ -848,6 +848,53 @@ class TestWebApi(unittest.TestCase):
             '/api/risks/{}'.format(rid), cookies=cookies))
         self.assertEqual(resp.status, 404)
 
+    def test_parties_balances(self):
+        """Cash & Parties — per-party receivable/payable balances + totals.
+
+        A client billed via an Approved RA bill and partly received shows the
+        remaining outstanding = billed - settled (the "baaki")."""
+        import json as _json
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+        # Fresh DB -> the shape is right and everything is zero.
+        resp = self.webapp.handle(self._req('/api/parties', cookies=ck))
+        self.assertEqual(resp.status, 200, resp.body)
+        body = self._json(resp)
+        for k in ('receivable', 'payable', 'total_receivable', 'total_payable'):
+            self.assertIn(k, body)
+        self.assertEqual(body['receivable'], [])
+        self.assertEqual(body['total_receivable'], 0.0)
+
+        # Seed a client + contract + approved RA bill + a part receipt.
+        conn = self.db.get_conn()
+        try:
+            cid = conn.execute(
+                "INSERT INTO clients (name) VALUES ('Acme Infra')").lastrowid
+            ctr = conn.execute(
+                "INSERT INTO contracts (client_id, contract_no, contract_value) "
+                "VALUES (?, 'C-1', 500000)", (cid,)).lastrowid
+            conn.execute(
+                "INSERT INTO ra_bills (contract_id, bill_date, net_payable, status) "
+                "VALUES (?, '2026-07-01', 100000, 'Approved')", (ctr,))
+            conn.execute(
+                "INSERT INTO payments (pay_date, direction, party_type, party_id, "
+                "party_name, mode, amount) VALUES "
+                "('2026-07-10', 'Receipt', 'Client', ?, 'Acme Infra', 'Bank', 30000)",
+                (cid,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        resp = self.webapp.handle(self._req('/api/parties', cookies=ck))
+        body = self._json(resp)
+        recv = body['receivable']
+        self.assertEqual(len(recv), 1)
+        self.assertEqual(recv[0]['party'], 'Acme Infra')
+        self.assertEqual(recv[0]['billed'], 100000.0)
+        self.assertEqual(recv[0]['settled'], 30000.0)
+        self.assertEqual(recv[0]['outstanding'], 70000.0)     # baaki
+        self.assertEqual(body['total_receivable'], 70000.0)
+
     def test_assistant_quick_and_ask(self):
         """Assistant endpoints — exact quick answers (no model) + the ask turn
         (returns a friendly error when the AI engine is off, never a fake answer)."""
@@ -1083,6 +1130,7 @@ class TestWebApi(unittest.TestCase):
         self.assertIn('GET /api/firm', c['reads'])
         self.assertIn('GET /api/modules', c['reads'])
         self.assertIn('GET /api/assistant/quick', c['reads'])
+        self.assertIn('GET /api/parties', c['reads'])
         self.assertIn('POST /api/firm', c['writes'])
         self.assertIn('POST /api/modules', c['writes'])
         self.assertIn('POST /api/assistant', c['writes'])

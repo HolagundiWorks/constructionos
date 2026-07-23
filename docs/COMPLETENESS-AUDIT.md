@@ -30,9 +30,15 @@ This report answers two questions:
 > - Currency now shows the ₹ sign + lakh/crore grouping across WinUI / web /
 >   documents (`inr.py`); masters & money-doc tables use real field labels.
 >
+> - **Cash & Parties** no longer lands on the payments list — a real
+>   **PartiesPage** over new `GET /api/parties`, backed by a pure, tested
+>   `parties_store` (per-party billed vs settled = the "baaki", receivable +
+>   payable, with totals). The aggregation was lifted out of the `tab_insight`
+>   GUI callback into a pure module (the project's "maths in pure modules" rule).
+>
 > Still open (this audit's P0/P1): BOQ / RA Bills, Subcontractors (needs a
-> work-orders API), Cash & Parties party statements, Key Numbers vs Insight
-> split, Timeline Gantt, and the read-only → workflow depth for ops/billing.
+> work-orders API), Key Numbers vs Insight split, Timeline Gantt, and the
+> read-only → workflow depth for ops/billing.
 
 ---
 
@@ -91,7 +97,7 @@ thin proxy.
 | **BOQ / RA Bills** | `ImportPage` (paste → BOQ draft APIs) | Measurement Book + RA bill generation + CPWA forms (`tab_boq_ra.py`) | **High** |
 | **Subcontractors** | `MastersPage("thekedars")` | Work orders + subcontractor running bills (`tab_subcontract.py`) | **High** |
 | **Cash Flow** | ~~`MoneyPage`~~ → **`CashFlowPage`** ✅ FIXED | Cash-flow forecast (`tab_cashflow.py`) | ~~High~~ done |
-| **Cash & Parties** | `MoneyPage` (payments) | Party balances / statements (`tab_money.py` views) | **Medium–High** |
+| **Cash & Parties** | ~~`MoneyPage`~~ → **`PartiesPage`** ✅ FIXED | Party balances / statements (`tab_money.py` views) | ~~Medium–High~~ done |
 | **Key Numbers** + **Insight** | Same `ChartsPage` | Separate KPI + analytics surfaces | **Medium** |
 | **Timeline** | `DataTablePage` → `timeline_tasks` | Gantt + CPM + baseline (`tab_timeline.py`) | **Medium** |
 | **~21 ops / billing / purchase tabs** | `DataTablePage` read-only | Full CrudFrame / DocumentFrame / bespoke workflows | **Medium** |
