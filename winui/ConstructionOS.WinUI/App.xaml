@@ -1,12 +1,28 @@
 <Application
     x:Class="ConstructionOS.WinUI.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Light">
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!-- ACO brand accent — Radiant Orange (#FF4F18, = branding.py BRAND_ORANGE)
+           overriding the user's system accent, with a light/dark shade ramp so
+           control hover/pressed/selected states stay on-brand. Keys defined here
+           (not in MergedDictionaries) win over the framework defaults.
+           Alert/severity colours (SystemFillColorCritical/Caution/Success/
+           Attention → InfoBar red/amber/green/blue) are deliberately NOT touched,
+           so status stays semantically correct. Theme is forced Light (above). -->
+      <Color x:Key="SystemAccentColor">#FF4F18</Color>
+      <Color x:Key="SystemAccentColorLight1">#FF7246</Color>
+      <Color x:Key="SystemAccentColorLight2">#FF9574</Color>
+      <Color x:Key="SystemAccentColorLight3">#FFB9A2</Color>
+      <Color x:Key="SystemAccentColorDark1">#CC3F13</Color>
+      <Color x:Key="SystemAccentColorDark2">#992F0E</Color>
+      <Color x:Key="SystemAccentColorDark3">#66200A</Color>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

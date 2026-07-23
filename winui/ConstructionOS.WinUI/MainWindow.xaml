@@ -25,8 +25,7 @@
           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
       <TextBlock Grid.Column="0" Text="ACO"
                  Style="{StaticResource SubtitleTextBlockStyle}"
-                 VerticalAlignment="Center"
-                 ToolTipService.ToolTip="Accelerated Construction Operations"/>
+                 VerticalAlignment="Center"/>
 
       <ScrollViewer Grid.Column="1" VerticalScrollMode="Disabled"
                     VerticalScrollBarVisibility="Disabled"

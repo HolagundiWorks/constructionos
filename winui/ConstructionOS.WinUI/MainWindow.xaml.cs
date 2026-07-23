@@ -80,17 +80,20 @@ public sealed partial class MainWindow : Window
     // A section title absent here is a leaf tab that navigates to itself.
     private readonly Dictionary<string, List<(string Label, string Tag)>> _sectionTabs = new();
 
+    // One-shot timer that defers the shell build until the window has rendered a
+    // few frames, so tree mutation doesn't race first layout (heap-corruption).
+    private DispatcherTimer? _startupTimer;
+
     public MainWindow()
     {
         InitializeComponent();
         // Keep the standard OS title bar above the ribbon.
         ExtendsContentIntoTitleBar = false;
-        // Mica backdrop (Windows 11 signature material). The shell's layers use
-        // semi-transparent theme brushes (Card/Layer fills) so Mica tints through
-        // — see UI-PRINCIPLES §3.4. MicaBackdrop (the stock SystemBackdrop API,
-        // WinAppSDK 1.3+) manages its own DispatcherQueue/activation, so it's a
-        // safe one-liner here.
-        SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        // NOTE: MicaBackdrop was removed — setting a SystemBackdrop at
+        // construction time intermittently contributed to a native 0xc000027b
+        // heap-corruption fail-fast in Microsoft.ui.xaml.dll during the window's
+        // first layout on this Windows App SDK build. A stable shell beats the
+        // Mica material; revisit applying it post-activation if it proves safe.
         // Open wide enough for the ribbon to breathe (the strip scrolls if it
         // still doesn't fit). Set here so nothing resizes the window mid-render.
         try { AppWindow?.Resize(new Windows.Graphics.SizeInt32(1400, 900)); }
@@ -139,17 +142,22 @@ public sealed partial class MainWindow : Window
                 }
 
             Title = $"ACO (api {apiVer})";
-            // Defer the ENTIRE shell build (tabs + utilities + first navigation)
-            // to a later (Low-priority) UI turn. Mutating the visual tree in this
-            // async continuation races the window's first layout pass and
-            // intermittently corrupts the native heap (a 0xc000027b fail-fast in
-            // Microsoft.ui.xaml.dll that no managed handler sees). Building after
-            // the initial layout settles removes the race. (Deferring only the
-            // navigation was enough until the chrome grew — utilities/tooltips/
-            // Mica — so defer the whole build.)
-            DispatcherQueue.TryEnqueue(
-                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => BuildShell(alwaysOn, sectionList));
+            // Build the whole shell only AFTER the window has actually rendered a
+            // few frames. Mutating the visual tree in this async continuation (or
+            // even on a Low-priority enqueue, which can fire mid-composition)
+            // races the window's first layout pass and intermittently corrupts the
+            // native heap — a 0xc000027b fail-fast in Microsoft.ui.xaml.dll that no
+            // managed handler sees. A short one-shot timer waits real wall-clock
+            // time, so first layout is done before any tree mutation.
+            _startupTimer = new DispatcherTimer
+            { Interval = TimeSpan.FromMilliseconds(150) };
+            _startupTimer.Tick += (_, _) =>
+            {
+                _startupTimer!.Stop();
+                _startupTimer = null;
+                BuildShell(alwaysOn, sectionList);
+            };
+            _startupTimer.Start();
         }
         catch (Exception ex)
         {
@@ -157,11 +165,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // Builds the tab strip + utility cluster and selects Home. Runs on a deferred
-    // UI turn (see OnRootLoaded) so no tree mutation races the window's first
-    // layout. Home leads the primary strip; the other always-on helpers and
-    // Settings go to the right-hand utility cluster (Fluent navigation-basics:
-    // keep top-level peers under ~8, hide less-important items).
+    // Builds the tab strip + utility cluster, then defers the first navigation.
+    // Home leads the primary strip; the other always-on helpers and Settings go
+    // to the right-hand utility cluster (Fluent navigation-basics: keep top-level
+    // peers under ~8, hide less-important items).
     private void BuildShell(
         List<string> alwaysOn,
         List<(string Title, List<(string Label, string Tag)> Tabs)> sectionList)
@@ -183,8 +190,13 @@ public sealed partial class MainWindow : Window
         }
         AddUtility("Settings");   // standard gear location, off the strip
 
+        // Defer the first navigation (page load) — loading synchronously here is
+        // the single biggest crash source (it races the just-built strip's layout
+        // and corrupts the native heap). Low-priority enqueue was the best config.
         if (Tabs.Children.Count > 0 && Tabs.Children[0] is ToggleButton first)
-            SelectTab(first);   // Home
+            DispatcherQueue.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () => SelectTab(first));   // Home
     }
 
     private void AddTab(string title)
@@ -196,7 +208,9 @@ public sealed partial class MainWindow : Window
 
     // Always-on helpers (Assistant/Process/Tools) and Settings live as icon
     // buttons in the right-hand cluster — off the primary tab strip, in their
-    // standard location. Icon-only, so each carries a tooltip + automation name.
+    // standard location. Icon-only; the label is the accessible name. (No
+    // ToolTipService here — creating ToolTip popups during the startup build was
+    // implicated in the intermittent 0xc000027b heap-corruption fail-fast.)
     private void AddUtility(string title)
     {
         var btn = new Button
@@ -204,7 +218,6 @@ public sealed partial class MainWindow : Window
             Content = new FontIcon { Glyph = RibbonIcons.Glyph(title), FontSize = 16 },
             Tag = title,
         };
-        ToolTipService.SetToolTip(btn, title);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(btn, title);
         btn.Click += (_, _) => NavigateToUtility(title);
         Utilities.Children.Add(btn);
