@@ -48,24 +48,29 @@ double-clicking one folder.
 > components) — an *explicit, approved* departure from the tkinter /
 > cross-platform / no-pip constraints **for the front-end only**. The **Python
 > domain core + its tests stay** and are reused as a **localhost backend
-> service** (JSON API) the WinUI 3 client calls. See
+> service** (JSON API **u0.12**) the WinUI 3 client calls. See
 > [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
 > [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
-> (Fluent / Windows 11 principles for the WinUI client), and
-> [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md). Until that lands, the
-> tkinter app remains the shipping UI and the constraints above still govern all
-> **domain/backend** work (which the WinUI move does *not* relax). Development
-> now spans **two environments** — a cloud agent (headless Python) and a local
-> Windows box (WinUI 3 / GUI); the roadmap is split accordingly
-> Living status: [`docs/ROADMAP.md`](docs/ROADMAP.md). Cloud vs local split and
-> pending work are listed there (§1 / §2).
+> (Fluent / Windows 11 principles), and
+> [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md). Until WinUI reaches
+> workflow parity, the tkinter app remains a shipping UI; the constraints above
+> still govern all **domain/backend** work (which the WinUI move does *not*
+> relax).
+>
+> **Two environments:** cloud agent (headless Python — domain/API/tests/docs) and
+> local Windows (WinUI / display / .NET / sidecars). **Living status** (done vs
+> pending) is **only** in [`docs/ROADMAP.md`](docs/ROADMAP.md). History:
+> [`docs/CHANGELOG.md`](docs/CHANGELOG.md). Research (single report):
+> [`docs/RESEARCH.md`](docs/RESEARCH.md). Do not recreate deleted status docs
+> (`CLOUD-TASKS`, gap-and-roadmap, completeness audits, split `RESEARCH-*`).
 > Local WinUI work follows the UI principles doc; cloud agents do not invent
 > custom chrome or claim WinUI screenshots from Linux.
+
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**180 Python modules** (**117** of them AST tkinter-free), **85 tables**, **61
-indexes**, and **728 passing tests** (5 skipped without display). Rather than a
+**181 Python modules** (**118** of them AST tkinter-free), **85 tables**, **61
+indexes**, and **738 passing tests** (5 skipped without display). Rather than a
 feature checklist that
 rots, the honest summary is:
 
@@ -113,7 +118,7 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — **117** AST-pure
+- **Business maths lives in pure, tkinter-free modules** — **118** AST-pure
   (includes web). This is the testable core; extend it there rather than burying
   new maths inside GUI callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
@@ -129,7 +134,7 @@ python main.py
 The full sweep used to validate changes, from the repo root:
 
 ```bash
-python -m unittest discover -s tests               # 728 tests (GUI smoke needs display)
+python -m unittest discover -s tests               # 738 tests (GUI smoke needs display)
 cd construction_app && python -m compileall -q .   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
@@ -153,7 +158,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The **117** tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The **118** tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
@@ -907,16 +912,29 @@ invoice numbering and CPM dependencies as "not built" when all shipped. An agent
 reading it would have rebuilt working features.
 
 So: **when you change something described here, update the section in the same
-commit.** To re-check the headline numbers before trusting them:
+commit.** Same rule for `CLAUDE.md` and `docs/ROADMAP.md` status lines.
+
+### Documentation map (agents)
+
+| Need | Use this | Do not |
+|---|---|---|
+| Done vs pending | `docs/ROADMAP.md` | Second roadmap / task backlog files |
+| What changed | `docs/CHANGELOG.md` | Paste shipped narratives into ROADMAP |
+| Market / Fluent / CPWD research | `docs/RESEARCH.md` | Split `RESEARCH-*` / audit / gap-roadmap files |
+| WinUI how-to | `WINUI3-MIGRATION` + `UI-PRINCIPLES` + `.github/instructions/winui3.instructions.md` | Custom chrome “improvements” |
+| Product who/why | `docs/PRODUCT.md` + `docs/BRAND.md` | — |
+
+To re-check the headline numbers before trusting them:
 
 ```bash
 python -m unittest discover -s tests 2>&1 | tail -3        # test count
 ls construction_app/*.py | wc -l                            # module count
+grep -c 'CREATE TABLE IF NOT EXISTS' construction_app/db.py # table count
 grep -c 'CREATE INDEX IF NOT EXISTS' construction_app/db.py # index count
 ```
 
 Module purity (tkinter-free vs GUI) is worth re-deriving with a short `ast`
-script over `construction_app/*.py` rather than trusting the prose in §3.
+script over `construction_app/*.py` rather than trusting the prose in §0 / §1.
 
 And treat **module docstrings with the same suspicion** — at least one
 (`tab_timeline.py`) still describes behaviour the module no longer has (§22).

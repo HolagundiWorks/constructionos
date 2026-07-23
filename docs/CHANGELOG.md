@@ -6,6 +6,15 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-23 — Agent rules & guidelines refresh
+
+- **`CLAUDE.md`** — accurate counts (181 / 118 / 738 / API u0.12); docs map rule
+  (ROADMAP / CHANGELOG / single RESEARCH only); cloud vs local split.
+- **`AGENTS.md`** — fixed broken UI-direction block; refreshed headline counts;
+  §25 documentation map for agents (do not recreate deleted status docs).
+- **`.github/instructions/winui3.instructions.md`** — ACO notes: theme
+  Light/Dark/System, accent policy, no maths in C#, ROADMAP §2 workflow gaps.
+
 ## 2026-07-23 — Single RESEARCH.md; merge PR track into main
 
 - Replaced four research files (competitive, Fluent UI, SOP practice, CPWD
