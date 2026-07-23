@@ -92,7 +92,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.10'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.11'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -127,6 +127,20 @@ def handle(request, sess):
 
     if path == 'filings/feed' and method == 'GET':
         return _filings_feed(request)
+
+    # Tools / settings (Tools rail entry): firm letterhead identity + module
+    # on/off toggles. Reads are open to any session; writes are CSRF + write-gated.
+    if path == 'firm' and method == 'GET':
+        return _firm_get()
+
+    if path == 'firm' and method == 'POST':
+        return _firm_save(request, sess)
+
+    if path == 'modules' and method == 'GET':
+        return _modules_get()
+
+    if path == 'modules' and method == 'POST':
+        return _modules_save(request, sess)
 
     if path == 'purchase_orders' and method == 'GET':
         return _list_ops_table('purchase_orders')
@@ -1027,7 +1041,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.10',
+        'api': 'u0.11',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1040,6 +1054,7 @@ def _api_contract():
             'GET /api/dashboard', 'GET /api/kpi', 'GET /api/review',
             'GET /api/portfolio', 'GET /api/menu?persona=',
             'GET /api/productivity', 'GET /api/filings/feed',
+            'GET /api/firm', 'GET /api/modules',
             'GET /api/purchase_orders', 'GET /api/goods_receipts',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
             'GET /api/gst?month=',
@@ -1075,6 +1090,7 @@ def _api_contract():
             'POST /api/sidecar/extract',
             'POST /api/purchase_orders',
             'POST /api/allocations',
+            'POST /api/firm', 'POST /api/modules',
             'POST/PUT/DELETE /api/{master}[/{id}]',
             'POST /api/{doc}  (create only: payments, tax_invoices, …)',
             'POST /api/events', 'POST /api/signals/feed',
@@ -1146,6 +1162,84 @@ def _filings_feed(request):
         'events': events,
         'gated_count': sum(e.get('gated_count', 0) for e in events),
     })
+
+
+def _firm_get():
+    """GET /api/firm — the firm's letterhead identity fields for an editable
+    form: ``{fields: [{key, label, value}]}`` in ``firm.FIELDS`` order."""
+    import firm
+    conn = _conn()
+    try:
+        saved = {r['key']: (r['value'] or '') for r in conn.execute(
+            "SELECT key, value FROM app_settings WHERE key LIKE 'firm_%' "
+            "OR key IN ('company_name', 'seller_gstin', 'seller_address')")}
+    finally:
+        conn.close()
+    return _ok({'fields': [
+        {'key': k, 'label': label, 'value': saved.get(k, '')}
+        for k, label in firm.FIELDS]})
+
+
+def _firm_save(request, sess):
+    """POST /api/firm — persist the firm letterhead fields (whitelisted to
+    ``firm.FIELDS`` keys). Returns the saved fields."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    import firm
+    body = _payload(request)
+    body.pop('csrf', None)
+    allowed = {k for k, _ in firm.FIELDS}
+    conn = _conn()
+    try:
+        for key in allowed:
+            if key in body:
+                conn.execute(
+                    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                    (key, str(body.get(key) or '').strip()))
+        conn.commit()
+    finally:
+        conn.close()
+    return _firm_get()
+
+
+def _modules_get():
+    """GET /api/modules — per-section module on/off states (absent = enabled),
+    for the Tools toggle grid: ``{sections: [{title, tabs:[{label, enabled}]}]}``."""
+    conn = _conn()
+    try:
+        states = modules.enabled_map(conn)
+    finally:
+        conn.close()
+    return _ok({'sections': [
+        {'title': title,
+         'tabs': [{'label': label, 'enabled': states.get(label, True)}
+                  for label in labels]}
+        for title, labels in modules.SECTIONS_CATALOG]})
+
+
+def _modules_save(request, sess):
+    """POST /api/modules — persist a ``{states: {label: bool}}`` map (whitelisted
+    to real catalog labels). Hidden modules drop out of the menu next login."""
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    body.pop('csrf', None)
+    states = body.get('states')
+    if not isinstance(states, dict):
+        return _err('states must be an object of label -> bool', 400)
+    valid = set(modules.ALL_MODULES)
+    clean = {k: bool(v) for k, v in states.items() if k in valid}
+    if not clean:
+        return _err('no known module labels in states', 400)
+    conn = _conn()
+    try:
+        modules.set_states(conn, clean)
+    finally:
+        conn.close()
+    return _modules_get()
 
 
 def _list_ops_table(table):

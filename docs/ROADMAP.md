@@ -102,14 +102,14 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| **U0** | Backend JSON API (`webapi.py`) over the domain | ✅ shipped (u0.10) |
+| **U0** | Backend JSON API (`webapi.py`) over the domain | ✅ shipped (u0.11) |
 | **U1** | Shell from `/api/menu`; **Excel-style ribbon** (ToggleButton tab strip + AppBarButton icon band, no dropdowns); search palette | ✅ built + runs |
 | **U2** | Masters — one generic register page: columnar tables + `FieldForm` CRUD with FK pickers | ✅ built + runs |
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
 | **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS**, **Weekly Review**, **Accounting** (P&L / Balance Sheet / Journal) + **Look-ahead** (PPC) report pages; honest placeholders for the rest | ✅ built + runs |
 | **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **signed MSIX ✅** (`build-msix.ps1`: assets → publish → `makeappx` → `signtool`, no VS) | ✅ built (dev-signed) |
-| **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
+| **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **parity pass ✅** (every catalog tab wired incl. **Tools** → firm details + module on/off); remaining: interactive a11y walkthrough, retire tkinter on Windows | 🚧 in progress |
 
 **Shipped on the local track since the last update:**
 - **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
@@ -123,11 +123,13 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 - ✅ **U6 packaging** — backend **auto-launch + PyInstaller sidecar** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed) **and a signed MSIX**: `winui/build-msix.ps1` generates the visual assets, publishes self-contained, bundles the sidecar, packs with `makeappx` and signs with `signtool` — no Visual Studio. Produces a ~77 MB `ACO_1.0.0.0_x64.msix` (dev-signed `CN=Human Centric Works`). **Remaining for release:** swap the self-signed dev cert for a real code-signing cert, and a test install/launch on a clean box.
 - ✅ **Wired the richer data the cloud track adds** — CT-6 table metadata (`Ui.Table` honours the server's `columns`/`cols`: labelled, ordered, right-aligned, FK names), CT-7 **AccountingPage** (P&L / Balance Sheet / Journal), CT-9 **LookaheadPage** (PPC + weekly trend + misses).
 - 🚧 **Accessibility** — page headings (`PageTitleStyle` → `HeadingLevel`), search + control names (incl. the new Accounting period box + Look-ahead per-week bars / stat cards via `AutomationProperties.Name`), decorative icons `Raw`; **contrast measured** — Radiant-Orange `#FF4F18` on white is 3.29:1 (WCAG AA for *large* text only, which is the only place it's used for text). Remaining is inherently interactive: a screen-reader walkthrough and a focus-visual/keyboard pass on a display.
-- ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.
+- ✅ **Parity pass** — every `SECTIONS_CATALOG` tab now resolves to a real page (master / money doc / register / dedicated report). The last always-on gap, **Tools**, is wired: a `ToolsPage` over new `/api/firm` + `/api/modules` (firm letterhead identity + module on/off toggles, CSRF-gated). Still desktop/browser-only (not in the JSON API): backup/restore, invoice-number series, reference-data load, and language — a future Tools follow-up.
+- ⏳ **Retire tkinter on Windows** — blocked until the desktop-only Tools bits above are exposed; a product call.
+- ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump. (Not fixed by churn: needs many interactive launches to verify, so left as a watch item rather than a blind SDK bump.)
 
 ### Cloud track — headless services
 
-- ✅ **C0–C14 / API u0.10** — masters, money docs, EVM, cashflow, ageing, GST, review, chart shapes, the read-only register whitelist (`_API_TABLES`), event hooks, audit origin, signal feed.
+- ✅ **C0–C14 / API u0.11** — masters, money docs, EVM, cashflow, ageing, GST, review, chart shapes, the read-only register whitelist (`_API_TABLES`), event hooks, audit origin, signal feed, Tools settings (`/api/firm`, `/api/modules`).
 - ✅ **Multi-company backend** — registry + carry-forward + company-select login (web + `/api/login` / `/api/companies`).
 - ✅ **CT-6 … CT-10** (see [`CLOUD-TASKS.md`](CLOUD-TASKS.md)): rich register-table metadata + FK names (`web_tables.py`), `/api/pnl` + `/api/balance_sheet` (`reports_store.py`), `cols` headers on reports, `/api/lookahead` (`lookahead_store.py`), multi-company audit. All now consumed by the WinUI client (above).
 

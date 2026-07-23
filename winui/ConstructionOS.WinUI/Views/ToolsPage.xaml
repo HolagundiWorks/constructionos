@@ -1,0 +1,17 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.ToolsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock x:Name="TitleText" Grid.Row="0" Text="Tools"
+               Style="{StaticResource PageTitleStyle}"/>
+    <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
+                HorizontalAlignment="Left" Background="Transparent">
+      <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+    </CommandBar>
+    <InfoBar x:Name="Notice" Grid.Row="2" IsOpen="False" IsClosable="True"/>
+    <ScrollViewer Grid.Row="3">
+      <StackPanel x:Name="Host" Spacing="16"/>
+    </ScrollViewer>
+  </Grid>
+</Page>

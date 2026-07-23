@@ -33,6 +33,7 @@ public static class NavRoute
         (t => Has(t, "Import") || Has(t, "Goods Receipt") || Has(t, "BOQ")
               || Has(t, "Requisition") || Has(t, "Sourcing"), typeof(ImportPage)),
         (t => Has(t, "Settings"), typeof(SettingsPage)),
+        (t => Eq(t, "Tools"), typeof(ToolsPage)),
     };
 
     public static Type Resolve(string? tag) =>

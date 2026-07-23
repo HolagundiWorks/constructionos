@@ -848,6 +848,62 @@ class TestWebApi(unittest.TestCase):
             '/api/risks/{}'.format(rid), cookies=cookies))
         self.assertEqual(resp.status, 404)
 
+    def test_firm_and_modules_settings(self):
+        """Tools endpoints — firm letterhead + module on/off, CSRF-gated."""
+        sid, csrf, _ = self._login()
+        ck = {'cosid': sid}
+
+        # firm: the letterhead fields come back (empty by default).
+        resp = self.webapp.handle(self._req('/api/firm', cookies=ck))
+        self.assertEqual(resp.status, 200)
+        keys = [f['key'] for f in self._json(resp)['fields']]
+        self.assertIn('company_name', keys)
+        self.assertIn('seller_gstin', keys)
+        # save needs CSRF.
+        resp = self.webapp.handle(self._req(
+            '/api/firm', 'POST', cookies=ck,
+            json_body={'company_name': 'Acme Build'}))
+        self.assertEqual(resp.status, 403)
+        # save with CSRF; unknown keys are ignored (whitelist to firm.FIELDS).
+        resp = self.webapp.handle(self._req(
+            '/api/firm', 'POST', cookies=ck,
+            json_body={'company_name': 'Acme Build', 'firm_phone': '9999',
+                       'evil': 'x'},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        saved = {f['key']: f['value'] for f in self._json(resp)['fields']}
+        self.assertEqual(saved['company_name'], 'Acme Build')
+        self.assertEqual(saved['firm_phone'], '9999')
+        self.assertNotIn('evil', saved)
+
+        # modules: all enabled by default.
+        resp = self.webapp.handle(self._req('/api/modules', cookies=ck))
+        self.assertEqual(resp.status, 200)
+        sections = self._json(resp)['sections']
+        self.assertIn('Operations', [s['title'] for s in sections])
+        self.assertTrue(all(t['enabled']
+                            for s in sections for t in s['tabs']))
+        # toggle one off (CSRF required); the change round-trips.
+        resp = self.webapp.handle(self._req(
+            '/api/modules', 'POST', cookies=ck,
+            json_body={'states': {'Plant': False}}))
+        self.assertEqual(resp.status, 403)
+        resp = self.webapp.handle(self._req(
+            '/api/modules', 'POST', cookies=ck,
+            json_body={'states': {'Plant': False}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 200)
+        state = {t['label']: t['enabled']
+                 for s in self._json(resp)['sections'] for t in s['tabs']}
+        self.assertFalse(state['Plant'])
+        self.assertTrue(state['Warehouse'])
+        # an unknown label is not persisted as a module.
+        resp = self.webapp.handle(self._req(
+            '/api/modules', 'POST', cookies=ck,
+            json_body={'states': {'Nonexistent Tab': False}},
+            headers={'X-CSRF-Token': csrf}))
+        self.assertEqual(resp.status, 400)
+
     def test_api_writes_are_audited(self):
         # Every API write must leave an audit row — the store commits the change
         # AND the handler must commit the audit beside it (regression: risk
@@ -989,11 +1045,16 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.10')
+        self.assertEqual(c['api'], 'u0.11')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
         self.assertIn('measurements', c['masters'])
+        # Tools settings endpoints are advertised in the contract.
+        self.assertIn('GET /api/firm', c['reads'])
+        self.assertIn('GET /api/modules', c['reads'])
+        self.assertIn('POST /api/firm', c['writes'])
+        self.assertIn('POST /api/modules', c['writes'])
 
         resp = self.webapp.handle(self._req('/api/portfolio', cookies=cookies))
         self.assertEqual(resp.status, 200)
