@@ -19,6 +19,9 @@ No product code — documentation honesty + strategy:
   Lean/LPS forum themes → ACO implications.
 - **`docs/RESEARCH-OPTIMISATION-AND-PRECISION.md`** — P0–P5 programme to deepen
   power and precision without abandoning the T2 offline wedge.
+- **`docs/RESEARCH-UI-FLUENT-DEEP-DIVE.md`** — WinUI colour palette, appearance
+  (Mica/theme), navigation/workflow vs Microsoft Fluent Design Learn hub;
+  dual-skin policy vs `tokens.py`.
 - Softened `ROADMAP.md` U5/U7 “parity” language; fixed `CLOUD-TASKS.md` CT-9
   stale “placeholder” why-clause; linked pack from `CLAUDE.md`.
 

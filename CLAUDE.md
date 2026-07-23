@@ -72,4 +72,5 @@ roadmap: `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/ENTERPRISE-PM-GAP-AND-ROADMAP.m
 `.github/instructions/winui3.instructions.md` · Product & scope: `docs/PRODUCT.md`
 · Brand identity (mark/wordmark/assets): `docs/BRAND.md` (regenerate art with
 `branding/make-brand.ps1`) · **Audit & research pack:** `docs/RESEARCH-INDEX.md`
-(completeness audit, competitive case study, optimisation/precision programme).
+(completeness audit, competitive case study, optimisation/precision, **Fluent UI
+deep dive**).
