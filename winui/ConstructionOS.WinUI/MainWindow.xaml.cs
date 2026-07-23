@@ -100,6 +100,20 @@ public sealed partial class MainWindow : Window
         // still doesn't fit). Set here so nothing resizes the window mid-render.
         try { AppWindow?.Resize(new Windows.Graphics.SizeInt32(1400, 900)); }
         catch { /* sizing is best-effort */ }
+        ApplyTheme();   // honour the saved Light / Dark / System choice
+    }
+
+    /// <summary>Apply the saved UI theme (Light / Dark / follow-Windows) to the
+    /// whole window at runtime — Fluent "Personal". Called at startup and after a
+    /// Settings change. The brand accent ramp (App.xaml Dark1–3) holds in both.</summary>
+    public void ApplyTheme()
+    {
+        Root.RequestedTheme = (AppSettings.Current.Theme ?? "Light").Trim().ToLowerInvariant() switch
+        {
+            "dark" => ElementTheme.Dark,
+            "system" or "default" or "windows" => ElementTheme.Default,
+            _ => ElementTheme.Light,
+        };
     }
 
     private async void OnRootLoaded(object sender, RoutedEventArgs e) =>

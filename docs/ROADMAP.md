@@ -112,7 +112,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U7** | Persona menus ✅, accessibility (`AutomationProperties`) ✅ mechanical, **parity pass ✅** (every catalog tab is a live page — Tools, Controls registers, EVM/Portfolio/Productivity all real, no placeholders); remaining: interactive a11y walkthrough, retire tkinter on Windows | 🚧 in progress |
 
 **Shipped on the local track since the last update:**
-- **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
+- **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **Light / Dark / follow-Windows** appearance (Settings → Appearance; default Light), alert colours kept semantic — the Fluent "Personal" theme choice from the UI deep-dive.
 - **Excel-style ribbon** replacing the top `NavigationView` (both NavigationView-Top and `SelectorBar` native-crash on this SDK); decluttered top bar (utilities as a right-hand icon cluster, Fluent "<8 peers").
 - **Generic columnar data tables** (`Ui.Table`) for masters, money docs and **~21 read-only registers**; a generic `DataTablePage`. **Every menu tab now resolves to a live, API-backed page** — the crude text-dump pages (Risk/Opportunity/Lessons/Submittals, EVM detail, Portfolio, Productivity) were replaced with real tables + headline cards, and no `InfoPage` placeholder is reachable from the menu.
 - **Multi-company** in the client: a **company picker** in Settings (editable ComboBox from `/api/companies`) whose choice is sent on login (`AppSettings.Company` → `/api/login`), and the **active book shown in the window title** (`ACO — <book>`).

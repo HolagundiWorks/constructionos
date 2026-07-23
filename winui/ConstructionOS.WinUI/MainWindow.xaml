@@ -18,7 +18,7 @@
        AutoSuggestBox) — no custom template, no owner-draw. Strips scroll rather
        than clip on narrow windows. (NavigationView Top / SelectorBar were dropped:
        they fail-fast in Microsoft.ui.xaml.dll with 0xc000027b on this SDK.) -->
-  <Grid RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded">
     <!-- Row 0: brand | primary tabs | search + utilities -->
     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,8,12,8"
           ColumnSpacing="12"

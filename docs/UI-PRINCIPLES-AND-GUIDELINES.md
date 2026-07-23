@@ -31,6 +31,12 @@ When this document and Microsoft’s guidance disagree on a Fluent mechanic,
 Hinglish, plain-language money), **ACO wins** — see
 [`PRODUCT.md`](PRODUCT.md).
 
+**Deep research (gaps, palette, materials, workflow backlog):**
+[`RESEARCH-UI-FLUENT-DEEP-DIVE.md`](RESEARCH-UI-FLUENT-DEEP-DIVE.md) — grounded in
+the same Learn hub ([Design Windows apps](https://learn.microsoft.com/en-us/windows/apps/design/)).
+**Shipped from it:** Light / Dark / follow-Windows appearance (Settings), the
+Assistant/Cash-Flow/Parties routes, and one loading/empty/error recipe.
+
 ---
 
 ## 0. Why this document exists
