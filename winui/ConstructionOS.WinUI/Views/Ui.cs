@@ -57,14 +57,20 @@ internal static class Ui
             rows.Add(row);
         }
         if (rows.Count == 0) return Empty("No records yet.");
-        // id reads best first.
-        if (cols.Remove("id")) cols.Insert(0, "id");
+        // Columns: prefer the server's curated [{key,label,align}] (CT-6 — real
+        // names, ordered, right-aligned numbers); else auto-derive from row keys.
+        var spec = ServerColumns(data);
+        if (spec is null)
+        {
+            if (cols.Remove("id")) cols.Insert(0, "id");
+            spec = cols.ConvertAll(k => new ColSpec(k, Pretty(k), false, true));
+        }
 
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        var header = RowGrid(cols, c => Pretty(c), isHeader: true);
+        var header = SpecRow(spec, c => c.Label, isHeader: true);
         header.Padding = new Thickness(12, 6, 12, 6);
         header.BorderThickness = new Thickness(0, 0, 0, 1);
         header.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)
@@ -79,13 +85,78 @@ internal static class Ui
         };
         foreach (var r in rows)
         {
-            var rg = RowGrid(cols, c => r.TryGetValue(c, out var v) ? v : "", isHeader: false);
+            var rg = SpecRow(spec, c => r.TryGetValue(c.Key, out var v) ? v : "", isHeader: false);
             rg.Padding = new Thickness(0, 2, 0, 2);
             list.Items.Add(rg);
         }
         Grid.SetRow(list, 1);
         root.Children.Add(list);
         return root;
+    }
+
+    // One rendered column: server key + label + right-align, or auto (Pretty
+    // label, per-cell numeric right-align).
+    private sealed record ColSpec(string Key, string Label, bool Right, bool AutoNumeric);
+
+    // Parse the server's curated columns [{key,label,align}] (CT-6). Null if none.
+    private static List<ColSpec>? ServerColumns(JsonElement data)
+    {
+        if (!data.TryGetProperty("columns", out var cs)
+            || cs.ValueKind != JsonValueKind.Array || cs.GetArrayLength() == 0)
+            return null;
+        var spec = new List<ColSpec>();
+        foreach (var c in cs.EnumerateArray())
+        {
+            if (c.ValueKind != JsonValueKind.Object) continue;
+            var key = c.TryGetProperty("key", out var k) ? k.GetString() : null;
+            if (string.IsNullOrEmpty(key)) continue;
+            var label = c.TryGetProperty("label", out var l)
+                && l.ValueKind == JsonValueKind.String ? l.GetString()! : Pretty(key!);
+            var right = c.TryGetProperty("align", out var a)
+                && a.ValueKind == JsonValueKind.String && a.GetString() == "right";
+            spec.Add(new ColSpec(key!, label, right, false));
+        }
+        return spec.Count > 0 ? spec : null;
+    }
+
+    // A grid row from a column spec (header labels or data values). Star columns
+    // (id fixed narrow) so rows align; right-aligns numeric/marked columns.
+    private static Grid SpecRow(IReadOnlyList<ColSpec> spec,
+                                Func<ColSpec, string> text, bool isHeader)
+    {
+        var g = new Grid { ColumnSpacing = 12 };
+        foreach (var s in spec)
+            g.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = s.Key == "id"
+                    ? new GridLength(56) : new GridLength(1, GridUnitType.Star),
+            });
+        for (var i = 0; i < spec.Count; i++)
+        {
+            var s = spec[i];
+            var value = text(s);
+            var tb = new TextBlock
+            {
+                Text = value,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap,
+            };
+            if (isHeader)
+            {
+                tb.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
+                tb.FontWeight = FontWeights.SemiBold;
+                tb.Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    Application.Current.Resources["TextFillColorSecondaryBrush"];
+                if (s.Right) tb.TextAlignment = TextAlignment.Right;
+            }
+            else if (s.Key != "id" && (s.Right || (s.AutoNumeric && IsNumber(value))))
+            {
+                tb.TextAlignment = TextAlignment.Right;
+            }
+            Grid.SetColumn(tb, i);
+            g.Children.Add(tb);
+        }
+        return g;
     }
 
     /// <summary>
