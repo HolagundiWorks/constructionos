@@ -116,7 +116,10 @@ public sealed partial class SettingsPage : Page
         {
             s.Save();
             ApiClient.ResetDefault();
-            Status.Text = "Saved. Re-open Home from the rail to rebuild the menu.";
+            Status.Text = "Saved — reconnecting…";
+            // Re-log in to the (possibly new) company and rebuild the shell in
+            // place, instead of asking the user to re-navigate. Lands on Home.
+            App.MainWindow?.ReloadShell();
         }
         catch (Exception ex)
         {

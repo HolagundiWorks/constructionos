@@ -100,7 +100,16 @@ public sealed partial class MainWindow : Window
         catch { /* sizing is best-effort */ }
     }
 
-    private async void OnRootLoaded(object sender, RoutedEventArgs e)
+    private async void OnRootLoaded(object sender, RoutedEventArgs e) =>
+        await LoadShellAsync(deferred: true);
+
+    /// <summary>Reload the shell after a company/connection change (from
+    /// Settings): re-log in to the (possibly new) company, rebuild the ribbon,
+    /// and refresh the title + page. Synchronous build — the window is already
+    /// up, so there's no first-layout race to defer around.</summary>
+    public async void ReloadShell() => await LoadShellAsync(deferred: false);
+
+    private async Task LoadShellAsync(bool deferred)
     {
         try
         {
@@ -174,15 +183,23 @@ public sealed partial class MainWindow : Window
             // native heap — a 0xc000027b fail-fast in Microsoft.ui.xaml.dll that no
             // managed handler sees. A short one-shot timer waits real wall-clock
             // time, so first layout is done before any tree mutation.
-            _startupTimer = new DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(150) };
-            _startupTimer.Tick += (_, _) =>
+            if (deferred)
             {
-                _startupTimer!.Stop();
-                _startupTimer = null;
+                _startupTimer = new DispatcherTimer
+                { Interval = TimeSpan.FromMilliseconds(150) };
+                _startupTimer.Tick += (_, _) =>
+                {
+                    _startupTimer!.Stop();
+                    _startupTimer = null;
+                    BuildShell(alwaysOn, sectionList);
+                };
+                _startupTimer.Start();
+            }
+            else
+            {
+                // Mid-session reload: window already rendered, no race — build now.
                 BuildShell(alwaysOn, sectionList);
-            };
-            _startupTimer.Start();
+            }
         }
         catch (Exception ex)
         {

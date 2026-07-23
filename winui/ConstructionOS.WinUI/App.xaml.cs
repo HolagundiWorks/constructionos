@@ -13,6 +13,12 @@ public partial class App : Application
 {
     private Window? _window;
 
+    /// <summary>The single main window (per the WinUI 3 desktop convention — use
+    /// this instead of the UWP <c>Window.Current</c>). Lets pages reach the shell
+    /// (e.g. to reload after a company switch) and supply a window handle to
+    /// pickers/dialogs.</summary>
+    public static MainWindow? MainWindow { get; private set; }
+
     // Dev crash log — unhandled UI/CLR/task exceptions land here so a headless
     // launch can be diagnosed without a debugger. Safe to remove for release.
     private static readonly string CrashLog =
@@ -56,7 +62,8 @@ public partial class App : Application
         {
             var settings = AppSettings.Load();
             ApiClient.Default = ApiClient.FromSettings(settings);
-            _window = new MainWindow();
+            MainWindow = new MainWindow();
+            _window = MainWindow;
             _window.Activate();
         }
         catch (Exception ex)

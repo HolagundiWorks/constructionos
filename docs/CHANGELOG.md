@@ -6,6 +6,17 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI: in-session company/connection switch + active book in title
+
+- **Switch company without re-navigating.** Settings → "Save & reconnect" now
+  re-logs in to the (possibly new) company and **rebuilds the shell in place**
+  (`App.MainWindow.ReloadShell()` → re-runs the menu load synchronously since the
+  window is already up), landing on Home — instead of asking the user to re-open
+  Home. Verified live (Settings → Save → Home, 0 crashes).
+- Added the **`App.MainWindow`** static (WinUI 3 desktop convention; replaces the
+  UWP `Window.Current`) so pages can reach the shell and supply a window handle.
+- The **active book** shows in the window title — `ACO — <book> (api uX.Y)`.
+
 ## 2026-07-23 — WinUI: company picker in Settings
 
 - The Settings **Company** field is now an **editable ComboBox** populated from
