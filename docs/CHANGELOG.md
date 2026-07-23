@@ -6,6 +6,18 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI (U6): PyInstaller backend sidecar (ACO.Backend.exe)
+
+- New `winui/build-sidecar.ps1` freezes `web_main.py` into a standalone
+  **`ACO.Backend.exe`** (PyInstaller onefile, ~9 MB, headless — tkinter excluded,
+  no Python install needed) and drops it in the app's `Backend\`. Uses a
+  throwaway venv at a short path (OneDrive paths exceed Windows MAX_PATH during
+  pip) and drops the `hook-workflow.py` that collides with our `workflow.py`
+  module. **Verified end-to-end:** killed the Python backend → the WinUI app
+  auto-launched the bundled `ACO.Backend.exe` (serving process = `ACO.Backend`)
+  and loaded (`ACO — construction`, api u0.9). Only the MSIX package project +
+  signing remain for U6.
+
 ## 2026-07-23 — WinUI (U6): app auto-launches the Python backend sidecar
 
 - New `Services/BackendLauncher.cs` — before the shell loads, if the localhost

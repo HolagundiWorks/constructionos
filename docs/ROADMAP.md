@@ -108,7 +108,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
 | **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS** + **Weekly Review** report pages; honest placeholders for the rest | ✅ built + runs |
-| **U6** | Packaging: backend **auto-launch ✅** (`BackendLauncher`); PyInstaller sidecar + **MSIX** package + signing ⏳ | 🚧 in progress |
+| **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`); **MSIX** package project + signing ⏳ | 🚧 in progress |
 | **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
 
 **Shipped on the local track since the last update:**
@@ -120,7 +120,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 - **Startup native crash** (`0xc000027b` heap corruption) cut to ~0–1/16 via a timer-deferred shell build.
 
 **Local track — next:**
-- 🚧 **U6 packaging** — backend **auto-launch shipped** (`BackendLauncher` starts the sidecar/dev command if the port is free); still to do: PyInstaller `web_main.py` → `ACO.Backend.exe`, the MSIX package project, signing.
+- 🚧 **U6 packaging** — backend **auto-launch + PyInstaller sidecar shipped** (`BackendLauncher` starts the bundled `ACO.Backend.exe`, built by `winui/build-sidecar.ps1`, when the port is free — verified end-to-end, no Python needed); still to do: the **MSIX package project** (VS 2022) + signing.
 - ⏳ **Wire the richer data the cloud track adds** — CT-6 table metadata (labelled columns + FK names), CT-7 Accounting P&L/BS page, CT-9 Look-ahead page.
 - ⏳ **Accessibility pass** (`AutomationProperties.Name`/`HeadingLevel`) per the coding standard.
 - ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.

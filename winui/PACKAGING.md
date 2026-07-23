@@ -11,9 +11,16 @@ localhost sidecar into a signed MSIX. **It does not build on Linux.**
   the `construction_app` working dir). No-op if the port is already listening or
   the API is remote. Verified in a dev run (killed the backend → the app started
   it and loaded).
-- ⏳ **PyInstaller sidecar (step 2)** — build `web_main.py` → `ACO.Backend.exe`
-  via `installer/build.ps1`, drop it under the package's `Backend\`.
-- ⏳ **Packaging project (step 3)** + signing (steps 6) — add in VS 2022.
+- ✅ **PyInstaller sidecar (step 2) — done.** `winui/build-sidecar.ps1` freezes
+  `web_main.py` → a standalone `ACO.Backend.exe` (onefile, ~9 MB, headless — no
+  tkinter, no Python install needed) and drops it in the app's `Backend\`.
+  Throwaway venv at a short path (OneDrive paths blow past MAX_PATH); drops the
+  `hook-workflow.py` that collides with our `workflow.py`. **Verified end-to-end:**
+  killed the Python backend → the app launched the bundled `ACO.Backend.exe`
+  (backend process = `ACO.Backend`, not python) and loaded.
+- ⏳ **Packaging project (step 3)** + signing (step 6) — add a Windows Application
+  Packaging Project in VS 2022 that references the WinUI app and includes
+  `Backend\ACO.Backend.exe`; then sign + distribute.
 
 ## Intended layout (local Windows)
 
