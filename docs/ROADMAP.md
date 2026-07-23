@@ -108,7 +108,7 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 | **U3** | Money/Billing/Purchases — generic `MoneyPage` create+list (Payments, Tax/Vendor Invoices, Running Bills) | ✅ built + runs |
 | **U4** | Dashboard (KPI cards + `InfoBar` advisories) + charts (KPI/cash-flow/ageing/EVM/portfolio, LiveCharts) | ✅ built + runs |
 | **U5** | Controls (Risk/Opportunity/Lessons/Submittals), Process, search; **~50 tabs wired** to tables/forms/charts/reports; **GST & TDS** + **Weekly Review** report pages; honest placeholders for the rest | ✅ built + runs |
-| **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`); **MSIX** package project + signing ⏳ | 🚧 in progress |
+| **U6** | Packaging: backend **auto-launch ✅** + **PyInstaller sidecar ✅** (`ACO.Backend.exe`) + **MSIX manifest scaffolded ✅**; the `.wapproj`/assets/signing finish in VS 2022 ⏳ | 🚧 in progress |
 | **U7** | Parity pass, persona menus, accessibility (`AutomationProperties`), retire tkinter on Windows | ⏳ planned |
 
 **Shipped on the local track since the last update:**

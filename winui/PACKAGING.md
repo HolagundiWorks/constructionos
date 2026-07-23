@@ -18,9 +18,12 @@ localhost sidecar into a signed MSIX. **It does not build on Linux.**
   `hook-workflow.py` that collides with our `workflow.py`. **Verified end-to-end:**
   killed the Python backend → the app launched the bundled `ACO.Backend.exe`
   (backend process = `ACO.Backend`, not python) and loaded.
-- ⏳ **Packaging project (step 3)** + signing (step 6) — add a Windows Application
-  Packaging Project in VS 2022 that references the WinUI app and includes
-  `Backend\ACO.Backend.exe`; then sign + distribute.
+- 🚧 **Packaging project (step 3)** + signing (step 6) — **scaffolded**: a
+  pre-filled `ConstructionOS.Package/Package.appxmanifest` (ACO branding,
+  `runFullTrust`, sidecar notes) + step-by-step `ConstructionOS.Package/README.md`.
+  **Finish in VS 2022** (generate the `.wapproj` + visual assets, reference the
+  WinUI app, bundle `Backend\ACO.Backend.exe`, sign). Not buildable/verifiable
+  headlessly.
 
 ## Intended layout (local Windows)
 

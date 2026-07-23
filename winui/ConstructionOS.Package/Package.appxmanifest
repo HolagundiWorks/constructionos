@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ACO — MSIX package manifest (U6 scaffold).
+
+  Pre-filled for the Windows Application Packaging Project that wraps the WinUI 3
+  client + the PyInstaller backend sidecar. This file is a scaffold: create the
+  packaging project in VS 2022 (it generates its own default manifest + Images),
+  then REPLACE its manifest with this one and finish the TODOs below. It has not
+  been built or signed from the headless dev environment — see README.md.
+
+  Key choices:
+    * rescap:runFullTrust — the WinUi client is a full-trust desktop app and it
+      launches the Python backend sidecar (Process.Start) and talks to it on
+      127.0.0.1; a full-trust package is exempt from the AppContainer loopback
+      block, so localhost works.
+    * The Backend\ACO.Backend.exe sidecar is bundled as package content by the
+      .wapproj (see README.md), and started at runtime by
+      Services/BackendLauncher.cs — nothing needs to be declared here for it.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <!-- TODO: set Publisher to your code-signing certificate's subject (must match
+       exactly), e.g. Publisher="CN=Human Centric Works, O=Human Centric Works, C=IN".
+       Name is the stable package identity (reverse-DNS style). -->
+  <Identity
+    Name="HumanCentricWorks.ACO"
+    Publisher="CN=Human Centric Works"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>ACO</DisplayName>
+    <PublisherDisplayName>Human Centric Works</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.17763.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <!-- $targetnametoken$ / $targetentrypoint$ are resolved by the packaging
+         project from the referenced ConstructionOS.WinUI app. -->
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="ACO"
+        Description="Accelerated Construction Operations — offline ERP for Indian civil contractors"
+        BackgroundColor="transparent"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"
+                         Square71x71Logo="Images\SmallTile.png"
+                         Square310x310Logo="Images\LargeTile.png" />
+        <uap:SplashScreen Image="Images\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Localhost sidecar + full-trust desktop app. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

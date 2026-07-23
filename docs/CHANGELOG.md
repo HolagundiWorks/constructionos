@@ -6,6 +6,16 @@ changed and *where* it lives; `docs/ROADMAP.md` tracks the phase status and
 
 ---
 
+## 2026-07-23 — WinUI (U6): MSIX manifest scaffold
+
+- `winui/ConstructionOS.Package/Package.appxmanifest` — a pre-filled MSIX manifest
+  for the packaging project: ACO identity/branding, `rescap:runFullTrust` (the app
+  launches the localhost sidecar and reaches 127.0.0.1), and `$targetnametoken$`
+  app entry. Plus `ConstructionOS.Package/README.md` with the exact VS 2022 steps
+  (generate `.wapproj` + visual assets, reference the WinUI app, bundle
+  `Backend\ACO.Backend.exe`, sign). The `.wapproj`, asset PNGs, and signing are
+  VS-only — not buildable/verifiable headlessly.
+
 ## 2026-07-23 — WinUI: loading states on the data pages
 
 - `DataTablePage` (the ~21 read-only register tabs) and `MoneyPage` (money docs)
