@@ -115,12 +115,12 @@ coding standard: `.github/instructions/winui3.instructions.md`.
 - **ACO rebrand** (Radiant-Orange `#FF4F18` accent, brand strings in `branding.py`); **light theme only**, alert colours kept semantic.
 - **Excel-style ribbon** replacing the top `NavigationView` (both NavigationView-Top and `SelectorBar` native-crash on this SDK); decluttered top bar (utilities as a right-hand icon cluster, Fluent "<8 peers").
 - **Generic columnar data tables** (`Ui.Table`) for masters, money docs and **~21 read-only registers**; a generic `DataTablePage`; honest `InfoPage` placeholders so no tab dead-ends.
-- **Multi-company** in the client: a **company picker** in Settings (editable ComboBox from `/api/companies`) whose choice is sent on login (`AppSettings.Company` → `/api/login`).
+- **Multi-company** in the client: a **company picker** in Settings (editable ComboBox from `/api/companies`) whose choice is sent on login (`AppSettings.Company` → `/api/login`), and the **active book shown in the window title** (`ACO — <book>`).
 - **Startup native crash** (`0xc000027b` heap corruption) cut to ~0–1/16 via a timer-deferred shell build.
 
 **Local track — next:**
 - ⏳ **U6 MSIX packaging** + PyInstaller sidecar (bundle + launch the Python backend).
-- ⏳ Show the **active company** in the shell (header/status), and re-select without a manual re-navigate.
+- ⏳ **In-session company switch** — re-select a book and reload the shell without a manual re-navigate (today: pick in Settings → Save → re-open Home).
 - ⏳ **Wire the richer data the cloud track adds** — CT-6 table metadata (labelled columns + FK names), CT-7 Accounting P&L/BS page, CT-9 Look-ahead page.
 - ⏳ **Accessibility pass** (`AutomationProperties.Name`/`HeadingLevel`) per the coding standard.
 - ⏳ Residual intermittent startup crash — a WinUI-framework flakiness on this SDK; watch, consider a WindowsAppSDK bump.
