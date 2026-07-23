@@ -152,7 +152,7 @@ No product modules invent KPI zeros to look healthy.
 2. ~~Refresh AGENTS headline counts~~ — refreshed to **180 / 117 / 85 / 728**.  
 3. ~~Fix CLOUD-TASKS CT-9 “placeholder” why-clause~~ — done.  
 4. ~~Align PRODUCT non-goals with shipped optional security~~ — done.  
-5. Mark WINUI3-MIGRATION U0 as u0.11 (still says u0.1 in one cell).  
+5. ~~Mark WINUI3-MIGRATION U0 as u0.11~~ — done.  
 6. SOP-manual / older gap reports: re-check `[gap]` tags against shipped features.
 
 ---
