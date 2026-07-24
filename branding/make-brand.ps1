@@ -9,8 +9,8 @@
 
   This PowerShell script mirrors the same geometry for Windows boxes without Cairo:
 
-    * Outer ring open at bottom → A; middle open at right → C; solid centre → O
-    * All three rings Radiant Orange on transparent (no plate)
+    * Outer ring open at upper-right (~1–2 o'clock); middle open at top (12)
+    * Solid centre disc; uniform stroke; Radiant Orange on transparent
     * Stacked wordmark; A/C/O initials in Radiant Orange
 
   Emits the full asset set into construction_app/resources (or -OutDir).
@@ -46,12 +46,13 @@ $ORANGE_DEEP  = [System.Drawing.Color]::FromArgb(255, 217, 50, 0)     # #D93200
 $INK          = [System.Drawing.Color]::FromArgb(255, 20, 24, 31)     # #14181F
 $WHITE        = [System.Drawing.Color]::White
 
-$CORNER_RATIO = 0.235
-$R_OUTER = 0.335; $W_OUTER = 0.098
-$R_INNER = 0.155; $W_INNER = 0.070; $R_DOT = 0.055
-$GAP_DEG = 78.0
-$OUTER_GAP_CENTER = 90.0   # bottom → A
-$INNER_GAP_CENTER = 0.0    # right  → C
+$STROKE = 0.082
+$R_OUTER = 0.355
+$R_INNER = 0.215
+$R_DOT = 0.072
+$GAP_DEG = 58.0
+$OUTER_GAP_CENTER = 315.0  # ~1:30 o'clock
+$INNER_GAP_CENTER = 270.0  # 12 o'clock
 
 function Get-GapStartSweep([double]$gapCenter) {
     $start = ($gapCenter + $GAP_DEG / 2.0) % 360.0
@@ -72,48 +73,23 @@ function New-Canvas([int]$w, [int]$h) {
 }
 
 function Draw-Mark($g, [single]$cx, [single]$cy, [single]$S, $color, [bool]$shadow = $false) {
-    $rO = $R_OUTER * $S; $wO = $W_OUTER * $S
-    $rI = $R_INNER * $S; $wI = $W_INNER * $S
+    $w = $STROKE * $S
+    $rO = $R_OUTER * $S
+    $rI = $R_INNER * $S
     $rD = $R_DOT * $S
     $o = Get-GapStartSweep $OUTER_GAP_CENTER
     $i = Get-GapStartSweep $INNER_GAP_CENTER
     $oStart = $o[0]; $oSweep = $o[1]
     $iStart = $i[0]; $iSweep = $i[1]
 
-    if ($shadow) {
-        $shadowColor = [System.Drawing.Color]::FromArgb(70, 217, 50, 0)
-        $ox = 0.012 * $S; $oy = 0.016 * $S
-        $penS = New-Object System.Drawing.Pen($shadowColor, [single]$wO)
-        $penS.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-        $penS.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-        $g.DrawArc($penS, [single]($cx + $ox - $rO), [single]($cy + $oy - $rO),
-                   [single](2 * $rO), [single](2 * $rO), $oStart, $oSweep)
-        $penS.Dispose()
-        $penSi = New-Object System.Drawing.Pen($shadowColor, [single]$wI)
-        $penSi.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-        $penSi.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-        $g.DrawArc($penSi, [single]($cx + $ox - $rI), [single]($cy + $oy - $rI),
-                   [single](2 * $rI), [single](2 * $rI), $iStart, $iSweep)
-        $penSi.Dispose()
-        $brS = New-Object System.Drawing.SolidBrush($shadowColor)
-        $g.FillEllipse($brS, [single]($cx + $ox - $rD), [single]($cy + $oy - $rD),
-                       [single](2 * $rD), [single](2 * $rD))
-        $brS.Dispose()
-    }
-
-    $pen = New-Object System.Drawing.Pen($color, [single]$wO)
+    $pen = New-Object System.Drawing.Pen($color, [single]$w)
     $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $pen.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
     $g.DrawArc($pen, [single]($cx - $rO), [single]($cy - $rO),
                [single](2 * $rO), [single](2 * $rO), $oStart, $oSweep)
-    $pen.Dispose()
-
-    $pen2 = New-Object System.Drawing.Pen($color, [single]$wI)
-    $pen2.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen2.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-    $g.DrawArc($pen2, [single]($cx - $rI), [single]($cy - $rI),
+    $g.DrawArc($pen, [single]($cx - $rI), [single]($cy - $rI),
                [single](2 * $rI), [single](2 * $rI), $iStart, $iSweep)
-    $pen2.Dispose()
+    $pen.Dispose()
 
     $br = New-Object System.Drawing.SolidBrush($color)
     $g.FillEllipse($br, [single]($cx - $rD), [single]($cy - $rD),
@@ -128,9 +104,8 @@ function Save-Png($bmp, [string]$name) {
 }
 
 function Make-Square([int]$S, [string]$name) {
-    # Orange ACO mark on transparent — no plate.
     $c = New-Canvas $S $S; $bmp = $c[0]; $g = $c[1]
-    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $ORANGE $true
+    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $ORANGE $false
     if ($name) { Save-Png $bmp $name }
     $g.Dispose()
     return $bmp

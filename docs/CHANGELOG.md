@@ -6,6 +6,13 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Brand mark from source logo (orange only)
+
+Adopted the provided concentric mark geometry as-is; recoloured to Radiant
+Orange `#FF4F18` only. Outer gap upper-right, middle gap top, solid centre;
+uniform stroke; transparent background. Full asset set regenerated
+(`logo_*.png`, `app.ico`, `favicon.png`) via `branding/make_brand.py`.
+
 ## 2026-07-24 — ACO mark openings (A bottom / C right / O centre)
 
 Logo mark now encodes the acronym in openings: outer gap at **bottom** (A),
