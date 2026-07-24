@@ -51,7 +51,7 @@ double-clicking one folder.
 > service** (JSON API **u0.16**) the WinUI 3 client calls. See
 > [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
 > [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
-> (Fluent / Windows 11 principles), and
+> (**Fluent 2** design language), and
 > [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md). Until WinUI reaches
 > workflow parity, the tkinter app remains a shipping UI; the constraints above
 > still govern all **domain/backend** work (which the WinUI move does *not*
@@ -941,7 +941,7 @@ commit.** Same rule for `CLAUDE.md` and `docs/ROADMAP.md` status lines.
 | Done vs pending | `docs/ROADMAP.md` | Second roadmap / task backlog files |
 | What changed | `docs/CHANGELOG.md` | Paste shipped narratives into ROADMAP |
 | Market / Fluent / CPWD research | `docs/RESEARCH.md` | Split `RESEARCH-*` / audit / gap-roadmap files |
-| WinUI how-to | `WINUI3-MIGRATION` + `UI-PRINCIPLES` + `.github/instructions/winui3.instructions.md` | Custom chrome “improvements” |
+| WinUI how-to | `WINUI3-MIGRATION` + `UI-PRINCIPLES` (Fluent 2) + `.github/instructions/winui3.instructions.md` | Custom chrome “improvements” |
 | Product who/why | `docs/PRODUCT.md` + `docs/BRAND.md` | — |
 
 To re-check the headline numbers before trusting them:
