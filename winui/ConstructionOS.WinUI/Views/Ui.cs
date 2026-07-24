@@ -70,6 +70,12 @@ internal static class Ui
             SelectionMode = ListViewSelectionMode.Single,
             Padding = new Thickness(0, 4, 0, 4),
         };
+        // Name the region from the server's curated label so a screen reader can
+        // say which table it is ("Payroll, list") rather than an anonymous list.
+        if (data.TryGetProperty("label", out var lbl)
+            && lbl.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(lbl.GetString()))
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, lbl.GetString());
         foreach (var r in rows)
         {
             var rg = SpecRow(spec, c => r.TryGetValue(c.Key, out var v) ? v : "", isHeader: false);
@@ -158,6 +164,10 @@ internal static class Ui
                 Width = s.Key == "id"
                     ? new GridLength(56) : new GridLength(1, GridUnitType.Star),
             });
+        // A stock ListView can't express a header↔cell relationship, so each data
+        // row also announces itself as one labelled unit (WCAG 1.3.1): screen
+        // readers hear "Date 01-07-2026, Labour Ramesh, Status Present".
+        var spoken = isHeader ? null : new List<string>();
         for (var i = 0; i < spec.Count; i++)
         {
             var s = spec[i];
@@ -189,9 +199,14 @@ internal static class Ui
                 if (s.Key != "id" && (s.Right || (s.AutoNumeric && IsNumber(value))))
                     tb.TextAlignment = TextAlignment.Right;
             }
+            if (spoken != null && !string.IsNullOrWhiteSpace(tb.Text))
+                spoken.Add($"{s.Label} {tb.Text}");
             Grid.SetColumn(tb, i);
             g.Children.Add(tb);
         }
+        if (spoken is { Count: > 0 })
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                g, string.Join(", ", spoken));
         return g;
     }
 
@@ -319,6 +334,44 @@ internal static class Ui
         Margin = new Thickness(4, 12, 4, 4),
     };
 
+    /// <summary>A section subtitle above a table/block — sentence case, one
+    /// elevation level (Fluent: hierarchy by type, not nested boxes). It is also
+    /// a real <b>Level 2 heading</b> in the accessibility tree (WCAG 1.3.1) so a
+    /// screen reader can jump between sections instead of reading a flat page.</summary>
+    public static TextBlock SectionTitle(string text)
+    {
+        var tb = new TextBlock
+        {
+            Text = text,
+            Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"],
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetHeadingLevel(
+            tb, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
+        return tb;
+    }
+
+    /// <summary>The one error recipe: a calm, status-aware sentence (missing
+    /// endpoint vs permission vs session vs server) — never a stack trace.</summary>
+    public static FrameworkElement ErrorNote(Exception ex) => new TextBlock
+    {
+        Text = ApiException.UserMessage(ex),
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = (Microsoft.UI.Xaml.Media.Brush)
+            Application.Current.Resources["TextFillColorSecondaryBrush"],
+    };
+
+    /// <summary>The one "no data yet" recipe — honestly empty, with the next
+    /// step. Distinct from an error and from a missing endpoint.</summary>
+    public static FrameworkElement EmptyNote(string message) => new TextBlock
+    {
+        Text = message,
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = (Microsoft.UI.Xaml.Media.Brush)
+            Application.Current.Resources["TextFillColorSecondaryBrush"],
+        Margin = new Thickness(0, 8, 0, 0),
+    };
+
     /// <summary>A headline stat card — a big value over a caption. The value is
     /// tinted with the brand accent when <paramref name="accent"/>.</summary>
     public static FrameworkElement Stat(string caption, string value, bool accent = false)
@@ -338,7 +391,7 @@ internal static class Ui
             Foreground = (Microsoft.UI.Xaml.Media.Brush)
                 Application.Current.Resources["TextFillColorSecondaryBrush"],
         });
-        return new Border
+        var card = new Border
         {
             Child = stack,
             Background = (Microsoft.UI.Xaml.Media.Brush)
@@ -350,6 +403,10 @@ internal static class Ui
             Padding = new Thickness(16, 12, 16, 12),
             MinWidth = 130,
         };
+        // WCAG 4.1.2 — announce the pair as one fact ("Receivable: ₹70,000"),
+        // not two orphaned strings.
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"{caption}: {value}");
+        return card;
     }
 
     /// <summary>A horizontal strip of stat cards.</summary>

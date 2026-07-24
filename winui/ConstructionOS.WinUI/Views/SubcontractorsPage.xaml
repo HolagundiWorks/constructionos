@@ -1,0 +1,15 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.SubcontractorsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock Grid.Row="0" Text="Subcontractors" Style="{StaticResource PageTitleStyle}"/>
+    <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
+                HorizontalAlignment="Left" Background="Transparent">
+      <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+    </CommandBar>
+    <ScrollViewer Grid.Row="2">
+      <StackPanel x:Name="Host" Spacing="12"/>
+    </ScrollViewer>
+  </Grid>
+</Page>

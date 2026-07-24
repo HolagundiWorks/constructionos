@@ -19,6 +19,17 @@ public static class NavRoute
         (t => Has(t, "Cash Flow") || Has(t, "Cashflow"), typeof(CashFlowPage)),
         (t => Has(t, "Parties"), typeof(PartiesPage)),
         (t => Has(t, "Assistant"), typeof(AssistantPage)),
+        // Purpose-built workflow pages. These sit ahead of the broad
+        // Chart / Capture / Import matchers so a real page always wins over a
+        // generic proxy (the completeness audit's "miswire" class of bug).
+        (t => Has(t, "AI Engine"), typeof(AiEnginePage)),
+        (t => Has(t, "BOQ"), typeof(BoqRaPage)),
+        (t => Has(t, "Goods Receipt"), typeof(MatchPage)),
+        (t => Has(t, "Subcontractor"), typeof(SubcontractorsPage)),
+        (t => Has(t, "Timeline"), typeof(TimelinePage)),
+        (t => Has(t, "Muster"), typeof(MusterPage)),
+        (t => Has(t, "Key Numbers"), typeof(KpiPage)),
+        (t => Has(t, "Insight"), typeof(InsightPage)),
         (t => Has(t, "Review"), typeof(ReviewPage)),
         (t => Has(t, "Risk"), typeof(RisksPage)),
         (t => Has(t, "Opportun"), typeof(OpportunitiesPage)),

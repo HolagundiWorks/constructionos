@@ -1,0 +1,26 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.MusterPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock Grid.Row="0" Text="Muster &amp; wages" Style="{StaticResource PageTitleStyle}"/>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+      <ComboBox x:Name="SiteBox" Header="Site" MinWidth="200"
+                AutomationProperties.Name="Site"
+                SelectionChanged="OnScopeChanged"/>
+      <DatePicker x:Name="DayBox" Header="Day"
+                  AutomationProperties.Name="Attendance day"
+                  DateChanged="OnDayChanged"/>
+      <Button x:Name="SaveButton" Content="Save attendance" Click="OnSave"
+              Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Bottom"/>
+      <Button Content="Weekly payout" Click="OnPayout" VerticalAlignment="Bottom"/>
+    </StackPanel>
+
+    <InfoBar x:Name="Notice" Grid.Row="2" IsOpen="False" IsClosable="True"/>
+
+    <ScrollViewer Grid.Row="3">
+      <StackPanel x:Name="Host" Spacing="12"/>
+    </ScrollViewer>
+  </Grid>
+</Page>

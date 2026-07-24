@@ -1,0 +1,30 @@
+<Page
+    x:Class="ConstructionOS.WinUI.Views.BoqRaPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="8" RowSpacing="8">
+    <TextBlock Grid.Row="0" Text="BOQ &amp; RA bills" Style="{StaticResource PageTitleStyle}"/>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+      <ComboBox x:Name="ContractBox" Header="Contract" MinWidth="240"
+                AutomationProperties.Name="Contract"
+                SelectionChanged="OnContractChanged"/>
+      <DatePicker x:Name="BillDate" Header="Bill date"
+                  AutomationProperties.Name="Bill date"/>
+      <NumberBox x:Name="RetentionBox" Header="Retention %" Value="5"
+                 Minimum="0" Maximum="100" SpinButtonPlacementMode="Compact"
+                 AutomationProperties.Name="Retention percent" Width="130"/>
+      <NumberBox x:Name="TdsBox" Header="TDS %" Value="0"
+                 Minimum="0" Maximum="100" SpinButtonPlacementMode="Compact"
+                 AutomationProperties.Name="TDS percent" Width="110"/>
+      <Button x:Name="GenerateButton" Content="Generate RA bill" Click="OnGenerate"
+              Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Bottom"/>
+    </StackPanel>
+
+    <InfoBar x:Name="Notice" Grid.Row="2" IsOpen="False" IsClosable="True"/>
+
+    <ScrollViewer Grid.Row="3">
+      <StackPanel x:Name="Host" Spacing="12"/>
+    </ScrollViewer>
+  </Grid>
+</Page>

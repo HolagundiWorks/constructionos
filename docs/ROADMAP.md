@@ -87,26 +87,27 @@ changelog.
 
 ## 2. Pending
 
-### 2.1 P0 — WinUI workflow honesty (local Windows)
+### 2.1 P0 — WinUI workflow honesty (local Windows) — ✅ **pages built**
 
-API backends for these landed in **u0.13**; pages still need WinUI wiring.
+All five now have purpose-built pages over the u0.13–u0.15 endpoints; no generic
+proxy is left on a P0 label. Remaining depth per row.
 
-| Item | Why pending |
-|---|---|
-| **BOQ / RA / Measurement Book** page | Still Import-style — wire MB → `POST /api/ra_bills/generate` → print |
-| **Subcontractors** (work orders + sub bills) | Still masters `thekedars` — wire `/api/work_orders` + `/api/sub_bills` |
-| **AI Engine** page | Still CapturePage — Foundry Start/Stop surface |
-| **Goods Receipt / three-way match** UX | Import/table proxies — match + confirm (`GET /api/match` exists) |
-| **Muster → payout** grid | DataTable — wire `GET|POST /api/muster` + `/api/muster/payout` |
+| Item | Page shipped | Remaining depth |
+|---|---|---|
+| **BOQ / RA / Measurement Book** | `BoqRaPage` — contract → BOQ → **Generate RA bill** (Draft) | MB line entry + print |
+| **Subcontractors** (work orders + sub bills) | `SubcontractorsPage` | Create/edit WO + sub bill |
+| **AI Engine** | `AiEnginePage` — provider, model, sidecars, agent/workflow catalog | Start/Stop control |
+| **Goods Receipt / three-way match** | `MatchPage` — at-risk cards + narration + per-PO detail | GRN confirm from the page |
+| **Muster → payout** | `MusterPage` — site+date grid, save marks, weekly payout | Record-payout write |
 
 ### 2.2 P1 — WinUI depth & Tools (local)
 
 | Item | Why pending |
 |---|---|
-| Timeline **Gantt / CPM** view | Table of tasks only — `GET /api/timeline` ready |
-| Key Numbers **vs** Insight split | Both → ChartsPage — `/api/kpi` + `/api/insight` ready |
+| Timeline **Gantt** bars | ✅ `TimelinePage` (CPM summary, critical path, float, plan-vs-CPM); bars still to draw |
+| Key Numbers **vs** Insight split | ✅ Split — `KpiPage` (scorecard + verdicts) and `InsightPage` (3 analytics cuts) |
 | Tools: backup/restore, invoice series, refdata, language, security | Firm + modules only in API/WinUI |
-| Interactive **a11y** walkthrough + keyboard/focus pass | Mechanical names done |
+| Interactive **a11y** walkthrough + keyboard/focus pass | ✅ **WCAG 2.1 AA audit done** — accent contrast measured in *both* themes (light: 4.90:1 button / 7.59:1 accent text; dark: 7.75–12.7:1), Level-2 section headings, named stat cards, table rows announced as labelled units. Screen-reader walkthrough on a live NVDA/Narrator session still manual. |
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 

@@ -26,7 +26,9 @@ public sealed partial class MainWindow : Window
         ["Equipment"] = "equipment", ["Thekedars"] = "thekedars",
         ["Projects"] = "projects", ["Milestones"] = "milestones",
         ["Rate Book"] = "rate_book", ["Contracts"] = "contracts",
-        ["Subcontractors"] = "thekedars", ["Thekedars"] = "thekedars",
+        // "Subcontractors" now routes to SubcontractorsPage (work orders + sub
+        // bills); "Thekedars" stays the labour-contractor master.
+        ["Thekedars"] = "thekedars",
     };
 
     // Read-only register/report tabs → a generic DataTablePage over an API
@@ -34,13 +36,11 @@ public sealed partial class MainWindow : Window
     // master, money doc, or a dedicated page.
     private static readonly Dictionary<string, string> TableTabs = new()
     {
-        // Purchases
+        // Purchases ("Goods Receipt" -> MatchPage: PO/GRN/invoice three-way match)
         ["Purchase Orders"] = "purchase_orders|Purchase orders",
-        ["Goods Receipt"] = "goods_receipts|Goods receipts",
         ["Sourcing"] = "material_requisitions|Requisitions / sourcing",
-        // Operations
+        // Operations ("Muster & Wages" -> MusterPage: the attendance grid + payout)
         ["Warehouse"] = "material_ledger|Stock ledger",
-        ["Muster & Wages"] = "attendance|Attendance",
         ["Labour Ops"] = "payroll|Payroll",
         ["Equipment Hire"] = "equipment_hire|Equipment hire",
         ["Plant"] = "plant_logs|Plant logs",
@@ -56,8 +56,7 @@ public sealed partial class MainWindow : Window
         ["Quotations"] = "quotations|Quotations",
         ["Estimates"] = "estimates|Estimates",
         ["Variations"] = "variations|Variations",
-        // Project Management
-        ["Timeline"] = "timeline_tasks|Timeline",
+        // Project Management ("Timeline" -> TimelinePage: CPM programme view)
         // Money · Accounts
         ["Approvals"] = "approvals|Approvals",
         ["Retention"] = "retention_releases|Retention releases",
