@@ -4,11 +4,12 @@
 Cross-platform canonical generator (Cairo + Pillow). Prefer this over the
 Windows GDI+ twin ``make-brand.ps1`` when either is available.
 
-Design (Fluent 2 product-icon language, M365 2024 refresh cues):
-  * Soft continuous-corner squircle plate
-  * Rich analogous orange gradient (~120°) on the tile
-  * Layered gauge-C mark (open ring + ring + dot) with soft depth shadow
-  * Stacked wordmark in a geometric sans; A/C/O initials in Radiant Orange
+Mark (ACO encoded in openings, all Radiant Orange on transparent):
+  * Outer ring — open at the **bottom** → reads as **A**
+  * Middle ring — open at the **right** → reads as **C**
+  * Centre disc — solid → reads as **O**
+
+Tile / lockups keep Fluent 2 soft plate + stacked wordmark cues.
 
 Requires: python3-cairo, python3-pil (apt: ``python3-cairo python3-pil``).
 Not a runtime app dependency — build/brand tooling only.
@@ -50,13 +51,16 @@ WHITE = (255, 255, 255)
 # Fluent / Windows 11–ish continuous corner (~22–24% of edge)
 CORNER_RATIO = 0.235
 
-# Gauge-C geometry (fractions of reference box S)
+# ACO mark geometry (fractions of reference box S).
+# Angles are GDI-style: 0° = right, 90° = bottom, clockwise.
 R_OUTER = 0.335
 W_OUTER = 0.098
-GAP_DEG = 82.0                  # more open / fluid than the flat 70° mark
-R_INNER = 0.142
-W_INNER = 0.062
-R_DOT = 0.052
+R_INNER = 0.155
+W_INNER = 0.070
+R_DOT = 0.055
+GAP_DEG = 78.0                  # fluid open gap
+OUTER_GAP_CENTER = 90.0         # bottom → A
+INNER_GAP_CENTER = 0.0          # right  → C
 
 WORDS = ('ACCELERATED', 'CONSTRUCTION', 'OPERATIONS')
 
@@ -64,6 +68,13 @@ WORDS = ('ACCELERATED', 'CONSTRUCTION', 'OPERATIONS')
 def _rgba(rgb, a=1.0):
     r, g, b = rgb
     return (r / 255.0, g / 255.0, b / 255.0, a)
+
+
+def _gap_start_sweep(gap_center_deg, gap_deg=GAP_DEG):
+    """Start angle + clockwise sweep so the open gap is centred at gap_center."""
+    start = (gap_center_deg + gap_deg / 2.0) % 360.0
+    sweep = 360.0 - gap_deg
+    return start, sweep
 
 
 def _find_font(size_px):
@@ -98,82 +109,59 @@ def _squircle_path(ctx, x, y, w, h, r):
 
 
 def _arc_path(ctx, cx, cy, radius, start_deg, sweep_deg):
-    """Cairo arcs are CCW from +X; GDI DrawArc used clockwise from +X."""
-    # Match prior GDI: start at start_deg, sweep clockwise sweep_deg.
+    """Stroke an arc clockwise from start_deg (0° = right, 90° = bottom).
+
+    On Cairo image surfaces Y grows downward, so ``arc`` (angles toward +Y)
+    matches GDI-style clockwise sweeps.
+    """
     a0 = math.radians(start_deg)
     a1 = math.radians(start_deg + sweep_deg)
     ctx.new_sub_path()
-    # Cairo: positive angles CCW — negate for clockwise sweep.
-    ctx.arc_negative(cx, cy, radius, -a0, -a1)
+    ctx.arc(cx, cy, radius, a0, a1)
 
 
-def _draw_mark_layers(
-    ctx, cx, cy, S, fill_rgb, *, shadow=False, soft_highlight=False, layered_white=False
-):
-    """Layered gauge-C: outer open ring, inner ring, centre dot."""
+def _draw_mark(ctx, cx, cy, S, fill_rgb, *, soft_depth=False):
+    """ACO mark: outer A (gap bottom), middle C (gap right), solid O centre.
+
+    Always drawn on the current (typically transparent) surface.
+    """
     r_o = R_OUTER * S
     w_o = W_OUTER * S
     r_i = R_INNER * S
     w_i = W_INNER * S
     r_d = R_DOT * S
-    gap = GAP_DEG
-    start = gap / 2.0
-    sweep = 360.0 - gap
+    o_start, o_sweep = _gap_start_sweep(OUTER_GAP_CENTER)
+    i_start, i_sweep = _gap_start_sweep(INNER_GAP_CENTER)
 
-    if shadow:
-        # Soft ambient depth — light from top-left (Fluent / Win icon guidance).
+    if soft_depth:
         ctx.save()
-        ctx.translate(0.022 * S, 0.032 * S)
-        ctx.set_source_rgba(0, 0, 0, 0.22)
-        ctx.set_line_width(w_o * 1.05)
+        ctx.translate(0.012 * S, 0.016 * S)
+        ctx.set_source_rgba(*_rgba(ORANGE_DEEP, 0.28))
         ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-        _arc_path(ctx, cx, cy, r_o, start, sweep)
+        ctx.set_line_width(w_o)
+        _arc_path(ctx, cx, cy, r_o, o_start, o_sweep)
         ctx.stroke()
         ctx.set_line_width(w_i)
-        ctx.new_sub_path()
-        ctx.arc(cx, cy, r_i, 0, 2 * math.pi)
+        _arc_path(ctx, cx, cy, r_i, i_start, i_sweep)
         ctx.stroke()
         ctx.arc(cx, cy, r_d, 0, 2 * math.pi)
         ctx.fill()
         ctx.restore()
 
-    # Outer C — primary layer
-    if layered_white:
-        ctx.set_source_rgba(1.0, 0.98, 0.96, 1.0)  # warm white body
-    else:
-        ctx.set_source_rgba(*_rgba(fill_rgb))
+    ctx.set_source_rgba(*_rgba(fill_rgb))
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+
+    # Outer — A (open bottom)
     ctx.set_line_width(w_o)
-    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-    _arc_path(ctx, cx, cy, r_o, start, sweep)
+    _arc_path(ctx, cx, cy, r_o, o_start, o_sweep)
     ctx.stroke()
 
-    if soft_highlight:
-        # Specular rim on the upper-left arc (fluid / M365 cue).
-        if layered_white:
-            ctx.set_source_rgba(1, 1, 1, 0.85)
-        else:
-            ctx.set_source_rgba(1, 1, 1, 0.40)
-        ctx.set_line_width(w_o * 0.38)
-        ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-        _arc_path(ctx, cx, cy, r_o, 200, 105)
-        ctx.stroke()
-
-    # Inner ring — slightly translucent when layered (separate elevation).
-    if layered_white:
-        ctx.set_source_rgba(1, 1, 1, 0.90)
-    else:
-        ctx.set_source_rgba(*_rgba(fill_rgb))
+    # Middle — C (open right)
     ctx.set_line_width(w_i)
-    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-    ctx.new_sub_path()
-    ctx.arc(cx, cy, r_i, 0, 2 * math.pi)
+    _arc_path(ctx, cx, cy, r_i, i_start, i_sweep)
     ctx.stroke()
 
-    # Centre dot — full opacity focal point
-    if layered_white:
-        ctx.set_source_rgba(1, 1, 1, 1.0)
-    else:
-        ctx.set_source_rgba(*_rgba(fill_rgb))
+    # Centre — O
     ctx.arc(cx, cy, r_d, 0, 2 * math.pi)
     ctx.fill()
 
@@ -186,81 +174,23 @@ def _surface_to_pil(surface):
     return img.copy()
 
 
+def render_mark(S=512, color=ORANGE, *, soft_depth=False):
+    """Orange (or white) ACO mark on transparent background."""
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, S, S)
+    ctx = cairo.Context(surface)
+    ctx.set_antialias(cairo.ANTIALIAS_BEST)
+    _draw_mark(ctx, S / 2.0, S / 2.0, S, color, soft_depth=soft_depth)
+    return _surface_to_pil(surface)
+
+
 def render_tile(S=512):
-    """White layered mark on Fluent orange-gradient squircle."""
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, S, S)
-    ctx = cairo.Context(surface)
-    ctx.set_antialias(cairo.ANTIALIAS_BEST)
-
-    # Rich analogous plate gradient ~120° (M365 2024: exaggerated analogous).
-    pat = cairo.LinearGradient(0.05 * S, 0.02 * S, 0.98 * S, 0.98 * S)
-    pat.add_color_stop_rgba(0.0, *_rgba(ORANGE_LIGHT))
-    pat.add_color_stop_rgba(0.28, *_rgba(ORANGE_MID))
-    pat.add_color_stop_rgba(0.62, *_rgba(ORANGE))
-    pat.add_color_stop_rgba(1.0, *_rgba(ORANGE_DEEP))
-    _squircle_path(ctx, 0, 0, S, S, CORNER_RATIO * S)
-    ctx.set_source(pat)
-    ctx.fill()
-
-    # Soft inner light wash (top-left) + edge falloff — depth without chrome.
-    vig = cairo.RadialGradient(
-        0.34 * S, 0.30 * S, 0.08 * S, 0.52 * S, 0.55 * S, 0.78 * S
-    )
-    vig.add_color_stop_rgba(0.0, 1, 1, 1, 0.18)
-    vig.add_color_stop_rgba(0.45, 1, 1, 1, 0.04)
-    vig.add_color_stop_rgba(1.0, 0, 0, 0, 0.14)
-    _squircle_path(ctx, 0, 0, S, S, CORNER_RATIO * S)
-    ctx.set_source(vig)
-    ctx.fill()
-
-    cx = cy = S / 2.0
-    _draw_mark_layers(
-        ctx, cx, cy, S, WHITE, shadow=True, soft_highlight=True, layered_white=True
-    )
-    return _surface_to_pil(surface)
-
-
-def render_mark(S=512, color=ORANGE, *, with_gradient=False):
-    """Mark on transparent. Optional soft analogous gradient fill."""
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, S, S)
-    ctx = cairo.Context(surface)
-    ctx.set_antialias(cairo.ANTIALIAS_BEST)
-    cx = cy = S / 2.0
-
-    if with_gradient:
-        # Soft elevation only — no glossy tubular rim (Fluent 2 is layered, not bevelled).
-        ctx.save()
-        ctx.translate(0.010 * S, 0.014 * S)
-        ctx.set_source_rgba(*_rgba(ORANGE_DEEP, 0.35))
-        ctx.set_line_width(W_OUTER * S)
-        ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-        start = GAP_DEG / 2.0
-        sweep = 360.0 - GAP_DEG
-        _arc_path(ctx, cx, cy, R_OUTER * S, start, sweep)
-        ctx.stroke()
-        ctx.set_line_width(W_INNER * S)
-        ctx.new_sub_path()
-        ctx.arc(cx, cy, R_INNER * S, 0, 2 * math.pi)
-        ctx.stroke()
-        ctx.arc(cx, cy, R_DOT * S, 0, 2 * math.pi)
-        ctx.fill()
-        ctx.restore()
-        # Primary body in Radiant Orange; light analogous rim on upper-left only.
-        _draw_mark_layers(ctx, cx, cy, S, ORANGE, shadow=False)
-        ctx.set_source_rgba(*_rgba(ORANGE_LIGHT, 0.55))
-        ctx.set_line_width(W_OUTER * S * 0.28)
-        ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-        _arc_path(ctx, cx, cy, R_OUTER * S, 205, 95)
-        ctx.stroke()
-        return _surface_to_pil(surface)
-
-    _draw_mark_layers(ctx, cx, cy, S, color, shadow=False)
-    return _surface_to_pil(surface)
+    """App tile: orange ACO mark on transparent (no plate — mark is the icon)."""
+    return render_mark(S, ORANGE, soft_depth=True)
 
 
 def render_favicon(S=64):
-    """Compact tile: soft gradient plate + white mark (browser / small)."""
-    return render_tile(S)
+    """Browser favicon: orange ACO mark on transparent."""
+    return render_mark(S, ORANGE, soft_depth=False)
 
 
 def _text_width(draw, text, font):
@@ -274,14 +204,12 @@ def render_lockup(mark_color, body_color, *, vertical=False):
     font = _find_font(font_px)
     line_step = int(font_px * 1.28)
 
-    # Measure on a scratch image.
     scratch = Image.new('RGBA', (8, 8), (0, 0, 0, 0))
     d0 = ImageDraw.Draw(scratch)
     max_w = max(_text_width(d0, w, font) for w in WORDS)
 
     if vertical:
         mark_vis = 0.62 * max_w
-        # Full canvas size so visible outer diameter ≈ mark_vis
         mark_box = max(int(mark_vis / (2 * R_OUTER)), 64)
         pad_x, pad_top, gap, pad_bot = 44, 40, 40, 44
         text_h = line_step * len(WORDS)
@@ -289,7 +217,7 @@ def render_lockup(mark_color, body_color, *, vertical=False):
         H = int(pad_top + mark_vis + gap + text_h + pad_bot)
         img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         mark = render_mark(
-            mark_box, mark_color, with_gradient=(mark_color == ORANGE)
+            mark_box, mark_color, soft_depth=(mark_color == ORANGE)
         )
         mx = (W - mark.size[0]) // 2
         my = int(pad_top - (mark.size[0] - mark_vis) / 2)
@@ -305,14 +233,13 @@ def render_lockup(mark_color, body_color, *, vertical=False):
             y += line_step
         return img
 
-    # Horizontal
     mark_s = 320
     mark_vis = 2 * R_OUTER * mark_s
     pad_x, gap, H = 30, 40, 360
     text_x = pad_x + mark_vis + gap
     W = int(text_x + max_w + pad_x)
     img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    mark = render_mark(mark_s, mark_color, with_gradient=(mark_color == ORANGE))
+    mark = render_mark(mark_s, mark_color, soft_depth=(mark_color == ORANGE))
     mx = int(pad_x - (mark_s - mark_vis) / 2)
     my = (H - mark_s) // 2
     img.alpha_composite(mark, (mx, my))
@@ -366,14 +293,13 @@ def main(argv=None):
     args = ap.parse_args(argv)
     out = os.path.abspath(args.out_dir)
     os.makedirs(out, exist_ok=True)
-    print('Generating Fluent 2 ACO brand assets into', out)
+    print('Generating ACO brand assets (A/C/O openings, orange on transparent) into', out)
 
+    # App tile / square = orange mark on transparent (no plate).
     save_png(render_tile(512), os.path.join(out, 'logo_square.png'))
+    # Dark-rail knockout = white mark on transparent.
     save_png(render_mark(512, WHITE), os.path.join(out, 'logo_square_white.png'))
-    save_png(
-        render_mark(512, ORANGE, with_gradient=True),
-        os.path.join(out, 'logo_mark.png'),
-    )
+    save_png(render_mark(512, ORANGE, soft_depth=True), os.path.join(out, 'logo_mark.png'))
     save_png(
         render_lockup(ORANGE, INK, vertical=False),
         os.path.join(out, 'logo_rectangle.png'),
@@ -390,8 +316,7 @@ def main(argv=None):
         render_lockup(WHITE, WHITE, vertical=True),
         os.path.join(out, 'logo_vertical_white.png'),
     )
-    ico_path = os.path.join(out, 'app.ico')
-    write_ico(ico_path)
+    write_ico(os.path.join(out, 'app.ico'))
     print('  app.ico  (sizes: 16, 24, 32, 48, 64, 128, 256)')
     save_png(render_favicon(64), os.path.join(out, 'favicon.png'))
     print('Done.')

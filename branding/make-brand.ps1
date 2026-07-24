@@ -7,12 +7,10 @@
 
       python branding/make_brand.py
 
-  This PowerShell script mirrors the same Fluent 2 / Microsoft 365–inspired
-  geometry for Windows boxes without Cairo:
+  This PowerShell script mirrors the same geometry for Windows boxes without Cairo:
 
-    * Soft continuous-corner squircle plate
-    * Analogous Radiant-Orange gradient (~120 deg) on the tile
-    * Layered gauge-C mark (open ring + ring + dot) with soft depth shadow
+    * Outer ring open at bottom → A; middle open at right → C; solid centre → O
+    * All three rings Radiant Orange on transparent (no plate)
     * Stacked wordmark; A/C/O initials in Radiant Orange
 
   Emits the full asset set into construction_app/resources (or -OutDir).
@@ -49,8 +47,17 @@ $INK          = [System.Drawing.Color]::FromArgb(255, 20, 24, 31)     # #14181F
 $WHITE        = [System.Drawing.Color]::White
 
 $CORNER_RATIO = 0.235
-$R_OUTER = 0.335; $W_OUTER = 0.098; $GAP_DEG = 82.0
-$R_INNER = 0.142; $W_INNER = 0.062; $R_DOT = 0.052
+$R_OUTER = 0.335; $W_OUTER = 0.098
+$R_INNER = 0.155; $W_INNER = 0.070; $R_DOT = 0.055
+$GAP_DEG = 78.0
+$OUTER_GAP_CENTER = 90.0   # bottom → A
+$INNER_GAP_CENTER = 0.0    # right  → C
+
+function Get-GapStartSweep([double]$gapCenter) {
+    $start = ($gapCenter + $GAP_DEG / 2.0) % 360.0
+    $sweep = 360.0 - $GAP_DEG
+    return ,@($start, $sweep)
+}
 
 function New-Canvas([int]$w, [int]$h) {
     $bmp = New-Object System.Drawing.Bitmap($w, $h,
@@ -64,57 +71,50 @@ function New-Canvas([int]$w, [int]$h) {
     return ,@($bmp, $g)
 }
 
-function Add-RoundRect($path, [single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
-    $d = 2 * $r
-    $path.AddArc($x, $y, $d, $d, 180, 90)
-    $path.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
-    $path.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
-    $path.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
-    $path.CloseFigure()
-}
-
 function Draw-Mark($g, [single]$cx, [single]$cy, [single]$S, $color, [bool]$shadow = $false) {
+    $rO = $R_OUTER * $S; $wO = $W_OUTER * $S
+    $rI = $R_INNER * $S; $wI = $W_INNER * $S
+    $rD = $R_DOT * $S
+    $o = Get-GapStartSweep $OUTER_GAP_CENTER
+    $i = Get-GapStartSweep $INNER_GAP_CENTER
+    $oStart = $o[0]; $oSweep = $o[1]
+    $iStart = $i[0]; $iSweep = $i[1]
+
     if ($shadow) {
-        $shadowColor = [System.Drawing.Color]::FromArgb(56, 0, 0, 0)
-        $penS = New-Object System.Drawing.Pen($shadowColor, [single]($W_OUTER * $S * 1.05))
+        $shadowColor = [System.Drawing.Color]::FromArgb(70, 217, 50, 0)
+        $ox = 0.012 * $S; $oy = 0.016 * $S
+        $penS = New-Object System.Drawing.Pen($shadowColor, [single]$wO)
         $penS.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
         $penS.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-        $ox = 0.022 * $S; $oy = 0.032 * $S
-        $rO = $R_OUTER * $S
-        $start = $GAP_DEG / 2.0
-        $sweep = 360.0 - $GAP_DEG
         $g.DrawArc($penS, [single]($cx + $ox - $rO), [single]($cy + $oy - $rO),
-                   [single](2 * $rO), [single](2 * $rO), $start, $sweep)
+                   [single](2 * $rO), [single](2 * $rO), $oStart, $oSweep)
         $penS.Dispose()
-        $penSi = New-Object System.Drawing.Pen($shadowColor, [single]($W_INNER * $S))
-        $rI = $R_INNER * $S
-        $g.DrawEllipse($penSi, [single]($cx + $ox - $rI), [single]($cy + $oy - $rI),
-                       [single](2 * $rI), [single](2 * $rI))
+        $penSi = New-Object System.Drawing.Pen($shadowColor, [single]$wI)
+        $penSi.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+        $penSi.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
+        $g.DrawArc($penSi, [single]($cx + $ox - $rI), [single]($cy + $oy - $rI),
+                   [single](2 * $rI), [single](2 * $rI), $iStart, $iSweep)
         $penSi.Dispose()
         $brS = New-Object System.Drawing.SolidBrush($shadowColor)
-        $rD = $R_DOT * $S
         $g.FillEllipse($brS, [single]($cx + $ox - $rD), [single]($cy + $oy - $rD),
                        [single](2 * $rD), [single](2 * $rD))
         $brS.Dispose()
     }
 
-    $rO = $R_OUTER * $S; $wO = $W_OUTER * $S
     $pen = New-Object System.Drawing.Pen($color, [single]$wO)
     $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $pen.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-    $start = $GAP_DEG / 2.0
-    $sweep = 360.0 - $GAP_DEG
     $g.DrawArc($pen, [single]($cx - $rO), [single]($cy - $rO),
-               [single](2 * $rO), [single](2 * $rO), $start, $sweep)
+               [single](2 * $rO), [single](2 * $rO), $oStart, $oSweep)
     $pen.Dispose()
 
-    $rI = $R_INNER * $S; $wI = $W_INNER * $S
     $pen2 = New-Object System.Drawing.Pen($color, [single]$wI)
-    $g.DrawEllipse($pen2, [single]($cx - $rI), [single]($cy - $rI),
-                   [single](2 * $rI), [single](2 * $rI))
+    $pen2.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $pen2.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
+    $g.DrawArc($pen2, [single]($cx - $rI), [single]($cy - $rI),
+               [single](2 * $rI), [single](2 * $rI), $iStart, $iSweep)
     $pen2.Dispose()
 
-    $rD = $R_DOT * $S
     $br = New-Object System.Drawing.SolidBrush($color)
     $g.FillEllipse($br, [single]($cx - $rD), [single]($cy - $rD),
                    [single](2 * $rD), [single](2 * $rD))
@@ -128,20 +128,9 @@ function Save-Png($bmp, [string]$name) {
 }
 
 function Make-Square([int]$S, [string]$name) {
+    # Orange ACO mark on transparent — no plate.
     $c = New-Canvas $S $S; $bmp = $c[0]; $g = $c[1]
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    Add-RoundRect $path 0 0 $S $S ([single]($CORNER_RATIO * $S))
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-        [System.Drawing.PointF]::new(0.05 * $S, 0.02 * $S),
-        [System.Drawing.PointF]::new(0.98 * $S, 0.98 * $S),
-        $ORANGE_LIGHT, $ORANGE_DEEP)
-    $blend = New-Object System.Drawing.Drawing2D.ColorBlend
-    $blend.Colors = @($ORANGE_LIGHT, $ORANGE_MID, $ORANGE, $ORANGE_DEEP)
-    $blend.Positions = @(0.0, 0.28, 0.62, 1.0)
-    $brush.InterpolationColors = $blend
-    $g.FillPath($brush, $path)
-    $brush.Dispose(); $path.Dispose()
-    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $WHITE $true
+    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $ORANGE $true
     if ($name) { Save-Png $bmp $name }
     $g.Dispose()
     return $bmp

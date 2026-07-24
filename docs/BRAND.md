@@ -9,31 +9,23 @@ parametric source generates every asset — see "Regenerating assets" below._
 - Never revert to the retired name "Construction OS" / "Construction Operations
   System" in any outward asset.
 
-## The mark — "the gauge C" (Fluent 2)
+## The mark — ACO openings (Fluent 2)
 
-A bold **open ring** (a **C**, for _Construction_) wrapped around a **concentric
-target** — a ring and a centre dot — reading as a **gauge / dial**: precision,
-measurement, _Operations under control_.
+Three concentric forms in **Radiant Orange** on a **transparent** background.
+The openings spell the acronym:
 
-Visual language follows **Fluent 2 / Microsoft 365 product icons**
-([fluid forms, vibrant colours](https://microsoft.design/articles/fluid-forms-vibrant-colors/);
-[Windows app icon guidance](https://learn.microsoft.com/en-us/windows/apps/design/style/iconography/app-icon-design)):
+| Ring | Opening | Reads as |
+|---|---|---|
+| **Outer** | Bottom (6 o'clock) | **A** — arch / Accelerated |
+| **Middle** | Right (3 o'clock) | **C** — Construction |
+| **Centre** | Solid disc | **O** — Operations |
 
-| Cue | How ACO uses it |
-|---|---|
-| Soft continuous-corner plate | Squircle ~23.5% corner ratio (Windows 11–style) |
-| Rich analogous gradient (~120°) | Peach `#FF9A5C` → Radiant Orange `#FF4F18` → deep `#D93200` on the **tile** |
-| Layered depth | Soft ambient shadow under the white mark; translucent inner ring |
-| Fluid gap | ~82° opening on the C (more open than the old flat mark) |
-| Document / mono mark | Radiant Orange on transparent, soft elevation — not a hard bevel |
-
+Soft rounded stroke caps; optional soft depth on the tile / document mark.
 Keep clear space around the mark of at least the centre-dot diameter.
 
-- **On a tile / dark surface:** white layered mark on the orange-gradient squircle
-  (`logo_square.png`) or white on transparent (`logo_square_white.png`).
-- **On a light surface / document:** the orange mark on transparent
-  (`logo_mark.png`).
-
+- **Primary mark:** orange on transparent (`logo_mark.png`, `logo_square.png`).
+- **On a dark rail:** white mark on transparent (`logo_square_white.png`).
+- **No orange plate** behind the mark — the glyph *is* the icon.
 ## The wordmark
 
 The three words **stack**, set in a **geometric sans** (Segoe UI Semibold /
@@ -77,15 +69,15 @@ Radiant Orange on white measures **3.29:1** — WCAG AA for **large** text only
 ## Assets (`construction_app/resources/`)
 | File | What |
 |---|---|
-| `logo_square.png` | white layered mark on orange-gradient squircle — app tile, MSIX source |
-| `logo_square_white.png` | white mark on transparent — dark rail |
-| `logo_mark.png` | orange mark on transparent — documents, light surfaces |
+| `logo_square.png` | orange ACO mark on transparent — app tile / MSIX source |
+| `logo_square_white.png` | white ACO mark on transparent — dark rail |
+| `logo_mark.png` | orange ACO mark on transparent — documents, light surfaces |
 | `logo_rectangle.png` | horizontal lockup, ink text (light backgrounds) |
 | `logo_rectangle_white.png` | horizontal lockup, white text (dark backgrounds) |
 | `logo_vertical.png` | vertical lockup (mark over wordmark), ink text |
 | `logo_vertical_white.png` | vertical lockup, white text (dark backgrounds) |
 | `app.ico` | multi-size icon (16–256) — WinUI exe / window / taskbar |
-| `favicon.png` | 64px gradient tile — browser tab |
+| `favicon.png` | 64px orange mark on transparent — browser tab |
 
 **Where it shows up:** the tkinter window icon + rail (`assets.py`), the browser
 tab (`/favicon.ico`) and printed-document letterhead (`assets.logo_rect_uri`),
