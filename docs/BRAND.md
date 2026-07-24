@@ -47,8 +47,10 @@ over the same stacked wordmark, for tall / square contexts — is
 | **Slate** | `#6B7280` | secondary text. |
 | **White** | `#FFFFFF` | mark/text on dark; tile knockout. |
 
-Radiant Orange on white measures **3.29:1** — WCAG AA for **large** text only.
-Use it for the mark, headings and accents, never for body copy.
+Radiant Orange on white measures **3.29:1** — WCAG AA for **large** text only
+(≥18 pt regular or ≥14 pt bold). Use it for the mark, large accents, and CTAs —
+**never** for body copy or normal-size KPI figures. Full WinUI WCAG findings:
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §12.
 
 ## Typography
 - **Product UI / documents:** Segoe UI (Fluent) — the app's working type.

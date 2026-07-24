@@ -7,17 +7,16 @@ in cash-in / cash-out, not ERP jargon.
 
 _Document type: Design principles + Fluent 2 foundations + implementation
 guidelines + inventory_
-_Version: 2.0 · Last updated: 2026-07-24 · Design system: **Fluent 2**_
+_Version: 2.1 · Last updated: 2026-07-24 · Design system: **Fluent 2**_
 _Audience: local Windows / WinUI agents, humans shipping `winui/`, and anyone
 reviewing UI PRs._
 _Hard constraint:_ **stock Fluent / WinUI 3 controls only — no custom controls,
 no hand-rolled chrome, no reinvented icons.** See
 [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
 
-> **Inventory / audit:** §11 maps which Fluent controls, patterns, icons,
-> materials, and resources are wired today vs still needed. Status of *product*
-> WinUI work stays in [`ROADMAP.md`](ROADMAP.md) §2 — this file does not replace
-> that board.
+> **Inventory / audit:** §11 maps Fluent controls wired today; **§12 is the WCAG
+> 2.2 AA audit + recommendations**. Product WinUI status stays in
+> [`ROADMAP.md`](ROADMAP.md) §2 — this file does not replace that board.
 
 ### Canonical sources (follow these)
 
@@ -470,6 +469,7 @@ Copy into PR descriptions when touching `winui/`:
 - [ ] Numbers from API; no duplicated domain maths.
 - [ ] Viewer/read-only respected if write affordances exist.
 - [ ] Motion: stock / short / functional (or none).
+- [ ] A11y: Names / live status / contrast / headings per §12.6.
 - [ ] Matches a §4 page pattern (or documents why not).
 
 ---
@@ -482,9 +482,10 @@ Copy into PR descriptions when touching `winui/`:
 | [`../.github/instructions/winui3.instructions.md`](../.github/instructions/winui3.instructions.md) | WinUI 3 / Windows App SDK coding standard |
 | [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) | Architecture, component mapping, phases U0–U7 |
 | [`PRODUCT.md`](PRODUCT.md) | Audience, jobs-to-be-done, product non-negotiables |
-| [`BRAND.md`](BRAND.md) | Mark, Radiant Orange, letterhead |
+| [`BRAND.md`](BRAND.md) | Mark, Radiant Orange, letterhead (contrast → §12) |
 | [`API.md`](API.md) | JSON contract the client binds to |
 | [`APP-ARCHITECTURE.md`](APP-ARCHITECTURE.md) | Overall system + menu/workflow |
+| This §12 | WCAG 2.2 AA audit + fix order |
 
 **Ownership:** local Windows agent implements and smoke-tests WinUI against this
 guide; cloud/headless agent keeps the API and docs coherent but does not claim
@@ -703,3 +704,139 @@ Trust:      AI draft → confirm; Viewer read-only
 | [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §5–6 | Architecture control/icon map (tkinter → WinUI) |
 | [`RESEARCH.md`](RESEARCH.md) §4 | Condensed Fluent policy |
 | This §11 | **What’s wired in the repo today** + gap list |
+
+---
+
+## 12. WCAG audit & recommendations _(v2.1 · 2026-07-24)_
+
+**Target:** [WCAG 2.2](https://www.w3.org/TR/WCAG22/) **Level AA** for the ACO
+WinUI 3 desktop ERP (and, secondarily, the LAN web shell). Aligns with Fluent 2
+**One for all, all for one** (§1.3).
+
+**Scope of this pass:** static review of `winui/ConstructionOS.WinUI` + known
+brand contrast (`BRAND.md`) + brief LAN/`webrender.py` notes. **Not** a Narrator
+keyboard walkthrough on Windows (that remains ROADMAP P1 — local).
+
+**Verdict:** **Not AA-ready.** U7 shipped a **mechanical** scaffolding (page
+Level‑1 headings + a few names). Closing AA needs programmatic labels, live
+status, contrast-safe errors/accent, chart alternatives, and an interactive
+keyboard/focus pass.
+
+### 12.1 Conformance snapshot (WinUI)
+
+| WCAG area | Level | Status | Evidence |
+|---|---|---|---|
+| 1.1.1 Non-text content | A | ⚠ Partial | Utility buttons named; InfoPage icon `Raw`; charts & ProgressRing largely unnamed |
+| 1.3.1 Info & relationships | A | ⚠ Partial | H1 via `PageTitleStyle`; FieldForm captions not `Header`/`LabeledBy`; list rows unnamed |
+| 1.3.2 Meaningful sequence | A | ✅ Likely | Default DOM/focus order; no TabIndex hacks |
+| 1.4.1 Use of color | A | ⚠ Partial | InfoBar has text; accent KPI values may be colour-only emphasis |
+| 1.4.3 Contrast (minimum) | AA | ⚠ Risk | Theme body OK; **Radiant Orange 3.29:1** on white = large text only (`BRAND.md`); secondary-brush errors risk |
+| 1.4.11 Non-text contrast | AA | ⚠ Untested | Charts / HC theme not verified |
+| 2.1.1 Keyboard | A | ⚠ Untested | Stock controls focusable; no AccessKeys; no ribbon keyboard map |
+| 2.1.2 No keyboard trap | A | ✅ Likely | Stock dialogs / Frame |
+| 2.4.3 Focus order | A | ⚠ Untested | Default order; no focus restore after Navigate |
+| 2.4.6 Headings & labels | AA | ⚠ Partial | Only Level1; section subtitles lack HeadingLevel |
+| 2.4.7 Focus visible | AA | ✅ Likely | Stock WinUI focus visuals (don’t remove) |
+| 2.5.8 Target size (minimum) | AA | ⚠ Risk | Utility icon buttons (~16px glyph) may be &lt; 24×24 CSS px |
+| 3.2.2 On input | A | ✅ Likely | No surprise context changes on single control change |
+| 3.3.1 Error identification | A | ⚠ Partial | InfoBar after fail; many Status TextBlocks use Secondary brush |
+| 3.3.2 Labels or instructions | A | ⚠ Partial | Settings Headers good; FieldForm / Import / Capture weak |
+| 3.3.3 Error suggestion | AA | ⚠ Partial | Plain-language `ApiException.UserMessage` when used |
+| 4.1.2 Name, Role, Value | A | ⚠ Partial | Gaps on rings, charts, dynamic lists |
+| 4.1.3 Status messages | AA | ❌ Gap | **No** `LiveSetting` / live regions on Loading / Status / Answer |
+
+### 12.2 What’s already mapped (keep)
+
+| Control / pattern | A11y behaviour |
+|---|---|
+| `PageTitleStyle` | `HeadingLevel=Level1` on page titles (~19 pages) |
+| Search `AutoSuggestBox` | `Name="Search tabs"` |
+| Utility ribbon buttons | `SetName(title)` in code |
+| Lookahead KPI cards / ProgressBars | Named `"caption: value"` |
+| Settings fields | `Header=` on TextBox / Password / Combo / NumberBox / Toggle |
+| InfoPage glyph | `AccessibilityView=Raw` |
+| ContentDialog | `XamlRoot` set; DefaultButton Primary/Close |
+| InfoBar advisories | Title + Message + severity (colour not sole signal) |
+| Brand policy | Orange not for body copy (`BRAND.md`) |
+
+### 12.3 Findings → recommendations
+
+#### P0 — must fix for AA honesty
+
+| ID | Finding | WCAG | Recommendation |
+|---|---|---|---|
+| **A1** | `ProgressRing` (`Ui.Loading`, Masters `Busy`) has no accessible name | 1.1.1, 4.1.2 | `AutomationProperties.Name="Loading"` (or “Busy”) whenever `IsActive` |
+| **A2** | Status / Loading TextBlocks never announce updates | 4.1.3 | Set `LiveSetting=Polite` (or Assertive for errors) on page Status / PageLoad host; prefer `InfoBar` for errors |
+| **A3** | FieldForm labels are sibling captions — not programmatic | 1.3.1, 3.3.2 | Use control `Header=` and/or `LabeledBy`; mark required with `IsRequiredForForm` / announced “required”, not `*` alone |
+| **A4** | Errors often use `TextFillColorSecondaryBrush` | 1.4.1, 3.3.1 | Errors → `InfoBar` Severity=Error **or** `SystemFillColorCriticalBrush` / Critical text resource — never “caption grey” |
+| **A5** | Charts (LiveCharts) have no name / text alternative | 1.1.1 | `AutomationProperties.Name` + visible numeric summary / data table from same API series |
+| **A6** | Accent orange on KPI values (`Ui.Stat(accent)`) | 1.4.3 | Don’t use orange for normal-size figures; use primary text + Semibold, or large (≥18pt/bold) only |
+
+#### P1 — interactive pass (local Windows)
+
+| ID | Finding | WCAG | Recommendation |
+|---|---|---|---|
+| **B1** | No Narrator + keyboard walkthrough | 2.1.1, 2.4.3 | ROADMAP P1: script covering ribbon → Masters CRUD → Money dialog → Charts → Settings |
+| **B2** | ListView rows are unnamed Grid cells | 1.3.1, 4.1.2 | Set row `AutomationProperties.Name` from first columns (e.g. “Site A · Mumbai”) |
+| **B3** | Only H1; “Advisories” / chart titles not headings | 1.3.1, 2.4.6 | `HeadingLevel=Level2` on section `SubtitleTextBlockStyle` titles |
+| **B4** | No AccessKeys / ribbon F6 pattern | 2.1.1 | Add AccessKeys for New/Edit/Delete/Refresh; document keyboard map in Help/Tools |
+| **B5** | Utility icon hit targets may be small | 2.5.8 | `MinWidth`/`MinHeight` ≥ 40 epx (Fluent) / ≥ 24 CSS px absolute minimum |
+| **B6** | Import PasteBox / Capture KindBox unlabeled | 3.3.2 | `Header=` or `Name=` + visible label |
+| **B7** | FontIcons under labeled buttons may double-speak | 1.1.1 | Set icon `AccessibilityView=Raw` when Label/Name is on parent |
+
+#### P2 — polish
+
+| ID | Finding | WCAG | Recommendation |
+|---|---|---|---|
+| **C1** | No reduced-motion handling | 2.3.3 | Honour `UISettings.AnimationsEnabled`; disable LiveCharts animation when off |
+| **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide |
+| **C3** | No landmarks on ribbon / main | 1.3.1 / best practice | Optional `LandmarkType` on search / content Frame |
+| **C4** | Focus not restored after Frame Navigate | 2.4.3 | Move focus to page title or primary landmark on navigated |
+| **C5** | LAN web: labels without `for`/`id`; no skip link | 1.3.1, 2.4.1 | Wire label↔input; add “Skip to content” |
+
+### 12.4 Colour & contrast policy (AA)
+
+| Surface | Rule |
+|---|---|
+| Body / money figures | Theme `TextFillColorPrimaryBrush` — never Radiant Orange |
+| Secondary captions | `TextFillColorSecondaryBrush` — **not** for errors |
+| Errors / warnings / success | Semantic `InfoBar` or system Critical/Caution/Success brushes + text |
+| Brand accent `#FF4F18` | Logo, selected chrome, **large** accents only (3.29:1 on white) |
+| Charts | Theme-aware series; never rely on red/green alone — include labels in legend/summary |
+| High Contrast | Don’t override system HC brushes in page XAML |
+
+Measure new brand-on-surface pairs with a contrast checker before shipping.
+
+### 12.5 Suggested implementation order (local)
+
+1. **Shared helpers** — `Ui.Announce(status, polite|assertive)`, `Ui.Loading()` names the ring, `Ui.Stat` always sets Name, errors → InfoBar helper.
+2. **FieldForm** — Header / LabeledBy / required semantics; date → DatePicker (also Fluent gap).
+3. **PageLoad + registers** — LiveSetting on status; named rows in `Ui.Table`.
+4. **Charts** — Name + summary strip under each chart.
+5. **HeadingLevel 2** on Advisories / chart section titles.
+6. **Hit targets + AccessKeys** on ribbon utilities / CommandBar.
+7. **Narrator walkthrough** checklist checked into `docs/` or WinUI README (results → ROADMAP).
+8. **LAN** label `for`/`id` + skip link when touching `webrender.py`.
+
+### 12.6 PR checklist add-ons (a11y)
+
+When touching `winui/`, also tick:
+
+- [ ] Interactive control has accessible **Name** (or visible Header/Label).
+- [ ] Decorative icon → `AccessibilityView=Raw`.
+- [ ] Status/loading updates are **announced** (LiveSetting or InfoBar).
+- [ ] Errors not Secondary-grey; semantic severity used.
+- [ ] Section titles that structure the page use HeadingLevel (1 page / 2 section).
+- [ ] Touch/mouse targets ≥ 40×40 epx where practical.
+- [ ] No new colour-only meaning; orange not used for body text.
+- [ ] Keyboard path smoke-tested for the changed surface (Tab / Enter / Esc).
+
+### 12.7 Relationship
+
+| Doc | Role |
+|---|---|
+| This §12 | **WCAG findings + recommendations** |
+| [`ROADMAP.md`](ROADMAP.md) §2.2 P1 | Interactive a11y walkthrough (local) |
+| [`BRAND.md`](BRAND.md) | Orange contrast 3.29:1 |
+| Fluent 2 §1.3 | Inclusive principle |
+| `.github/instructions/winui3.instructions.md` | Coding a11y minimums |

@@ -107,7 +107,7 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 | Timeline **Gantt / CPM** view | Table of tasks only — `GET /api/timeline` ready |
 | Key Numbers **vs** Insight split | Both → ChartsPage — `/api/kpi` + `/api/insight` ready |
 | Tools: backup/restore, invoice series, refdata, language, security | Firm + modules only in API/WinUI |
-| Interactive **a11y** walkthrough + keyboard/focus pass | Mechanical names done |
+| Interactive **a11y** walkthrough + keyboard/focus pass | Mechanical U7 done; **WCAG 2.2 AA gaps** in `UI-PRINCIPLES` §12 (live regions, FieldForm labels, chart alts, contrast) |
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 

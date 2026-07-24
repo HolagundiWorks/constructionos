@@ -6,6 +6,15 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — WCAG 2.2 AA audit (UI-PRINCIPLES §12)
+
+Static accessibility audit of the WinUI client against **WCAG 2.2 Level AA**:
+
+- Verdict: **not AA-ready** — mechanical U7 headings/names exist; gaps in live
+  regions, FieldForm labels, chart alternatives, error contrast, hit targets.
+- Recommendations ordered P0–P2 in `UI-PRINCIPLES` §12; ROADMAP P1 updated.
+- Cross-links: `BRAND.md` (orange 3.29:1), `winui3.instructions.md`, RESEARCH.
+
 ## 2026-07-24 — Fluent 2 design language (UI-PRINCIPLES v2.0)
 
 Upgraded ACO WinUI guidance to **[Fluent 2](https://fluent2.microsoft.design/)**:

@@ -81,13 +81,21 @@ These UWP patterns are **wrong** for WinUI 3 desktop apps. Always use the Window
 - Allman brace style (opening brace on its own line).
 - Prefer explicit types for built-in types; use `var` only when the type is obvious.
 
-## Accessibility
+## Accessibility (WCAG 2.2 AA target)
+
+Full audit: `docs/UI-PRINCIPLES-AND-GUIDELINES.md` §12.
 
 - Set `AutomationProperties.Name` on all interactive controls.
-- Use `AutomationProperties.HeadingLevel` on section headers.
+- Use `AutomationProperties.HeadingLevel` on section headers (Level1 page, Level2 sections).
 - Hide decorative elements with `AutomationProperties.AccessibilityView="Raw"`.
 - Ensure full keyboard navigation (Tab, Enter, Space, arrow keys).
-- Meet WCAG color contrast requirements.
+- Meet WCAG **1.4.3** contrast: body text via theme primary; never Radiant Orange for normal text (3.29:1 on white = large only).
+- Status/loading: announce updates (`LiveSetting` or `InfoBar`) — criterion **4.1.3**.
+- Errors: semantic Critical/`InfoBar` — never `TextFillColorSecondaryBrush`.
+- Forms: programmatic labels (`Header` / `LabeledBy`); required fields announced.
+- Charts: accessible Name + visible numeric summary (not colour-only).
+- Hit targets: prefer ≥40×40 epx (Fluent); absolute minimum 24×24 CSS px (**2.5.8**).
+- Honour reduced motion (`UISettings.AnimationsEnabled`).
 
 ## Performance
 
