@@ -19,8 +19,8 @@ RES_DIR = paths.resource_path('resources')
 LOGO_SQUARE = os.path.join(RES_DIR, 'logo_square.png')
 LOGO_RECT = os.path.join(RES_DIR, 'logo_rectangle.png')
 # Dark-background variants: the mark/wordmark in white (initials kept Radiant
-# Orange) so they read on the dark rail. All brand art is generated vector-crisp
-# from one source, branding/make-brand.ps1.
+# Orange) so they read on the dark rail. All brand art is generated from
+# branding/make_brand.py (Fluent 2); Windows twin: branding/make-brand.ps1.
 LOGO_SQUARE_WHITE = os.path.join(RES_DIR, 'logo_square_white.png')
 LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
 # Vertical lockup (mark over the stacked wordmark) for tall / square contexts —
@@ -28,7 +28,7 @@ LOGO_RECT_WHITE = os.path.join(RES_DIR, 'logo_rectangle_white.png')
 LOGO_VERTICAL = os.path.join(RES_DIR, 'logo_vertical.png')
 LOGO_VERTICAL_WHITE = os.path.join(RES_DIR, 'logo_vertical_white.png')
 # The bare gauge-C mark (Radiant Orange on transparent) for light surfaces, and
-# the browser-tab favicon (orange mark on white).
+# the browser-tab favicon (Fluent 2 gradient tile).
 LOGO_MARK = os.path.join(RES_DIR, 'logo_mark.png')
 FAVICON = os.path.join(RES_DIR, 'favicon.png')
 APP_ICON = os.path.join(RES_DIR, 'app.ico')

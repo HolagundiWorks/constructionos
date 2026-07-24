@@ -6,6 +6,17 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Fluent 2 / M365-inspired logo redesign
+
+Regenerated ACO brand assets to match **Fluent 2 / Microsoft 365** product-icon
+language (analogous gradient plate, layered gauge-C, soft depth, geometric sans
+wordmark):
+
+- Canonical generator: `branding/make_brand.py` (Cairo + Pillow; build tooling).
+- Windows twin `branding/make-brand.ps1` delegates to Python when available.
+- Updated all `construction_app/resources/logo_*.png`, `app.ico`, `favicon.png`.
+- Docs: `BRAND.md`, `branding.py` analogous colour tokens, UI-PRINCIPLES note.
+
 ## 2026-07-24 — Fluent 2 design language (UI-PRINCIPLES v2.0)
 
 Upgraded ACO WinUI guidance to **[Fluent 2](https://fluent2.microsoft.design/)**:
