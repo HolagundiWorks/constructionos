@@ -6,6 +6,13 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Brand mark from source logo (orange only)
+
+Adopted the provided concentric mark geometry as-is; recoloured to Radiant
+Orange `#FF4F18` only. Outer gap upper-right, middle gap top, solid centre;
+uniform stroke; transparent background. Full asset set regenerated
+(`logo_*.png`, `app.ico`, `favicon.png`) via `branding/make_brand.py`.
+
 ## 2026-07-24 — WinUI workflow writes: payout, GRN, PPC, risk, GST (API u0.17)
 
 Turned five honest read-only placeholders into working write flows. Every one

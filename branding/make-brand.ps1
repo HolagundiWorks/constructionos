@@ -1,25 +1,22 @@
 <#
 .SYNOPSIS
-  Regenerate the ACO brand assets from one parametric source (Windows / GDI+).
+  Regenerate the ACO brand assets (Windows / GDI+ twin of make_brand.py).
 
 .DESCRIPTION
-  The ACO mark is a "gauge C": a bold open ring (C = Construction) around a
-  concentric target (ring + dot = Operations / precision / control), in Radiant
-  Orange (#FF4F18). This script draws it vector-crisp at any size and emits the
-  full asset set, so the logo never has to be hand-edited pixel by pixel:
+  Prefer the cross-platform canonical generator when available:
 
-    logo_square.png            white mark on a Radiant-Orange squircle (app tile)
-    logo_square_white.png      white mark on transparent (dark rail)
-    logo_mark.png              orange mark on transparent (documents / favicon)
-    logo_rectangle.png         orange mark + "ACO" + tagline (light backgrounds)
-    logo_rectangle_white.png   white  mark + "ACO" + tagline (dark backgrounds)
-    app.ico                    multi-size icon (16..256) for the exe / window
-    favicon.png                32px orange mark on white (browser tab)
+      python branding/make_brand.py
 
-  ASCII-only (PowerShell 5.1 reads .ps1 as ANSI).
+  This PowerShell script mirrors the same geometry for Windows boxes without Cairo:
+
+    * Outer ring open at upper-right (~1–2 o'clock); middle open at top (12)
+    * Solid centre disc; uniform stroke; Radiant Orange on transparent
+    * Stacked wordmark; A/C/O initials in Radiant Orange
+
+  Emits the full asset set into construction_app/resources (or -OutDir).
 
 .PARAMETER OutDir
-  Where to write the assets. Default: construction_app/resources (the live set).
+  Where to write the assets. Default: construction_app/resources.
 #>
 [CmdletBinding()]
 param([string]$OutDir = (Join-Path $PSScriptRoot '..\construction_app\resources'))
@@ -30,11 +27,38 @@ Add-Type -AssemblyName System.Drawing
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
 
-$ORANGE = [System.Drawing.Color]::FromArgb(255, 255, 79, 24)   # #FF4F18
-$INK    = [System.Drawing.Color]::FromArgb(255, 20, 24, 31)    # #14181F
-$GRAY   = [System.Drawing.Color]::FromArgb(255, 107, 114, 128) # #6B7280
-$WHITE  = [System.Drawing.Color]::White
-$FAINT  = [System.Drawing.Color]::FromArgb(255, 209, 213, 219) # light tagline on dark
+# Prefer Python canonical generator when Cairo+Pillow are available.
+$py = Get-Command python -ErrorAction SilentlyContinue
+if ($py) {
+    $script = Join-Path $PSScriptRoot 'make_brand.py'
+    if (Test-Path $script) {
+        Write-Host "Delegating to make_brand.py (canonical Fluent 2 generator)..." -ForegroundColor Cyan
+        & $py.Source $script --out-dir $OutDir
+        if ($LASTEXITCODE -eq 0) { return }
+        Write-Host "Python generator failed; falling back to GDI+ twin." -ForegroundColor Yellow
+    }
+}
+
+$ORANGE       = [System.Drawing.Color]::FromArgb(255, 255, 79, 24)    # #FF4F18
+$ORANGE_LIGHT = [System.Drawing.Color]::FromArgb(255, 255, 154, 92)   # #FF9A5C
+$ORANGE_MID   = [System.Drawing.Color]::FromArgb(255, 255, 95, 40)
+$ORANGE_DEEP  = [System.Drawing.Color]::FromArgb(255, 217, 50, 0)     # #D93200
+$INK          = [System.Drawing.Color]::FromArgb(255, 20, 24, 31)     # #14181F
+$WHITE        = [System.Drawing.Color]::White
+
+$STROKE = 0.082
+$R_OUTER = 0.355
+$R_INNER = 0.215
+$R_DOT = 0.072
+$GAP_DEG = 58.0
+$OUTER_GAP_CENTER = 315.0  # ~1:30 o'clock
+$INNER_GAP_CENTER = 270.0  # 12 o'clock
+
+function Get-GapStartSweep([double]$gapCenter) {
+    $start = ($gapCenter + $GAP_DEG / 2.0) % 360.0
+    $sweep = 360.0 - $GAP_DEG
+    return ,@($start, $sweep)
+}
 
 function New-Canvas([int]$w, [int]$h) {
     $bmp = New-Object System.Drawing.Bitmap($w, $h,
@@ -48,35 +72,25 @@ function New-Canvas([int]$w, [int]$h) {
     return ,@($bmp, $g)
 }
 
-function Add-RoundRect($path, [single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
-    $d = 2 * $r
-    $path.AddArc($x, $y, $d, $d, 180, 90)
-    $path.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
-    $path.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
-    $path.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
-    $path.CloseFigure()
-}
+function Draw-Mark($g, [single]$cx, [single]$cy, [single]$S, $color, [bool]$shadow = $false) {
+    $w = $STROKE * $S
+    $rO = $R_OUTER * $S
+    $rI = $R_INNER * $S
+    $rD = $R_DOT * $S
+    $o = Get-GapStartSweep $OUTER_GAP_CENTER
+    $i = Get-GapStartSweep $INNER_GAP_CENTER
+    $oStart = $o[0]; $oSweep = $o[1]
+    $iStart = $i[0]; $iSweep = $i[1]
 
-# The mark: gauge C (open ring) + concentric ring + centre dot, all one colour.
-# $S is the reference diameter box; the mark's outer diameter is 0.72*$S so it
-# sits with even padding when $S is the tile size.
-function Draw-Mark($g, [single]$cx, [single]$cy, [single]$S, $color) {
-    $rO = 0.360 * $S; $wO = 0.116 * $S
-    $pen = New-Object System.Drawing.Pen($color, [single]$wO)
+    $pen = New-Object System.Drawing.Pen($color, [single]$w)
     $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $pen.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
-    # Gap of 70deg facing right (3 o'clock): draw 35deg -> 325deg clockwise.
     $g.DrawArc($pen, [single]($cx - $rO), [single]($cy - $rO),
-               [single](2 * $rO), [single](2 * $rO), 35, 290)
+               [single](2 * $rO), [single](2 * $rO), $oStart, $oSweep)
+    $g.DrawArc($pen, [single]($cx - $rI), [single]($cy - $rI),
+               [single](2 * $rI), [single](2 * $rI), $iStart, $iSweep)
     $pen.Dispose()
 
-    $rI = 0.156 * $S; $wI = 0.076 * $S
-    $pen2 = New-Object System.Drawing.Pen($color, [single]$wI)
-    $g.DrawEllipse($pen2, [single]($cx - $rI), [single]($cy - $rI),
-                   [single](2 * $rI), [single](2 * $rI))
-    $pen2.Dispose()
-
-    $rD = 0.060 * $S
     $br = New-Object System.Drawing.SolidBrush($color)
     $g.FillEllipse($br, [single]($cx - $rD), [single]($cy - $rD),
                    [single](2 * $rD), [single](2 * $rD))
@@ -89,47 +103,46 @@ function Save-Png($bmp, [string]$name) {
     Write-Host ("  {0}  ({1}x{2})" -f $name, $bmp.Width, $bmp.Height)
 }
 
-# ---- square tile (white mark on Radiant-Orange squircle) --------------------
 function Make-Square([int]$S, [string]$name) {
     $c = New-Canvas $S $S; $bmp = $c[0]; $g = $c[1]
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    Add-RoundRect $path 0 0 $S $S ([single](0.22 * $S))
-    $br = New-Object System.Drawing.SolidBrush($ORANGE)
-    $g.FillPath($br, $path); $br.Dispose(); $path.Dispose()
-    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $WHITE
+    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $ORANGE $false
     if ($name) { Save-Png $bmp $name }
     $g.Dispose()
     return $bmp
 }
 
-# ---- mark only, on transparent ---------------------------------------------
 function Make-Mark([int]$S, $color, [string]$name) {
     $c = New-Canvas $S $S; $bmp = $c[0]; $g = $c[1]
-    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $color
+    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $color $false
     if ($name) { Save-Png $bmp $name }
     $g.Dispose()
     return $bmp
 }
 
-# ---- horizontal lockup: mark + STACKED wordmark ----------------------------
-# The three words stack (Good-Times-style wide techno caps via BankGothic); the
-# A/C/O initials are picked out in Radiant Orange so the acronym reads down the
-# left edge and explains the name.
+function Resolve-WordFont([single]$fontPx) {
+    foreach ($face in @('Segoe UI Semibold', 'Segoe UI', 'Arial')) {
+        try {
+            return New-Object System.Drawing.Font($face, [single]$fontPx,
+                [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        } catch { }
+    }
+    return New-Object System.Drawing.Font('Arial', [single]$fontPx,
+        [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+}
+
 function Make-Lockup($markColor, $bodyColor, [string]$name) {
     $H = 360
-    $markS = 320.0                       # reference box; visible mark = 0.72*markS
-    $markVis = 0.72 * $markS
+    $markS = 320.0
+    $markVis = 2 * $R_OUTER * $markS
     $padX = 30.0
-    $gap = 46.0
+    $gap = 40.0
     $words = @('ACCELERATED', 'CONSTRUCTION', 'OPERATIONS')
     $fontPx = 70.0
-    $lineStep = $fontPx * 1.30
-    $font = New-Object System.Drawing.Font('BankGothic Md BT', [single]$fontPx,
-        [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $lineStep = $fontPx * 1.28
+    $font = Resolve-WordFont $fontPx
     $sf = [System.Drawing.StringFormat]::GenericTypographic
     $sf.FormatFlags = [System.Drawing.StringFormatFlags]::MeasureTrailingSpaces
 
-    # Measure the widest line on a scratch surface.
     $m = New-Canvas 8 8; $mg = $m[1]
     $maxW = 0.0
     foreach ($w in $words) {
@@ -142,12 +155,12 @@ function Make-Lockup($markColor, $bodyColor, [string]$name) {
     $W = [int]($textX + $maxW + $padX)
     $c = New-Canvas $W $H; $bmp = $c[0]; $g = $c[1]
 
-    Draw-Mark $g ([single]($padX + $markVis / 2)) ([single]($H / 2)) $markS $markColor
+    Draw-Mark $g ([single]($padX + $markVis / 2)) ([single]($H / 2)) $markS $markColor $false
 
     $orange = New-Object System.Drawing.SolidBrush($ORANGE)
     $body = New-Object System.Drawing.SolidBrush($bodyColor)
     $totalH = $lineStep * $words.Count
-    $y = ($H - $totalH) / 2.0 + ($lineStep - $fontPx) / 2.0
+    $y = ($H - $totalH) / 2.0
     foreach ($w in $words) {
         $first = $w.Substring(0, 1)
         $rest = $w.Substring(1)
@@ -162,15 +175,11 @@ function Make-Lockup($markColor, $bodyColor, [string]$name) {
     $font.Dispose(); $g.Dispose(); $bmp.Dispose()
 }
 
-# ---- vertical lockup: mark on top, stacked wordmark centred beneath ---------
-# The three words sit as a left-aligned block (so the A/C/O initials still align
-# down the left edge) that is itself centred under the mark.
 function Make-VerticalLockup($markColor, $bodyColor, [string]$name) {
     $words = @('ACCELERATED', 'CONSTRUCTION', 'OPERATIONS')
     $fontPx = 66.0
-    $lineStep = $fontPx * 1.30
-    $font = New-Object System.Drawing.Font('BankGothic Md BT', [single]$fontPx,
-        [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $lineStep = $fontPx * 1.28
+    $font = Resolve-WordFont $fontPx
     $sf = [System.Drawing.StringFormat]::GenericTypographic
     $sf.FormatFlags = [System.Drawing.StringFormatFlags]::MeasureTrailingSpaces
 
@@ -182,15 +191,15 @@ function Make-VerticalLockup($markColor, $bodyColor, [string]$name) {
     }
     $m[0].Dispose()
 
-    $markVis = 0.62 * $maxW           # mark a touch narrower than the wordmark
-    $markS = $markVis / 0.72
-    $padX = 44.0; $padTop = 40.0; $gap = 46.0; $padBot = 44.0
+    $markVis = 0.62 * $maxW
+    $markS = $markVis / (2 * $R_OUTER)
+    $padX = 44.0; $padTop = 40.0; $gap = 40.0; $padBot = 44.0
     $textH = $lineStep * $words.Count
     $W = [int]([Math]::Max($markVis, $maxW) + 2 * $padX)
     $H = [int]($padTop + $markVis + $gap + $textH + $padBot)
     $c = New-Canvas $W $H; $bmp = $c[0]; $g = $c[1]
 
-    Draw-Mark $g ([single]($W / 2)) ([single]($padTop + $markVis / 2)) $markS $markColor
+    Draw-Mark $g ([single]($W / 2)) ([single]($padTop + $markVis / 2)) $markS $markColor $false
 
     $blockX = ($W - $maxW) / 2.0
     $orange = New-Object System.Drawing.SolidBrush($ORANGE)
@@ -210,7 +219,6 @@ function Make-VerticalLockup($markColor, $bodyColor, [string]$name) {
     $font.Dispose(); $g.Dispose(); $bmp.Dispose()
 }
 
-# ---- multi-size .ico from freshly rendered squares -------------------------
 function Make-Ico([int[]]$sizes, [string]$name) {
     $entries = @()
     foreach ($s in $sizes) {
@@ -222,15 +230,15 @@ function Make-Ico([int[]]$sizes, [string]$name) {
     }
     $out = New-Object System.IO.MemoryStream
     $bw = New-Object System.IO.BinaryWriter($out)
-    $bw.Write([UInt16]0); $bw.Write([UInt16]1); $bw.Write([UInt16]$entries.Count)  # ICONDIR
+    $bw.Write([UInt16]0); $bw.Write([UInt16]1); $bw.Write([UInt16]$entries.Count)
     $offset = 6 + 16 * $entries.Count
     foreach ($e in $entries) {
         $sz = $e[0]; $data = $e[1]
-        $bw.Write([Byte]($(if ($sz -ge 256) { 0 } else { $sz })))   # width
-        $bw.Write([Byte]($(if ($sz -ge 256) { 0 } else { $sz })))   # height
-        $bw.Write([Byte]0); $bw.Write([Byte]0)                       # colours, reserved
-        $bw.Write([UInt16]1); $bw.Write([UInt16]32)                  # planes, bpp
-        $bw.Write([UInt32]$data.Length); $bw.Write([UInt32]$offset)  # size, offset
+        $bw.Write([Byte]($(if ($sz -ge 256) { 0 } else { $sz })))
+        $bw.Write([Byte]($(if ($sz -ge 256) { 0 } else { $sz })))
+        $bw.Write([Byte]0); $bw.Write([Byte]0)
+        $bw.Write([UInt16]1); $bw.Write([UInt16]32)
+        $bw.Write([UInt32]$data.Length); $bw.Write([UInt32]$offset)
         $offset += $data.Length
     }
     foreach ($e in $entries) { $bw.Write($e[1]) }
@@ -240,16 +248,13 @@ function Make-Ico([int[]]$sizes, [string]$name) {
     Write-Host ("  {0}  (sizes: {1})" -f $name, ($sizes -join ', '))
 }
 
-# ---- favicon (orange mark on white) ----------------------------------------
 function Make-Favicon([int]$S, [string]$name) {
-    $c = New-Canvas $S $S; $bmp = $c[0]; $g = $c[1]
-    $g.Clear($WHITE)
-    Draw-Mark $g ([single]($S / 2)) ([single]($S / 2)) $S $ORANGE
+    $bmp = Make-Square $S ''
     Save-Png $bmp $name
-    $g.Dispose(); $bmp.Dispose()
+    $bmp.Dispose()
 }
 
-Write-Host "Generating ACO brand assets into $OutDir" -ForegroundColor Cyan
+Write-Host "Generating Fluent 2 ACO brand assets (GDI+) into $OutDir" -ForegroundColor Cyan
 (Make-Square 512 'logo_square.png').Dispose()
 (Make-Mark 512 $WHITE  'logo_square_white.png').Dispose()
 (Make-Mark 512 $ORANGE 'logo_mark.png').Dispose()
