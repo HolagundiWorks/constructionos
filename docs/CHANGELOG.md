@@ -6,6 +6,12 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — ACO mark openings (A bottom / C right / O centre)
+
+Logo mark now encodes the acronym in openings: outer gap at **bottom** (A),
+middle gap at **right** (C), solid centre disc (O). All three rings Radiant
+Orange on **transparent** (no plate). Regenerated via `branding/make_brand.py`.
+
 ## 2026-07-24 — Fluent 2 / M365-inspired logo redesign
 
 Regenerated ACO brand assets to match **Fluent 2 / Microsoft 365** product-icon

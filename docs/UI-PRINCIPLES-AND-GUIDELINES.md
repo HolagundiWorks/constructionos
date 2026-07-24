@@ -425,8 +425,8 @@ Aligned with product trust rules + Fluent 2 focus:
 
 - App name **ACO** (full name as quiet secondary) in shell / title —
   `SubtitleTextBlockStyle` + caption. Strings from `construction_app/branding.py`.
-- Logo mark = Fluent 2 gauge-C on Radiant Orange gradient tile (`BRAND.md`) —
-  brand palette only; letterhead on prints. Regenerate via `branding/make_brand.py`.
+- Logo mark = orange ACO openings on transparent (`BRAND.md`: outer A / middle C /
+  centre O); regenerate via `branding/make_brand.py`.
 - Shell = Windows + Fluent 2 materials; not a marketing landing page.
 
 ---
