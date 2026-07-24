@@ -13,22 +13,75 @@ Orange `#FF4F18` only. Outer gap upper-right, middle gap top, solid centre;
 uniform stroke; transparent background. Full asset set regenerated
 (`logo_*.png`, `app.ico`, `favicon.png`) via `branding/make_brand.py`.
 
-## 2026-07-24 — ACO mark openings (A bottom / C right / O centre)
+## 2026-07-24 — WinUI workflow writes: payout, GRN, PPC, risk, GST (API u0.17)
 
-Logo mark now encodes the acronym in openings: outer gap at **bottom** (A),
-middle gap at **right** (C), solid centre disc (O). All three rings Radiant
-Orange on **transparent** (no plate). Regenerated via `branding/make_brand.py`.
+Turned five honest read-only placeholders into working write flows. Every one
+keeps the house rule — the client posts intent, the Python domain does the maths
+and the write; a human confirms anything that moves money or a date.
 
-## 2026-07-24 — Fluent 2 / M365-inspired logo redesign
+- **Muster → Record payout** (`MusterPage`): a confirm dialog then
+  `POST /api/muster/payout`. Deliberately posts no rows — the server recomputes
+  wages from attendance, so what's paid is what's owed. Idempotent (already-paid
+  labourers come back "skipped"). Replaces the "do it in the desktop app" note.
+- **Goods Receipt → Record receipt** (`MatchPage`): pick a PO, edit
+  received/rejected against each ordered line (received defaults to ordered),
+  confirm → `POST /api/grn/confirm`. Needed a new **`GET /api/purchase_orders/{id}`**
+  (header + line items; pure read, 404 when absent) — the only backend addition,
+  hence **API u0.17**. Writes a Draft GRN (no stock post), matching the handler.
+- **Look-ahead → Mark commitments** (`LookaheadPage`): one binary Done/Not-done
+  per commitment with a reason that is required (and only enabled) on a miss —
+  PPC has no "partial". Saves only changed rows via `POST /api/commitments/{id}`;
+  PPC recomputes.
+- **Risk Register → Detect risks** (`RisksPage`): a dry run
+  (`POST /api/risks/detect`, writes nothing) lists proposals, then **Add to
+  register** (`POST /api/risks/accept` `detect_and_apply`) files them as Accepted,
+  deduped. AI proposes, human approves.
+- **GST & TDS → Export for CA** (`GstPage`): the on-screen month via
+  `GET /api/gst/export`, saved through a stock `FileSavePicker` as the combined
+  CSV or the printable HTML. New `Helpers/FileSave.cs` (InitializeWithWindow for
+  an unpackaged desktop picker; UTF-8 BOM so ₹/Devanagari survive into Excel).
 
-Regenerated ACO brand assets to match **Fluent 2 / Microsoft 365** product-icon
-language (analogous gradient plate, layered gauge-C, soft depth, geometric sans
-wordmark):
+Bug fixed while testing GRN: `JsonElement.TryGetInt32()` **throws** on a JSON
+`null` (it does not return false), and PO lines carry `material_id: null` — gated
+on `ValueKind == Number` first. Verified each flow on a display; the payout and
+one Draft GRN were exercised against the dev DB. Test: new `u0.17` PO-detail
+read (header+items, 404); version asserts bumped; **753 Python tests pass**.
 
-- Canonical generator: `branding/make_brand.py` (Cairo + Pillow; build tooling).
-- Windows twin `branding/make-brand.ps1` delegates to Python when available.
-- Updated all `construction_app/resources/logo_*.png`, `app.ico`, `favicon.png`.
-- Docs: `BRAND.md`, `branding.py` analogous colour tokens, UI-PRINCIPLES note.
+## 2026-07-24 — Table rows open a record; app-wide theme fix
+
+Reported: *"unable to open projects, invoices or any other items in tables."*
+Two defects, both real and both pre-existing:
+
+- **Rows were dead.** `Ui.Table` set `SelectionMode=Single`, so a row highlighted
+  on click and nothing listened — the UI invited a click and ignored it. No
+  register (`DataTablePage`, `MoneyPage`, …) had an open handler; only
+  `MastersPage` could edit, and only via select-then-*Edit*.
+  Now: a click opens a read-only **record dialog** showing *every* field, not
+  just the ≤10 columns the table can fit (e.g. a tax invoice also reveals
+  Interstate / Tax amount / Total amount). Masters rows additionally open their
+  edit form on **double-click** or **Enter**; the command bar still works.
+- **The app theme was never applied.** `MainWindow.ApplyTheme` set
+  `Root.RequestedTheme`, which reaches only that Grid's subtree. Popups
+  (ContentDialog, MenuFlyout) live in a separate popup root, and the ~35
+  `Application.Current.Resources[...]` brush lookups in code-behind resolve
+  against the *application* theme — which still followed Windows. On a Dark
+  Windows with ACO set to Light that painted dark-theme greys on light
+  backgrounds: table headers and stat-card captions were near-invisible
+  (**WCAG 1.4.3**, not cosmetic) and dialogs opened dark over a light page.
+  Fixed by setting `Application.RequestedTheme` in the `App` constructor — the
+  only point where it is writable (later it throws `COMException 0x80131515`;
+  an attempt in `OnLaunched` failed exactly that way). Dialogs also carry the
+  shell theme explicitly, so a runtime change is right without a restart;
+  Settings now says a restart is needed for menus.
+
+## 2026-07-24 — WCAG 2.2 AA audit (UI-PRINCIPLES §12)
+
+Static accessibility audit of the WinUI client against **WCAG 2.2 Level AA**:
+
+- Verdict: **not AA-ready** — mechanical U7 headings/names exist; gaps in live
+  regions, FieldForm labels, chart alternatives, error contrast, hit targets.
+- Recommendations ordered P0–P2 in `UI-PRINCIPLES` §12; ROADMAP P1 updated.
+- Cross-links: `BRAND.md` (orange 3.29:1), `winui3.instructions.md`, RESEARCH.
 
 ## 2026-07-24 — Fluent 2 design language (UI-PRINCIPLES v2.0)
 

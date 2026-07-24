@@ -129,11 +129,19 @@ public sealed partial class SettingsPage : Page
             BackendCommand = BackendCmdBox.Text?.Trim() ?? "",
             BackendWorkingDir = BackendDirBox.Text?.Trim() ?? "",
         };
+        var themeChanged = !string.Equals(s.Theme, AppSettings.Current.Theme,
+                                          StringComparison.OrdinalIgnoreCase);
         try
         {
             s.Save();
             ApiClient.ResetDefault();
-            Status.Text = "Saved — reconnecting…";
+            // Menus and dialogs are hosted outside the window's element tree and
+            // take the theme set at startup, so a change here only fully lands on
+            // the next launch. Say so rather than let it look like a glitch.
+            Status.Text = themeChanged
+                ? "Saved — reconnecting… (restart ACO for menus and dialogs to "
+                  + "pick up the new appearance)"
+                : "Saved — reconnecting…";
             // Apply the appearance choice immediately, then re-log in to the
             // (possibly new) company and rebuild the shell in place. Lands on Home.
             App.MainWindow?.ApplyTheme();

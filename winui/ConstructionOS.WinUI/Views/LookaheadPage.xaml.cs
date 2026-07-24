@@ -17,13 +17,27 @@ namespace ConstructionOS.WinUI.Views;
 /// </summary>
 public sealed partial class LookaheadPage : Page
 {
+    // One editable mark per commitment while the marking panel is open.
+    private sealed record Mark(int Id, string Task, ComboBox Status,
+                               ComboBox Reason, string WasStatus, string WasReason);
+
+    private readonly List<Mark> _marks = new();
+    private static readonly string DONE = "Done", NOT_DONE = "Not done";
+
     public LookaheadPage()
     {
         InitializeComponent();
         Loaded += async (_, _) => await LoadAsync();
     }
 
-    private async void OnRefresh(object sender, RoutedEventArgs e) => await LoadAsync();
+    private async void OnRefresh(object sender, RoutedEventArgs e)
+    {
+        Marks.Children.Clear();
+        _marks.Clear();
+        SaveButton.IsEnabled = false;
+        Notice.IsOpen = false;
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -57,6 +71,178 @@ public sealed partial class LookaheadPage : Page
             Host.Children.Clear();
             Host.Children.Add(Ui.ErrorNote(ex));
         }
+    }
+
+    /// <summary>Open the marking panel: one row per commitment, each with a
+    /// binary Done / Not-done and a reason that is required (and only enabled)
+    /// on a miss. PPC has no "partial" — a commitment is met or it is not — so
+    /// this is a two-state toggle, never a slider.</summary>
+    private async void OnMark(object sender, RoutedEventArgs e)
+    {
+        MarkButton.IsEnabled = false;
+        Marks.Children.Clear();
+        _marks.Clear();
+        Marks.Children.Add(Ui.Loading("Loading commitments…"));
+        try
+        {
+            var data = await ApiClient.Default.GetJsonAsync("api/commitments");
+            var reasons = StrList(data, "reasons");
+            if (reasons.Count == 0) reasons.Add("Other");
+
+            Marks.Children.Clear();
+            if (!data.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array || items.GetArrayLength() == 0)
+            {
+                Marks.Children.Add(Note("No commitments to mark — add some in the "
+                                        + "look-ahead plan first."));
+                return;
+            }
+
+            Marks.Children.Add(Ui.SectionTitle("Mark this week's commitments"));
+            var grid = new Grid { ColumnSpacing = 12, RowSpacing = 6 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
+
+            var r = 0;
+            foreach (var it in items.EnumerateArray())
+            {
+                var id = it.TryGetProperty("id", out var idv)
+                    && idv.TryGetInt32(out var i) ? i : 0;
+                if (id == 0) continue;
+                var task = it.TryGetProperty("task", out var t) ? Scalar(t) : $"#{id}";
+                var wasStatus = NormStatus(it.TryGetProperty("status", out var s) ? Scalar(s) : "");
+                var wasReason = it.TryGetProperty("reason", out var rc) ? Scalar(rc) : "";
+
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var label = new TextBlock
+                {
+                    Text = task, TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                var status = new ComboBox
+                {
+                    ItemsSource = new List<string> { DONE, NOT_DONE },
+                    SelectedItem = wasStatus,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinWidth = 140,
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                    status, $"Status for {task}");
+                var reason = new ComboBox
+                {
+                    ItemsSource = reasons,
+                    SelectedItem = reasons.Contains(wasReason) ? wasReason : null,
+                    PlaceholderText = "Reason for miss",
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinWidth = 220,
+                    IsEnabled = wasStatus == NOT_DONE,
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+                    reason, $"Miss reason for {task}");
+
+                // A reason only makes sense on a miss; keep the two in lock-step.
+                status.SelectionChanged += (_, _) =>
+                {
+                    var missed = (status.SelectedItem as string) == NOT_DONE;
+                    reason.IsEnabled = missed;
+                    if (!missed) reason.SelectedItem = null;
+                    SaveButton.IsEnabled = true;
+                };
+                reason.SelectionChanged += (_, _) => SaveButton.IsEnabled = true;
+
+                Grid.SetRow(label, r); Grid.SetColumn(label, 0);
+                Grid.SetRow(status, r); Grid.SetColumn(status, 1);
+                Grid.SetRow(reason, r); Grid.SetColumn(reason, 2);
+                grid.Children.Add(label); grid.Children.Add(status); grid.Children.Add(reason);
+                _marks.Add(new Mark(id, task, status, reason, wasStatus, wasReason));
+                r++;
+            }
+            Marks.Children.Add(grid);
+        }
+        catch (Exception ex)
+        {
+            Marks.Children.Clear();
+            Marks.Children.Add(Ui.ErrorNote(ex));
+        }
+        finally { MarkButton.IsEnabled = true; }
+    }
+
+    /// <summary>Persist only the commitments whose Done/reason actually changed
+    /// (POST /api/commitments/{id} with {done, reason}). A miss with no reason is
+    /// blocked here rather than silently written blank.</summary>
+    private async void OnSaveMarks(object sender, RoutedEventArgs e)
+    {
+        var changed = _marks.Where(m =>
+            (m.Status.SelectedItem as string ?? m.WasStatus) != m.WasStatus
+            || (m.Reason.SelectedItem as string ?? "") != m.WasReason).ToList();
+
+        var missingReason = changed.Where(m =>
+            (m.Status.SelectedItem as string) == NOT_DONE
+            && string.IsNullOrEmpty(m.Reason.SelectedItem as string)).ToList();
+        if (missingReason.Count > 0)
+        {
+            Show("Pick a reason for each miss",
+                 "A commitment marked Not done needs a reason: "
+                 + string.Join(", ", missingReason.Select(m => m.Task)),
+                 InfoBarSeverity.Warning);
+            return;
+        }
+        if (changed.Count == 0)
+        {
+            Show("Nothing to save", "No marks were changed.", InfoBarSeverity.Informational);
+            return;
+        }
+
+        SaveButton.IsEnabled = false;
+        var saved = 0;
+        try
+        {
+            foreach (var m in changed)
+            {
+                var done = (m.Status.SelectedItem as string) == DONE;
+                await ApiClient.Default.PostJsonAsync($"api/commitments/{m.Id}",
+                    new Dictionary<string, object?>
+                    {
+                        ["done"] = done,
+                        ["reason"] = done ? "" : (m.Reason.SelectedItem as string ?? ""),
+                    });
+                saved++;
+            }
+            Show("Marks saved", $"{saved} commitment(s) updated.", InfoBarSeverity.Success);
+            Marks.Children.Clear();
+            _marks.Clear();
+            await LoadAsync();   // PPC recomputes from the new marks
+        }
+        catch (Exception ex)
+        {
+            Show("Couldn't save all marks",
+                 $"{saved} saved before the error. " + ApiException.UserMessage(ex),
+                 InfoBarSeverity.Error);
+            SaveButton.IsEnabled = true;
+        }
+    }
+
+    private static string NormStatus(string raw) =>
+        raw.Trim().ToLowerInvariant() is "done" or "complete" or "completed" or "yes"
+            ? DONE : NOT_DONE;
+
+    private static List<string> StrList(JsonElement o, string key)
+    {
+        var list = new List<string>();
+        if (o.TryGetProperty(key, out var a) && a.ValueKind == JsonValueKind.Array)
+            foreach (var e in a.EnumerateArray())
+                if (e.ValueKind == JsonValueKind.String) list.Add(e.GetString() ?? "");
+        return list;
+    }
+
+    private void Show(string title, string message, InfoBarSeverity severity)
+    {
+        Notice.Title = title;
+        Notice.Message = message;
+        Notice.Severity = severity;
+        Notice.IsOpen = true;
     }
 
     // Headline cards: overall PPC, promised, done, average PPC.

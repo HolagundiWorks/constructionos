@@ -14,12 +14,15 @@
       <Border Height="340" Padding="4"
               Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
               CornerRadius="8">
-        <lvc:CartesianChart x:Name="Chart"/>
+        <lvc:CartesianChart x:Name="Chart"
+                            AutomationProperties.Name="Money snapshot chart"/>
       </Border>
+      <!-- Text alternative for the chart (WCAG 1.1.1): the same numbers in words. -->
       <TextBlock x:Name="Status" TextWrapping="Wrap"
-                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                 AutomationProperties.LiveSetting="Polite"/>
 
       <TextBlock Text="Cash-flow forecast"
+                 AutomationProperties.HeadingLevel="Level2"
                  Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
       <TextBlock x:Name="CashCaption" TextWrapping="Wrap"
                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -27,10 +30,14 @@
       <Border Height="340" Padding="4"
               Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
               CornerRadius="8">
-        <lvc:CartesianChart x:Name="CashChart"/>
+        <lvc:CartesianChart x:Name="CashChart"
+                            AutomationProperties.Name="Cash-flow forecast chart"/>
       </Border>
+      <TextBlock x:Name="CashSummary" TextWrapping="Wrap"
+                 AutomationProperties.LiveSetting="Polite"/>
 
       <TextBlock Text="Receivable ageing"
+                 AutomationProperties.HeadingLevel="Level2"
                  Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0"/>
       <TextBlock x:Name="AgeCaption" TextWrapping="Wrap"
                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -38,8 +45,11 @@
       <Border Height="300" Padding="4"
               Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
               CornerRadius="8">
-        <lvc:CartesianChart x:Name="AgeChart"/>
+        <lvc:CartesianChart x:Name="AgeChart"
+                            AutomationProperties.Name="Receivable ageing chart"/>
       </Border>
+      <TextBlock x:Name="AgeSummary" TextWrapping="Wrap"
+                 AutomationProperties.LiveSetting="Polite"/>
     </StackPanel>
   </ScrollViewer>
 </Page>

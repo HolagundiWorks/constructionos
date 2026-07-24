@@ -6,11 +6,21 @@
     <TextBlock Grid.Row="0" Text="Goods receipt &amp; three-way match"
                Style="{StaticResource PageTitleStyle}"/>
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
-                HorizontalAlignment="Left" Background="Transparent">
+                HorizontalAlignment="Left" Background="Transparent" IsOpen="False">
       <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+      <AppBarSeparator/>
+      <!-- Record what actually arrived against a PO's ordered lines. -->
+      <AppBarButton x:Name="ReceiveButton" Label="Record receipt" Click="OnReceive">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE7B8;"/></AppBarButton.Icon>
+      </AppBarButton>
     </CommandBar>
+    <InfoBar x:Name="Notice" Grid.Row="1" IsOpen="False" IsClosable="True"
+             HorizontalAlignment="Right" MaxWidth="520"/>
     <ScrollViewer Grid.Row="2">
-      <StackPanel x:Name="Host" Spacing="12"/>
+      <StackPanel Spacing="12">
+        <StackPanel x:Name="Receive" Spacing="8"/>
+        <StackPanel x:Name="Host" Spacing="12"/>
+      </StackPanel>
     </ScrollViewer>
   </Grid>
 </Page>

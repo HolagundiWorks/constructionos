@@ -13,19 +13,38 @@
 
       <!-- ACO brand accent — Radiant Orange (#FF4F18, = branding.py BRAND_ORANGE)
            overriding the user's system accent, with a light/dark shade ramp so
-           control hover/pressed/selected states stay on-brand. Keys defined here
-           (not in MergedDictionaries) win over the framework defaults.
-           Alert/severity colours (SystemFillColorCritical/Caution/Success/
-           Attention → InfoBar red/amber/green/blue) are deliberately NOT touched,
-           so status stays semantically correct. Light/Dark/System theme is applied
-           at runtime to the window root from AppSettings (not forced here). -->
-      <Color x:Key="SystemAccentColor">#FF4F18</Color>
-      <Color x:Key="SystemAccentColorLight1">#FF7246</Color>
-      <Color x:Key="SystemAccentColorLight2">#FF9574</Color>
-      <Color x:Key="SystemAccentColorLight3">#FFB9A2</Color>
-      <Color x:Key="SystemAccentColorDark1">#CC3F13</Color>
-      <Color x:Key="SystemAccentColorDark2">#992F0E</Color>
-      <Color x:Key="SystemAccentColorDark3">#66200A</Color>
+           control hover/pressed/selected states stay on-brand. Fluent derives the
+           button fill and accent text from this ramp, which is what keeps both
+           themes WCAG-AA (light: white on Dark1 = 4.90:1; dark: black on Light2
+           = 9.80:1). Alert/severity colours (SystemFillColorCritical/Caution/
+           Success/Attention → InfoBar red/amber/green/blue) are deliberately NOT
+           touched, so status stays semantically correct.
+
+           Scoped to Light + Dark only: under Windows **High Contrast** the user's
+           own palette must win, so we contribute nothing there (WCAG 1.4.11 /
+           UI-PRINCIPLES §12.4 "don't override system HC brushes"). -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <Color x:Key="SystemAccentColor">#FF4F18</Color>
+          <Color x:Key="SystemAccentColorLight1">#FF7246</Color>
+          <Color x:Key="SystemAccentColorLight2">#FF9574</Color>
+          <Color x:Key="SystemAccentColorLight3">#FFB9A2</Color>
+          <Color x:Key="SystemAccentColorDark1">#CC3F13</Color>
+          <Color x:Key="SystemAccentColorDark2">#992F0E</Color>
+          <Color x:Key="SystemAccentColorDark3">#66200A</Color>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <Color x:Key="SystemAccentColor">#FF4F18</Color>
+          <Color x:Key="SystemAccentColorLight1">#FF7246</Color>
+          <Color x:Key="SystemAccentColorLight2">#FF9574</Color>
+          <Color x:Key="SystemAccentColorLight3">#FFB9A2</Color>
+          <Color x:Key="SystemAccentColorDark1">#CC3F13</Color>
+          <Color x:Key="SystemAccentColorDark2">#992F0E</Color>
+          <Color x:Key="SystemAccentColorDark3">#66200A</Color>
+        </ResourceDictionary>
+        <!-- Intentionally empty — Windows' High Contrast palette wins. -->
+        <ResourceDictionary x:Key="HighContrast"/>
+      </ResourceDictionary.ThemeDictionaries>
 
       <!-- Page titles: same look as TitleTextBlockStyle, plus a Level-1 heading
            so screen readers can navigate the shell by page (accessibility). -->

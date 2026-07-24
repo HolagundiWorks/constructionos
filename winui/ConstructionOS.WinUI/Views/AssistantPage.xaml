@@ -7,12 +7,15 @@
       <TextBlock Text="Assistant" Style="{StaticResource PageTitleStyle}"/>
       <!-- Fluent 2: TeachingTip for the trust boundary, on demand — not a
            permanent banner competing with the answer. -->
+      <!-- Icon-only: named on the parent, ≥40x40 target (WCAG 2.5.8 / Fluent),
+           and the glyph itself is Raw so it isn't spoken twice (B7). -->
       <Button Grid.Column="1" x:Name="AboutButton" Click="OnAbout"
               Background="Transparent" BorderThickness="0"
-              VerticalAlignment="Center"
+              VerticalAlignment="Center" MinWidth="40" MinHeight="40"
               AutomationProperties.Name="How the assistant works"
               ToolTipService.ToolTip="How the assistant works">
-        <FontIcon Glyph="&#xE946;" FontSize="16"/>
+        <FontIcon Glyph="&#xE946;" FontSize="16"
+                  AutomationProperties.AccessibilityView="Raw"/>
       </Button>
     </Grid>
 

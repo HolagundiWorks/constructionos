@@ -16,6 +16,12 @@ internal static class Ui
 {
     private const int MaxCols = 10;
 
+    /// <summary>The shell's live theme. Popups (ContentDialog, flyouts) are hosted
+    /// outside the page tree and so never inherit it — they must be told, or a
+    /// Light app shows Dark dialogs on a Dark-themed Windows.</summary>
+    public static ElementTheme CurrentTheme =>
+        App.MainWindow?.ShellTheme ?? ElementTheme.Default;
+
     /// <summary>
     /// An aligned columnar table for the items array in <paramref name="data"/>.
     /// Columns are the ordered union of row keys (id first, capped at 10);
@@ -65,26 +71,93 @@ internal static class Ui
         Grid.SetRow(header, 0);
         root.Children.Add(header);
 
+        // Rows are clickable: a click opens the full record. A table caps at
+        // MaxCols columns, so the row you see is a summary — opening it is the
+        // only way to read the rest. (Previously SelectionMode=Single made rows
+        // highlight as if they were actionable while nothing listened.)
+        var label = data.TryGetProperty("label", out var lbl)
+            && lbl.ValueKind == JsonValueKind.String ? lbl.GetString() : null;
         var list = new ListView
         {
-            SelectionMode = ListViewSelectionMode.Single,
+            SelectionMode = ListViewSelectionMode.None,
+            IsItemClickEnabled = true,
             Padding = new Thickness(0, 4, 0, 4),
         };
         // Name the region from the server's curated label so a screen reader can
         // say which table it is ("Payroll, list") rather than an anonymous list.
-        if (data.TryGetProperty("label", out var lbl)
-            && lbl.ValueKind == JsonValueKind.String
-            && !string.IsNullOrWhiteSpace(lbl.GetString()))
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, lbl.GetString());
+        if (!string.IsNullOrWhiteSpace(label))
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, label);
+        list.ItemClick += (_, e) =>
+        {
+            if (e.ClickedItem is FrameworkElement fe
+                && fe.Tag is IReadOnlyDictionary<string, string> record)
+                _ = ShowRecordAsync(fe, label ?? "Record", spec, record);
+        };
         foreach (var r in rows)
         {
             var rg = SpecRow(spec, c => r.TryGetValue(c.Key, out var v) ? v : "", isHeader: false);
             rg.Padding = new Thickness(0, 2, 0, 2);
+            rg.Tag = r;                       // the full record, not just shown cells
             list.Items.Add(rg);
         }
         Grid.SetRow(list, 1);
         root.Children.Add(list);
         return root;
+    }
+
+    /// <summary>Show one record in a read-only dialog — every field it has, not
+    /// just the columns that fitted in the table. Curated labels where the server
+    /// gave them, money in rupees.</summary>
+    private static async Task ShowRecordAsync(
+        FrameworkElement anchor, string title,
+        IReadOnlyList<Col> spec, IReadOnlyDictionary<string, string> record)
+    {
+        if (anchor.XamlRoot is null) return;
+        var labels = new Dictionary<string, Col>();
+        foreach (var c in spec) labels[c.Key] = c;
+
+        var grid = new Grid { ColumnSpacing = 16, RowSpacing = 6 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var r = 0;
+        // Spec order first (the curated reading order), then anything left over.
+        var keys = spec.Select(c => c.Key).Where(record.ContainsKey)
+            .Concat(record.Keys.Where(k => !labels.ContainsKey(k)));
+        foreach (var key in keys)
+        {
+            var raw = record.TryGetValue(key, out var v) ? v : "";
+            if (string.IsNullOrWhiteSpace(raw)) continue;      // skip empty fields
+            var col = labels.TryGetValue(key, out var c) ? c : Column(key, null);
+            var shown = col.Money && TryNum(raw, out var mv) ? Rupees(mv) : raw;
+
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var name = new TextBlock
+            {
+                Text = col.Label,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    Application.Current.Resources["TextFillColorSecondaryBrush"],
+                TextWrapping = TextWrapping.Wrap,
+            };
+            var value = new TextBlock { Text = shown, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
+            Grid.SetRow(name, r); Grid.SetColumn(name, 0);
+            Grid.SetRow(value, r); Grid.SetColumn(value, 1);
+            grid.Children.Add(name); grid.Children.Add(value);
+            r++;
+        }
+        if (r == 0) grid.Children.Add(new TextBlock { Text = "This record is empty." });
+
+        await new ContentDialog
+        {
+            Title = title,
+            Content = new ScrollViewer { Content = grid, MaxHeight = 480 },
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = anchor.XamlRoot,
+            // Dialogs are hosted outside the page tree, so they don't inherit the
+            // shell's theme — carry it across explicitly.
+            RequestedTheme = anchor.ActualTheme,
+        }.ShowAsync();
     }
 
     /// <summary>One rendered column: display key, human label, right-align,
@@ -314,17 +387,57 @@ internal static class Ui
         }
     }
 
-    /// <summary>A centered progress ring for the "loading…" state while an API
-    /// call is in flight (put it in the page's content host before the await).</summary>
-    public static FrameworkElement Loading() => new ProgressRing
+    // Windows' "Show animations" switch (Settings › Accessibility › Visual
+    // effects). Read once — it is a per-session OS preference.
+    private static readonly bool AnimationsOn = ReadAnimationsEnabled();
+
+    private static bool ReadAnimationsEnabled()
     {
-        IsActive = true,
-        Width = 32,
-        Height = 32,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Top,
-        Margin = new Thickness(0, 48, 0, 0),
-    };
+        try { return new Windows.UI.ViewManagement.UISettings().AnimationsEnabled; }
+        catch { return true; }   // if we can't ask, don't take motion away
+    }
+
+    /// <summary>Honour the OS "show animations" preference on a chart (WCAG
+    /// 2.3.3 Animation from interactions). When the user has animations off, the
+    /// series snap into place instead of easing.</summary>
+    public static void RespectMotion(LiveChartsCore.SkiaSharpView.WinUI.CartesianChart chart)
+    {
+        if (AnimationsOn) return;
+        // Zero duration = the series snap straight to their final position.
+        chart.AnimationsSpeed = TimeSpan.Zero;
+    }
+
+    /// <summary>Mark an element as a live region so screen readers announce it
+    /// when it appears or changes (WCAG 4.1.3 Status messages). Polite for
+    /// progress/empty states, assertive for errors.</summary>
+    public static T Live<T>(T element, bool assertive = false) where T : DependencyObject
+    {
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(
+            element,
+            assertive
+                ? Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Assertive
+                : Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
+        return element;
+    }
+
+    /// <summary>A centered progress ring for the "loading…" state while an API
+    /// call is in flight (put it in the page's content host before the await).
+    /// Named and announced — a silent spinner is invisible to a screen reader
+    /// (WCAG 1.1.1 / 4.1.2 / 4.1.3).</summary>
+    public static FrameworkElement Loading(string label = "Loading")
+    {
+        var ring = new ProgressRing
+        {
+            IsActive = true,
+            Width = 32,
+            Height = 32,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 48, 0, 0),
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ring, label);
+        return Live(ring);
+    }
 
     private static FrameworkElement Empty(string message) => new TextBlock
     {
@@ -355,25 +468,26 @@ internal static class Ui
     /// Error severity carrying a calm, status-aware sentence (missing endpoint vs
     /// permission vs session vs server) — never a stack trace, and never a fake
     /// empty table that reads as "zero work".</summary>
-    public static FrameworkElement ErrorNote(Exception ex, string? title = null) => new InfoBar
-    {
-        Title = title ?? "Couldn't load this",
-        Message = ApiException.UserMessage(ex),
-        Severity = InfoBarSeverity.Error,
-        IsOpen = true,
-        IsClosable = false,
-    };
+    public static FrameworkElement ErrorNote(Exception ex, string? title = null) =>
+        Live(new InfoBar
+        {
+            Title = title ?? "Couldn't load this",
+            Message = ApiException.UserMessage(ex),
+            Severity = InfoBarSeverity.Error,
+            IsOpen = true,
+            IsClosable = false,
+        }, assertive: true);   // a failure interrupts — WCAG 4.1.3
 
     /// <summary>The one "no data yet" recipe — honestly empty, with the next
     /// step. Distinct from an error and from a missing endpoint.</summary>
-    public static FrameworkElement EmptyNote(string message) => new TextBlock
+    public static FrameworkElement EmptyNote(string message) => Live(new TextBlock
     {
         Text = message,
         TextWrapping = TextWrapping.Wrap,
         Foreground = (Microsoft.UI.Xaml.Media.Brush)
             Application.Current.Resources["TextFillColorSecondaryBrush"],
         Margin = new Thickness(0, 8, 0, 0),
-    };
+    });
 
     /// <summary>A headline stat card — a big value over a caption. The value is
     /// tinted with the brand accent when <paramref name="accent"/>.</summary>

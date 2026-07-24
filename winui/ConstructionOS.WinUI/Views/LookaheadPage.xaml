@@ -8,9 +8,24 @@
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
                 HorizontalAlignment="Left" Background="Transparent">
       <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+      <AppBarSeparator/>
+      <!-- PPC is binary by design: a commitment is Done or it is not, and a miss
+           must carry a reason code. Partial does not exist. -->
+      <AppBarButton x:Name="MarkButton" Label="Mark commitments" Click="OnMark">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE73E;"/></AppBarButton.Icon>
+      </AppBarButton>
+      <AppBarButton x:Name="SaveButton" Label="Save marks" Click="OnSaveMarks"
+                    IsEnabled="False">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon>
+      </AppBarButton>
     </CommandBar>
+    <InfoBar x:Name="Notice" Grid.Row="1" IsOpen="False" IsClosable="True"
+             HorizontalAlignment="Right" MaxWidth="520"/>
     <ScrollViewer Grid.Row="2">
-      <StackPanel x:Name="Host" Spacing="12"/>
+      <StackPanel Spacing="12">
+        <StackPanel x:Name="Marks" Spacing="8"/>
+        <StackPanel x:Name="Host" Spacing="12"/>
+      </StackPanel>
     </ScrollViewer>
   </Grid>
 </Page>

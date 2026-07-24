@@ -1281,7 +1281,8 @@ def _master_form(conn, sess, table, row, errs=None, submitted=None):
         elif f['kind'] == 'combo':
             options = [(o, o) for o in f['options']]
         rows_html.append(R.field_row(
-            f['label'], R.control(f['kind'], f['key'], val, options)))
+            f['label'], R.control(f['kind'], f['key'], val, options),
+            for_name=f['key']))
     action = ('/t/{}/{}/edit'.format(table, rid) if editing
               else '/t/{}/new'.format(table))
     title = '{} {}'.format('Edit' if editing else 'New', lbl)
@@ -1744,7 +1745,8 @@ def _doc_form(conn, sess, table, errs, submitted):
         elif f['kind'] == 'combo':
             options = [(o, o) for o in f['options']]
         rows_html.append(R.field_row(
-            f['label'], R.control(f['kind'], f['key'], val, options)))
+            f['label'], R.control(f['kind'], f['key'], val, options),
+            for_name=f['key']))
     title = 'New {}'.format(lbl)
     body = '<h1>{}</h1>{}'.format(R.esc(title), R.form(
         '/t/{}/new'.format(table), ''.join(rows_html), sess['csrf'],

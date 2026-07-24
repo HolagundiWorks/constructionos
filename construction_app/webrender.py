@@ -83,6 +83,10 @@ a{color:inherit;text-decoration:none}
 .topbar .who{color:var(--muted);font-size:13px}
 .topbar a{color:var(--info)}
 .content{padding:24px;max-width:var(--content-max);width:100%}
+/* Skip link: off-screen until keyboard-focused (WCAG 2.4.1). */
+.skip{position:absolute;left:-9999px;top:0;z-index:100;background:var(--surface);
+  color:var(--ink);border:1px solid var(--accent);padding:8px 12px}
+.skip:focus{left:8px;top:8px}
 h1{font-size:20px;line-height:1.3;margin:0 0 4px;font-weight:650;
   letter-spacing:-.005em}
 h2{font-size:11px;margin:24px 0 10px;color:var(--helper);font-weight:600;
@@ -198,10 +202,14 @@ def page(title, body, *, user='', nav=None, active='', warning=''):
            .format(esc(user)) if user else '')
     banner = ('<div class="banner">{}</div>'.format(esc(warning))
               if warning else '')
+    # A keyboard user lands on the rail first; the skip link lets them jump
+    # straight to the page content (WCAG 2.4.1 Bypass blocks). It is visually
+    # hidden until focused (see the .skip rule in the stylesheet).
     inner = (
+        '<a class="skip" href="#main">Skip to content</a>'
         '<div class="layout">{rail}<div class="main">'
         '<div class="topbar"><strong>{title}</strong>{who}</div>'
-        '<div class="content">{banner}{body}</div></div></div>'
+        '<main id="main" class="content">{banner}{body}</main></div></div>'
     ).format(rail=_rail(nav or [], active), title=esc(title), who=who,
              banner=banner, body=body)
     return _doc(title, inner)
@@ -248,13 +256,16 @@ def control(kind, name, value, options=None):
     for combo/fk."""
     v = esc('' if value is None else value)
     n = esc(name)
+    # Every control carries a stable id so its <label> can point at it
+    # (WCAG 1.3.1 / 3.3.2 — see field_row).
+    i = field_id(name)
     if kind in ('number', 'dim'):
-        return ('<input type="text" inputmode="decimal" name="{}" value="{}">'
-                .format(n, v))
+        return ('<input type="text" inputmode="decimal" id="{}" name="{}" '
+                'value="{}">'.format(i, n, v))
     if kind == 'date':
-        return '<input type="date" name="{}" value="{}">'.format(n, v)
+        return '<input type="date" id="{}" name="{}" value="{}">'.format(i, n, v)
     if kind == 'textarea':
-        return '<textarea name="{}" rows="3">{}</textarea>'.format(n, v)
+        return '<textarea id="{}" name="{}" rows="3">{}</textarea>'.format(i, n, v)
     if kind in ('combo', 'fk'):
         cur = '' if value is None else str(value)
         opts = ['<option value="">—</option>'] if kind == 'fk' else []
@@ -262,13 +273,23 @@ def control(kind, name, value, options=None):
             sel = ' selected' if str(val) == cur else ''
             opts.append('<option value="{}"{}>{}</option>'.format(
                 esc(val), sel, esc(label)))
-        return '<select name="{}">{}</select>'.format(n, ''.join(opts))
-    return '<input type="text" name="{}" value="{}">'.format(n, v)
+        return '<select id="{}" name="{}">{}</select>'.format(i, n, ''.join(opts))
+    return '<input type="text" id="{}" name="{}" value="{}">'.format(i, n, v)
 
 
-def field_row(label_text, control_html):
-    return '<div class="frow"><label>{}</label>{}</div>'.format(
-        esc(label_text), control_html)
+def field_id(name):
+    """The DOM id a control gets, so a <label> can reference it."""
+    return 'f-' + esc(str(name))
+
+
+def field_row(label_text, control_html, for_name=None):
+    """A labelled field row. Pass ``for_name`` (the control's field name) to bind
+    the label to its input — screen readers then announce the label on focus and
+    clicking the label focuses the control (WCAG 1.3.1 / 3.3.2)."""
+    opening = ('<label for="{}">'.format(field_id(for_name))
+               if for_name else '<label>')
+    return '<div class="frow">{}{}</label>{}</div>'.format(
+        opening, esc(label_text), control_html)
 
 
 def errors(messages):

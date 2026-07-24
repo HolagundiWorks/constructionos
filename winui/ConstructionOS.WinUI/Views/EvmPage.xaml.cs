@@ -17,6 +17,8 @@ public sealed partial class EvmPage : Page
     public EvmPage()
     {
         InitializeComponent();
+        // Honour the OS "show animations" setting (WCAG 2.3.3).
+        Ui.RespectMotion(Chart);
         Loaded += async (_, _) => await LoadAsync();
     }
 

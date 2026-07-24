@@ -18,6 +18,8 @@ public sealed partial class CashFlowPage : Page
     public CashFlowPage()
     {
         InitializeComponent();
+        // Honour the OS "show animations" setting (WCAG 2.3.3).
+        Ui.RespectMotion(Chart);
         Loaded += async (_, _) => await LoadAsync();
     }
 

@@ -1,7 +1,7 @@
 # ACO — Roadmap
 
 _Product: **ACO** (Accelerated Construction Operations)._  
-_Last updated: 2026-07-24 · Baseline: API **u0.16**_
+_Last updated: 2026-07-24 · Baseline: API **u0.17**_
 
 **This is the single status document.** What changed and where →
 [`CHANGELOG.md`](CHANGELOG.md). Engineering / product specs are listed in §5 —
@@ -21,7 +21,7 @@ pay labour, and stay in control — offline, on their PC, with minimal typing?
 |---|---|
 | Desktop ERP (tkinter) + pure domain + SQLite | ✅ Complete product |
 | Browser / LAN (stdlib) | ✅ Read + money/masters write |
-| JSON API (`webapi.py`) | ✅ **u0.16** (agents A/A+ + drawing Phase D + P0–P3) |
+| JSON API (`webapi.py`) | ✅ **u0.17** (agents A/A+ + drawing Phase D + P0–P3 + PO detail read) |
 | WinUI 3 client | 🚧 **Nav-complete**; workflow pages still need local UI |
 | MSIX packaging | ✅ Dev-signed; ⏳ release cert + clean-box proof |
 | OCR / STT / VLM sidecars (L8) | ⏳ Stub only (weights local) |
@@ -65,13 +65,14 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 | **u0.14** | Foundry multi-agent Phase A — catalog, tools, workflows, `/api/agents*` ([`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md)) |
 | **u0.15** | Provider seam + golden eval + deeper agent tools/workflows |
 | **u0.16** | Foundry Phase D (deterministic) — drawing elements, revision-delta, takeoff API |
+| **u0.17** | `GET /api/purchase_orders/{id}` (header + lines) for GRN-from-PO receipt entry |
 
 ### 1.4 WinUI track — phases done
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| **U0** | JSON API for the client | ✅ u0.16 |
-| **U1** | Ribbon shell + search (stock controls) | ✅ |
+| **U0** | JSON API for the client | ✅ u0.17 |
+| **U1** | Shell + search (stock controls) — now a stock `MenuBar`: one menu per section, tabs as menu items | ✅ |
 | **U2** | Masters CRUD (`FieldForm`, FK pickers) | ✅ |
 | **U3** | Money docs create+list | ✅ |
 | **U4** | Home KPIs + charts (LiveCharts) | ✅ |
@@ -90,7 +91,7 @@ changelog.
 
 ### 2.1 P0 — WinUI workflow honesty (local Windows) — ✅ **pages built**
 
-All five now have purpose-built pages over the u0.13–u0.15 endpoints; no generic
+All five now have purpose-built pages over the u0.13–u0.17 endpoints; no generic
 proxy is left on a P0 label. Remaining depth per row.
 
 | Item | Page shipped | Remaining depth |
@@ -98,8 +99,8 @@ proxy is left on a P0 label. Remaining depth per row.
 | **BOQ / RA / Measurement Book** | `BoqRaPage` — contract → BOQ → **Generate RA bill** (Draft) | MB line entry + print |
 | **Subcontractors** (work orders + sub bills) | `SubcontractorsPage` | Create/edit WO + sub bill |
 | **AI Engine** | `AiEnginePage` — provider, model, sidecars, agent/workflow catalog | Start/Stop control |
-| **Goods Receipt / three-way match** | `MatchPage` — at-risk cards + narration + per-PO detail | GRN confirm from the page |
-| **Muster → payout** | `MusterPage` — site+date grid, save marks, weekly payout | Record-payout write |
+| **Goods Receipt / three-way match** | `MatchPage` — at-risk cards + narration + per-PO detail; ✅ **Record receipt** (pick PO → edit received/rejected per ordered line → `POST /api/grn/confirm`, over `GET /api/purchase_orders/{id}`) | GRN post-to-stock (Draft only today) |
+| **Muster → payout** | `MusterPage` — site+date grid, save marks, weekly payout; ✅ **Record payout** (confirm → `POST /api/muster/payout`, idempotent) | — |
 
 ### 2.2 P1 — WinUI depth & Tools (local)
 
@@ -108,7 +109,7 @@ proxy is left on a P0 label. Remaining depth per row.
 | Timeline **Gantt** bars | ✅ `TimelinePage` (CPM summary, critical path, float, plan-vs-CPM); bars still to draw |
 | Key Numbers **vs** Insight split | ✅ Split — `KpiPage` (scorecard + verdicts) and `InsightPage` (3 analytics cuts) |
 | Tools: backup/restore, invoice series, refdata, language, security | Firm + modules only in API/WinUI |
-| Interactive **a11y** walkthrough + keyboard/focus pass | ✅ **WCAG 2.1 AA audit done** — accent contrast measured in *both* themes (light: 4.90:1 button / 7.59:1 accent text; dark: 7.75–12.7:1), Level-2 section headings, named stat cards, table rows announced as labelled units. Screen-reader walkthrough on a live NVDA/Narrator session still manual. |
+| Interactive **a11y** walkthrough + keyboard/focus pass | 🚧 Contrast measured in *both* themes (light 4.90:1 button / 7.59:1 accent text; dark 7.75–12.7:1); §12 findings closed: Level-2 section headings (B3), named rows (B2), errors → InfoBar (A4), named rings (A1), live regions (A2), FieldForm `Header`/required (A3), chart names + summaries (A5), hit targets (B5). **Remaining: Narrator + keyboard walkthrough (B1) and High-Contrast smoke (C2) — interactive, on a display.** |
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 
@@ -121,6 +122,7 @@ foundations + §11 inventory).
 | Item | Why pending |
 |---|---|
 | Safe **Mica** (or documented deferral) | Removed for crash risk — revisit on SDK bump |
+| A11y P2 polish (reduced motion, landmarks, focus restore, HC policy) | ✅ Done — `Ui.RespectMotion` honours the OS animations setting; Search/Main landmarks; focus moves into the page after navigate; brand accent scoped to Light/Dark so **High Contrast** uses the system palette. Live HC + Narrator smoke still needs a display. |
 | **DatePicker** on FieldForm `date` fields | ✅ Backend declares `kind='date'` (inferred, contract-tested); WinUI renders a stock `DatePicker` (ISO ↔ API), web renders `<input type="date">` |
 | Shared **empty / loading** recipe (`ProgressRing` + `InfoBar`) | ✅ One recipe — `Ui.Loading` ring, `Ui.EmptyNote` (no data ≠ error), `Ui.ErrorNote` = **InfoBar Severity=Error** across 9 pages |
 | **SettingsCard** / TeachingTip / InfoBadge | ✅ **TeachingTip** on Assistant (read-only trust boundary); ⏳ SettingsCard (needs CommunityToolkit pkg) + InfoBadge (needs count API) |
@@ -133,9 +135,9 @@ foundations + §11 inventory).
 
 | Item | Cloud | WinUI |
 |---|---|---|
-| GST/TDS **export pack** (CA handoff) | ✅ `GET /api/gst/export` | ⏳ download UI |
-| PPC **binary Done + reason codes** | ✅ commitments API + lookahead `reasons` | ⏳ LookaheadPage depth |
-| Risk **accept-from-detect** one-click | ✅ `/api/risks/detect` + `/accept` | ⏳ Risk page button |
+| GST/TDS **export pack** (CA handoff) | ✅ `GET /api/gst/export` | ✅ **Export for CA** on `GstPage` (FileSavePicker → CSV or printable HTML) |
+| PPC **binary Done + reason codes** | ✅ commitments API + lookahead `reasons` | ✅ **Mark commitments** on `LookaheadPage` (Done/Not-done + required reason on a miss → `POST /api/commitments/{id}`) |
+| Risk **accept-from-detect** one-click | ✅ `/api/risks/detect` + `/accept` | ✅ **Detect risks** (dry-run) → **Add to register** on `RisksPage` |
 | Home aggregate `/api/home` | ✅ | ⏳ fewer round-trips on HomePage |
 
 ### 2.5 P4 — Moat / later

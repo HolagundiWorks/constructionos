@@ -96,7 +96,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.16'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.17'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -175,6 +175,10 @@ def handle(request, sess):
 
     if path == 'purchase_orders' and method == 'POST':
         return _create_purchase_order(request, sess)
+
+    m = re.match(r'^purchase_orders/(\d+)$', path)
+    if m and method == 'GET':
+        return _get_purchase_order(int(m.group(1)))
 
     if path == 'goods_receipts' and method == 'GET':
         return _list_ops_table('goods_receipts')
@@ -1178,7 +1182,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.16',
+        'api': 'u0.17',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1196,7 +1200,8 @@ def _api_contract():
             'GET /api/parties',
             'GET /api/agents', 'GET /api/agents/{id}', 'GET /api/agents/workflows',
             'GET /api/agents/provider', 'GET /api/agents/eval',
-            'GET /api/purchase_orders', 'GET /api/goods_receipts',
+            'GET /api/purchase_orders', 'GET /api/purchase_orders/{id}',
+            'GET /api/goods_receipts',
             'GET /api/work_orders', 'GET /api/sub_bills',
             'GET /api/match', 'GET /api/ageing', 'GET /api/cashflow',
             'GET /api/gst?month=', 'GET /api/gst/export?month=',
@@ -1845,6 +1850,31 @@ def _save_allocations(request, sess):
             'unallocated': allocation.unallocated_amount(
                 pay['amount'], allocs),
         })
+    finally:
+        conn.close()
+
+
+def _get_purchase_order(po_id):
+    """GET /api/purchase_orders/{id} — one PO header plus its line items.
+
+    A pure read (no maths): lets the GRN screen open a PO and record what was
+    received against each ordered line, defaulting the received qty to the
+    ordered qty. Returns 404 when the PO does not exist.
+    """
+    conn = _conn()
+    try:
+        row = conn.execute(
+            'SELECT po.*, v.name AS vendor_name '
+            'FROM purchase_orders po LEFT JOIN vendors v ON v.id = po.vendor_id '
+            'WHERE po.id = ?', (po_id,)).fetchone()
+        if row is None:
+            return _err('Purchase order not found', 404)
+        lines = conn.execute(
+            'SELECT * FROM purchase_order_items WHERE purchase_order_id = ? '
+            'ORDER BY id', (po_id,)).fetchall()
+        out = _row(row)
+        out['items'] = _rows(lines)
+        return _ok(out)
     finally:
         conn.close()
 
