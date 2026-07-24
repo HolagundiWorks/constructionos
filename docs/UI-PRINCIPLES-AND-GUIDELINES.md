@@ -130,7 +130,7 @@ fix 7). See `winui/.../MainWindow.xaml`.
 |---|---|
 | Share spacing, type styles, and command placement across Masters / Money / Billing. | Each page invents its own button row layout. |
 | Same empty / loading / error patterns (`PageLoad`, `InfoBar`, skeleton or progress ring). | Spinner on one page, blank white on another, MessageBox on a third. |
-| Same icon set (Segoe Fluent Icons) and same severity mapping for advisories. | Mix emoji + Fluent icons + PNG glyphs. |
+| Same icon set (Segoe glyphs) and same severity mapping for advisories. | Mix emoji + Fluent icons + PNG glyphs. |
 | Treat browser/LAN and WinUI as **different shells, same domain language** (same field labels where possible). | WinUI renames “Net payable” while the print still says something else. |
 
 ---
@@ -379,7 +379,7 @@ Aligned with product trust rules:
 **Do**
 
 - Stock WinUI 3 + Community Toolkit + LiveCharts2 only.
-- Theme resources, Mica, Segoe Fluent Icons, type ramp.
+- Theme resources, Mica (when safe), Segoe glyphs, type ramp.
 - Cash-first copy; sentence case; calm errors with a next step.
 - API-driven numbers; CSRF + role gates on writes.
 - Light **and** dark smoke for every new page.
