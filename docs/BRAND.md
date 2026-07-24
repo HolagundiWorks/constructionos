@@ -9,29 +9,28 @@ parametric source generates every asset — see "Regenerating assets" below._
 - Never revert to the retired name "Construction OS" / "Construction Operations
   System" in any outward asset.
 
-## The mark — ACO openings (Fluent 2)
+## The mark
 
-Three concentric forms in **Radiant Orange** on a **transparent** background.
-The openings spell the acronym:
+Three concentric forms in a single colour (Radiant Orange on transparent, or
+white on transparent for dark surfaces):
 
-| Ring | Opening | Reads as |
-|---|---|---|
-| **Outer** | Bottom (6 o'clock) | **A** — arch / Accelerated |
-| **Middle** | Right (3 o'clock) | **C** — Construction |
-| **Centre** | Solid disc | **O** — Operations |
+| Ring | Geometry |
+|---|---|
+| **Outer** | Open ring — gap at upper-right (~1–2 o'clock) |
+| **Middle** | Open ring — gap at top (12 o'clock) |
+| **Centre** | Solid disc |
 
-Soft rounded stroke caps; optional soft depth on the tile / document mark.
+Uniform stroke weight, rounded caps, flat (no bevel, no plate behind the mark).
 Keep clear space around the mark of at least the centre-dot diameter.
 
-- **Primary mark:** orange on transparent (`logo_mark.png`, `logo_square.png`).
-- **On a dark rail:** white mark on transparent (`logo_square_white.png`).
-- **No orange plate** behind the mark — the glyph *is* the icon.
+- **Primary:** orange on transparent — `logo_mark.png`, `logo_square.png`
+- **Dark rail:** white on transparent — `logo_square_white.png`
+
 ## The wordmark
 
 The three words **stack**, set in a **geometric sans** (Segoe UI Semibold /
-Liberation Sans Bold — Fluent-adjacent; the identity is font-agnostic). The
-**initials A · C · O are picked out in Radiant Orange**, so the acronym reads
-down the left edge and explains the name:
+Liberation Sans Bold). The **initials A · C · O are picked out in Radiant
+Orange**, so the acronym reads down the left edge:
 
 ```
 [mark]   A CCELERATED
@@ -39,71 +38,58 @@ down the left edge and explains the name:
          O PERATIONS
 ```
 
-Horizontal lockups: `logo_rectangle.png` (ink text on light) and
-`logo_rectangle_white.png` (white text on dark). A **vertical lockup** — mark
-over the same stacked wordmark, for tall / square contexts — is
-`logo_vertical.png` / `logo_vertical_white.png`. Initials stay orange in all.
+Horizontal: `logo_rectangle.png` / `logo_rectangle_white.png`.
+Vertical: `logo_vertical.png` / `logo_vertical_white.png`.
 
 ## Colour
 
 | Token | Hex | Use |
 |---|---|---|
-| **Radiant Orange** | `#FF4F18` | brand accent — mark body, A/C/O initials, primary actions. `branding.BRAND_ORANGE`, `tokens` accent. |
-| **Orange Light** | `#FF9A5C` | tile / mark highlight stop (analogous). |
-| **Orange Deep** | `#D93200` | tile / mark shadow stop (analogous). |
-| **Ink** | `#14181F` | wordmark / body text on light. |
-| **Slate** | `#6B7280` | secondary text. |
-| **White** | `#FFFFFF` | mark/text on dark; tile knockout. |
+| **Radiant Orange** | `#FF4F18` | mark, A/C/O initials, primary actions. `branding.BRAND_ORANGE` |
+| **Orange Light** | `#FF9A5C` | optional analogous highlight |
+| **Orange Deep** | `#D93200` | optional analogous shadow |
+| **Ink** | `#14181F` | wordmark / body on light |
+| **Slate** | `#6B7280` | secondary text |
+| **White** | `#FFFFFF` | mark/text on dark |
 
 Radiant Orange on white measures **3.29:1** — WCAG AA for **large** text only
-(≥18 pt regular or ≥14 pt bold). Use it for the mark, large accents, and CTAs —
-**never** for body copy or normal-size KPI figures. Full WinUI WCAG findings:
-[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §12.
+(≥18 pt regular or ≥14 pt bold). Never for body copy or normal-size KPI figures.
+See [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §12.
 
 ## Typography
-- **Product UI / documents:** Segoe UI (Fluent) — the app's working type.
-- **Logo wordmark:** Segoe UI Semibold / Liberation Sans Bold (geometric all-caps).
-  The logo is delivered as raster art, so the font need not be installed to use
-  the assets.
+- **Product UI / documents:** Segoe UI (Fluent).
+- **Logo wordmark:** Segoe UI Semibold / Liberation Sans Bold (rasterised into assets).
 
 ## Assets (`construction_app/resources/`)
 | File | What |
 |---|---|
-| `logo_square.png` | orange ACO mark on transparent — app tile / MSIX source |
-| `logo_square_white.png` | white ACO mark on transparent — dark rail |
-| `logo_mark.png` | orange ACO mark on transparent — documents, light surfaces |
-| `logo_rectangle.png` | horizontal lockup, ink text (light backgrounds) |
-| `logo_rectangle_white.png` | horizontal lockup, white text (dark backgrounds) |
-| `logo_vertical.png` | vertical lockup (mark over wordmark), ink text |
-| `logo_vertical_white.png` | vertical lockup, white text (dark backgrounds) |
-| `app.ico` | multi-size icon (16–256) — WinUI exe / window / taskbar |
-| `favicon.png` | 64px orange mark on transparent — browser tab |
+| `logo_square.png` | orange mark on transparent — app tile / MSIX |
+| `logo_square_white.png` | white mark on transparent — dark rail |
+| `logo_mark.png` | orange mark on transparent — documents |
+| `logo_rectangle.png` | horizontal lockup, ink text |
+| `logo_rectangle_white.png` | horizontal lockup, white text |
+| `logo_vertical.png` | vertical lockup, ink text |
+| `logo_vertical_white.png` | vertical lockup, white text |
+| `app.ico` | multi-size icon (16–256) |
+| `favicon.png` | 64px orange mark on transparent |
 
-**Where it shows up:** the tkinter window icon + rail (`assets.py`), the browser
-tab (`/favicon.ico`) and printed-document letterhead (`assets.logo_rect_uri`),
-the WinUI exe/window/taskbar icon (`ApplicationIcon` in the `.csproj`), and the
-MSIX tiles (generated from `logo_square.png` by `winui/build-msix.ps1`).
+**Where it shows up:** tkinter window icon + rail (`assets.py`), browser tab,
+printed letterhead (`assets.logo_rect_uri`), WinUI exe/taskbar icon, MSIX tiles
+(`winui/build-msix.ps1`).
 
 ## Regenerating assets
 
-All brand art is drawn from **one** parametric source — never hand-edit the PNGs.
-
-**Canonical (cross-platform, Fluent 2):**
+Never hand-edit the PNGs.
 
 ```bash
-# needs: python3-cairo python3-pil (apt) — build tooling only, not an app dep
+# needs: python3-cairo python3-pil — build tooling only
 python branding/make_brand.py
 python branding/make_brand.py --out-dir /tmp/aco-brand-preview
 ```
 
-**Windows twin** (delegates to Python when available; else GDI+):
-
 ```powershell
-pwsh branding/make-brand.ps1
-pwsh branding/make-brand.ps1 -OutDir <scratch>
+pwsh branding/make-brand.ps1          # delegates to Python when available
 ```
 
-To evolve the identity, change the geometry / colours / wordmark in
-`branding/make_brand.py` (and keep `make-brand.ps1` in sync) and re-run — every
-asset stays consistent. The contractor's own uploaded letterhead logo is separate
-and lives in the data folder (`assets.firm_logo_path`).
+Evolve geometry / colour in `branding/make_brand.py` (keep `make-brand.ps1` in
+sync). Firm letterhead uploads are separate (`assets.firm_logo_path`).
