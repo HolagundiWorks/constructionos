@@ -251,6 +251,8 @@ def control(kind, name, value, options=None):
     if kind in ('number', 'dim'):
         return ('<input type="text" inputmode="decimal" name="{}" value="{}">'
                 .format(n, v))
+    if kind == 'date':
+        return '<input type="date" name="{}" value="{}">'.format(n, v)
     if kind == 'textarea':
         return '<textarea name="{}" rows="3">{}</textarea>'.format(n, v)
     if kind in ('combo', 'fk'):

@@ -15,7 +15,7 @@
         <Button x:Name="TextBtn" Content="Text extract" Click="Text_Click"/>
         <Button x:Name="SignalsBtn" Content="Signals suggest" Click="Signals_Click"/>
       </StackPanel>
-      <TextBlock x:Name="Result" TextWrapping="Wrap" FontFamily="Consolas"/>
+      <TextBlock x:Name="Result" TextWrapping="Wrap" FontFamily="Cascadia Mono"/>
     </StackPanel>
   </ScrollViewer>
 </Page>

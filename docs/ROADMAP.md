@@ -121,9 +121,9 @@ foundations + §11 inventory).
 | Item | Why pending |
 |---|---|
 | Safe **Mica** (or documented deferral) | Removed for crash risk — revisit on SDK bump |
-| **DatePicker** on FieldForm `date` fields | Dates still free-text `TextBox` |
-| Shared **empty / loading** recipe (`ProgressRing` + `InfoBar`) | Masters has ring; `PageLoad` is text-only |
-| **SettingsCard** / TeachingTip / InfoBadge | Enterprise Settings + AI tips + queue badges |
+| **DatePicker** on FieldForm `date` fields | ✅ Backend declares `kind='date'` (inferred, contract-tested); WinUI renders a stock `DatePicker` (ISO ↔ API), web renders `<input type="date">` |
+| Shared **empty / loading** recipe (`ProgressRing` + `InfoBar`) | ✅ One recipe — `Ui.Loading` ring, `Ui.EmptyNote` (no data ≠ error), `Ui.ErrorNote` = **InfoBar Severity=Error** across 9 pages |
+| **SettingsCard** / TeachingTip / InfoBadge | ✅ **TeachingTip** on Assistant (read-only trust boundary); ⏳ SettingsCard (needs CommunityToolkit pkg) + InfoBadge (needs count API) |
 | Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired (needs P0 civil pages) |
 | Segoe **Fluent Icons** font (or document MDL2 as final) | Ribbon uses MDL2 code points today |
 | Elevation / shape pass | Prefer stock radii + thin strokes; avoid decorative shadows |

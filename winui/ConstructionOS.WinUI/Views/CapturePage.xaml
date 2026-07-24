@@ -17,7 +17,7 @@
       <Button Content="Probe extract" Click="Extract_Click"/>
     </StackPanel>
     <ScrollViewer Grid.Row="4" Margin="0,12,0,0">
-      <TextBlock x:Name="Detail" TextWrapping="Wrap" FontFamily="Consolas"/>
+      <TextBlock x:Name="Detail" TextWrapping="Wrap" FontFamily="Cascadia Mono"/>
     </ScrollViewer>
   </Grid>
 </Page>

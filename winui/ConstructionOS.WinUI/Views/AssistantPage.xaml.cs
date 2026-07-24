@@ -48,6 +48,9 @@ public sealed partial class AssistantPage : Page
 
     private async void OnAsk(object sender, RoutedEventArgs e) => await AskAsync();
 
+    // The trust boundary, on demand (Fluent 2 TeachingTip).
+    private void OnAbout(object sender, RoutedEventArgs e) => AboutTip.IsOpen = true;
+
     private async Task AskAsync()
     {
         var question = (Ask.Text ?? "").Trim();
@@ -94,7 +97,7 @@ public sealed partial class AssistantPage : Page
                 Answer.Children.Add(new TextBlock
                 {
                     Text = sql.GetString(),
-                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono"),
                     TextWrapping = TextWrapping.Wrap,
                     Foreground = (Microsoft.UI.Xaml.Media.Brush)
                         Application.Current.Resources["TextFillColorSecondaryBrush"],
@@ -104,13 +107,7 @@ public sealed partial class AssistantPage : Page
         catch (Exception ex)
         {
             Answer.Children.Clear();
-            Answer.Children.Add(new TextBlock
-            {
-                Text = ApiException.UserMessage(ex),
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)
-                    Application.Current.Resources["TextFillColorSecondaryBrush"],
-            });
+            Answer.Children.Add(Ui.ErrorNote(ex));
         }
         finally
         {

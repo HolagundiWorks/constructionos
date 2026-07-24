@@ -968,6 +968,19 @@ class TestWebApi(unittest.TestCase):
         body = self._json(resp)
         self.assertTrue('error' in body or 'sql' in body)
 
+    def test_date_fields_declare_a_date_kind(self):
+        """Fluent 2 (UI principles §11.5): calendar fields must declare
+        kind='date' so clients render a real date picker, not free text."""
+        import web_masters, web_docs
+        by_key = {f['key']: f['kind'] for f in web_masters.fields('milestones')}
+        self.assertEqual(by_key['target_date'], 'date')
+        self.assertEqual(by_key['actual_date'], 'date')
+        self.assertEqual(by_key['name'], 'text')        # not over-eager
+        self.assertEqual(by_key['project_id'], 'fk')    # explicit kinds win
+        pay = {f['key']: f['kind'] for f in web_docs.fields('payments')}
+        self.assertEqual(pay['pay_date'], 'date')
+        self.assertEqual(pay['party_name'], 'text')
+
     def test_firm_and_modules_settings(self):
         """Tools endpoints — firm letterhead + module on/off, CSRF-gated."""
         sid, csrf, _ = self._login()

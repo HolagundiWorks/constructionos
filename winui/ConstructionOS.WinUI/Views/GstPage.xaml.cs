@@ -46,13 +46,7 @@ public sealed partial class GstPage : Page
         }
         catch (Exception ex)
         {
-            Host.Children.Add(new TextBlock
-            {
-                Text = ApiException.UserMessage(ex),
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)
-                    Application.Current.Resources["TextFillColorSecondaryBrush"],
-            });
+            Host.Children.Add(Ui.ErrorNote(ex));
         }
     }
 

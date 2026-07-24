@@ -677,7 +677,7 @@ Fluent polish without these pages will not feel enterprise to the contractor.
 | Hardcoded page colours | ✅ None (accent override in `App.xaml` only — intentional) |
 | Emoji as nav icons | ✅ None in WinUI |
 | Business maths in C# | ✅ Charts bind API series |
-| Consolas on dump panes (Capture/Import/Assistant) | ⚠ Prefer `Cascadia Mono` / theme body for dumps — minor |
+| Consolas on dump panes (Capture/Import/Assistant) | ✅ Now `Cascadia Mono` |
 | Stale “theme forced Light” comment in `App.xaml` | ⚠ Fix comment (theme is runtime) |
 
 ### 11.7 Enterprise-grade target recipe (Fluent 2 summary)

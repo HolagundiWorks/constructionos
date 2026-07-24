@@ -26,8 +26,16 @@ from datetime import date
 import civil
 
 
+def _is_date_key(key):
+    """A field whose value is an ISO calendar date, so clients can offer a real
+    date picker instead of free text."""
+    return key == 'date' or key.endswith('_date')
+
+
 def _f(key, label, kind='text', options=None, fk_sql=None, default='',
        required=False, store=True):
+    if kind == 'text' and _is_date_key(key):
+        kind = 'date'
     return {'key': key, 'label': label, 'kind': kind, 'options': options or [],
             'fk_sql': fk_sql, 'default': default, 'required': required,
             'store': store}

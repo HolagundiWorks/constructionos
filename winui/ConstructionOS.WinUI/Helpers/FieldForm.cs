@@ -152,6 +152,19 @@ public static class FieldForm
                     cb.PlaceholderText = "Select…";
                 return cb;
             }
+            case "date":
+            {
+                // Fluent 2: a real DatePicker beats free text for money/civil
+                // forms. ISO yyyy-MM-dd on the wire; blank stays blank.
+                var dp = new DatePicker { HorizontalAlignment = HorizontalAlignment.Stretch };
+                if (DateTimeOffset.TryParse(current,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var parsed))
+                    dp.SelectedDate = parsed;
+                else if (string.Equals(current, "@today", StringComparison.OrdinalIgnoreCase))
+                    dp.SelectedDate = DateTimeOffset.Now;
+                return dp;
+            }
             case "textarea":
                 return new TextBox
                 {
@@ -165,6 +178,8 @@ public static class FieldForm
 
     public static string ReadInput(Spec f, FrameworkElement input) => input switch
     {
+        DatePicker dp => dp.SelectedDate?.ToString(
+            "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? "",
         NumberBox nb => double.IsNaN(nb.Value)
             ? "" : nb.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
         ComboBox cb when f.Kind == "fk" =>

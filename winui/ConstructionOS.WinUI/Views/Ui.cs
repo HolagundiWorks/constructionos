@@ -351,14 +351,17 @@ internal static class Ui
         return tb;
     }
 
-    /// <summary>The one error recipe: a calm, status-aware sentence (missing
-    /// endpoint vs permission vs session vs server) — never a stack trace.</summary>
-    public static FrameworkElement ErrorNote(Exception ex) => new TextBlock
+    /// <summary>The one error recipe (Fluent 2): an <see cref="InfoBar"/> at
+    /// Error severity carrying a calm, status-aware sentence (missing endpoint vs
+    /// permission vs session vs server) — never a stack trace, and never a fake
+    /// empty table that reads as "zero work".</summary>
+    public static FrameworkElement ErrorNote(Exception ex, string? title = null) => new InfoBar
     {
-        Text = ApiException.UserMessage(ex),
-        TextWrapping = TextWrapping.Wrap,
-        Foreground = (Microsoft.UI.Xaml.Media.Brush)
-            Application.Current.Resources["TextFillColorSecondaryBrush"],
+        Title = title ?? "Couldn't load this",
+        Message = ApiException.UserMessage(ex),
+        Severity = InfoBarSeverity.Error,
+        IsOpen = true,
+        IsClosable = false,
     };
 
     /// <summary>The one "no data yet" recipe — honestly empty, with the next
