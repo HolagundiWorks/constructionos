@@ -3,7 +3,13 @@ description: 'WinUI 3 and Windows App SDK coding guidelines. Prevents common UWP
 applyTo: '**/*.xaml, **/*.cs, **/*.csproj'
 ---
 
-# WinUI 3 / Windows App SDK
+# WinUI 3 / Windows App SDK + Fluent 2
+
+ACO’s WinUI client follows the **[Fluent 2](https://fluent2.microsoft.design/)**
+design language (principles, color, elevation, iconography, layout, material,
+motion, shapes, typography). Product rules and checklists:
+`docs/UI-PRINCIPLES-AND-GUIDELINES.md` (v2). Coding rules below are the hard
+WinUI 3 / Windows App SDK constraints.
 
 ## Critical Rules — NEVER Use Legacy UWP APIs
 
@@ -98,41 +104,46 @@ These UWP patterns are **wrong** for WinUI 3 desktop apps. Always use the Window
 - **Unpackaged apps**: Use a custom settings file (e.g., JSON in `Environment.GetFolderPath(SpecialFolder.LocalApplicationData)`).
 - Do not assume `ApplicationData` is always available — check packaging status first.
 
-## Typography
+## Typography (Fluent 2 · Windows ramp)
 
 - **Always** use built-in TextBlock styles (`CaptionTextBlockStyle`, `BodyTextBlockStyle`, `BodyStrongTextBlockStyle`, `SubtitleTextBlockStyle`, `TitleTextBlockStyle`, `TitleLargeTextBlockStyle`, `DisplayTextBlockStyle`).
 - Prefer using the built-in TextBlock styles over hardcoding `FontSize`, `FontWeight`, or `FontFamily`.
-- Font: Segoe UI Variable is the default — do not change it.
+- Font: Segoe UI Variable is the default — do not change it (Fluent 2 “Unmistakably Microsoft”).
 - Use sentence casing for all UI text.
 
 
-## Theming & Colors
+## Theming & Colors (Fluent 2 palettes)
 
-- **Always** use `{ThemeResource}` for brushes and colors to support Light, Dark, and High Contrast themes automatically.
+- **Always** use `{ThemeResource}` for brushes and colors to support Light, Dark, and High Contrast themes automatically (Fluent **neutral** palette).
 - **Never** hardcode color values (`#FFFFFF`, `Colors.White`, etc.) for UI elements. Use theme resources like `TextFillColorPrimaryBrush`, `CardBackgroundFillColorDefaultBrush`, `CardStrokeColorDefaultBrush`.
-- Use `SystemAccentColor` (and `Light1`–`Light3`, `Dark1`–`Dark3` variants) for the user's accent color palette.
+- Brand (**ACO Radiant Orange**) only via `SystemAccentColor` ramp in `App.xaml` — CTAs / selection, never large fills or severity.
+- Semantic status = `InfoBar` Critical/Caution/Success/Attention only — never brand orange.
 - For borders: use `CardStrokeColorDefaultBrush` or `ControlStrokeColorDefaultBrush`.
 
-## Spacing & Layout
+## Spacing & Layout (Fluent 2 · 4px ramp)
 
-- Use a **4px grid system**: all margins, padding, and spacing values must be multiples of 4px.
+- Use a **4px grid system**: all margins, padding, and spacing values must be multiples of 4px (Fluent global spacing ramp; 2/6/10 allowed for icon alignment).
 - Standard spacing: 4 (compact), 8 (controls), 12 (small gutters), 16 (content padding), 24 (large gutters).
 - Prefer `Grid` over deeply nested `StackPanel` chains for performance.
 - Use `Auto` for content-sized rows/columns, `*` for proportional sizing. Avoid fixed pixel sizes.
-- Use `VisualStateManager` with `AdaptiveTrigger` for responsive layouts at breakpoints (640px, 1008px).
-- Use `ControlCornerRadius` (4px) for small controls and `OverlayCornerRadius` (8px) for cards, dialogs, flyouts.
+- Use `VisualStateManager` with `AdaptiveTrigger` for responsive layouts at breakpoints (640px, 1008px) — Fluent large / x-large classes.
+- Use `ControlCornerRadius` (4px) for small controls and `OverlayCornerRadius` (8px) for cards, dialogs, flyouts (Fluent Medium / Large shapes).
 
-## Materials & Elevation
+## Materials & Elevation (Fluent 2)
 
-- Use **Mica** (`MicaBackdrop`) for the app window backdrop. Requires transparent layers above to show through.
+- Use **Mica** (`MicaBackdrop`) for the app window backdrop when crash-safe. Requires transparent layers above to show through. If deferred, use solid `LayerFillColorDefaultBrush` honestly.
 - Use **Acrylic** for transient surfaces only (flyouts, menus, navigation panes).
+- Use **Smoke** under modal `ContentDialog`s (stock).
 - Use `LayerFillColorDefaultBrush` for content layers above Mica.
-- Use `ThemeShadow` with Z-axis `Translation` for elevation. Cards: 4–8 px, Flyouts: 32 px, Dialogs: 128 px.
+- Use `ThemeShadow` with Z-axis `Translation` sparingly for elevation. Cards: 4–8 px, Flyouts: 32 px, Dialogs: rely on stock + Smoke — no decorative multi-layer glow.
 
-## Motion & Transitions
+## Motion & Transitions (Fluent 2)
 
+- Motion must be **functional** (feedback / orientation), natural, consistent — not decorative.
 - Use built-in theme transitions (`EntranceThemeTransition`, `RepositionThemeTransition`, `ContentThemeTransition`, `AddDeleteThemeTransition`).
+- Prefer quick fade for top-level `Frame` navigation over sliding parades.
 - Avoid custom storyboard animations when a built-in transition exists.
+- Honour reduced-motion / no-motion preferences; no flashing.
 
 ## Control Selection
 

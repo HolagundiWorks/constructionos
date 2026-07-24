@@ -111,9 +111,11 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 
-### 2.3 P2 — Fluent appearance (local)
+### 2.3 P2 — Fluent 2 appearance (local)
 
-Living inventory: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11.
+Living guide: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
+**v2.0** ([Fluent 2](https://fluent2.microsoft.design/) principles + §3
+foundations + §11 inventory).
 
 | Item | Why pending |
 |---|---|
@@ -123,6 +125,7 @@ Living inventory: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELIN
 | **SettingsCard** / TeachingTip / InfoBadge | Enterprise Settings + AI tips + queue badges |
 | Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired (needs P0 civil pages) |
 | Segoe **Fluent Icons** font (or document MDL2 as final) | Ribbon uses MDL2 code points today |
+| Elevation / shape pass | Prefer stock radii + thin strokes; avoid decorative shadows |
 | Accent-only CTAs everywhere | Partial — brand accent ramp shipped |
 
 ### 2.4 P3 — Precision / money / CA bridge

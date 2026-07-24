@@ -14,15 +14,16 @@ from the stdlib/cross-platform constraints. Read with
 [`PRODUCT.md`](PRODUCT.md) (brand: ACO + Radiant Orange logo mark), and the UI
 principles checklist
 [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
-(Windows 11 / Fluent design principles applied to ACO)._
+(**Fluent 2** design language + WinUI inventory, v2.0)._
 
 ---
 
 ## 0. Decision & explicit constraint change
 
 The chosen path is a **native WinUI 3 (Windows App SDK) desktop application in
-C#/XAML**, using **only stock Fluent controls, elements, toolset, data
-visualization, styling, icons and pictograms — no custom items**. This is a
+C#/XAML**, using **only stock Fluent 2 / WinUI 3 controls, elements, toolset, data
+visualization, styling, icons and pictograms — no custom items**. Design language:
+[Fluent 2](https://fluent2.microsoft.design/). This is a
 deliberate, owner-approved replatform that **breaks founding constraints** the
 rest of the product held (documented so the trade is explicit, not accidental):
 

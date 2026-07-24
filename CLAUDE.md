@@ -41,7 +41,7 @@ cd construction_app && python -m compileall -q .
 - **WinUI 3 replatform** (Windows-only, C#/.NET, **stock Fluent only**) — approved
   front-end departure. Python domain + tests stay as **localhost JSON API
   (u0.16)**. Specs: `docs/WINUI3-MIGRATION.md`,
-  `docs/UI-PRINCIPLES-AND-GUIDELINES.md`, `.github/instructions/winui3.instructions.md`.
+  `docs/UI-PRINCIPLES-AND-GUIDELINES.md` (**Fluent 2**), `.github/instructions/winui3.instructions.md`.
 - **Two environments:**
   - **Cloud (this agent):** domain / API / tests / docs. Cloud CT backlog
     **closed** (ROADMAP §1.3); u0.13–u0.16 closed cloud P0–P3 APIs + Foundry
@@ -67,7 +67,7 @@ cd construction_app && python -m compileall -q .
 | Product / brand | `docs/PRODUCT.md`, `docs/BRAND.md` |
 | Architecture | `docs/APP-ARCHITECTURE.md`, `AGENTS.md` |
 | API | `docs/API.md` |
-| WinUI | `docs/WINUI3-MIGRATION.md`, `docs/UI-PRINCIPLES-AND-GUIDELINES.md` |
+| WinUI | `docs/WINUI3-MIGRATION.md`, `docs/UI-PRINCIPLES-AND-GUIDELINES.md` (**Fluent 2**) |
 | Enterprise PM design | `docs/ENTERPRISE-PM-SOLUTION.md`, `docs/EXECUTION-PART2.md` |
 | AI design | `docs/AI-FOUNDRY-AGENTS.md`, `docs/AI-DRAWING-TAKEOFF.md`, `docs/AI-MODELS-AND-DEPLOYMENT.md` |
 | LAN / SOPs / tests | `docs/LAN.md`, `docs/SOP-manual.md`, `docs/TEST_PLAN.md` |

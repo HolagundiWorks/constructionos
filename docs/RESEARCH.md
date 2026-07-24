@@ -78,28 +78,31 @@ Operational checklists: [`SOP-manual.md`](SOP-manual.md).
 
 ---
 
-## 4. Fluent / WinUI appearance (condensed)
+## 4. Fluent 2 / WinUI appearance (condensed)
 
-Microsoft hub: [Design Windows apps](https://learn.microsoft.com/en-us/windows/apps/design/).  
-Principles: Effortless · Calm · Personal · Familiar · Complete+Coherent.
+**Design system:** [Fluent 2](https://fluent2.microsoft.design/) — principles
+[Natural · Built for focus · One for all · Unmistakably Microsoft](https://fluent2.microsoft.design/design-principles).  
+Platform how-to: [Design Windows apps](https://learn.microsoft.com/en-us/windows/apps/design/).
 
-| Topic | Policy |
+| Foundation | Fluent 2 policy → ACO |
 |---|---|
-| Accent | Radiant Orange `#FF4F18` = CTA/selection only (3.29:1 → large text/fills) |
-| Severity | System Critical/Caution/Success — never brand orange |
-| Theme | **Light / Dark / System** (shipped — Fluent *Personal*) |
-| Materials | Prefer Mica when crash-safe; else honest theme brushes; Acrylic flyouts; Smoke dialogs |
-| Type | Segoe UI Variable + type ramp; sentence case |
-| Geometry | Fluent radii on WinUI; do **not** clone tkinter 0-radius / Urbanist |
-| Shell | Owner Excel-style ribbon OK if ≤8 peers, clear labels, no pogo-stick |
-| Writing | Warm, helpful, crisp; you/we; errors with next step |
-| Icons | Segoe glyphs only (`FontIcon`); shipped = MDL2 map; target = Fluent Icons |
+| **Principles** | Stock WinUI; cash-first focus; a11y; Radiant Orange accent only |
+| **Color** | Neutral surfaces; semantic status; brand on CTAs/selection — not large fills |
+| **Elevation** | Low card stroke/shadow; dialogs high + Smoke; no decorative glow |
+| **Iconography** | System icons (`FontIcon`); MDL2 shipped; Fluent Icons target |
+| **Layout** | 4px spacing ramp; list/details; H-scroll ribbon on narrow |
+| **Material** | Solid default; Mica when crash-safe; Acrylic flyouts; Smoke dialogs |
+| **Motion** | Functional, short, consistent; honour reduced-motion |
+| **Shapes** | Control 4px / overlay 8px radii; thin strokes |
+| **Typography** | Segoe UI Variable Windows ramp; sentence case |
+| **Shell** | Owner Excel-style ribbon OK if ≤8 peers, clear labels |
+| **Writing** | Warm, helpful, crisp; you/we; errors with next step |
 
 Dual-skin: share **accent + voice**; native chrome per shell.
 
-**Living Fluent inventory (mapped / gaps / suggestions):**
-[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11
-(enterprise audit, 2026-07-24). Implementation checklist: same file §§1–9.
+**Living Fluent 2 guide + inventory:**
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) **v2.0**
+(§1 principles · §3 foundations · §11 audit).
 
 ---
 
@@ -109,9 +112,10 @@ Priorities live only in [`ROADMAP.md`](ROADMAP.md) §2:
 
 - **P0** WinUI civil/labour honesty: BOQ/MB/RA, subcontractors, AI Engine, GRN match, muster payout  
 - **P1** Gantt, Tools depth, a11y walkthrough, release signing  
-- **P2** Mica revisit (SDK bump), Fluent inventory gaps (DatePicker, TeachingTip,
-  BreadcrumbBar, InfoBadge, SettingsCard — see `UI-PRINCIPLES` §11), empty/loading
-  coherence, Segoe Fluent Icons font switch  
+- **P2** Fluent 2 foundations pass (color/elevation/icons/layout/material/motion/
+  shapes/type — `UI-PRINCIPLES` v2 §3), Mica revisit (SDK bump), DatePicker,
+  TeachingTip / BreadcrumbBar / InfoBadge / SettingsCard, empty/loading coherence,
+  Segoe Fluent Icons font switch  
 - **P3** CA export pack, PPC reason depth, risk accept-from-detect  
 - **P4** L8 weights, takeoff on WinUI, retire tkinter (product call)
 

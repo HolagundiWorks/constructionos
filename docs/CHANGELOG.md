@@ -6,13 +6,22 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Fluent 2 design language (UI-PRINCIPLES v2.0)
+
+Upgraded ACO WinUI guidance to **[Fluent 2](https://fluent2.microsoft.design/)**:
+
+- Principles: Natural · Built for focus · One for all · Unmistakably Microsoft
+  (+ ACO Radiant Orange accent).
+- Foundations: color, elevation, iconography, layout, material, motion, shapes,
+  typography — mapped to WinUI theme resources / stock controls.
+- Updated `UI-PRINCIPLES-AND-GUIDELINES.md` v2.0, `RESEARCH.md` §4,
+  `ROADMAP.md` §2.3, `WINUI3-MIGRATION.md`, `.github/instructions/winui3.instructions.md`.
+
 ## 2026-07-24 — Fluent UI inventory & enterprise audit
 
-Updated [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) to
-**v1.1** with §11 — mapped Fluent/WinUI controls, icons (MDL2 vs Fluent),
-materials, page patterns, gaps, and suggested changes for an enterprise-grade
-shell. Cross-links in `WINUI3-MIGRATION.md` §6, `RESEARCH.md` §4, `ROADMAP.md`
-§2.3. No new status board (pending stays in ROADMAP).
+Updated [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) with
+§11 inventory (later folded into v2.0). Cross-links in `WINUI3-MIGRATION.md` §6,
+`RESEARCH.md` §4, `ROADMAP.md` §2.3. No new status board (pending stays in ROADMAP).
 
 ## 2026-07-24 — Foundry agents Phase D (API u0.16)
 
