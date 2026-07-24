@@ -48,10 +48,10 @@ double-clicking one folder.
 > components) — an *explicit, approved* departure from the tkinter /
 > cross-platform / no-pip constraints **for the front-end only**. The **Python
 > domain core + its tests stay** and are reused as a **localhost backend
-> service** (JSON API **u0.15**) the WinUI 3 client calls. See
+> service** (JSON API **u0.16**) the WinUI 3 client calls. See
 > [`docs/WINUI3-MIGRATION.md`](docs/WINUI3-MIGRATION.md),
 > [`docs/UI-PRINCIPLES-AND-GUIDELINES.md`](docs/UI-PRINCIPLES-AND-GUIDELINES.md)
-> (Fluent / Windows 11 principles), and
+> (**Fluent 2** design language), and
 > [`docs/APP-ARCHITECTURE.md`](docs/APP-ARCHITECTURE.md). Until WinUI reaches
 > workflow parity, the tkinter app remains a shipping UI; the constraints above
 > still govern all **domain/backend** work (which the WinUI move does *not*
@@ -69,8 +69,8 @@ double-clicking one folder.
 ### What is built
 
 Effectively the whole ERP surface is built. As of this writing the app is
-**198 Python modules** (**135** of them AST tkinter-free), **85 tables**, **61
-indexes**, and **745 passing tests** (5 skipped without display). Rather than a
+**202 Python modules** (**139** of them AST tkinter-free), **84 tables**, **64
+indexes**, and **751 passing tests** (5 skipped without display). Rather than a
 feature checklist that
 rots, the honest summary is:
 
@@ -118,7 +118,7 @@ gap from this document's silence; grep first.
   explicitly asked — this is a deliberate design constraint. (PyInstaller is
   fetched into a throwaway build-only venv by `installer/build.ps1`, so the
   shipped app stays pure-stdlib.)
-- **Business maths lives in pure, tkinter-free modules** — **135** AST-pure
+- **Business maths lives in pure, tkinter-free modules** — **139** AST-pure
   (includes web). This is the testable core; extend it there rather than burying
   new maths inside GUI callbacks.
 - **Tests**: a committed stdlib `unittest` suite (no pytest, matching the no-pip
@@ -134,7 +134,7 @@ python main.py
 The full sweep used to validate changes, from the repo root:
 
 ```bash
-python -m unittest discover -s tests               # 745 tests (GUI smoke needs display)
+python -m unittest discover -s tests               # 751 tests (GUI smoke needs display)
 cd construction_app && python -m compileall -q .   # syntax check every module
 python -c "import db; db.init_db(); print('ok')"   # schema + CoA seed check
 ```
@@ -158,7 +158,7 @@ tested a UI you couldn't render.
 
 If you need to import a GUI module headlessly, stub `tkinter` (a fake package
 with `ttk`, `messagebox`, `filedialog` submodules exposing no-op widget
-classes) on `PYTHONPATH`. The **135** tkinter-free modules need no such trick.
+classes) on `PYTHONPATH`. The **139** tkinter-free modules need no such trick.
 
 ## 3. Code layout — the layer model
 
@@ -431,7 +431,7 @@ entry to re-post (§14).
 
 ## 10. Database schema
 
-All **85 tables** and **61 indexes** live in one `SCHEMA` string in `db.py`.
+All **84 tables** and **64 indexes** live in one `SCHEMA` string in `db.py`.
 `get_conn()` sets per connection:
 
 - **`foreign_keys = ON`** — FKs won't enforce otherwise. Any script or test
@@ -817,12 +817,15 @@ orchestrated in stdlib:
   `knowledge_base.py` — TF-IDF grounding snippets; `agent_runtime.py` — route +
   ask; `agent_workflows.py` — multi-agent handoffs (`variation_impact`, …);
   `agent_provider.py` — Foundry Local / Azure Foundry seam; `agent_eval.py` —
-  golden routing+tool suite.
+  golden routing+tool suite; `drawing_geometry.py` / `revision_delta.py` /
+  `drawing_store.py` / `takeoff_store.py` — Phase D element→qty + revision delta.
 - JSON: `GET /api/agents`, `GET /api/agents/provider`, `POST /api/agents/ask`,
-  `POST /api/agents/workflow`, `GET|POST /api/agents/eval`.
-- Plan: [`docs/AI-FOUNDRY-AGENTS.md`](docs/AI-FOUNDRY-AGENTS.md). Phase A/A+
-  shipped; Azure AI Foundry cloud Agents are **opt-in Phase C** behind the same
-  propose/confirm seam — never silent money writes.
+  `POST /api/agents/workflow`, `GET|POST /api/agents/eval`, takeoff +
+  `drawings/elements*` + `revision-delta` (u0.16).
+- Plan: [`docs/AI-FOUNDRY-AGENTS.md`](docs/AI-FOUNDRY-AGENTS.md). Phase A/A+/D
+  (deterministic) shipped; Azure AI Foundry cloud Agents are **opt-in Phase C**
+  behind the same propose/confirm seam — never silent money writes. L8 weights
+  stay local.
 
 ## 22. Project management & programme
 
@@ -938,7 +941,7 @@ commit.** Same rule for `CLAUDE.md` and `docs/ROADMAP.md` status lines.
 | Done vs pending | `docs/ROADMAP.md` | Second roadmap / task backlog files |
 | What changed | `docs/CHANGELOG.md` | Paste shipped narratives into ROADMAP |
 | Market / Fluent / CPWD research | `docs/RESEARCH.md` | Split `RESEARCH-*` / audit / gap-roadmap files |
-| WinUI how-to | `WINUI3-MIGRATION` + `UI-PRINCIPLES` + `.github/instructions/winui3.instructions.md` | Custom chrome “improvements” |
+| WinUI how-to | `WINUI3-MIGRATION` + `UI-PRINCIPLES` (Fluent 2) + `.github/instructions/winui3.instructions.md` | Custom chrome “improvements” |
 | Product who/why | `docs/PRODUCT.md` + `docs/BRAND.md` | — |
 
 To re-check the headline numbers before trusting them:

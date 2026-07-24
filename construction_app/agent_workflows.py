@@ -18,7 +18,9 @@ WORKFLOWS = {
             'finance → executive summary. All steps are proposals.'
         ),
         'steps': (
-            {'agent': catalog.DRAWING, 'tools': ('sidecar_status', 'pdf_extract_hint'),
+            {'agent': catalog.DRAWING, 'tools': ('sidecar_status', 'pdf_extract_hint',
+                                                 'revision_delta_hint',
+                                                 'drawings_summary'),
              'title': 'Scope the design change'},
             {'agent': catalog.BOQ, 'tools': ('boq_overview', 'deviation_hint',
                                              'measurement_progress'),

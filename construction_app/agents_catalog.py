@@ -46,10 +46,16 @@ AGENTS = (
         'id': DRAWING,
         'name': 'Drawing Intelligence Agent',
         'audience': 'QS / Engineer',
-        'summary': 'PDF/drawing extract drafts; VLM sidecar when available.',
-        'tools': ('sidecar_status', 'pdf_extract_hint', 'takeoff_status'),
+        'summary': (
+            'Element→quantity, revision-delta drafts; VLM sidecar when available.'
+        ),
+        'tools': (
+            'sidecar_status', 'pdf_extract_hint', 'takeoff_status',
+            'drawings_summary', 'element_totals', 'revision_delta_hint',
+        ),
         'examples': (
             'Extract text from the latest drawing PDF.',
+            'Diff the latest drawing revision and quantify the change.',
             'Is the vision sidecar ready for takeoff assist?',
         ),
     },

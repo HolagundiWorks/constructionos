@@ -14,15 +14,16 @@ from the stdlib/cross-platform constraints. Read with
 [`PRODUCT.md`](PRODUCT.md) (brand: ACO + Radiant Orange logo mark), and the UI
 principles checklist
 [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
-(Windows 11 / Fluent design principles applied to ACO)._
+(**Fluent 2** design language + WinUI inventory, v2.0)._
 
 ---
 
 ## 0. Decision & explicit constraint change
 
 The chosen path is a **native WinUI 3 (Windows App SDK) desktop application in
-C#/XAML**, using **only stock Fluent controls, elements, toolset, data
-visualization, styling, icons and pictograms — no custom items**. This is a
+C#/XAML**, using **only stock Fluent 2 / WinUI 3 controls, elements, toolset, data
+visualization, styling, icons and pictograms — no custom items**. Design language:
+[Fluent 2](https://fluent2.microsoft.design/). This is a
 deliberate, owner-approved replatform that **breaks founding constraints** the
 rest of the product held (documented so the trade is explicit, not accidental):
 
@@ -199,28 +200,31 @@ framework ships no chart control. No bespoke chart code.
 
 ---
 
-## 6. Icons & pictograms — Segoe Fluent Icons (stock)
+## 6. Icons & pictograms — Segoe glyphs (stock)
 
-Replace the emoji pictograms (`🏠 🗂 🏗 🛠 🧾 🛒 💰 📊 ⚙`) with **Segoe Fluent
-Icons** glyphs via `FontIcon` (the standard Windows 11 icon font) — no custom
-SVGs. Proposed rail mapping:
+Replace the emoji pictograms (`🏠 🗂 🏗 🛠 🧾 🛒 💰 📊 ⚙`) with **Segoe**
+glyphs via `FontIcon` — no custom SVGs. **Shipped today:** Segoe **MDL2 Assets**
+code points in `RibbonIcons.cs` (WinUI `FontIcon` default font). **Target:**
+Segoe **Fluent Icons** (Windows 11 gallery names below) when the font is set
+explicitly — see [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
+§11.4–11.5. Either way: one metaphor per concept; icon + label on the ribbon.
 
-| Section | Segoe Fluent Icon (glyph name) |
-|---|---|
-| Home | `Home` |
-| Assistant | `Chat` / `Robot` |
-| Masters | `Library` / `Contact` |
-| Project Management | `Manufacturing` / `Building` |
-| Operations | `Repair` (wrench) |
-| Billing | `Document` / `Receipt` |
-| Purchases | `Shop` / `Cart` |
-| Money | `Money` / `Wallet` |
-| Accounts | `Chart` / `Financial` |
-| Controls (registers) | `Shield` / `Flag` |
-| Tools | `Settings` |
+| Section | Glyph intent (Fluent name) | Shipped MDL2 role |
+|---|---|---|
+| Home | `Home` | Home |
+| Assistant | `Chat` | Message |
+| Masters | `Contact` / `Library` | Contact / Shop / People / MapPin / Package |
+| Project Management | `Flag` / manufacturing | Flag / Calculator / Important |
+| Operations | `Repair` | Repair |
+| Billing | `Document` / `Receipt` | Document / Calculator |
+| Purchases | `Shop` / `Cart` | Shop / Package |
+| Money | `Money` / `PaymentCard` | Document (money keywords) |
+| Accounts | `Chart` / `Financial` | ViewAll / Calculator |
+| Controls (registers) | `Shield` / `Flag` | Accept / Important |
+| Tools / Settings | `Settings` | Setting |
 
-All from the **Segoe Fluent Icons** set; the exact code points are chosen from
-the official Windows glyph list at build time.
+Living inventory of every Fluent control actually used:
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11.
 
 ---
 

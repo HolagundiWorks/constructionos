@@ -1165,7 +1165,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.15')
+        self.assertEqual(c['api'], 'u0.16')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -2106,7 +2106,7 @@ class TestWebApi(unittest.TestCase):
 
         # Health version
         resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
-        self.assertEqual(self._json(resp)['api'], 'u0.15')
+        self.assertEqual(self._json(resp)['api'], 'u0.16')
 
     def test_u014_foundry_agents_api(self):
         """u0.14 — multi-agent catalog, ask (deterministic), workflow handoffs."""
@@ -2191,6 +2191,127 @@ class TestWebApi(unittest.TestCase):
         suite = self._json(resp)
         self.assertEqual(suite['failed'], 0, suite)
         self.assertEqual(suite['passed'], suite['total'])
+
+    def test_u016_drawing_phase_d_api(self):
+        """u0.16 — takeoff CRUD, element draft/confirm, revision-delta."""
+        sid, csrf, _ = self._login()
+        cookies = {'cosid': sid}
+        headers = {'X-CSRF-Token': csrf}
+
+        # Seed two drawing revisions via masters if available, else raw SQL.
+        import db
+        conn = db.get_conn()
+        try:
+            cur = conn.execute(
+                "INSERT INTO drawings (drawing_no, title, revision, scale, unit) "
+                "VALUES ('P-01', 'Plan', 'A', 0.01, 'm')")
+            d1 = cur.lastrowid
+            cur = conn.execute(
+                "INSERT INTO drawings (drawing_no, title, revision, scale, unit) "
+                "VALUES ('P-01', 'Plan', 'B', 0.01, 'm')")
+            d2 = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/elements/draft', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'scale': 0.01, 'unit': 'm',
+                'elements': [
+                    {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [100, 0]]},
+                ],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        draft = self._json(resp)
+        self.assertTrue(draft['ok'])
+        self.assertEqual(draft['count'], 1)
+        self.assertAlmostEqual(draft['totals']['m'], 1.0, places=4)
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/elements/confirm', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'drawing_id': d1, 'scale': 0.01, 'unit': 'm',
+                'sync_takeoff': True,
+                'elements': [
+                    {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [100, 0]]},
+                    {'type': 'door', 'ref': 'D1', 'points': [[10, 10]]},
+                ],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        conf = self._json(resp)
+        self.assertTrue(conf['ok'])
+        self.assertEqual(conf['count'], 2)
+        self.assertTrue(conf.get('takeoff', {}).get('ok'))
+        tid = conf['takeoff']['takeoff_id']
+
+        resp = self.webapp.handle(self._req(
+            '/api/takeoffs/{}'.format(tid), cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertEqual(len(self._json(resp)['items']), 2)
+
+        resp = self.webapp.handle(self._req(
+            '/api/takeoffs/{}/to-estimate'.format(tid), 'POST',
+            cookies=cookies, headers=headers,
+            json_body={'csrf': csrf}))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertTrue(self._json(resp)['ok'])
+
+        # Confirm rev B elements and diff
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/elements/confirm', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'drawing_id': d2, 'scale': 0.01, 'unit': 'm',
+                'elements': [
+                    {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [200, 0]]},
+                ],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/revision-delta', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'from_drawing_id': d1, 'to_drawing_id': d2,
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        delta = self._json(resp)
+        self.assertTrue(delta['ok'])
+        self.assertEqual(delta['diff']['summary']['modified'], 1)
+        self.assertEqual(delta['diff']['summary']['removed'], 1)
+        self.assertTrue(delta['variation_draft']['gated'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/revision-delta/confirm', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'from_drawing_id': d1, 'to_drawing_id': d2,
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertTrue(self._json(resp)['ok'])
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/{}/elements'.format(d1), cookies=cookies))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._json(resp)['count'], 2)
+
+        resp = self.webapp.handle(self._req(
+            '/api/drawings/elements/ingest', 'POST', cookies=cookies,
+            headers=headers, json_body={
+                'scale': 0.01,
+                'elements': [
+                    {'type': 'wall', 'points': [[0, 0], [50, 0]]},
+                ],
+                'csrf': csrf,
+            }))
+        self.assertEqual(resp.status, 200, resp.body)
+        self.assertAlmostEqual(self._json(resp)['totals']['m'], 0.5, places=4)
+
+        resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
+        self.assertEqual(self._json(resp)['api'], 'u0.16')
 
 
 if __name__ == '__main__':

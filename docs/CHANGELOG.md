@@ -6,6 +6,38 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Fluent 2 design language (UI-PRINCIPLES v2.0)
+
+Upgraded ACO WinUI guidance to **[Fluent 2](https://fluent2.microsoft.design/)**:
+
+- Principles: Natural · Built for focus · One for all · Unmistakably Microsoft
+  (+ ACO Radiant Orange accent).
+- Foundations: color, elevation, iconography, layout, material, motion, shapes,
+  typography — mapped to WinUI theme resources / stock controls.
+- Updated `UI-PRINCIPLES-AND-GUIDELINES.md` v2.0, `RESEARCH.md` §4,
+  `ROADMAP.md` §2.3, `WINUI3-MIGRATION.md`, `.github/instructions/winui3.instructions.md`.
+
+## 2026-07-24 — Fluent UI inventory & enterprise audit
+
+Updated [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) with
+§11 inventory (later folded into v2.0). Cross-links in `WINUI3-MIGRATION.md` §6,
+`RESEARCH.md` §4, `ROADMAP.md` §2.3. No new status board (pending stays in ROADMAP).
+
+## 2026-07-24 — Foundry agents Phase D (API u0.16)
+
+Deterministic drawing / takeoff depth (no ML weights in-repo):
+
+- Schema: `drawing_elements`, `element_changes`; drawings + scale/unit/page/
+  source/takeoff_id.
+- **`drawing_geometry.py`** — element type → `takeoff.measure` quantities.
+- **`revision_delta.py`** — revision match + gated variation draft lines.
+- **`drawing_store.py` / `takeoff_store.py`** — persist, sync takeoff, draft estimate.
+- Drawing agent tools: `drawings_summary`, `element_totals`, `revision_delta_hint`.
+- API: takeoff get/save/to-estimate; element draft/confirm/ingest; revision-delta
+  (+ confirm) — **u0.16**.
+- Stub VLM may echo `elements` for round-trip tests. Real OCR/STT/VLM weights
+  remain local L8.
+
 ## 2026-07-23 — Foundry agents Phase A+ (API u0.15)
 
 Continuation of multi-agent work:
@@ -37,7 +69,7 @@ record; Foundry is the AI operating platform (Local today, Azure Agents later).
   `POST /api/agents/ask`, `POST /api/agents/workflow` — **u0.14**
 
 **Still later:** WinUI Agents page (Phase B); Azure AI Foundry cloud Agents +
-Entra (Phase C); drawing VLM depth (Phase D / L8).
+Entra (Phase C); L8 model weights + WinUI takeoff polish.
 
 ## 2026-07-23 — API u0.13: cloud-doable roadmap (P0–P3 domain)
 

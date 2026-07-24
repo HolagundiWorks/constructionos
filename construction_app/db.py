@@ -648,17 +648,62 @@ CREATE TABLE IF NOT EXISTS rfis (
 
 -- Drawing revisions. The discipline is simply that the latest revision is the
 -- one on site; building to a superseded drawing is rework nobody planned for.
+-- Phase D adds sheet geometry metadata (scale/unit/page/source) + optional link
+-- to a measured takeoff; AI elements live in drawing_elements (below).
 CREATE TABLE IF NOT EXISTS drawings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     drawing_no TEXT,
     site_id INTEGER REFERENCES sites(id),
+    project_id INTEGER REFERENCES projects(id),
     title TEXT,
     revision TEXT,
     revision_date TEXT,
     received_date TEXT,
     issued_to_site INTEGER DEFAULT 0,   -- 1 = the current copy is on site
     superseded INTEGER DEFAULT 0,
+    discipline TEXT,                    -- architectural / structural / MEP / …
+    source_file TEXT,                   -- PDF/image/DXF path measured
+    scale REAL DEFAULT 0,               -- real units per pixel (calibration)
+    unit TEXT DEFAULT 'm',              -- linear unit: m / ft / mm
+    page INTEGER DEFAULT 1,
+    takeoff_id INTEGER REFERENCES takeoffs(id),
     remarks TEXT
+);
+
+-- AI / manual / vector-traced elements on a drawing sheet (Phase D).
+-- Quantity is ALWAYS from takeoff.measure on points — never an AI guess.
+CREATE TABLE IF NOT EXISTS drawing_elements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drawing_id INTEGER NOT NULL REFERENCES drawings(id) ON DELETE CASCADE,
+    element_ref TEXT,                   -- stable id across revisions
+    element_type TEXT,                  -- wall / door / window / slab / …
+    name TEXT,
+    layer TEXT,
+    kind TEXT DEFAULT 'length',         -- length / area / count / volume
+    unit TEXT,
+    depth REAL DEFAULT 0,
+    quantity REAL DEFAULT 0,            -- derived via takeoff.measure
+    points TEXT,                        -- JSON [[x,y],…]
+    confidence REAL DEFAULT 1.0,
+    source TEXT DEFAULT 'ai',           -- ai / manual / vector
+    reviewed_by TEXT,
+    reviewed_at TEXT
+);
+
+-- Accepted quantity deltas between two drawing revisions (Phase D T4/T5).
+CREATE TABLE IF NOT EXISTS element_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_drawing_id INTEGER REFERENCES drawings(id) ON DELETE CASCADE,
+    to_drawing_id INTEGER REFERENCES drawings(id) ON DELETE CASCADE,
+    element_ref TEXT,
+    change_kind TEXT,                   -- added / removed / modified
+    element_type TEXT,
+    quantity_delta REAL DEFAULT 0,
+    unit TEXT,
+    variation_id INTEGER REFERENCES variations(id),
+    accepted_by TEXT,
+    accepted_at TEXT,
+    detail_json TEXT
 );
 
 -- Submittals: the pre-execution approval of a proposed material / make / shop
@@ -1259,6 +1304,9 @@ CREATE INDEX IF NOT EXISTS idx_contracts_project ON contracts(project_id);
 CREATE INDEX IF NOT EXISTS idx_payments_project ON payments(project_id);
 CREATE INDEX IF NOT EXISTS idx_matledger_project ON material_ledger(project_id);
 CREATE INDEX IF NOT EXISTS idx_taxinv_project ON tax_invoices(project_id);
+CREATE INDEX IF NOT EXISTS idx_drawing_elements_drawing ON drawing_elements(drawing_id);
+CREATE INDEX IF NOT EXISTS idx_element_changes_pair
+    ON element_changes(from_drawing_id, to_drawing_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compliance_period
     ON compliance_filings(obligation, period);
 """
@@ -1415,6 +1463,14 @@ _ADD_COLUMNS = [
     # AI-origin tagging (E0.3 / cloud C3): distinguish AI-drafted actions from
     # human ones in the audit trail. NULL on older rows = untagged/legacy.
     ('audit_log', 'origin', 'TEXT'),
+    # Phase D — drawing sheet geometry + takeoff link (additive on older books).
+    ('drawings', 'project_id', 'INTEGER'),
+    ('drawings', 'discipline', 'TEXT'),
+    ('drawings', 'source_file', 'TEXT'),
+    ('drawings', 'scale', 'REAL DEFAULT 0'),
+    ('drawings', 'unit', "TEXT DEFAULT 'm'"),
+    ('drawings', 'page', 'INTEGER DEFAULT 1'),
+    ('drawings', 'takeoff_id', 'INTEGER'),
 ]
 
 

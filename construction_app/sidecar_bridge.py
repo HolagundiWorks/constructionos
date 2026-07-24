@@ -118,10 +118,19 @@ def extract(kind, payload=None, host=None, timeout=30):
     confidence = raw.get('confidence') or {}
     if not isinstance(fields, dict):
         fields = {}
+    # Phase D: VLM / vector sidecars may return geometry drafts separately.
+    elements = raw.get('elements')
+    if elements is not None and 'elements' not in fields:
+        fields = dict(fields)
+        fields['elements'] = elements
     draft = capture.build_draft(fields, confidence=confidence,
                                 source=capture.AI)
-    return {
+    out = {
         'ok': True, 'kind': kind, 'reason': None,
         'draft': draft,
         'needs_review': capture.needs_review(draft),
     }
+    if isinstance(elements, list):
+        out['elements'] = elements
+        out['element_count'] = len(elements)
+    return out

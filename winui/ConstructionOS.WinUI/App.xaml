@@ -17,7 +17,8 @@
            (not in MergedDictionaries) win over the framework defaults.
            Alert/severity colours (SystemFillColorCritical/Caution/Success/
            Attention → InfoBar red/amber/green/blue) are deliberately NOT touched,
-           so status stays semantically correct. Theme is forced Light (above). -->
+           so status stays semantically correct. Light/Dark/System theme is applied
+           at runtime to the window root from AppSettings (not forced here). -->
       <Color x:Key="SystemAccentColor">#FF4F18</Color>
       <Color x:Key="SystemAccentColorLight1">#FF7246</Color>
       <Color x:Key="SystemAccentColorLight2">#FF9574</Color>
