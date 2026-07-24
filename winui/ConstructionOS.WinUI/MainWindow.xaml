@@ -3,43 +3,35 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="ACO">
-  <!-- Excel-style ribbon, built from the simplest stock primitives so nothing in
-       the shell can native-crash. To keep the top chrome calm and within the
-       Fluent "fewer than 8 top-level peers" guidance (navigation-basics), the
-       row is split into three groups:
-         • brand (compact "ACO", full name on hover),
-         • the primary tab strip — Home + the persona's sections (ToggleButtons);
-           picking a section fills the command band below with its tabs as
-           icon-over-label AppBarButtons (no dropdown),
-         • a right-hand utility cluster — search + the always-on helpers
-           (Assistant/Process/Tools) and Settings as icon buttons in their
-           standard location, off the primary strip.
-       Everything is stock (ToggleButton / AppBarButton / Button / FontIcon /
-       AutoSuggestBox) — no custom template, no owner-draw. Strips scroll rather
-       than clip on narrow windows. (NavigationView Top / SelectorBar were dropped:
-       they fail-fast in Microsoft.ui.xaml.dll with 0xc000027b on this SDK.) -->
+  <!-- Menu-bar shell, built from stock primitives so nothing here can
+       native-crash. The top chrome is three groups:
+         • brand (compact "ACO"),
+         • a stock MenuBar — one menu per persona section, its tabs as
+           MenuFlyoutItems with Segoe glyphs (a menu keeps the whole catalogue
+           one click away without a permanent command band eating vertical space),
+         • a right-hand cluster — search + the always-on entries (Home /
+           Assistant / Process / Tools) and Settings as one-click icon buttons.
+       Everything is stock (MenuBar / MenuBarItem / MenuFlyoutItem / Button /
+       FontIcon / AutoSuggestBox) — no custom template, no owner-draw.
+       (NavigationView Top / SelectorBar were dropped: they fail-fast in
+       Microsoft.ui.xaml.dll with 0xc000027b on this SDK.) -->
   <!-- The window needs an opaque page background: Fluent's Card/Layer brushes are
        semi-transparent, so without one they composite over the window's black and
        light-theme text renders dark-on-dark (a real contrast failure, not just a
        cosmetic one). ApplicationPageBackgroundThemeBrush is theme-aware, so it
        also does the right thing in Dark and High Contrast. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded"
+  <Grid x:Name="Root" RowDefinitions="Auto,*" Loaded="OnRootLoaded"
         Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <!-- Row 0: brand | primary tabs | search + utilities -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,8,12,8"
+    <!-- Row 0: brand | menu bar | search + utilities -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,4,12,4"
           ColumnSpacing="12"
           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
       <TextBlock Grid.Column="0" Text="ACO"
                  Style="{StaticResource SubtitleTextBlockStyle}"
                  VerticalAlignment="Center"/>
 
-      <ScrollViewer Grid.Column="1" VerticalScrollMode="Disabled"
-                    VerticalScrollBarVisibility="Disabled"
-                    HorizontalScrollMode="Auto"
-                    HorizontalScrollBarVisibility="Auto"
-                    VerticalAlignment="Center">
-        <StackPanel x:Name="Tabs" Orientation="Horizontal" Spacing="4"/>
-      </ScrollViewer>
+      <MenuBar x:Name="Menu" Grid.Column="1" VerticalAlignment="Center"
+               AutomationProperties.Name="Main menu"/>
 
       <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="220"
                       PlaceholderText="Search…" VerticalAlignment="Center"
@@ -53,24 +45,10 @@
                   Spacing="4" VerticalAlignment="Center"/>
     </Grid>
 
-    <!-- Row 1: ribbon command band for the selected section -->
-    <Border x:Name="RibbonBand" Grid.Row="1"
-            BorderThickness="0,0,0,1"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
-            Padding="8,4" Visibility="Collapsed">
-      <ScrollViewer VerticalScrollMode="Disabled"
-                    VerticalScrollBarVisibility="Disabled"
-                    HorizontalScrollMode="Auto"
-                    HorizontalScrollBarVisibility="Auto">
-        <StackPanel x:Name="Ribbon" Orientation="Horizontal" Spacing="4"/>
-      </ScrollViewer>
-    </Border>
-
-    <!-- Row 2: page content. Marked as the Main landmark and named, so a screen
-         reader can jump straight to the page body past the ribbon (WCAG 1.3.1);
+    <!-- Row 1: page content. Marked as the Main landmark and named, so a screen
+         reader can jump straight to the page body past the menu (WCAG 1.3.1);
          focus is moved here after each navigation (2.4.3). -->
-    <Frame x:Name="ContentFrame" Grid.Row="2" Margin="12"
+    <Frame x:Name="ContentFrame" Grid.Row="1" Margin="12"
            AutomationProperties.LandmarkType="Main"
            AutomationProperties.Name="Page content"
            Navigated="ContentFrame_Navigated"/>

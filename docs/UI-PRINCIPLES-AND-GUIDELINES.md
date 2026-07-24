@@ -73,7 +73,7 @@ These four principles are the north star for ACO’s WinUI shell.
 |---|---|
 | Reuse **stock WinUI 3 / Fluent** controls ~80%+ of the time; spend energy on cash-first content, not chrome. | Invent custom templates, owner-draw ribbons, or third-party UI kits that replace Fluent. |
 | Honour Windows light/dark/system theme; `DatePicker` / `NumberBox` / `ContentDialog` the way WinUI Gallery shows. | Free-type dates; MessageDialog; UWP-era APIs. |
-| Ribbon composed from stock `ToggleButton` + `AppBarButton` (owner-approved) when `NavigationView` Top is unsafe on this SDK. | Fake Excel chrome with custom drawing. |
+| Shell composed from a stock `MenuBar` (one menu per section, tabs as `MenuFlyoutItem`s) — `NavigationView` Top / `SelectorBar` are unsafe on this SDK. | Fake ribbon or menu chrome with custom drawing. |
 
 **Emotional goal:** reliability and trust — the munshi should feel “this is a
 normal Windows app,” not a foreign skin.
@@ -157,7 +157,7 @@ Fluent defines three palettes — apply them deliberately:
 |---|---|
 | **Neutral** | Surfaces, text, layout chrome — `TextFillColor*`, `CardBackgroundFill*`, `LayerFill*`, strokes. Lighter neutrals on focus surfaces. |
 | **Shared / semantic** | Status only — `InfoBar` Critical / Caution / Success / Attention. Never decorate with semantic colour. |
-| **Brand** | ACO Radiant Orange as accent — primary buttons, selected ribbon tab, focus accents. **Not** large backgrounds. |
+| **Brand** | ACO Radiant Orange as accent — primary buttons, selection, focus accents. **Not** large backgrounds. |
 
 **Rules**
 
@@ -201,7 +201,7 @@ Source: [Fluent 2 iconography](https://fluent2.microsoft.design/iconography).
 **Rules**
 
 - Name icons for the **object** (Shield, Home), not the feature slogan.
-- One metaphor per concept across the app; icon + label on the ribbon; icon-only
+- One metaphor per concept across the app; icon + label on menu items; icon-only
   needs tooltip + `AutomationProperties.Name`.
 - Colour on system icons: at most one solid colour; prefer theme foreground.
 - **Shipped:** Segoe **MDL2** code points in `RibbonIcons.cs` (WinUI default).
@@ -218,7 +218,7 @@ margin/padding/Spacing):
 | Token-ish | epx | Typical ACO use |
 |---|---:|---|
 | size40 / 80 | 4 / 8 | Control internals, tight stacks |
-| size120 / 160 | 12 / 16 | Ribbon padding, page content padding |
+| size120 / 160 | 12 / 16 | Menu-bar padding, page content padding |
 | size200 / 240 | 20 / 24 | Section gutters, large groups |
 | size400 | 40 | Min touch / hit target where touch matters |
 
@@ -234,7 +234,7 @@ registers; avoid >2 nav levels without `BreadcrumbBar`.
 
 | Class | Range | ACO |
 |---|---|---|
-| large | ~640–1023 | Ribbon scrolls H; single-column forms |
+| large | ~640–1023 | Menus overflow to flyouts; single-column forms |
 | x-large+ | ≥1024 | List/details side-by-side where useful |
 
 Techniques: reposition / resize / reflow / show-hide — not a second layout fork
@@ -329,7 +329,7 @@ basics — they implement Fluent 2 “Natural” + “Focus” on desktop.
 
 **ACO structure**
 
-- Flat sections → ribbon tab strip; one level down → ribbon command band.
+- Flat sections → menu bar; one level down → that menu's items.
 - Deeper civil paths → in-page list/details + `BreadcrumbBar` when depth > 2.
 - Search: `AutoSuggestBox` → `/api/search`.
 - Primary actions on page `CommandBar`; destructive → confirm; Viewer → disabled
@@ -373,7 +373,7 @@ Use these recipes; don’t invent new shells.
 
 | Job | Stock pattern | Notes |
 |---|---|---|
-| App shell | Ribbon (`ToggleButton` tab strip + `AppBarButton` band) + `Frame` | Owner-directed Excel-style ribbon, composed from stock controls; `NavigationView` Top / `SelectorBar` avoided (native-crash on this SDK — WINUI3-MIGRATION §9 fix 7) |
+| App shell | `MenuBar` (one `MenuBarItem` per section, tabs as `MenuFlyoutItem`s) + right-hand icon cluster + `Frame` | Owner-directed menu shell, stock controls only; `NavigationView` Top / `SelectorBar` avoided (native-crash on this SDK — WINUI3-MIGRATION §9 fix 7) |
 | Section landing / register | `ListView` + form / detail pane | FK fields from API `options` |
 | Document entry | Form + line `ListView` + totals | Totals read-only from API/domain |
 | Dashboard | KPI band + `InfoBar` list | Data from `/api/kpi`, `/api/dashboard` |
@@ -388,7 +388,7 @@ Use these recipes; don’t invent new shells.
 **Forbidden without explicit owner approval:** custom title bars that fight the
 system caption buttons, **owner-drawn or custom-templated** controls, third-party
 UI kits that replace Fluent controls, emoji as primary navigation icons. (The
-shipped ribbon is *not* owner-draw — it composes stock `ToggleButton` /
+shipped shell is *not* owner-draw — it composes stock `MenuBar` /
 `AppBarButton` — and is the owner-approved shell; see §1.1.)
 
 ---
@@ -504,7 +504,7 @@ Microsoft — without custom chrome. Design language:
 
 | Dimension | Grade | Notes |
 |---|---|---|
-| Stock controls only | ✅ Strong | No custom templates / owner-draw; ribbon is composed stock |
+| Stock controls only | ✅ Strong | No custom templates / owner-draw; shell is a stock `MenuBar` |
 | Theme + accent | ✅ Strong | Light/Dark/System; Radiant Orange accent ramp; severity brushes untouched |
 | Icons / pictograms | ⚠ Partial | Segoe **MDL2** glyphs via `FontIcon` (works); docs said Fluent Icons — align docs + optionally adopt Fluent font |
 | Materials | ⚠ Deferred | Mica removed (SDK crash); Acrylic unused; card/layer theme brushes OK |
@@ -524,14 +524,14 @@ control gaps and the ROADMAP P0 workflow pages — not a redesign.
 | Resource | ACO use | File(s) |
 |---|---|---|
 | `Window` + `Frame` | Content host | `MainWindow.xaml` |
-| `ToggleButton` strip | Section tabs (Excel-style ribbon) | `MainWindow` |
-| `AppBarButton` + `FontIcon` | Ribbon command band + Masters CRUD | `MainWindow.xaml.cs`, `MastersPage` |
+| `MenuBar` / `MenuBarItem` / `MenuFlyoutItem` | Section menus + their tabs | `MainWindow` |
+| `AppBarButton` + `FontIcon` | Page CommandBars + Masters CRUD | `MastersPage`, register pages |
 | `AutoSuggestBox` (`QueryIcon=Find`) | Global search → `/api/search` | `MainWindow` |
 | `ScrollViewer` (H) | Narrow-window overflow for tabs/band | `MainWindow` |
-| Theme card / layer brushes | Header + ribbon band surfaces | `CardBackground*`, `LayerFill*`, `CardStroke*` |
+| Theme card / layer brushes | Header + page surfaces | `CardBackground*`, `LayerFill*`, `CardStroke*` |
 
 > **Intentional departure:** Microsoft recommends `NavigationView` for primary
-> nav. ACO uses a stock-composed ribbon because `NavigationView` Top and
+> nav. ACO uses a stock `MenuBar` because `NavigationView` Top and
 > `SelectorBar` native-crash on the pinned Windows App SDK 1.5 build
 > (`WINUI3-MIGRATION.md` §9). Revisit when the SDK is bumped.
 
@@ -573,7 +573,7 @@ control gaps and the ROADMAP P0 workflow pages — not a redesign.
 
 | Resource | ACO use |
 |---|---|
-| `FontIcon` + **Segoe MDL2 Assets** glyphs | Ribbon (`RibbonIcons.cs`), Masters CRUD, Info empty state |
+| `FontIcon` + **Segoe MDL2 Assets** glyphs | Menu items (`RibbonIcons.cs`), Masters CRUD, Info empty state |
 | `Symbol` enum (`Add`, `Refresh`, `Find`) | Some `AppBarButton` / search |
 | Brand mark assets | Outside WinUI tree (`construction_app/resources/`; MSIX visual assets) — **not** used as in-app nav pictograms |
 | Emoji pictograms | **Retired** from WinUI nav (tkinter rail still may show them) |
@@ -616,7 +616,7 @@ Prioritised for **enterprise grade**. “Avoid” = known crash or non-goal.
 | **Unified loading** (`ProgressRing` + InfoBar) | Every register/report | **P0** | `PageLoad` is text-only; Masters alone uses ring |
 | **`TeachingTip`** | First-run + AI draft tips | P1 | Not wired |
 | **`BreadcrumbBar`** | Project → BOQ → MB → RA depth | P1 | Civil pages not built |
-| **`InfoBadge`** | Open approvals / overdue baaki on ribbon | P1 | Not wired |
+| **`InfoBadge`** | Open approvals / overdue baaki on menu items | P1 | Not wired |
 | **`SettingsCard` / `SettingsExpander`** (Toolkit) | Enterprise Settings/Tools density | P1 | Plain form today |
 | **`Expander`** | Advisory groups; long forms | P1 | Flat stacks |
 | **`MenuFlyout` / `CommandBarFlyout`** | Row actions (Edit / Delete / Open) | P1 | CRUD mostly CommandBar-global |
@@ -647,7 +647,7 @@ Prioritised for **enterprise grade**. “Avoid” = known crash or non-goal.
 4. **SettingsCard** (CommunityToolkit.WinUI.Controls) for Settings/Tools groups
    (Connection, Appearance, Company, Modules).
 5. **TeachingTip** on Assistant / Capture: “AI drafts only — you confirm.”
-6. **InfoBadge** on Money / Approvals ribbon commands when API exposes counts.
+6. **InfoBadge** on Money / Approvals menu items when API exposes counts.
 7. **RibbonIcons** — document as MDL2 *or* set `FontFamily` to Segoe Fluent
    Icons and rematch glyphs; kill “Fluent Icons” claim until then.
 8. **Adopt CommunityToolkit.Mvvm** on 2–3 pilot pages (Home, Money) to match
@@ -688,7 +688,7 @@ Principles: Natural · Built for focus · One for all · Unmistakably Microsoft 
 Color:      Neutral surfaces + semantic InfoBar + Radiant Orange CTAs only
 Elevation:  Card stroke / low ThemeShadow; dialogs = Smoke + stock high elevation
 Icons:      Fluent system icons (Filled when selected); MDL2 OK until Fluent font set
-Layout:     4px ramp; list/details; ribbon ≤ peers; Breadcrumb when depth > 2
+Layout:     4px ramp; list/details; menus ≤ peers; Breadcrumb when depth > 2
 Material:   Solid default; Mica when SDK-safe; Acrylic flyouts; Smoke modals
 Motion:     Functional/short; Frame fade; honour reduced-motion
 Shapes:     ControlCornerRadius 4 / OverlayCornerRadius 8; thin strokes
@@ -755,7 +755,7 @@ accent-vs-High-Contrast policy is coded, only the visual HC smoke is left).
 |---|---|
 | `PageTitleStyle` | `HeadingLevel=Level1` on page titles (~19 pages) |
 | Search `AutoSuggestBox` | `Name="Search tabs"` |
-| Utility ribbon buttons | `SetName(title)` in code |
+| Utility icon buttons | `SetName(title)` in code |
 | Lookahead KPI cards / ProgressBars | Named `"caption: value"` |
 | Settings fields | `Header=` on TextBox / Password / Combo / NumberBox / Toggle |
 | InfoPage glyph | `AccessibilityView=Raw` |

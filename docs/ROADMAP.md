@@ -71,7 +71,7 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 | Phase | Deliverable | Status |
 |---|---|---|
 | **U0** | JSON API for the client | ✅ u0.16 |
-| **U1** | Ribbon shell + search (stock controls) | ✅ |
+| **U1** | Shell + search (stock controls) — now a stock `MenuBar`: one menu per section, tabs as menu items | ✅ |
 | **U2** | Masters CRUD (`FieldForm`, FK pickers) | ✅ |
 | **U3** | Money docs create+list | ✅ |
 | **U4** | Home KPIs + charts (LiveCharts) | ✅ |

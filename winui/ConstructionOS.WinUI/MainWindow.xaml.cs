@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;   // ToggleButton
 using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
 using ConstructionOS.WinUI.Views;
@@ -8,13 +7,13 @@ using ConstructionOS.WinUI.Views;
 namespace ConstructionOS.WinUI;
 
 /// <summary>
-/// U1 shell as an Excel-style ribbon. A row of <see cref="ToggleButton"/>s is the
-/// section tab strip (from GET /api/menu); picking a section fills the ribbon band
-/// with that section's tabs as icon commands (<see cref="AppBarButton"/>), and
-/// clicking one navigates. Always-on entries (Home/Assistant/Process/Tools) and
-/// Settings are leaf tabs that navigate directly with no band. Built from the
-/// simplest stock primitives so the shell has no overflow-measure native code to
-/// fail-fast on (NavigationView Top / SelectorBar both did on this SDK build).
+/// U1 shell as a stock <see cref="MenuBar"/>. Each persona section (from GET
+/// /api/menu) is a <see cref="MenuBarItem"/> whose <see cref="MenuFlyoutItem"/>s
+/// are that section's tabs; clicking one navigates. The always-on entries
+/// (Home/Assistant/Process/Tools) and Settings sit in a right-hand cluster as
+/// one-click icon buttons, since a menu holding a single item would only add a
+/// click. Built from stock primitives so the shell has no overflow-measure native
+/// code to fail-fast on (NavigationView Top / SelectorBar both did on this SDK).
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -77,9 +76,6 @@ public sealed partial class MainWindow : Window
         ["Running Bills"] = "bills",
     };
 
-    // Section title → its (tab label, routing tag) items, for the ribbon band.
-    // A section title absent here is a leaf tab that navigates to itself.
-    private readonly Dictionary<string, List<(string Label, string Tag)>> _sectionTabs = new();
 
     // One-shot timer that defers the shell build until the window has rendered a
     // few frames, so tree mutation doesn't race first layout (heap-corruption).
@@ -226,45 +222,44 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // Builds the tab strip + utility cluster, then defers the first navigation.
-    // Home leads the primary strip; the other always-on helpers and Settings go
-    // to the right-hand utility cluster (Fluent navigation-basics: keep top-level
-    // peers under ~8, hide less-important items).
+    // Builds the menu bar + utility cluster, then defers the first navigation.
+    // Each persona section becomes a top-level menu whose items are its tabs; the
+    // always-on entries (Home / Assistant / Process / Tools) and Settings stay as
+    // one-click icon buttons on the right, since a menu that holds a single item
+    // would be a pointless extra click.
     private void BuildShell(
         List<string> alwaysOn,
         List<(string Title, List<(string Label, string Tag)> Tabs)> sectionList)
     {
-        Tabs.Children.Clear();
+        Menu.Items.Clear();
         Utilities.Children.Clear();
-        _sectionTabs.Clear();
 
-        var firstLeaf = true;
-        foreach (var label in alwaysOn)
-        {
-            if (firstLeaf) { AddTab(label); firstLeaf = false; }
-            else AddUtility(label);
-        }
         foreach (var (title, tabs) in sectionList)
         {
-            _sectionTabs[title] = tabs;
-            AddTab(title);
+            var menu = new MenuBarItem { Title = title };
+            foreach (var (label, tag) in tabs)
+            {
+                var item = new MenuFlyoutItem
+                {
+                    Text = label,
+                    Icon = new FontIcon { Glyph = RibbonIcons.Glyph(label) },
+                    Tag = tag,
+                };
+                item.Click += (s, _) => NavigateTo((string)((MenuFlyoutItem)s).Tag);
+                menu.Items.Add(item);
+            }
+            Menu.Items.Add(menu);
         }
-        AddUtility("Settings");   // standard gear location, off the strip
+
+        foreach (var label in alwaysOn) AddUtility(label);
+        AddUtility("Settings");   // standard gear location
 
         // Defer the first navigation (page load) — loading synchronously here is
-        // the single biggest crash source (it races the just-built strip's layout
+        // the single biggest crash source (it races the just-built chrome's layout
         // and corrupts the native heap). Low-priority enqueue was the best config.
-        if (Tabs.Children.Count > 0 && Tabs.Children[0] is ToggleButton first)
-            DispatcherQueue.TryEnqueue(
-                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => SelectTab(first));   // Home
-    }
-
-    private void AddTab(string title)
-    {
-        var tab = new ToggleButton { Content = title, Tag = title };
-        tab.Click += (s, _) => SelectTab((ToggleButton)s);
-        Tabs.Children.Add(tab);
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => NavigateTo("Home"));
     }
 
     // Always-on helpers (Assistant/Process/Tools) and Settings live as icon
@@ -284,55 +279,8 @@ public sealed partial class MainWindow : Window
         Utilities.Children.Add(btn);
     }
 
-    // A utility navigates directly and clears any section-tab selection + band,
-    // since it lives outside the section model.
-    private void NavigateToUtility(string tag)
-    {
-        foreach (var child in Tabs.Children)
-            if (child is ToggleButton tb) tb.IsChecked = false;
-        Ribbon.Children.Clear();
-        RibbonBand.Visibility = Visibility.Collapsed;
-        NavigateTo(tag);
-    }
-
-    // Excel-style: selecting a section shows its commands in the band but does not
-    // itself change the page — the user clicks a command to navigate. A leaf tab
-    // (always-on / Settings) has no commands, so selecting it navigates directly.
-    private void SelectTab(ToggleButton tab)
-    {
-        foreach (var child in Tabs.Children)
-            if (child is ToggleButton other)
-                other.IsChecked = ReferenceEquals(other, tab);
-
-        if (tab.Tag is not string key) return;
-        if (_sectionTabs.TryGetValue(key, out var tabs) && tabs.Count > 0)
-        {
-            BuildRibbon(tabs);
-            RibbonBand.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            Ribbon.Children.Clear();
-            RibbonBand.Visibility = Visibility.Collapsed;
-            NavigateTo(key);
-        }
-    }
-
-    private void BuildRibbon(IEnumerable<(string Label, string Tag)> tabs)
-    {
-        Ribbon.Children.Clear();
-        foreach (var (label, tag) in tabs)
-        {
-            var btn = new AppBarButton
-            {
-                Label = label,
-                Icon = new FontIcon { Glyph = RibbonIcons.Glyph(label) },
-                Tag = tag,
-            };
-            btn.Click += (_, _) => NavigateTo((string)btn.Tag);
-            Ribbon.Children.Add(btn);
-        }
-    }
+    // A utility lives outside the section model, so it just navigates.
+    private void NavigateToUtility(string tag) => NavigateTo(tag);
 
     private void ShowOffline(Exception ex)
     {
@@ -345,10 +293,8 @@ public sealed partial class MainWindow : Window
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(24),
         };
-        Tabs.Children.Clear();
+        Menu.Items.Clear();
         Utilities.Children.Clear();
-        _sectionTabs.Clear();
-        RibbonBand.Visibility = Visibility.Collapsed;
         AddUtility("Settings");   // still reachable offline to fix the URL
     }
 
