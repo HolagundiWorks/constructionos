@@ -18,7 +18,13 @@
        AutoSuggestBox) — no custom template, no owner-draw. Strips scroll rather
        than clip on narrow windows. (NavigationView Top / SelectorBar were dropped:
        they fail-fast in Microsoft.ui.xaml.dll with 0xc000027b on this SDK.) -->
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded">
+  <!-- The window needs an opaque page background: Fluent's Card/Layer brushes are
+       semi-transparent, so without one they composite over the window's black and
+       light-theme text renders dark-on-dark (a real contrast failure, not just a
+       cosmetic one). ApplicationPageBackgroundThemeBrush is theme-aware, so it
+       also does the right thing in Dark and High Contrast. -->
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Loaded="OnRootLoaded"
+        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
     <!-- Row 0: brand | primary tabs | search + utilities -->
     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,8,12,8"
           ColumnSpacing="12"
