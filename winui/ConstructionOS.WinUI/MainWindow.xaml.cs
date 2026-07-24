@@ -98,9 +98,18 @@ public sealed partial class MainWindow : Window
         ApplyTheme();   // honour the saved Light / Dark / System choice
     }
 
+    /// <summary>The shell's resolved theme (never <c>Default</c>). Popups live
+    /// outside this window's element tree, so they read it to match.</summary>
+    internal ElementTheme ShellTheme => Root.ActualTheme;
+
     /// <summary>Apply the saved UI theme (Light / Dark / follow-Windows) to the
     /// whole window at runtime — Fluent "Personal". Called at startup and after a
-    /// Settings change. The brand accent ramp (App.xaml Dark1–3) holds in both.</summary>
+    /// Settings change. The brand accent ramp (App.xaml Dark1–3) holds in both.
+    /// <para>This covers the window's element tree. The application-level theme —
+    /// which popups and code-behind <c>Application.Current.Resources</c> lookups
+    /// resolve against — is only settable at startup, so it is set once in
+    /// <c>App.ApplySavedTheme</c>; a change here takes full effect on restart.
+    /// </para></summary>
     public void ApplyTheme()
     {
         Root.RequestedTheme = (AppSettings.Current.Theme ?? "Light").Trim().ToLowerInvariant() switch

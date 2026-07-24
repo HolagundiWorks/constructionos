@@ -31,8 +31,13 @@
       <Border x:Name="HeaderHost" Grid.Row="1"
               BorderThickness="0,0,0,1"
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"/>
+      <!-- Double-click (or Enter on the focused row) opens the record for edit,
+           the way every other register in Windows behaves; select-then-Edit on
+           the command bar still works and stays the keyboard-discoverable path. -->
       <ListView x:Name="Grid" Grid.Row="2" SelectionMode="Single"
-                SelectionChanged="OnSelectionChanged"/>
+                SelectionChanged="OnSelectionChanged"
+                DoubleTapped="OnRowInvoked"
+                KeyDown="OnRowKeyDown"/>
       <ProgressRing x:Name="Busy" Grid.Row="2" IsActive="False"
                     Width="32" Height="32"
                     HorizontalAlignment="Center" VerticalAlignment="Top"

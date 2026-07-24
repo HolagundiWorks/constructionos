@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
@@ -101,6 +102,19 @@ public sealed partial class MastersPage : Page
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateButtons();
 
+    // Open the selected record: double-click, or Enter on the focused row.
+    private void OnRowInvoked(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (Selected != null) OnEdit(sender, new RoutedEventArgs());
+    }
+
+    private void OnRowKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter || Selected == null) return;
+        e.Handled = true;
+        OnEdit(sender, new RoutedEventArgs());
+    }
+
     private void UpdateButtons()
     {
         var has = Selected != null;
@@ -153,6 +167,7 @@ public sealed partial class MastersPage : Page
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
         };
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         try

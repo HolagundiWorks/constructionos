@@ -6,6 +6,33 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Table rows open a record; app-wide theme fix
+
+Reported: *"unable to open projects, invoices or any other items in tables."*
+Two defects, both real and both pre-existing:
+
+- **Rows were dead.** `Ui.Table` set `SelectionMode=Single`, so a row highlighted
+  on click and nothing listened — the UI invited a click and ignored it. No
+  register (`DataTablePage`, `MoneyPage`, …) had an open handler; only
+  `MastersPage` could edit, and only via select-then-*Edit*.
+  Now: a click opens a read-only **record dialog** showing *every* field, not
+  just the ≤10 columns the table can fit (e.g. a tax invoice also reveals
+  Interstate / Tax amount / Total amount). Masters rows additionally open their
+  edit form on **double-click** or **Enter**; the command bar still works.
+- **The app theme was never applied.** `MainWindow.ApplyTheme` set
+  `Root.RequestedTheme`, which reaches only that Grid's subtree. Popups
+  (ContentDialog, MenuFlyout) live in a separate popup root, and the ~35
+  `Application.Current.Resources[...]` brush lookups in code-behind resolve
+  against the *application* theme — which still followed Windows. On a Dark
+  Windows with ACO set to Light that painted dark-theme greys on light
+  backgrounds: table headers and stat-card captions were near-invisible
+  (**WCAG 1.4.3**, not cosmetic) and dialogs opened dark over a light page.
+  Fixed by setting `Application.RequestedTheme` in the `App` constructor — the
+  only point where it is writable (later it throws `COMException 0x80131515`;
+  an attempt in `OnLaunched` failed exactly that way). Dialogs also carry the
+  shell theme explicitly, so a runtime change is right without a restart;
+  Settings now says a restart is needed for menus.
+
 ## 2026-07-24 — WCAG 2.2 AA audit (UI-PRINCIPLES §12)
 
 Static accessibility audit of the WinUI client against **WCAG 2.2 Level AA**:

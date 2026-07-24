@@ -105,6 +105,7 @@ public static class FieldForm
             DefaultButton = ContentDialogButton.Primary,
             Content = new ScrollViewer { Content = panel, MaxHeight = 480 },
             XamlRoot = root,
+            RequestedTheme = Views.Ui.CurrentTheme,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
         return fields.ToDictionary(f => f.Key, f => ReadInput(f, inputs[f.Key]));

@@ -16,6 +16,12 @@ internal static class Ui
 {
     private const int MaxCols = 10;
 
+    /// <summary>The shell's live theme. Popups (ContentDialog, flyouts) are hosted
+    /// outside the page tree and so never inherit it — they must be told, or a
+    /// Light app shows Dark dialogs on a Dark-themed Windows.</summary>
+    public static ElementTheme CurrentTheme =>
+        App.MainWindow?.ShellTheme ?? ElementTheme.Default;
+
     /// <summary>
     /// An aligned columnar table for the items array in <paramref name="data"/>.
     /// Columns are the ordered union of row keys (id first, capped at 10);
@@ -65,26 +71,93 @@ internal static class Ui
         Grid.SetRow(header, 0);
         root.Children.Add(header);
 
+        // Rows are clickable: a click opens the full record. A table caps at
+        // MaxCols columns, so the row you see is a summary — opening it is the
+        // only way to read the rest. (Previously SelectionMode=Single made rows
+        // highlight as if they were actionable while nothing listened.)
+        var label = data.TryGetProperty("label", out var lbl)
+            && lbl.ValueKind == JsonValueKind.String ? lbl.GetString() : null;
         var list = new ListView
         {
-            SelectionMode = ListViewSelectionMode.Single,
+            SelectionMode = ListViewSelectionMode.None,
+            IsItemClickEnabled = true,
             Padding = new Thickness(0, 4, 0, 4),
         };
         // Name the region from the server's curated label so a screen reader can
         // say which table it is ("Payroll, list") rather than an anonymous list.
-        if (data.TryGetProperty("label", out var lbl)
-            && lbl.ValueKind == JsonValueKind.String
-            && !string.IsNullOrWhiteSpace(lbl.GetString()))
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, lbl.GetString());
+        if (!string.IsNullOrWhiteSpace(label))
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(list, label);
+        list.ItemClick += (_, e) =>
+        {
+            if (e.ClickedItem is FrameworkElement fe
+                && fe.Tag is IReadOnlyDictionary<string, string> record)
+                _ = ShowRecordAsync(fe, label ?? "Record", spec, record);
+        };
         foreach (var r in rows)
         {
             var rg = SpecRow(spec, c => r.TryGetValue(c.Key, out var v) ? v : "", isHeader: false);
             rg.Padding = new Thickness(0, 2, 0, 2);
+            rg.Tag = r;                       // the full record, not just shown cells
             list.Items.Add(rg);
         }
         Grid.SetRow(list, 1);
         root.Children.Add(list);
         return root;
+    }
+
+    /// <summary>Show one record in a read-only dialog — every field it has, not
+    /// just the columns that fitted in the table. Curated labels where the server
+    /// gave them, money in rupees.</summary>
+    private static async Task ShowRecordAsync(
+        FrameworkElement anchor, string title,
+        IReadOnlyList<Col> spec, IReadOnlyDictionary<string, string> record)
+    {
+        if (anchor.XamlRoot is null) return;
+        var labels = new Dictionary<string, Col>();
+        foreach (var c in spec) labels[c.Key] = c;
+
+        var grid = new Grid { ColumnSpacing = 16, RowSpacing = 6 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var r = 0;
+        // Spec order first (the curated reading order), then anything left over.
+        var keys = spec.Select(c => c.Key).Where(record.ContainsKey)
+            .Concat(record.Keys.Where(k => !labels.ContainsKey(k)));
+        foreach (var key in keys)
+        {
+            var raw = record.TryGetValue(key, out var v) ? v : "";
+            if (string.IsNullOrWhiteSpace(raw)) continue;      // skip empty fields
+            var col = labels.TryGetValue(key, out var c) ? c : Column(key, null);
+            var shown = col.Money && TryNum(raw, out var mv) ? Rupees(mv) : raw;
+
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var name = new TextBlock
+            {
+                Text = col.Label,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    Application.Current.Resources["TextFillColorSecondaryBrush"],
+                TextWrapping = TextWrapping.Wrap,
+            };
+            var value = new TextBlock { Text = shown, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
+            Grid.SetRow(name, r); Grid.SetColumn(name, 0);
+            Grid.SetRow(value, r); Grid.SetColumn(value, 1);
+            grid.Children.Add(name); grid.Children.Add(value);
+            r++;
+        }
+        if (r == 0) grid.Children.Add(new TextBlock { Text = "This record is empty." });
+
+        await new ContentDialog
+        {
+            Title = title,
+            Content = new ScrollViewer { Content = grid, MaxHeight = 480 },
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = anchor.XamlRoot,
+            // Dialogs are hosted outside the page tree, so they don't inherit the
+            // shell's theme — carry it across explicitly.
+            RequestedTheme = anchor.ActualTheme,
+        }.ShowAsync();
     }
 
     /// <summary>One rendered column: display key, human label, right-align,

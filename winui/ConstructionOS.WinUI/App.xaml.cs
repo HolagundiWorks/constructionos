@@ -26,6 +26,9 @@ public partial class App : Application
 
     public App()
     {
+        // Before InitializeComponent: the only window in which the application
+        // theme is writable (setting it later throws COMException 0x80131515).
+        ApplySavedTheme(AppSettings.Load().Theme);
         InitializeComponent();
         // A single page's load failure must never take down the whole app.
         // Log the exception, then mark it handled so WinUI keeps the process
@@ -42,6 +45,35 @@ public partial class App : Application
             (_, e) => Log("CLR", e.ExceptionObject as Exception);
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException +=
             (_, e) => Log("Task", e.Exception);
+    }
+
+    /// <summary>
+    /// Set the saved theme on the <see cref="Application"/> itself, before the
+    /// first window exists — the only place it takes effect app-wide.
+    /// <para>
+    /// <c>MainWindow.ApplyTheme</c> sets <c>Root.RequestedTheme</c>, which only
+    /// reaches elements inside that Grid. Two things live outside it and were
+    /// therefore rendering in the *Windows* theme rather than the app's:
+    /// popups (ContentDialog, MenuFlyout — they are hosted in a separate popup
+    /// root), and every <c>Application.Current.Resources[...]</c> brush lookup
+    /// in code-behind, which resolves against the application-level theme
+    /// dictionary. On a Dark-themed Windows with the app set to Light that put
+    /// dark-theme greys on light backgrounds — table headers and stat-card
+    /// labels came out near-invisible (a WCAG 1.4.3 failure, not a nicety).
+    /// </para>
+    /// Light/Dark only: "system" leaves the default, which already follows Windows.
+    /// </summary>
+    private void ApplySavedTheme(string? theme)
+    {
+        var wanted = (theme ?? "Light").Trim().ToLowerInvariant() switch
+        {
+            "dark" => ApplicationTheme.Dark,
+            "system" or "default" or "windows" => (ApplicationTheme?)null,
+            _ => ApplicationTheme.Light,
+        };
+        // Never let a theme preference be fatal — a wrong-looking app beats none.
+        try { if (wanted.HasValue) RequestedTheme = wanted.Value; }
+        catch (Exception ex) { Log("Theme", ex); }
     }
 
     private static void Log(string source, Exception? ex)
