@@ -46,6 +46,10 @@ import signal_feed
 import signal_suggest
 import submittals as submittals_mod
 import text_extract
+import takeoff_store
+import drawing_geometry
+import drawing_store
+import revision_delta
 import vendor_invoice_draft
 import web_docs
 import web_masters
@@ -69,7 +73,7 @@ _API_DOCS = tuple(web_docs.DOCS.keys())
 # Accounts tabs that aren't a master, money doc, or a dedicated computed report.
 _API_TABLES = (
     'attendance', 'payroll', 'equipment_hire', 'plant_logs', 'consumption_norms',
-    'daily_progress', 'ncrs', 'incidents', 'snags', 'rate_analysis', 'takeoffs',
+    'daily_progress', 'ncrs', 'incidents', 'snags', 'rate_analysis',
     'bid_assessments', 'quotations', 'estimates', 'variations',
     'material_requisitions', 'approvals', 'retention_releases', 'journal_entries',
     'timeline_tasks', 'material_ledger',
@@ -92,7 +96,7 @@ def handle(request, sess):
     method = (request.method or 'GET').upper()
 
     if path in ('', 'health'):
-        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.15'})
+        return _ok({'ok': True, 'service': 'aco', 'api': 'u0.16'})
 
     if path == 'me' and method == 'GET':
         return _ok({
@@ -298,6 +302,35 @@ def handle(request, sess):
 
     if path == 'sidecar/extract' and method == 'POST':
         return _sidecar_extract(request)
+
+    if path == 'takeoffs' and method == 'GET':
+        return _list_ops_table('takeoffs')
+    if path == 'takeoffs' and method == 'POST':
+        return _takeoffs_save(request, sess)
+    m = re.match(r'^takeoffs/(\d+)$', path)
+    if m and method == 'GET':
+        return _takeoffs_get(int(m.group(1)))
+    if m and method == 'PUT':
+        return _takeoffs_save(request, sess, takeoff_id=int(m.group(1)))
+    if m and method == 'DELETE':
+        return _takeoffs_delete(request, sess, int(m.group(1)))
+    m = re.match(r'^takeoffs/(\d+)/to-estimate$', path)
+    if m and method == 'POST':
+        return _takeoffs_to_estimate(request, sess, int(m.group(1)))
+
+    if path == 'drawings/elements/draft' and method == 'POST':
+        return _drawing_elements_draft(request)
+    if path == 'drawings/elements/confirm' and method == 'POST':
+        return _drawing_elements_confirm(request, sess)
+    if path == 'drawings/elements/ingest' and method == 'POST':
+        return _drawing_elements_ingest(request)
+    if path == 'drawings/revision-delta' and method == 'POST':
+        return _drawing_revision_delta(request)
+    if path == 'drawings/revision-delta/confirm' and method == 'POST':
+        return _drawing_revision_delta_confirm(request, sess)
+    m = re.match(r'^drawings/(\d+)/elements$', path)
+    if m and method == 'GET':
+        return _drawing_elements_list(int(m.group(1)))
 
     if path == 'narrative' and method == 'GET':
         return _narrative(request)
@@ -1145,7 +1178,7 @@ def _list_audit(request):
 def _api_contract():
     """Machine-readable endpoint map for WinUI / clients (C2 DTO coverage)."""
     return _ok({
-        'api': 'u0.15',
+        'api': 'u0.16',
         'auth': {
             'login': 'POST /api/login {username,password,company?}',
             'companies': 'GET /api/companies (public)',
@@ -1181,6 +1214,8 @@ def _api_contract():
             'GET /api/submittals', 'GET /api/audit?origin=',
             'GET /api/search?q=', 'GET /api/narrative?kind=',
             'GET /api/sidecar/status',
+            'GET /api/takeoffs', 'GET /api/takeoffs/{id}',
+            'GET /api/drawings/{id}/elements',
             'GET /api/{master}', 'GET /api/{doc}',
             'GET /api/{register}  (label+columns+FK names)',
         ],
@@ -1208,6 +1243,13 @@ def _api_contract():
             'POST /api/signals/preview', 'POST /api/signals/suggest',
             'POST /api/reconcile', 'POST /api/intent',
             'POST /api/sidecar/extract',
+            'POST/PUT/DELETE /api/takeoffs[/{id}]',
+            'POST /api/takeoffs/{id}/to-estimate',
+            'POST /api/drawings/elements/draft',
+            'POST /api/drawings/elements/confirm',
+            'POST /api/drawings/elements/ingest',
+            'POST /api/drawings/revision-delta',
+            'POST /api/drawings/revision-delta/confirm',
             'POST /api/purchase_orders',
             'POST /api/allocations',
             'POST /api/firm', 'POST /api/modules', 'POST /api/assistant',
@@ -2183,6 +2225,235 @@ def _sidecar_extract(request):
     result = sidecar_bridge.extract(kind, payload=payload)
     # Soft-fail: still 200 with ok=False so clients degrade cleanly.
     return _ok(result)
+
+
+# ------------------------------------- takeoffs + drawing Phase D (u0.16)
+def _takeoffs_list(request):
+    q = request.query or {}
+    conn = _conn()
+    try:
+        rows = takeoff_store.list_takeoffs(
+            conn, project_id=q.get('project_id'), site_id=q.get('site_id'))
+    finally:
+        conn.close()
+    return _ok({'items': rows, 'count': len(rows)})
+
+
+def _takeoffs_get(takeoff_id):
+    conn = _conn()
+    try:
+        data = takeoff_store.get_takeoff(conn, takeoff_id)
+    finally:
+        conn.close()
+    if not data:
+        return _err('Takeoff not found', 404)
+    return _ok(data)
+
+
+def _takeoffs_save(request, sess, takeoff_id=None):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    header = body.get('header') if isinstance(body.get('header'), dict) else body
+    items = body.get('items') if isinstance(body.get('items'), list) else []
+    conn = _conn()
+    try:
+        tid = takeoff_store.save(conn, header, items, takeoff_id=takeoff_id)
+        data = takeoff_store.get_takeoff(conn, tid)
+    finally:
+        conn.close()
+    return _ok({'ok': True, 'id': tid, 'takeoff': data})
+
+
+def _takeoffs_delete(request, sess, takeoff_id):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    conn = _conn()
+    try:
+        takeoff_store.delete_takeoff(conn, takeoff_id)
+    finally:
+        conn.close()
+    return _ok({'ok': True, 'deleted': takeoff_id})
+
+
+def _takeoffs_to_estimate(request, sess, takeoff_id):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    conn = _conn()
+    try:
+        out = takeoff_store.to_estimate(
+            conn, takeoff_id, title=body.get('title'))
+    finally:
+        conn.close()
+    if not out.get('ok'):
+        return _err(out.get('reason') or 'Could not create estimate')
+    return _ok(out)
+
+
+def _drawing_elements_list(drawing_id):
+    conn = _conn()
+    try:
+        rows = drawing_store.list_elements(conn, drawing_id)
+    finally:
+        conn.close()
+    return _ok({'drawing_id': drawing_id, 'items': rows, 'count': len(rows)})
+
+
+def _drawing_elements_draft(request):
+    """POST — normalize proposed elements (no write)."""
+    body = _payload(request)
+    elements = body.get('elements') if isinstance(body.get('elements'), list) else []
+    try:
+        scale = float(body.get('scale') or 0)
+    except (TypeError, ValueError):
+        scale = 0.0
+    unit = body.get('unit') or 'm'
+    normalized = drawing_geometry.normalize_elements(
+        elements, scale=scale, linear_unit=unit,
+        default_source=body.get('source') or 'ai')
+    draft = capture.build_draft(
+        {'element_count': len(normalized),
+         'totals': drawing_geometry.totals(normalized)},
+        confidence={'element_count': 0.5},
+        source=capture.AI)
+    return _ok({
+        'ok': True,
+        'elements': normalized,
+        'totals': drawing_geometry.totals(normalized),
+        'count': len(normalized),
+        'draft': draft,
+        'needs_review': True,
+        'gated': True,
+        'note': 'Draft only — POST /api/drawings/elements/confirm to persist',
+    })
+
+
+def _drawing_elements_confirm(request, sess):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    drawing_id = body.get('drawing_id')
+    if drawing_id in (None, ''):
+        return _err('drawing_id required')
+    elements = body.get('elements') if isinstance(body.get('elements'), list) else []
+    try:
+        scale = float(body.get('scale') or 0)
+    except (TypeError, ValueError):
+        scale = 0.0
+    unit = body.get('unit') or 'm'
+    sync = bool(body.get('sync_takeoff'))
+    conn = _conn()
+    try:
+        if scale or unit:
+            conn.execute(
+                'UPDATE drawings SET scale = COALESCE(NULLIF(?, 0), scale), '
+                "unit = COALESCE(NULLIF(?, ''), unit) WHERE id = ?",
+                (scale, unit, int(drawing_id)))
+        out = drawing_store.replace_elements(
+            conn, drawing_id, elements, scale=scale, linear_unit=unit,
+            reviewed_by=sess.get('username'), mark_reviewed=True)
+        if sync:
+            sync_out = drawing_store.sync_elements_to_takeoff(
+                conn, drawing_id, takeoff_id=body.get('takeoff_id'),
+                name=body.get('takeoff_name'))
+            out['takeoff'] = sync_out
+    finally:
+        conn.close()
+    return _ok(out)
+
+
+def _drawing_elements_ingest(request):
+    """POST — accept already-parsed vector JSON (no DXF in core)."""
+    body = _payload(request)
+    payload = body.get('payload') if isinstance(body.get('payload'), dict) else body
+    try:
+        scale = float(body.get('scale') or 0)
+    except (TypeError, ValueError):
+        scale = 0.0
+    return _ok(drawing_geometry.ingest_vector_payload(
+        payload, scale=scale, linear_unit=body.get('unit') or 'm'))
+
+
+def _drawing_revision_delta(request):
+    """POST — compute element diff (read-only)."""
+    body = _payload(request)
+    fro = body.get('from_drawing_id')
+    to = body.get('to_drawing_id')
+    if fro in (None, '') or to in (None, ''):
+        return _err('from_drawing_id and to_drawing_id required')
+    align = body.get('align') if isinstance(body.get('align'), dict) else None
+    try:
+        measure_scale = float(body.get('scale') or 0)
+    except (TypeError, ValueError):
+        measure_scale = 0.0
+    conn = _conn()
+    try:
+        diff = drawing_store.compute_revision_delta(
+            conn, fro, to, align=align, measure_scale=measure_scale,
+            linear_unit=body.get('unit') or 'm')
+    finally:
+        conn.close()
+    draft = revision_delta.variation_draft_lines(diff, rate=body.get('rate') or 0)
+    changes = []
+    for c in diff.get('changes') or []:
+        cc = dict(c)
+        for side in ('from', 'to'):
+            el = cc.get(side)
+            if isinstance(el, dict) and 'points' in el:
+                el = dict(el)
+                el['points'] = [list(p) for p in (el.get('points') or [])]
+                cc[side] = el
+        changes.append(cc)
+    diff = dict(diff)
+    diff['changes'] = changes
+    return _ok({
+        'ok': True,
+        'diff': diff,
+        'variation_draft': draft,
+        'gated': True,
+        'note': 'Confirm via POST /api/drawings/revision-delta/confirm',
+    })
+
+
+def _drawing_revision_delta_confirm(request, sess):
+    denied = _require_write(request, sess)
+    if denied:
+        return denied
+    body = _payload(request)
+    fro = body.get('from_drawing_id')
+    to = body.get('to_drawing_id')
+    if fro in (None, '') or to in (None, ''):
+        return _err('from_drawing_id and to_drawing_id required')
+    align = body.get('align') if isinstance(body.get('align'), dict) else None
+    conn = _conn()
+    try:
+        diff = drawing_store.compute_revision_delta(
+            conn, fro, to, align=align,
+            measure_scale=float(body.get('scale') or 0),
+            linear_unit=body.get('unit') or 'm')
+        saved = drawing_store.save_element_changes(
+            conn, fro, to, diff,
+            variation_id=body.get('variation_id'),
+            accepted_by=sess.get('username'))
+        draft = revision_delta.variation_draft_lines(
+            diff, rate=body.get('rate') or 0)
+    finally:
+        conn.close()
+    return _ok({
+        'ok': True,
+        'saved': saved,
+        'variation_draft': draft,
+        'gated': True,
+        'note': (
+            'Changes persisted. Variation lines are still a draft — raise in '
+            'Billing › Variations for human approval.'
+        ),
+    })
 
 
 def _narrative(request):

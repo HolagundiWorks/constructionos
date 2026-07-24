@@ -6621,5 +6621,136 @@ class TestFoundryAgents(unittest.TestCase):
         self.assertEqual(suite['passed'], suite['total'])
 
 
+class TestDrawingPhaseD(unittest.TestCase):
+    """Phase D: element→quantity, revision delta, takeoff store (no VLM weights)."""
+
+    def setUp(self):
+        import db
+        self.db = db
+        fd, self.path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.remove(self.path)
+        self.orig = db.DB_PATH
+        db.DB_PATH = self.path
+        db.init_db()
+
+    def tearDown(self):
+        self.db.DB_PATH = self.orig
+        for ext in ('', '-wal', '-shm'):
+            try:
+                os.remove(self.path + ext)
+            except OSError:
+                pass
+
+    def test_normalize_wall_length(self):
+        import drawing_geometry as g
+        el = g.normalize_element(
+            {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [100, 0]]},
+            scale=0.01, linear_unit='m')
+        self.assertEqual(el['kind'], 'length')
+        self.assertAlmostEqual(el['quantity'], 1.0, places=4)
+        self.assertEqual(el['unit'], 'm')
+        self.assertTrue(el['measurable'])
+
+    def test_revision_delta_added_removed_modified(self):
+        import drawing_geometry as g
+        import revision_delta as rd
+        scale = 0.01
+        fro = g.normalize_elements([
+            {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [100, 0]]},
+            {'type': 'door', 'ref': 'D1', 'points': [[10, 10]]},
+        ], scale=scale)
+        to = g.normalize_elements([
+            {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [200, 0]]},  # longer
+            {'type': 'window', 'ref': 'WIN1', 'points': [[5, 5]]},  # added
+            # D1 removed
+        ], scale=scale)
+        diff = rd.diff_elements(fro, to)
+        by = {c['element_ref']: c['change'] for c in diff['changes']}
+        self.assertEqual(by.get('W1'), rd.MODIFIED)
+        self.assertEqual(by.get('D1'), rd.REMOVED)
+        self.assertEqual(by.get('WIN1'), rd.ADDED)
+        self.assertAlmostEqual(diff['quantity_deltas'].get('m', 0), 1.0, places=4)
+        draft = rd.variation_draft_lines(diff)
+        self.assertTrue(draft['gated'])
+        self.assertEqual(draft['count'], 3)
+
+    def test_store_round_trip_and_takeoff_sync(self):
+        import drawing_store
+        import takeoff_store
+        conn = self.db.get_conn()
+        try:
+            cur = conn.execute(
+                "INSERT INTO drawings (drawing_no, title, revision, scale, unit) "
+                "VALUES ('A-101', 'Plan', 'A', 0.01, 'm')")
+            did = cur.lastrowid
+            conn.commit()
+            out = drawing_store.replace_elements(conn, did, [
+                {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [100, 0]]},
+                {'type': 'door', 'ref': 'D1', 'points': [[20, 20]]},
+            ], scale=0.01, linear_unit='m', reviewed_by='tester',
+                mark_reviewed=True)
+            self.assertEqual(out['count'], 2)
+            self.assertAlmostEqual(out['totals'].get('m', 0), 1.0, places=4)
+            sync = drawing_store.sync_elements_to_takeoff(conn, did)
+            self.assertTrue(sync['ok'])
+            data = takeoff_store.get_takeoff(conn, sync['takeoff_id'])
+            self.assertEqual(len(data['items']), 2)
+            est = takeoff_store.to_estimate(conn, sync['takeoff_id'])
+            self.assertTrue(est['ok'])
+            n = conn.execute(
+                'SELECT COUNT(*) c FROM estimate_items WHERE estimate_id=?',
+                (est['estimate_id'],)).fetchone()['c']
+            self.assertEqual(n, 2)
+
+            # Second revision + delta persist
+            cur = conn.execute(
+                "INSERT INTO drawings (drawing_no, title, revision, scale, unit) "
+                "VALUES ('A-101', 'Plan', 'B', 0.01, 'm')")
+            did2 = cur.lastrowid
+            conn.commit()
+            drawing_store.replace_elements(conn, did2, [
+                {'type': 'wall', 'ref': 'W1', 'points': [[0, 0], [200, 0]]},
+            ], scale=0.01, linear_unit='m', mark_reviewed=True,
+                reviewed_by='tester')
+            diff = drawing_store.compute_revision_delta(conn, did, did2)
+            self.assertEqual(diff['summary']['modified'], 1)
+            self.assertEqual(diff['summary']['removed'], 1)
+            saved = drawing_store.save_element_changes(
+                conn, did, did2, diff, accepted_by='tester')
+            self.assertGreaterEqual(saved['count'], 2)
+        finally:
+            conn.close()
+
+    def test_vector_ingest_payload(self):
+        import drawing_geometry as g
+        out = g.ingest_vector_payload({
+            'scale': 0.01, 'unit': 'm',
+            'elements': [
+                {'type': 'wall', 'points': [[0, 0], [50, 0]], 'layer': 'A-WALL'},
+            ],
+        })
+        self.assertTrue(out['ok'])
+        self.assertEqual(out['count'], 1)
+        self.assertAlmostEqual(out['totals']['m'], 0.5, places=4)
+
+    def test_drawing_agent_tools(self):
+        import agent_tools
+        conn = self.db.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO drawings (drawing_no, revision) VALUES ('X','A')")
+            conn.commit()
+            r = agent_tools.takeoff_status(conn)
+            self.assertTrue(r['ok'])
+            self.assertIn('element_count', r)
+            r = agent_tools.drawings_summary(conn)
+            self.assertEqual(r['count'], 1)
+            r = agent_tools.revision_delta_hint(conn)
+            self.assertTrue(r['ok'])
+        finally:
+            conn.close()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

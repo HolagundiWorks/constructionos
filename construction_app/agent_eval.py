@@ -71,6 +71,12 @@ GOLDEN = (
         'agent': catalog.DRAWING,
         'tools': ('sidecar_status',),
     },
+    {
+        'id': 'draw-delta',
+        'question': 'Diff the latest drawing revision and quantify the change',
+        'agent': catalog.DRAWING,
+        'tools': ('revision_delta_hint',),
+    },
 )
 
 

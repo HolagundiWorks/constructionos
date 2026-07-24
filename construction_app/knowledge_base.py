@@ -81,6 +81,16 @@ SNIPPETS = [
         ),
     },
     {
+        'id': 'drawing-delta',
+        'keywords': 'drawing revision delta takeoff element vlm wall door quantity',
+        'text': (
+            'Drawing Phase D: AI/vector proposes elements (points+type); '
+            'takeoff.measure yields quantity. Revision-delta classifies '
+            'added/removed/modified; variation draft is gated for human approval. '
+            'VLM weights are local L8 — core soft-fails without them.'
+        ),
+    },
+    {
         'id': 'retention',
         'keywords': 'retention dlp defect liability release receivable',
         'text': (

@@ -8,7 +8,7 @@ is the short, always-loaded memory.
 a full **ERP for Indian construction contractors**: pure **Python standard
 library**, **tkinter** desktop UI, optional **stdlib web/LAN** front-end, a
 single **SQLite** file, **no pip dependencies**. Business maths lives in
-**~135** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
+**~139** AST tkinter-free modules; `tab_*.py` are a thin GUI over them. Brand
 mark = existing logo geometry in **Radiant Orange** (`branding.py` /
 `tokens` accent `#FF4F18`).
 
@@ -40,21 +40,21 @@ cd construction_app && python -m compileall -q .
   Pending P0–P4 (§2). Do not invent a second roadmap.
 - **WinUI 3 replatform** (Windows-only, C#/.NET, **stock Fluent only**) — approved
   front-end departure. Python domain + tests stay as **localhost JSON API
-  (u0.15)**. Specs: `docs/WINUI3-MIGRATION.md`,
+  (u0.16)**. Specs: `docs/WINUI3-MIGRATION.md`,
   `docs/UI-PRINCIPLES-AND-GUIDELINES.md`, `.github/instructions/winui3.instructions.md`.
 - **Two environments:**
   - **Cloud (this agent):** domain / API / tests / docs. Cloud CT backlog
-    **closed** (ROADMAP §1.3); u0.13–u0.15 closed cloud P0–P3 APIs + Foundry
-    multi-agent Phase A/A+.
+    **closed** (ROADMAP §1.3); u0.13–u0.16 closed cloud P0–P3 APIs + Foundry
+    multi-agent Phase A/A+/D (deterministic drawing depth).
   - **Local (Windows):** WinUI workflow depth (ROADMAP §2), MSIX release
     signing, sidecars/weights, tkinter smoke.
 
 ## Watch out
-- **Flat ~198-module namespace** — `lessons.py` (rate realisation) ≠
+- **Flat ~202-module namespace** — `lessons.py` (rate realisation) ≠
   `lessons_register.py` / `tab_lessons_learned.py`. Grep before adding a module.
-- Catalog: **8 sections / 52 modules**; API **u0.15**. Headline counts (verify
-  before quoting): **198** modules / **135** AST-pure / **85** tables / **61**
-  indexes / **745** tests (5 skipped headless).
+- Catalog: **8 sections / 52 modules**; API **u0.16**. Headline counts (verify
+  before quoting): **202** modules / **139** AST-pure / **84** tables / **64**
+  indexes / **751** tests (5 skipped headless).
 - Keep this file and `AGENTS.md` accurate in the **same commit** as the change
   they describe.
 

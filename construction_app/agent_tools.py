@@ -302,10 +302,85 @@ def pdf_extract_hint(conn=None):
 
 def takeoff_status(conn):
     def run():
+        import takeoff_store
         n = conn.execute('SELECT COUNT(*) AS c FROM takeoffs').fetchone()['c']
-        return {'takeoff_count': n,
-                'note': 'WinUI takeoff + VLM weights are local Phase D'}
-    return _safe(run, 'Saved takeoff count')
+        ne = conn.execute(
+            'SELECT COUNT(*) AS c FROM drawing_elements').fetchone()['c']
+        recent = takeoff_store.list_takeoffs(conn, limit=5)
+        return {
+            'takeoff_count': n,
+            'element_count': ne,
+            'recent': recent,
+            'note': (
+                'Deterministic element→quantity + revision-delta shipped (Phase D). '
+                'VLM weights remain local L8 — sidecar soft-fails until installed.'
+            ),
+        }
+    return _safe(run, 'Takeoff + drawing element counts')
+
+
+def drawings_summary(conn):
+    def run():
+        rows = [dict(r) for r in conn.execute(
+            'SELECT id, drawing_no, title, revision, superseded, scale, unit, '
+            'takeoff_id FROM drawings ORDER BY id DESC LIMIT 30')]
+        return {'items': rows, 'count': len(rows)}
+    return _safe(run, 'Drawing register (latest 30)')
+
+
+def element_totals(conn):
+    def run():
+        import drawing_geometry as geom
+        import drawing_store
+        d = conn.execute(
+            'SELECT id, scale, unit FROM drawings ORDER BY id DESC LIMIT 1'
+        ).fetchone()
+        if not d:
+            return {'totals': {}, 'note': 'No drawings yet'}
+        els = drawing_store.elements_as_normalized(conn, d['id'])
+        normalized = geom.normalize_elements(
+            els, scale=float(d['scale'] or 0),
+            linear_unit=d['unit'] or 'm')
+        return {
+            'drawing_id': d['id'],
+            'count': len(normalized),
+            'totals': geom.totals(normalized),
+        }
+    return _safe(run, 'Measured totals for latest drawing elements')
+
+
+def revision_delta_hint(conn):
+    def run():
+        pair = conn.execute(
+            'SELECT a.id AS from_id, b.id AS to_id, a.drawing_no, '
+            'a.revision AS from_rev, b.revision AS to_rev '
+            'FROM drawings a JOIN drawings b '
+            'ON a.drawing_no = b.drawing_no AND a.id < b.id '
+            'ORDER BY b.id DESC LIMIT 1'
+        ).fetchone()
+        if not pair:
+            return {
+                'ok': True,
+                'gated': True,
+                'note': 'Need two revisions of the same drawing_no to diff',
+                'action': 'POST /api/drawings/revision-delta',
+            }
+        import drawing_store
+        diff = drawing_store.compute_revision_delta(
+            conn, pair['from_id'], pair['to_id'])
+        return {
+            'from_drawing_id': pair['from_id'],
+            'to_drawing_id': pair['to_id'],
+            'drawing_no': pair['drawing_no'],
+            'from_rev': pair['from_rev'],
+            'to_rev': pair['to_rev'],
+            'summary': diff.get('summary'),
+            'quantity_deltas': diff.get('quantity_deltas'),
+            'gated': True,
+            'action': 'Confirm delta then draft variation (human approve)',
+            'where': 'Billing › Variations',
+        }
+    return _safe(run, 'Latest same-sheet revision delta (draft)')
 
 
 def open_rfis(conn):
@@ -503,6 +578,9 @@ TOOLS = {
     'sidecar_status': sidecar_status,
     'pdf_extract_hint': pdf_extract_hint,
     'takeoff_status': takeoff_status,
+    'drawings_summary': drawings_summary,
+    'element_totals': element_totals,
+    'revision_delta_hint': revision_delta_hint,
     'open_rfis': open_rfis,
     'open_submittals': open_submittals,
     'contract_list': contract_list,

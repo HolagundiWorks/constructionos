@@ -1,7 +1,7 @@
 # ACO — Roadmap
 
 _Product: **ACO** (Accelerated Construction Operations)._  
-_Last updated: 2026-07-23 · Baseline: API **u0.15**_
+_Last updated: 2026-07-24 · Baseline: API **u0.16**_
 
 **This is the single status document.** What changed and where →
 [`CHANGELOG.md`](CHANGELOG.md). Engineering / product specs are listed in §5 —
@@ -21,7 +21,7 @@ pay labour, and stay in control — offline, on their PC, with minimal typing?
 |---|---|
 | Desktop ERP (tkinter) + pure domain + SQLite | ✅ Complete product |
 | Browser / LAN (stdlib) | ✅ Read + money/masters write |
-| JSON API (`webapi.py`) | ✅ **u0.15** (agents Phase A/A+ + P0–P3 cloud APIs) |
+| JSON API (`webapi.py`) | ✅ **u0.16** (agents A/A+ + drawing Phase D + P0–P3) |
 | WinUI 3 client | 🚧 **Nav-complete**; workflow pages still need local UI |
 | MSIX packaging | ✅ Dev-signed; ⏳ release cert + clean-box proof |
 | OCR / STT / VLM sidecars (L8) | ⏳ Stub only (weights local) |
@@ -64,12 +64,13 @@ EVM + weekly review, measurement entry, GST/TDS, compliance. See [`LAN.md`](LAN.
 | **u0.13** | Home aggregate; GST/TDS export pack; RA generate; work orders + sub bills; muster grid/payout; commitments CRUD + PPC reason codes; risk detect/accept; timeline/CPM read; Key Numbers vs Insight split |
 | **u0.14** | Foundry multi-agent Phase A — catalog, tools, workflows, `/api/agents*` ([`AI-FOUNDRY-AGENTS.md`](AI-FOUNDRY-AGENTS.md)) |
 | **u0.15** | Provider seam + golden eval + deeper agent tools/workflows |
+| **u0.16** | Foundry Phase D (deterministic) — drawing elements, revision-delta, takeoff API |
 
 ### 1.4 WinUI track — phases done
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| **U0** | JSON API for the client | ✅ u0.15 |
+| **U0** | JSON API for the client | ✅ u0.16 |
 | **U1** | Ribbon shell + search (stock controls) | ✅ |
 | **U2** | Masters CRUD (`FieldForm`, FK pickers) | ✅ |
 | **U3** | Money docs create+list | ✅ |
@@ -133,8 +134,8 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 |---|---|
 | **Foundry Agents Phase B** — WinUI Agents / workflow UI | API ready (`/api/agents*`); local Windows |
 | **Foundry Agents Phase C** — wire live Azure project (Entra + eval dashboards) | Provider seam shipped; needs firm credentials |
-| **Foundry Agents Phase D** — Drawing/VLM depth | L8 weights + takeoff polish |
-| **L8** OCR/STT/VLM weights over `sidecars/stub_server.py` | Local Windows + models |
+| **Foundry Agents Phase D** — Drawing depth (deterministic) | ✅ u0.16 (`drawing_geometry` / `revision_delta` / takeoff API) |
+| **L8** OCR/STT/VLM weights over `sidecars/stub_server.py` | Local Windows + models (Phase D still soft-fails without them) |
 | Takeoff polish on WinUI | Desktop takeoff ships; WinUI thin |
 | **Retire tkinter on Windows** | Product call after Tools + civil spine parity |
 | Native mobile field app | Browser `/m/*` modes only |

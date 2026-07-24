@@ -39,6 +39,7 @@ def extract_response(kind, body):
     """Build the soft-fail extract payload (testable without a socket)."""
     fields = {}
     confidence = {}
+    elements = None
     if isinstance(body, dict):
         # Echo any caller-supplied preview fields so UI probes can see round-trip.
         preview = body.get('fields') or body.get('preview') or {}
@@ -46,13 +47,25 @@ def extract_response(kind, body):
             for k, v in preview.items():
                 fields[str(k)] = v
                 confidence[str(k)] = 0.0
-    return {
+        # Phase D: echo fixture geometry for VLM / vector round-trip tests.
+        if isinstance(body.get('elements'), list):
+            elements = body.get('elements')
+        elif kind == 'vlm' and body.get('fixture') == 'demo_wall':
+            elements = [{
+                'type': 'wall', 'ref': 'W1',
+                'points': [[0, 0], [100, 0]],
+                'confidence': 0.0, 'source': 'ai',
+            }]
+    out = {
         'fields': fields,
         'confidence': confidence,
         'stub': True,
         'kind': kind,
         'note': 'stub_server — install real weights locally for OCR/STT/VLM',
     }
+    if elements is not None:
+        out['elements'] = elements
+    return out
 
 
 def make_handler(kind):

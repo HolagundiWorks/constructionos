@@ -1,7 +1,7 @@
 # ACO — Azure AI Foundry multi-agent plan
 
 _Product: ACO (Accelerated Construction Operations)._  
-_Status: Phase A **done** · Phase A+ (provider + eval) **done** · Phase B/C/D pending._  
+_Status: Phase A **done** · Phase A+ **done** · Phase D (deterministic drawing depth) **done** · Phase B/C + L8 weights pending._  
 _Related: [`AI-MODELS-AND-DEPLOYMENT.md`](AI-MODELS-AND-DEPLOYMENT.md),
 [`ENTERPRISE-PM-SOLUTION.md`](ENTERPRISE-PM-SOLUTION.md), [`ROADMAP.md`](ROADMAP.md)._
 
@@ -46,7 +46,7 @@ mega-chatbot.
 |---|---|---|
 | `estimation` | Estimator | estimates, rate_book, lessons, historical costs |
 | `boq` | Estimator / QS | boq_items, measurements, deviation, duplicates |
-| `drawing` | QS / Engineer | takeoff drafts, pdf text, sidecar VLM (stub) |
+| `drawing` | QS / Engineer | takeoff, element→qty, revision-delta, PDF/VLM stub |
 | `procurement` | Buyer | POs, GRN match, quotes, vendors, demand |
 | `planning` | PM | timeline/CPM, lookahead/PPC, LD exposure |
 | `finance` | Owner / CA | cashflow, ageing, P&L, GST, retention |
@@ -105,10 +105,24 @@ When a firm opts in (Entra + Foundry project):
 
 Cloud Agents **do not** replace SQLite maths; they only orchestrate and narrate.
 
-### Phase D — Vision / drawing agent depth
+### Phase D — Vision / drawing agent depth ✅ (cloud deterministic half)
 
-Depends on L8 VLM weights + takeoff polish (ROADMAP P4). Until then the
-`drawing` agent returns honest “sidecar not ready” + PDF text extract drafts.
+Shipped without ML weights (L8 weights stay local):
+
+1. **Schema** — `drawing_elements`, `element_changes`; drawings gain scale/unit/
+   page/source/takeoff_id.
+2. **`drawing_geometry.py`** — type→kind, normalize, measure via `takeoff.py`.
+3. **`revision_delta.py`** — align / match / added·removed·modified·unchanged +
+   gated variation draft lines.
+4. **`drawing_store.py` / `takeoff_store.py`** — persist elements, sync takeoff,
+   draft estimate.
+5. **API u0.16** — takeoff get/save/to-estimate; element draft/confirm/ingest;
+   revision-delta (+ confirm).
+6. **Drawing agent tools** — `drawings_summary`, `element_totals`,
+   `revision_delta_hint`; stub VLM may echo `elements`.
+
+**Still local:** real OCR/STT/VLM weights (L8), WinUI takeoff canvas polish
+(Phase B), DXF parse sidecar binaries.
 
 ## 5. Multi-agent example: variation impact
 

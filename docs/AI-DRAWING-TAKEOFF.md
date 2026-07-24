@@ -353,14 +353,14 @@ Slots under **E1 Capture** in
 [`ROADMAP.md`](ROADMAP.md), sequenced
 value-first:
 
-| Step | Deliverable | Type | Depends on |
-|---|---|---|---|
-| **T1** | Vector parse (DWG/DXF/vector-PDF) → walls/doors/windows + auto-scale, into the existing takeoff | Core + AI | Built takeoff engine |
-| **T2** | Draft-and-confirm reconciliation UI (confidence colours, review queue, edit) on the current canvas | AI/UX | T1 |
-| **T3** | Raster CV/ML detection for scanned/photo sheets (opt-in model) | AI | T2, AI-runtime decision |
-| **T4** | Revision-delta: align → element-diff → mark → quantify | Core + AI | T1–T2 |
-| **T5** | Delta → variation register draft; revision chain snapshots | Core | T4, `variation.py` (Built) |
-| **T6** | Cross-layer / cross-sheet reconciliation checks | Core + AI | T1, T4 |
+| Step | Deliverable | Type | Depends on | Status |
+|---|---|---|---|---|
+| **T1** | Vector parse (DWG/DXF/vector-PDF) → walls/doors/windows + auto-scale, into the existing takeoff | Core + AI | Built takeoff engine | Partial — JSON ingest in-core (`drawing_geometry.ingest_vector_payload`); DXF binary stays sidecar |
+| **T2** | Draft-and-confirm reconciliation UI (confidence colours, review queue, edit) on the current canvas | AI/UX | T1 | API draft/confirm ✅; WinUI/tk canvas polish local |
+| **T3** | Raster CV/ML detection for scanned/photo sheets (opt-in model) | AI | T2, AI-runtime decision | L8 stub only |
+| **T4** | Revision-delta: align → element-diff → mark → quantify | Core + AI | T1–T2 | ✅ `revision_delta` + API |
+| **T5** | Delta → variation register draft; revision chain snapshots | Core | T4, `variation.py` (Built) | ✅ gated draft lines + `element_changes` |
+| **T6** | Cross-layer / cross-sheet reconciliation checks | Core + AI | T1, T4 | ⏳ later |
 
 **T1–T2 alone** (vector takeoff + reconcile) already replaces most manual tracing
 for CAD-sourced drawings. **T4–T5** deliver the revision-to-variation loop — the

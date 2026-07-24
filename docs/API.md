@@ -6,7 +6,7 @@ routed under `/api/*` by `webapp` → `webapi`. Socket-free unit tests in
 
 **Product:** ACO (Accelerated Construction Operations)  
 **Base URL (dev):** `http://127.0.0.1:8080`  
-**Version:** `u0.15` (`GET /api/health` → `{"api":"u0.15","service":"aco"}`)  
+**Version:** `u0.16` (`GET /api/health` → `{"api":"u0.16","service":"aco"}`)  
 **Live map:** `GET /api/contract` (authenticated)
 
 ## Auth
@@ -66,6 +66,9 @@ but not create).
 | GET | `/api/agents/provider` | Foundry Local / Azure Foundry status |
 | GET | `/api/agents/eval` | Golden-question catalogue |
 | GET | `/api/sidecar/status` | OCR/STT/VLM stub + live probe |
+| GET | `/api/takeoffs` | Takeoff register (label+columns) |
+| GET | `/api/takeoffs/{id}` | Takeoff + items + totals |
+| GET | `/api/drawings/{id}/elements` | Drawing elements (Phase D) |
 | GET | `/api/evm`, `/api/project/{id}/evm` | Earned value; portfolio adds `labels`/`values` (SPI) |
 | GET | `/api/risks`, `/api/opportunities`, `/api/lessons`, `/api/submittals` | Registers |
 | GET | `/api/audit?origin=ai` | Audit trail (`manual` includes legacy NULL) |
@@ -114,6 +117,13 @@ hardcoding in the client.
 | POST | `/api/vendor_invoice/draft` \| `confirm` | Invoice paste → vendor invoice |
 | POST | `/api/pdf/extract` | Soft-fail `pdftotext` |
 | POST | `/api/patterns/learn`, `/api/signals/*`, `/api/intent`, `/api/sidecar/extract` | AI floors — drafts only |
+| POST/PUT/DELETE | `/api/takeoffs[/{id}]` | Save takeoff + items (qty via `takeoff.measure`) |
+| POST | `/api/takeoffs/{id}/to-estimate` | Draft estimate from takeoff (rates 0) |
+| POST | `/api/drawings/elements/draft` | Normalize AI/vector elements (no write) |
+| POST | `/api/drawings/elements/confirm` | Persist elements; optional `sync_takeoff` |
+| POST | `/api/drawings/elements/ingest` | Already-parsed vector JSON → quantities |
+| POST | `/api/drawings/revision-delta` | Element diff + gated variation draft |
+| POST | `/api/drawings/revision-delta/confirm` | Persist `element_changes` (VO still gated) |
 | POST | `/api/events`, `/api/signals/feed`, `/api/forecast`, `/api/drift` | Hooks / prediction |
 
 ### Measurements
