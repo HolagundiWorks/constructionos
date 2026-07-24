@@ -111,7 +111,7 @@ Dual-skin: share **accent + voice**; native chrome per shell.
 Priorities live only in [`ROADMAP.md`](ROADMAP.md) §2:
 
 - **P0** WinUI civil/labour honesty: BOQ/MB/RA, subcontractors, AI Engine, GRN match, muster payout  
-- **P1** Gantt, Tools depth, a11y walkthrough, release signing  
+- **P1** Gantt, Tools depth, **WCAG AA pass** (`UI-PRINCIPLES` §12), release signing  
 - **P2** Fluent 2 foundations pass (color/elevation/icons/layout/material/motion/
   shapes/type — `UI-PRINCIPLES` v2 §3), Mica revisit (SDK bump), DatePicker,
   TeachingTip / BreadcrumbBar / InfoBadge / SettingsCard, empty/loading coherence,

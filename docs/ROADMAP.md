@@ -108,7 +108,7 @@ proxy is left on a P0 label. Remaining depth per row.
 | Timeline **Gantt** bars | ✅ `TimelinePage` (CPM summary, critical path, float, plan-vs-CPM); bars still to draw |
 | Key Numbers **vs** Insight split | ✅ Split — `KpiPage` (scorecard + verdicts) and `InsightPage` (3 analytics cuts) |
 | Tools: backup/restore, invoice series, refdata, language, security | Firm + modules only in API/WinUI |
-| Interactive **a11y** walkthrough + keyboard/focus pass | ✅ **WCAG 2.1 AA audit done** — accent contrast measured in *both* themes (light: 4.90:1 button / 7.59:1 accent text; dark: 7.75–12.7:1), Level-2 section headings, named stat cards, table rows announced as labelled units. Screen-reader walkthrough on a live NVDA/Narrator session still manual. |
+| Interactive **a11y** walkthrough + keyboard/focus pass | 🚧 Contrast measured in *both* themes (light 4.90:1 button / 7.59:1 accent text; dark 7.75–12.7:1); §12 findings closed: Level-2 section headings (B3), named rows (B2), errors → InfoBar (A4), named rings (A1), live regions (A2), FieldForm `Header`/required (A3), chart names + summaries (A5), hit targets (B5). **Remaining: Narrator + keyboard walkthrough (B1) and High-Contrast smoke (C2) — interactive, on a display.** |
 | Release **code-signing cert** + clean-box MSIX install proof | Dev-signed only |
 | Residual startup crash watch / SDK bump | Intermittent framework flake |
 
