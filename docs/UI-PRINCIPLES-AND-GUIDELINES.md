@@ -793,7 +793,7 @@ accent-vs-High-Contrast policy is coded, only the visual HC smoke is left).
 | ID | Finding | WCAG | Recommendation |
 |---|---|---|---|
 | **C1** | No reduced-motion handling | 2.3.3 | Honour `UISettings.AnimationsEnabled`; disable LiveCharts animation when off | ✅ closed — `Ui.RespectMotion` honours UISettings.AnimationsEnabled on all 5 charts |
-| **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide | 🚧 code policy done — accent scoped to Light/Dark theme dictionaries so High Contrast uses the system palette; **live HC smoke still needs a display** |
+| **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide | 🚧 static audit clean — no hardcoded colours in any page XAML or C#, accent scoped to Light/Dark with an **empty HighContrast dictionary**, all brushes theme-resolved. **Dark verified by screenshot** (accent flips to the light shade with dark text). Remaining risk: **LiveCharts picks its own series palette and is not HC-aware** — needs a live HC smoke (system setting, owner-run). |
 | **C3** | No landmarks on ribbon / main | 1.3.1 / best practice | Optional `LandmarkType` on search / content Frame | ✅ closed — Search + Main landmarks on the shell |
 | **C4** | Focus not restored after Frame Navigate | 2.4.3 | Move focus to page title or primary landmark on navigated | ✅ closed — focus moves into the page on Frame.Navigated |
 | **C5** | LAN web: labels without `for`/`id`; no skip link | 1.3.1, 2.4.1 | Wire label↔input; add “Skip to content” | ✅ closed — label `for`/`id` bound + skip link |
