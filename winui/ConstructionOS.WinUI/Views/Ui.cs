@@ -314,17 +314,37 @@ internal static class Ui
         }
     }
 
-    /// <summary>A centered progress ring for the "loading…" state while an API
-    /// call is in flight (put it in the page's content host before the await).</summary>
-    public static FrameworkElement Loading() => new ProgressRing
+    /// <summary>Mark an element as a live region so screen readers announce it
+    /// when it appears or changes (WCAG 4.1.3 Status messages). Polite for
+    /// progress/empty states, assertive for errors.</summary>
+    public static T Live<T>(T element, bool assertive = false) where T : DependencyObject
     {
-        IsActive = true,
-        Width = 32,
-        Height = 32,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Top,
-        Margin = new Thickness(0, 48, 0, 0),
-    };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(
+            element,
+            assertive
+                ? Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Assertive
+                : Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
+        return element;
+    }
+
+    /// <summary>A centered progress ring for the "loading…" state while an API
+    /// call is in flight (put it in the page's content host before the await).
+    /// Named and announced — a silent spinner is invisible to a screen reader
+    /// (WCAG 1.1.1 / 4.1.2 / 4.1.3).</summary>
+    public static FrameworkElement Loading(string label = "Loading")
+    {
+        var ring = new ProgressRing
+        {
+            IsActive = true,
+            Width = 32,
+            Height = 32,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 48, 0, 0),
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ring, label);
+        return Live(ring);
+    }
 
     private static FrameworkElement Empty(string message) => new TextBlock
     {
@@ -355,25 +375,26 @@ internal static class Ui
     /// Error severity carrying a calm, status-aware sentence (missing endpoint vs
     /// permission vs session vs server) — never a stack trace, and never a fake
     /// empty table that reads as "zero work".</summary>
-    public static FrameworkElement ErrorNote(Exception ex, string? title = null) => new InfoBar
-    {
-        Title = title ?? "Couldn't load this",
-        Message = ApiException.UserMessage(ex),
-        Severity = InfoBarSeverity.Error,
-        IsOpen = true,
-        IsClosable = false,
-    };
+    public static FrameworkElement ErrorNote(Exception ex, string? title = null) =>
+        Live(new InfoBar
+        {
+            Title = title ?? "Couldn't load this",
+            Message = ApiException.UserMessage(ex),
+            Severity = InfoBarSeverity.Error,
+            IsOpen = true,
+            IsClosable = false,
+        }, assertive: true);   // a failure interrupts — WCAG 4.1.3
 
     /// <summary>The one "no data yet" recipe — honestly empty, with the next
     /// step. Distinct from an error and from a missing endpoint.</summary>
-    public static FrameworkElement EmptyNote(string message) => new TextBlock
+    public static FrameworkElement EmptyNote(string message) => Live(new TextBlock
     {
         Text = message,
         TextWrapping = TextWrapping.Wrap,
         Foreground = (Microsoft.UI.Xaml.Media.Brush)
             Application.Current.Resources["TextFillColorSecondaryBrush"],
         Margin = new Thickness(0, 8, 0, 0),
-    };
+    });
 
     /// <summary>A headline stat card — a big value over a caption. The value is
     /// tinted with the brand accent when <paramref name="accent"/>.</summary>

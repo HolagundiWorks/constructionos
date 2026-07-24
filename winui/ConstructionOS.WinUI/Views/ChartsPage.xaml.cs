@@ -85,8 +85,23 @@ public sealed partial class ChartsPage : Page
             CashChart.XAxes = new[] { new Axis { Labels = labels } };
             CashChart.YAxes = new[] { new Axis { Name = "₹" } };
             if (labels.Length == 0)
+            {
                 CashCaption.Text = "No cash-flow to project yet — record some "
                     + "receivables / payables first.";
+                CashSummary.Text = "";
+            }
+            else
+            {
+                // Text alternative for the chart (WCAG 1.1.1): the running
+                // balance per period, and when it first goes negative.
+                var bal = NumArray(series, "balance");
+                CashSummary.Text = "Running balance — " + string.Join("   ",
+                    labels.Select((l, i) => $"{l}: {Ui.Rupees(i < bal.Length ? bal[i] : 0)}"));
+                var firstNeg = cf.TryGetProperty("first_negative", out var fn)
+                    && fn.ValueKind == JsonValueKind.String ? fn.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(firstNeg))
+                    CashSummary.Text += $"   ·  First negative in the week of {firstNeg}.";
+            }
         }
         catch (Exception ex)
         {
@@ -109,7 +124,17 @@ public sealed partial class ChartsPage : Page
             AgeChart.XAxes = new[] { new Axis { Labels = labels } };
             AgeChart.YAxes = new[] { new Axis { Name = "₹" } };
             if (labels.Length == 0)
+            {
                 AgeCaption.Text = "No outstanding receivables.";
+                AgeSummary.Text = "";
+            }
+            else
+            {
+                // Text alternative for the chart (WCAG 1.1.1).
+                var vals = NumArray(ag, "values");
+                AgeSummary.Text = string.Join("   ", labels.Select(
+                    (l, i) => $"{l}: {Ui.Rupees(i < vals.Length ? vals[i] : 0)}"));
+            }
         }
         catch (Exception ex)
         {

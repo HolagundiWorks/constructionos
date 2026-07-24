@@ -968,6 +968,25 @@ class TestWebApi(unittest.TestCase):
         body = self._json(resp)
         self.assertTrue('error' in body or 'sql' in body)
 
+    def test_web_form_labels_are_bound_and_page_has_skip_link(self):
+        """WCAG (UI principles §12 C5): a <label> must point at its input, and a
+        keyboard user must be able to bypass the rail."""
+        import webrender as R
+        html = R.field_row('Site name', R.control('text', 'name', ''),
+                           for_name='name')
+        self.assertIn('<label for="f-name">', html)
+        self.assertIn('id="f-name"', html)
+        self.assertIn('name="name"', html)
+        # Every control kind gets an id so it can be bound.
+        for kind in ('text', 'number', 'date', 'textarea', 'combo', 'fk'):
+            self.assertIn('id="f-k"', R.control(kind, 'k', '', [('a', 'A')]),
+                          kind)
+        # Unbound rows still render (callers that have no field name).
+        self.assertIn('<label>', R.field_row('Plain', '<input>'))
+        page = R.page('T', '<p>body</p>', user='admin')
+        self.assertIn('class="skip" href="#main"', page)
+        self.assertIn('id="main"', page)
+
     def test_date_fields_declare_a_date_kind(self):
         """Fluent 2 (UI principles §11.5): calendar fields must declare
         kind='date' so clients render a real date picker, not free text."""

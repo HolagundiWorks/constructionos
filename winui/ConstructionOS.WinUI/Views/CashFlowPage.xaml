@@ -16,7 +16,7 @@
         <Border Height="300" Padding="4"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 CornerRadius="8">
-          <lvc:CartesianChart x:Name="Chart"/>
+          <lvc:CartesianChart x:Name="Chart" AutomationProperties.Name="Cash in, out and running balance chart"/>
         </Border>
         <StackPanel x:Name="TableHost"/>
       </StackPanel>

@@ -717,10 +717,13 @@ WinUI 3 desktop ERP (and, secondarily, the LAN web shell). Aligns with Fluent 2
 brand contrast (`BRAND.md`) + brief LAN/`webrender.py` notes. **Not** a Narrator
 keyboard walkthrough on Windows (that remains ROADMAP P1 — local).
 
-**Verdict:** **Not AA-ready.** U7 shipped a **mechanical** scaffolding (page
-Level‑1 headings + a few names). Closing AA needs programmatic labels, live
-status, contrast-safe errors/accent, chart alternatives, and an interactive
-keyboard/focus pass.
+**Verdict (updated 2026-07-24):** the static P0 findings are **closed** —
+programmatic labels (A3), live status regions (A2), named rings (A1),
+contrast-safe errors (A4), chart names + text alternatives (A5), plus B2/B3/B5/
+B6/B7 and the LAN label/skip-link work (C5). Contrast was measured in both
+themes and passes. **Still open: the interactive pass** — a Narrator + keyboard
+walkthrough (B1) and a High-Contrast smoke (C2), which need a display; and the
+P2 polish items (reduced motion C1, landmarks C3, focus restore C4).
 
 ### 12.1 Conformance snapshot (WinUI)
 
@@ -765,24 +768,24 @@ keyboard/focus pass.
 
 | ID | Finding | WCAG | Recommendation |
 |---|---|---|---|
-| **A1** | `ProgressRing` (`Ui.Loading`, Masters `Busy`) has no accessible name | 1.1.1, 4.1.2 | `AutomationProperties.Name="Loading"` (or “Busy”) whenever `IsActive` |
-| **A2** | Status / Loading TextBlocks never announce updates | 4.1.3 | Set `LiveSetting=Polite` (or Assertive for errors) on page Status / PageLoad host; prefer `InfoBar` for errors |
-| **A3** | FieldForm labels are sibling captions — not programmatic | 1.3.1, 3.3.2 | Use control `Header=` and/or `LabeledBy`; mark required with `IsRequiredForForm` / announced “required”, not `*` alone |
-| **A4** | Errors often use `TextFillColorSecondaryBrush` | 1.4.1, 3.3.1 | Errors → `InfoBar` Severity=Error **or** `SystemFillColorCriticalBrush` / Critical text resource — never “caption grey” |
-| **A5** | Charts (LiveCharts) have no name / text alternative | 1.1.1 | `AutomationProperties.Name` + visible numeric summary / data table from same API series |
-| **A6** | Accent orange on KPI values (`Ui.Stat(accent)`) | 1.4.3 | Don’t use orange for normal-size figures; use primary text + Semibold, or large (≥18pt/bold) only |
+| **A1** | `ProgressRing` (`Ui.Loading`, Masters `Busy`) has no accessible name | 1.1.1, 4.1.2 | `AutomationProperties.Name="Loading"` (or “Busy”) whenever `IsActive` | ✅ closed — `Ui.Loading` names + announces the ring |
+| **A2** | Status / Loading TextBlocks never announce updates | 4.1.3 | Set `LiveSetting=Polite` (or Assertive for errors) on page Status / PageLoad host; prefer `InfoBar` for errors | ✅ closed — `Ui.Live` live regions on loading / empty / error |
+| **A3** | FieldForm labels are sibling captions — not programmatic | 1.3.1, 3.3.2 | Use control `Header=` and/or `LabeledBy`; mark required with `IsRequiredForForm` / announced “required”, not `*` alone | ✅ closed — FieldForm uses control `Header` + `IsRequiredForForm` |
+| **A4** | Errors often use `TextFillColorSecondaryBrush` | 1.4.1, 3.3.1 | Errors → `InfoBar` Severity=Error **or** `SystemFillColorCriticalBrush` / Critical text resource — never “caption grey” | ✅ closed — `Ui.ErrorNote` = InfoBar Severity=Error (assertive) |
+| **A5** | Charts (LiveCharts) have no name / text alternative | 1.1.1 | `AutomationProperties.Name` + visible numeric summary / data table from same API series | ✅ closed — charts named + numeric text alternatives |
+| **A6** | Accent orange on KPI values (`Ui.Stat(accent)`) | 1.4.3 | Don’t use orange for normal-size figures; use primary text + Semibold, or large (≥18pt/bold) only | ✅ verified — accent only at large sizes; derived brush is 7.59:1 |
 
 #### P1 — interactive pass (local Windows)
 
 | ID | Finding | WCAG | Recommendation |
 |---|---|---|---|
 | **B1** | No Narrator + keyboard walkthrough | 2.1.1, 2.4.3 | ROADMAP P1: script covering ribbon → Masters CRUD → Money dialog → Charts → Settings |
-| **B2** | ListView rows are unnamed Grid cells | 1.3.1, 4.1.2 | Set row `AutomationProperties.Name` from first columns (e.g. “Site A · Mumbai”) |
-| **B3** | Only H1; “Advisories” / chart titles not headings | 1.3.1, 2.4.6 | `HeadingLevel=Level2` on section `SubtitleTextBlockStyle` titles |
+| **B2** | ListView rows are unnamed Grid cells | 1.3.1, 4.1.2 | Set row `AutomationProperties.Name` from first columns (e.g. “Site A · Mumbai”) | ✅ closed — table rows announce as labelled units |
+| **B3** | Only H1; “Advisories” / chart titles not headings | 1.3.1, 2.4.6 | `HeadingLevel=Level2` on section `SubtitleTextBlockStyle` titles | ✅ closed — `Ui.SectionTitle` = HeadingLevel Level2 |
 | **B4** | No AccessKeys / ribbon F6 pattern | 2.1.1 | Add AccessKeys for New/Edit/Delete/Refresh; document keyboard map in Help/Tools |
-| **B5** | Utility icon hit targets may be small | 2.5.8 | `MinWidth`/`MinHeight` ≥ 40 epx (Fluent) / ≥ 24 CSS px absolute minimum |
-| **B6** | Import PasteBox / Capture KindBox unlabeled | 3.3.2 | `Header=` or `Name=` + visible label |
-| **B7** | FontIcons under labeled buttons may double-speak | 1.1.1 | Set icon `AccessibilityView=Raw` when Label/Name is on parent |
+| **B5** | Utility icon hit targets may be small | 2.5.8 | `MinWidth`/`MinHeight` ≥ 40 epx (Fluent) / ≥ 24 CSS px absolute minimum | ✅ closed — icon buttons ≥40×40 |
+| **B6** | Import PasteBox / Capture KindBox unlabeled | 3.3.2 | `Header=` or `Name=` + visible label | ✅ closed — PasteBox / KindBox have `Header` |
+| **B7** | FontIcons under labeled buttons may double-speak | 1.1.1 | Set icon `AccessibilityView=Raw` when Label/Name is on parent | ✅ closed — decorative glyph `AccessibilityView=Raw` |
 
 #### P2 — polish
 
@@ -792,7 +795,7 @@ keyboard/focus pass.
 | **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide |
 | **C3** | No landmarks on ribbon / main | 1.3.1 / best practice | Optional `LandmarkType` on search / content Frame |
 | **C4** | Focus not restored after Frame Navigate | 2.4.3 | Move focus to page title or primary landmark on navigated |
-| **C5** | LAN web: labels without `for`/`id`; no skip link | 1.3.1, 2.4.1 | Wire label↔input; add “Skip to content” |
+| **C5** | LAN web: labels without `for`/`id`; no skip link | 1.3.1, 2.4.1 | Wire label↔input; add “Skip to content” | ✅ closed — label `for`/`id` bound + skip link |
 
 ### 12.4 Colour & contrast policy (AA)
 

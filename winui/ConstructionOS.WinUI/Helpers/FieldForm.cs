@@ -91,16 +91,11 @@ public static class FieldForm
             if (string.IsNullOrEmpty(current)) current = f.Default;
             if (current == "@today")
                 current = DateTime.Today.ToString("yyyy-MM-dd");
-            var input = BuildInput(f, current ?? "");
+            // The label is the control's own Header — a programmatic label, not a
+            // sibling caption a screen reader can't associate (WCAG 1.3.1, 3.3.2).
+            var input = Labelled(f, BuildInput(f, current ?? ""));
             inputs[f.Key] = input;
-            var cell = new StackPanel { Spacing = 4 };
-            cell.Children.Add(new TextBlock
-            {
-                Text = f.Label + (f.Required ? " *" : ""),
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            });
-            cell.Children.Add(input);
-            panel.Children.Add(cell);
+            panel.Children.Add(input);
         }
         var dialog = new ContentDialog
         {
@@ -113,6 +108,27 @@ public static class FieldForm
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
         return fields.ToDictionary(f => f.Key, f => ReadInput(f, inputs[f.Key]));
+    }
+
+    /// <summary>Attach the field's label as the control's own <c>Header</c> (a
+    /// programmatic label) and mark required fields so they are announced as
+    /// "required" — an asterisk alone is invisible to a screen reader.</summary>
+    static FrameworkElement Labelled(Spec f, FrameworkElement el)
+    {
+        var header = f.Label + (f.Required ? " *" : "");
+        switch (el)
+        {
+            case TextBox t: t.Header = header; break;
+            case NumberBox n: n.Header = header; break;
+            case ComboBox c: c.Header = header; break;
+            case DatePicker d: d.Header = header; break;
+        }
+        if (f.Required)
+        {
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetIsRequiredForForm(el, true);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(el, $"{f.Label}, required");
+        }
+        return el;
     }
 
     public static FrameworkElement BuildInput(Spec f, string current)

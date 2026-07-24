@@ -7,7 +7,7 @@
     <TextBlock x:Name="Status" Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap"
                Text="Sidecar status loads from GET /api/sidecar/status"/>
     <ComboBox x:Name="KindBox" Grid.Row="2" Margin="0,8,0,0" Width="160"
-              SelectedIndex="0">
+              Header="Sidecar kind" SelectedIndex="0">
       <x:String>ocr</x:String>
       <x:String>stt</x:String>
       <x:String>vlm</x:String>
