@@ -199,28 +199,31 @@ framework ships no chart control. No bespoke chart code.
 
 ---
 
-## 6. Icons & pictograms — Segoe Fluent Icons (stock)
+## 6. Icons & pictograms — Segoe glyphs (stock)
 
-Replace the emoji pictograms (`🏠 🗂 🏗 🛠 🧾 🛒 💰 📊 ⚙`) with **Segoe Fluent
-Icons** glyphs via `FontIcon` (the standard Windows 11 icon font) — no custom
-SVGs. Proposed rail mapping:
+Replace the emoji pictograms (`🏠 🗂 🏗 🛠 🧾 🛒 💰 📊 ⚙`) with **Segoe**
+glyphs via `FontIcon` — no custom SVGs. **Shipped today:** Segoe **MDL2 Assets**
+code points in `RibbonIcons.cs` (WinUI `FontIcon` default font). **Target:**
+Segoe **Fluent Icons** (Windows 11 gallery names below) when the font is set
+explicitly — see [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md)
+§11.4–11.5. Either way: one metaphor per concept; icon + label on the ribbon.
 
-| Section | Segoe Fluent Icon (glyph name) |
-|---|---|
-| Home | `Home` |
-| Assistant | `Chat` / `Robot` |
-| Masters | `Library` / `Contact` |
-| Project Management | `Manufacturing` / `Building` |
-| Operations | `Repair` (wrench) |
-| Billing | `Document` / `Receipt` |
-| Purchases | `Shop` / `Cart` |
-| Money | `Money` / `Wallet` |
-| Accounts | `Chart` / `Financial` |
-| Controls (registers) | `Shield` / `Flag` |
-| Tools | `Settings` |
+| Section | Glyph intent (Fluent name) | Shipped MDL2 role |
+|---|---|---|
+| Home | `Home` | Home |
+| Assistant | `Chat` | Message |
+| Masters | `Contact` / `Library` | Contact / Shop / People / MapPin / Package |
+| Project Management | `Flag` / manufacturing | Flag / Calculator / Important |
+| Operations | `Repair` | Repair |
+| Billing | `Document` / `Receipt` | Document / Calculator |
+| Purchases | `Shop` / `Cart` | Shop / Package |
+| Money | `Money` / `PaymentCard` | Document (money keywords) |
+| Accounts | `Chart` / `Financial` | ViewAll / Calculator |
+| Controls (registers) | `Shield` / `Flag` | Accept / Important |
+| Tools / Settings | `Settings` | Setting |
 
-All from the **Segoe Fluent Icons** set; the exact code points are chosen from
-the official Windows glyph list at build time.
+Living inventory of every Fluent control actually used:
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11.
 
 ---
 

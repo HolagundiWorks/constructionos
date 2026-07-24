@@ -4,13 +4,18 @@
 Microsoft’s Windows 11 / Fluent Design System, adapted for an Indian T2/T3
 civil contractor who thinks in cash-in / cash-out, not ERP jargon.
 
-_Document type: Design principles + implementation guidelines_
-_Version: 1.0 · Last updated: 2026-07-22_
+_Document type: Design principles + implementation guidelines + Fluent inventory_
+_Version: 1.1 · Last updated: 2026-07-24_
 _Audience: local Windows / WinUI agents, humans shipping `winui/`, and anyone
 reviewing UI PRs._
 _Hard constraint:_ **stock Fluent / WinUI 3 controls only — no custom controls,
 no hand-rolled chrome, no reinvented icons.** See
 [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md).
+
+> **Inventory / audit:** §11 is the living map of which Fluent controls,
+> patterns, icons, materials, and resources are wired today vs still needed for
+> an enterprise-grade shell. Status of *product* WinUI work stays in
+> [`ROADMAP.md`](ROADMAP.md) §2 — this file does not replace that board.
 
 ### Canonical Microsoft sources (follow these)
 
@@ -84,7 +89,8 @@ Every extra field is a tax on the munshi.
 
 - **Color** — calming foundation; highlight only when needed.
 - **Elevation / layering** — hierarchy via surface, not heavy borders.
-- **Iconography** — Segoe Fluent Icons only.
+- **Iconography** — Segoe glyphs via `FontIcon` (shipped: MDL2; target: Fluent
+  Icons — §11.4).
 - **Materials** — Mica on the window; Acrylic on flyouts/menus; Smoke under dialogs.
 - **Geometry** — stock corner radii / control templates; don’t restyle.
 - **Typography** — Segoe UI Variable + Windows type ramp.
@@ -206,8 +212,9 @@ Do not fake glass with custom blurs or PNG overlays.
 
 ### 3.5 Iconography
 
-- **Segoe Fluent Icons** via `FontIcon` / `SymbolIcon` only
-  (`WINUI3-MIGRATION.md` §6).
+- **Segoe Fluent Icons** via `FontIcon` / `SymbolIcon` — prefer the Fluent font
+  when set; **shipped ribbon uses Segoe MDL2** code points (`RibbonIcons.cs`).
+  See §11.2 / §11.4. Never emoji or custom icon fonts.
 - One metaphor per concept (Home, Money, Settings) — don’t change glyph meaning
   across pages.
 - Icon + text in nav when space allows; icon-only needs `ToolTipService`.
@@ -397,7 +404,7 @@ Copy into PR descriptions when touching `winui/`:
 - [ ] Primary action obvious; destructive action confirmed or undoable.
 - [ ] Empty / loading / error / offline states handled.
 - [ ] Strings: sentence case, plain language, no unexplained jargon.
-- [ ] Icons: Segoe Fluent Icons; tooltip if icon-only.
+- [ ] Icons: Segoe `FontIcon` (MDL2 today / Fluent when adopted); tooltip if icon-only.
 - [ ] Numbers from API; no duplicated domain maths.
 - [ ] Viewer/read-only respected if write affordances exist.
 - [ ] Matches a §4 page pattern (or documents why not).
@@ -418,3 +425,216 @@ Copy into PR descriptions when touching `winui/`:
 **Ownership:** local Windows agent implements and smoke-tests WinUI against this
 guide; cloud/headless agent keeps the API and docs coherent but does not claim
 WinUI screenshots from Linux.
+
+---
+
+## 11. Fluent inventory & enterprise-grade audit _(v1.1 · 2026-07-24)_
+
+Verified against `winui/ConstructionOS.WinUI` (25 pages + shell). Goal: **Windows
+11 enterprise ERP feel** — Familiar + Calm + Complete — without custom chrome.
+Canonical galleries: [WinUI 3 Gallery](https://apps.microsoft.com/detail/9p3jfp6xqhqg),
+[Fluent 2](https://fluent2.microsoft.design/),
+[Windows design](https://learn.microsoft.com/en-us/windows/apps/design/).
+
+### 11.1 Verdict
+
+| Dimension | Grade | Notes |
+|---|---|---|
+| Stock controls only | ✅ Strong | No custom templates / owner-draw; ribbon is composed stock |
+| Theme + accent | ✅ Strong | Light/Dark/System; Radiant Orange accent ramp; severity brushes untouched |
+| Icons / pictograms | ⚠ Partial | Segoe **MDL2** glyphs via `FontIcon` (works); docs said Fluent Icons — align docs + optionally adopt Fluent font |
+| Materials | ⚠ Deferred | Mica removed (SDK crash); Acrylic unused; card/layer theme brushes OK |
+| Page recipes | ✅ Good | CommandBar registers, FieldForm dialogs, LiveCharts, InfoBar advisories |
+| Enterprise depth | ⚠ Gaps | Dates as TextBox; uneven loading; no TeachingTip/Breadcrumb/InfoBadge/SettingsCard; civil spine pages thin |
+| Accessibility | ⚠ Partial | PageTitleStyle + some AutomationProperties; not every icon-only control named |
+| AI surfaces | ⚠ Thin | Capture/Assistant exist; Agents (Foundry Phase B) + draft-confirm takeoff UI not in WinUI |
+
+**Bottom line:** the shell is already Fluent-*shaped* and shippable as a
+nav-complete client. To read as **enterprise-grade**, close the §11.5 P0/P1
+control gaps and the ROADMAP P0 workflow pages — not a redesign.
+
+### 11.2 Mapped — Fluent / WinUI resources in use
+
+#### Shell & navigation
+
+| Resource | ACO use | File(s) |
+|---|---|---|
+| `Window` + `Frame` | Content host | `MainWindow.xaml` |
+| `ToggleButton` strip | Section tabs (Excel-style ribbon) | `MainWindow` |
+| `AppBarButton` + `FontIcon` | Ribbon command band + Masters CRUD | `MainWindow.xaml.cs`, `MastersPage` |
+| `AutoSuggestBox` (`QueryIcon=Find`) | Global search → `/api/search` | `MainWindow` |
+| `ScrollViewer` (H) | Narrow-window overflow for tabs/band | `MainWindow` |
+| Theme card / layer brushes | Header + ribbon band surfaces | `CardBackground*`, `LayerFill*`, `CardStroke*` |
+
+> **Intentional departure:** Microsoft recommends `NavigationView` for primary
+> nav. ACO uses a stock-composed ribbon because `NavigationView` Top and
+> `SelectorBar` native-crash on the pinned Windows App SDK 1.5 build
+> (`WINUI3-MIGRATION.md` §9). Revisit when the SDK is bumped.
+
+#### Forms, dialogs, status
+
+| Resource | ACO use |
+|---|---|
+| `ContentDialog` (+ `XamlRoot`) | FieldForm add/edit; Masters delete confirm |
+| `NumberBox` | FieldForm `kind=number`; Settings timeout |
+| `ComboBox` | FK / enum fields; Capture; Settings |
+| `TextBox` / `PasswordBox` | Text fields; Settings credentials |
+| `ToggleSwitch` | Settings auto-start |
+| `CheckBox` | Tools module toggles (code-behind) |
+| `InfoBar` + severity | Advisories, notices, soft errors (Home, Money, Masters, …) |
+| `ProgressRing` | Masters busy; `Ui.Loading()` |
+| `ProgressBar` | Lookahead PPC |
+| `CommandBar` + `AppBarButton` | Refresh / Add on ~15 register pages |
+
+#### Data & visualization
+
+| Resource | ACO use |
+|---|---|
+| `ListView` | Masters list; `Ui.Table` row host |
+| LiveCharts2 `CartesianChart` | Charts, CashFlow, EVM (API `labels`/`values`) |
+| KPI `Border` cards | Home / Review — `CardBackgroundFillColorDefaultBrush` |
+| Header `Grid` + row grids | Register tables (CommunityToolkit `DataGrid` avoided — crash) |
+
+#### Theme, brand, typography
+
+| Resource | ACO use |
+|---|---|
+| `XamlControlsResources` | WinUI Fluent control styles |
+| `SystemAccentColor` (+ Light/Dark 1–3) | Radiant Orange `#FF4F18` brand CTA (`App.xaml`; = `branding.py`) |
+| `ElementTheme` | Light / Dark / System from Settings |
+| Type ramp styles | `TitleTextBlockStyle`, `Subtitle*`, `Caption*`, `PageTitleStyle` (+ HeadingLevel) |
+| Segoe UI Variable | Default (unchanged) |
+
+#### Icons & pictograms
+
+| Resource | ACO use |
+|---|---|
+| `FontIcon` + **Segoe MDL2 Assets** glyphs | Ribbon (`RibbonIcons.cs`), Masters CRUD, Info empty state |
+| `Symbol` enum (`Add`, `Refresh`, `Find`) | Some `AppBarButton` / search |
+| Brand mark assets | Outside WinUI tree (`construction_app/resources/`; MSIX visual assets) — **not** used as in-app nav pictograms |
+| Emoji pictograms | **Retired** from WinUI nav (tkinter rail still may show them) |
+
+`RibbonIcons` keyword map (19 glyphs + Document default): Home, Message,
+ViewAll/Report, Repair, Contact, Shop, People, MapPin, Package, Flag,
+Calculator, Important, FavoriteStar, Document, Accept, Calendar, Camera,
+Download, Setting — see `winui/.../Helpers/RibbonIcons.cs`.
+
+#### Packages (allowed stack)
+
+| Package | Role |
+|---|---|
+| Microsoft.WindowsAppSDK 1.5 | Stock WinUI 3 |
+| LiveChartsCore.SkiaSharpView.WinUI | Charts only |
+| CommunityToolkit.Mvvm | Referenced — **patterns unused** (no `[ObservableProperty]` yet) |
+
+### 11.3 Page → pattern map
+
+| Page | Pattern (§4) | Fluent notes |
+|---|---|---|
+| Home | Dashboard | KPI cards + InfoBar advisories |
+| Charts / CashFlow / Evm | Charts | LiveCharts + theme card brushes |
+| Masters / Money / Parties / Risks / Opportunities / Lessons / Submittals / DataTable / Portfolio / Productivity / Gst | Register | CommandBar + list/table |
+| Accounting | Report | ToggleButton view switcher |
+| Lookahead / Review | Report | PPC bar / narrative + InfoBars |
+| Settings / Tools | Settings form | Plain ScrollViewer — not SettingsCard |
+| Capture / Import | Capture | Probe / paste — not full draft-confirm queue |
+| Assistant | Form + InfoBar | Q&A; Agents Phase B not present |
+| Process | Workflow list | No BreadcrumbBar / Stepper |
+| Info | Empty placeholder | FontIcon + caption |
+
+### 11.4 Not mapped yet (Fluent catalog → ACO need)
+
+Prioritised for **enterprise grade**. “Avoid” = known crash or non-goal.
+
+| Fluent / Toolkit resource | Enterprise need | Priority | Blocker |
+|---|---|---|---|
+| **`DatePicker` / `CalendarDatePicker`** | All `YYYY-MM-DD` fields (bills, muster, RA) | **P0** | FieldForm has no `date` kind — uses TextBox |
+| **Unified loading** (`ProgressRing` + InfoBar) | Every register/report | **P0** | `PageLoad` is text-only; Masters alone uses ring |
+| **`TeachingTip`** | First-run + AI draft tips | P1 | Not wired |
+| **`BreadcrumbBar`** | Project → BOQ → MB → RA depth | P1 | Civil pages not built |
+| **`InfoBadge`** | Open approvals / overdue baaki on ribbon | P1 | Not wired |
+| **`SettingsCard` / `SettingsExpander`** (Toolkit) | Enterprise Settings/Tools density | P1 | Plain form today |
+| **`Expander`** | Advisory groups; long forms | P1 | Flat stacks |
+| **`MenuFlyout` / `CommandBarFlyout`** | Row actions (Edit / Delete / Open) | P1 | CRUD mostly CommandBar-global |
+| **Segoe Fluent Icons font** | Doc §3.5 / Migration §6 intent | P1 | MDL2 works; switch font + refresh map |
+| **`HyperlinkButton`** | “Open in Estimates” cross-links | P1 | Rare |
+| **Mica** (`MicaBackdrop`) | Windows 11 signature shell | P2 | Removed — native crash; revisit on SDK bump |
+| **Acrylic** on flyouts | Transient surfaces | P2 | No flyouts yet |
+| **`ThemeShadow`** | Subtle card elevation | P2 | Optional; don’t over-elevate |
+| **`ItemsRepeater` / `ItemsView`** | Virtualized KPI / large lists | P2 | Fine at current volume |
+| **`TabView` / `Pivot`** | Multi-doc workspace | P2 | Optional |
+| **`WebView2`** | HTML bill / CPWA print preview | P2 | Opens external/browser today |
+| **`PersonPicture`** | User/session chip | P3 | Optional |
+| **`NavigationView`** | Microsoft default shell | Avoid until SDK | Crash on Top mode |
+| **CommunityToolkit `DataGrid`** | Dense grids | Avoid until SDK | Crash; ListView substitute OK |
+| **`SelectorBar`** | Segmented views | Avoid until SDK | Crash |
+| Custom icon fonts / emoji nav | — | **Non-goal** | Forbidden |
+
+### 11.5 Suggested changes (do these)
+
+#### A. Control / pattern (local WinUI)
+
+1. **FieldForm `date` kind** → stock `DatePicker` (ISO date ↔ API text). Highest
+   enterprise signal for money/civil forms.
+2. **One loading recipe** — `PageLoad` shows `ProgressRing` + status; errors as
+   `InfoBar` Severity=Error (not a fake table row). Align Masters / registers.
+3. **Empty states** — every register: caption + one primary `AppBarButton`
+   (“Add vendor”) — InfoPage pattern reused.
+4. **SettingsCard** (CommunityToolkit.WinUI.Controls) for Settings/Tools groups
+   (Connection, Appearance, Company, Modules).
+5. **TeachingTip** on Assistant / Capture: “AI drafts only — you confirm.”
+6. **InfoBadge** on Money / Approvals ribbon commands when API exposes counts.
+7. **RibbonIcons** — document as MDL2 *or* set `FontFamily` to Segoe Fluent
+   Icons and rematch glyphs; kill “Fluent Icons” claim until then.
+8. **Adopt CommunityToolkit.Mvvm** on 2–3 pilot pages (Home, Money) to match
+   coding standard; reduce code-behind growth.
+9. **Mica revisit** after Windows App SDK upgrade; keep theme-brush fallback.
+10. **Agents page (Foundry Phase B)** — persona picker + workflow runner using
+    existing `/api/agents*` (InfoBar gated steps).
+
+#### B. Product workflow (ROADMAP P0 — honesty)
+
+Still missing or thin vs desktop ERP (API often ready): BOQ/MB/RA, subcontractors,
+GRN three-way match UI, muster payout, AI Engine Start/Stop, takeoff canvas.
+Fluent polish without these pages will not feel enterprise to the contractor.
+
+#### C. Doc / process
+
+- Keep this §11 updated when a control lands (same PR).
+- PR checklist (§9) stays mandatory for `winui/` changes.
+- Do **not** invent a second status board — pending work stays in `ROADMAP.md`.
+
+### 11.6 Anti-patterns check (current tree)
+
+| Check | Result |
+|---|---|
+| Custom `ControlTemplate` / owner-draw | ✅ None |
+| `MessageDialog` / UWP XAML namespaces | ✅ None |
+| `ContentDialog` without `XamlRoot` | ✅ Set in FieldForm + Masters |
+| Hardcoded page colours | ✅ None (accent override in `App.xaml` only — intentional) |
+| Emoji as nav icons | ✅ None in WinUI |
+| Business maths in C# | ✅ Charts bind API series |
+| Consolas on dump panes (Capture/Import/Assistant) | ⚠ Prefer `Cascadia Mono` / theme body for dumps — minor |
+| Stale “theme forced Light” comment in `App.xaml` | ⚠ Fix comment (theme is runtime) |
+
+### 11.7 Enterprise-grade target recipe (summary)
+
+```
+Shell:     stock ribbon (until NavigationView safe) + Mica when SDK allows
+Nav icons: one Segoe font (Fluent preferred; MDL2 OK if documented)
+Registers: CommandBar + ListView/table + FieldForm (NumberBox + DatePicker + ComboBox)
+Status:    InfoBar severity map; ProgressRing loading; TeachingTip for AI
+Settings:  SettingsCard groups; ToggleSwitch / NumberBox
+Charts:    LiveCharts + theme brushes
+Depth:     BreadcrumbBar on civil spine; InfoBadge on money queues
+Trust:     AI = draft → ContentDialog confirm; Viewer = disabled writes
+```
+
+### 11.8 Relationship of this audit to other docs
+
+| Doc | Role vs §11 |
+|---|---|
+| [`ROADMAP.md`](ROADMAP.md) §2 | **What to build next** (P0–P4) |
+| [`WINUI3-MIGRATION.md`](WINUI3-MIGRATION.md) §5–6 | Architecture control/icon map (tkinter → WinUI) |
+| [`RESEARCH.md`](RESEARCH.md) §4 | Condensed Fluent policy |
+| This §11 | **What’s wired in the repo today** + gap list |

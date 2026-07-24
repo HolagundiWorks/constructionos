@@ -93,10 +93,13 @@ Principles: Effortless · Calm · Personal · Familiar · Complete+Coherent.
 | Geometry | Fluent radii on WinUI; do **not** clone tkinter 0-radius / Urbanist |
 | Shell | Owner Excel-style ribbon OK if ≤8 peers, clear labels, no pogo-stick |
 | Writing | Warm, helpful, crisp; you/we; errors with next step |
+| Icons | Segoe glyphs only (`FontIcon`); shipped = MDL2 map; target = Fluent Icons |
 
 Dual-skin: share **accent + voice**; native chrome per shell.
 
-Implementation checklist: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md).
+**Living Fluent inventory (mapped / gaps / suggestions):**
+[`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11
+(enterprise audit, 2026-07-24). Implementation checklist: same file §§1–9.
 
 ---
 
@@ -106,7 +109,9 @@ Priorities live only in [`ROADMAP.md`](ROADMAP.md) §2:
 
 - **P0** WinUI civil/labour honesty: BOQ/MB/RA, subcontractors, AI Engine, GRN match, muster payout  
 - **P1** Gantt, Tools depth, a11y walkthrough, release signing  
-- **P2** Mica revisit, breadcrumbs, empty/loading coherence  
+- **P2** Mica revisit (SDK bump), Fluent inventory gaps (DatePicker, TeachingTip,
+  BreadcrumbBar, InfoBadge, SettingsCard — see `UI-PRINCIPLES` §11), empty/loading
+  coherence, Segoe Fluent Icons font switch  
 - **P3** CA export pack, PPC reason depth, risk accept-from-detect  
 - **P4** L8 weights, takeoff on WinUI, retire tkinter (product call)
 

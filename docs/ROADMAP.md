@@ -113,11 +113,17 @@ API backends for these landed in **u0.13**; pages still need WinUI wiring.
 
 ### 2.3 P2 — Fluent appearance (local)
 
+Living inventory: [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) §11.
+
 | Item | Why pending |
 |---|---|
-| Safe **Mica** (or documented deferral) | Removed for crash risk |
-| Accent-only CTAs everywhere; shared empty/loading recipe | Partial |
-| Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired |
+| Safe **Mica** (or documented deferral) | Removed for crash risk — revisit on SDK bump |
+| **DatePicker** on FieldForm `date` fields | Dates still free-text `TextBox` |
+| Shared **empty / loading** recipe (`ProgressRing` + `InfoBar`) | Masters has ring; `PageLoad` is text-only |
+| **SettingsCard** / TeachingTip / InfoBadge | Enterprise Settings + AI tips + queue badges |
+| Breadcrumb on deep civil paths (Contract → BOQ → MB → RA) | Not wired (needs P0 civil pages) |
+| Segoe **Fluent Icons** font (or document MDL2 as final) | Ribbon uses MDL2 code points today |
+| Accent-only CTAs everywhere | Partial — brand accent ramp shipped |
 
 ### 2.4 P3 — Precision / money / CA bridge
 

@@ -6,6 +6,14 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — Fluent UI inventory & enterprise audit
+
+Updated [`UI-PRINCIPLES-AND-GUIDELINES.md`](UI-PRINCIPLES-AND-GUIDELINES.md) to
+**v1.1** with §11 — mapped Fluent/WinUI controls, icons (MDL2 vs Fluent),
+materials, page patterns, gaps, and suggested changes for an enterprise-grade
+shell. Cross-links in `WINUI3-MIGRATION.md` §6, `RESEARCH.md` §4, `ROADMAP.md`
+§2.3. No new status board (pending stays in ROADMAP).
+
 ## 2026-07-24 — Foundry agents Phase D (API u0.16)
 
 Deterministic drawing / takeoff depth (no ML weights in-repo):

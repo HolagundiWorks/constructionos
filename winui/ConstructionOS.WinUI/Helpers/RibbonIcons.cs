@@ -2,12 +2,14 @@ namespace ConstructionOS.WinUI.Helpers;
 
 /// <summary>
 /// Resolves a ribbon command's icon from its tab label. Keyword substring match
-/// (first hit wins) maps to a Segoe MDL2 Assets glyph, which ships on every
-/// Windows 10+ box and is the WinUI <c>FontIcon</c> default font, so no extra
-/// font assets are needed. The label always shows beneath the icon, so an
-/// approximate glyph still reads correctly; unmatched labels fall back to a
-/// neutral document glyph. Glyphs are written as \u escapes (not pasted
-/// private-use characters) so the source stays reviewable.
+/// (first hit wins) maps to a <b>Segoe MDL2 Assets</b> glyph — the WinUI
+/// <c>FontIcon</c> default font on Windows 10/11, so no extra font assets are
+/// needed. Product docs target Segoe Fluent Icons longer-term
+/// (<c>docs/UI-PRINCIPLES-AND-GUIDELINES.md</c> §11); until the Fluent font is
+/// set explicitly, keep these MDL2 code points. The label always shows beneath
+/// the icon, so an approximate glyph still reads correctly; unmatched labels
+/// fall back to a neutral document glyph. Glyphs are written as \u escapes (not
+/// pasted private-use characters) so the source stays reviewable.
 /// </summary>
 public static class RibbonIcons
 {
