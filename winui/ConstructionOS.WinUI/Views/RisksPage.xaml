@@ -2,14 +2,24 @@
     x:Class="ConstructionOS.WinUI.Views.RisksPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid RowDefinitions="Auto,Auto,*" Padding="8" RowSpacing="8">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="8" RowSpacing="8">
     <TextBlock Grid.Row="0" Text="Risk Register" Style="{StaticResource PageTitleStyle}"/>
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
-                HorizontalAlignment="Left" Background="Transparent">
+                HorizontalAlignment="Left" Background="Transparent" IsOpen="False">
       <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+      <AppBarSeparator/>
+      <!-- Detect is a dry run: it proposes, it never writes. Adding the
+           proposals to the register is a separate, explicit click. -->
+      <AppBarButton x:Name="DetectButton" Label="Detect risks" Click="OnDetect">
+        <AppBarButton.Icon><FontIcon Glyph="&#xE9D9;"/></AppBarButton.Icon>
+      </AppBarButton>
     </CommandBar>
-    <ScrollViewer Grid.Row="2">
-      <StackPanel x:Name="Host" Spacing="8"/>
+    <InfoBar x:Name="Notice" Grid.Row="2" IsOpen="False" IsClosable="True"/>
+    <ScrollViewer Grid.Row="3">
+      <StackPanel Spacing="12">
+        <StackPanel x:Name="Proposals" Spacing="8"/>
+        <StackPanel x:Name="Host" Spacing="8"/>
+      </StackPanel>
     </ScrollViewer>
   </Grid>
 </Page>

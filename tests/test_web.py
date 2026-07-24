@@ -1197,7 +1197,7 @@ class TestWebApi(unittest.TestCase):
         resp = self.webapp.handle(self._req('/api/contract', cookies=cookies))
         self.assertEqual(resp.status, 200)
         c = self._json(resp)
-        self.assertEqual(c['api'], 'u0.16')
+        self.assertEqual(c['api'], 'u0.17')
         self.assertIn('payments', c['docs'])
         self.assertIn('sites', c['masters'])
         self.assertIn('contracts', c['masters'])
@@ -1662,6 +1662,22 @@ class TestWebApi(unittest.TestCase):
         po = self._json(resp)
         self.assertEqual(po['total_amount'], 500.0)
         self.assertEqual(len(po['items']), 1)
+        po_id = po['id']
+
+        # u0.17 — single-PO read used by the GRN screen to record receipts
+        # against ordered lines. Pure read: header + items, 404 when absent.
+        resp = self.webapp.handle(self._req(
+            '/api/purchase_orders/{}'.format(po_id), cookies=cookies))
+        self.assertEqual(resp.status, 200, resp.body)
+        detail = self._json(resp)
+        self.assertEqual(detail['id'], po_id)
+        self.assertEqual(len(detail['items']), 1)
+        self.assertEqual(detail['items'][0]['description'], 'TMT 12mm')
+        self.assertEqual(detail['items'][0]['qty'], 10)
+
+        resp = self.webapp.handle(self._req(
+            '/api/purchase_orders/999999', cookies=cookies))
+        self.assertEqual(resp.status, 404)
 
         resp = self.webapp.handle(self._req(
             '/api/search', cookies=cookies, query={'q': 'BuildCo'}))
@@ -2138,7 +2154,7 @@ class TestWebApi(unittest.TestCase):
 
         # Health version
         resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
-        self.assertEqual(self._json(resp)['api'], 'u0.16')
+        self.assertEqual(self._json(resp)['api'], 'u0.17')
 
     def test_u014_foundry_agents_api(self):
         """u0.14 — multi-agent catalog, ask (deterministic), workflow handoffs."""
@@ -2343,7 +2359,7 @@ class TestWebApi(unittest.TestCase):
         self.assertAlmostEqual(self._json(resp)['totals']['m'], 0.5, places=4)
 
         resp = self.webapp.handle(self._req('/api/health', cookies=cookies))
-        self.assertEqual(self._json(resp)['api'], 'u0.16')
+        self.assertEqual(self._json(resp)['api'], 'u0.17')
 
 
 if __name__ == '__main__':

@@ -6,6 +6,40 @@ changed and *where* it lives. **Living status** (done vs pending) is only in
 
 ---
 
+## 2026-07-24 — WinUI workflow writes: payout, GRN, PPC, risk, GST (API u0.17)
+
+Turned five honest read-only placeholders into working write flows. Every one
+keeps the house rule — the client posts intent, the Python domain does the maths
+and the write; a human confirms anything that moves money or a date.
+
+- **Muster → Record payout** (`MusterPage`): a confirm dialog then
+  `POST /api/muster/payout`. Deliberately posts no rows — the server recomputes
+  wages from attendance, so what's paid is what's owed. Idempotent (already-paid
+  labourers come back "skipped"). Replaces the "do it in the desktop app" note.
+- **Goods Receipt → Record receipt** (`MatchPage`): pick a PO, edit
+  received/rejected against each ordered line (received defaults to ordered),
+  confirm → `POST /api/grn/confirm`. Needed a new **`GET /api/purchase_orders/{id}`**
+  (header + line items; pure read, 404 when absent) — the only backend addition,
+  hence **API u0.17**. Writes a Draft GRN (no stock post), matching the handler.
+- **Look-ahead → Mark commitments** (`LookaheadPage`): one binary Done/Not-done
+  per commitment with a reason that is required (and only enabled) on a miss —
+  PPC has no "partial". Saves only changed rows via `POST /api/commitments/{id}`;
+  PPC recomputes.
+- **Risk Register → Detect risks** (`RisksPage`): a dry run
+  (`POST /api/risks/detect`, writes nothing) lists proposals, then **Add to
+  register** (`POST /api/risks/accept` `detect_and_apply`) files them as Accepted,
+  deduped. AI proposes, human approves.
+- **GST & TDS → Export for CA** (`GstPage`): the on-screen month via
+  `GET /api/gst/export`, saved through a stock `FileSavePicker` as the combined
+  CSV or the printable HTML. New `Helpers/FileSave.cs` (InitializeWithWindow for
+  an unpackaged desktop picker; UTF-8 BOM so ₹/Devanagari survive into Excel).
+
+Bug fixed while testing GRN: `JsonElement.TryGetInt32()` **throws** on a JSON
+`null` (it does not return false), and PO lines carry `material_id: null` — gated
+on `ValueKind == Number` first. Verified each flow on a display; the payout and
+one Draft GRN were exercised against the dev DB. Test: new `u0.17` PO-detail
+read (header+items, 404); version asserts bumped; **753 Python tests pass**.
+
 ## 2026-07-24 — Table rows open a record; app-wide theme fix
 
 Reported: *"unable to open projects, invoices or any other items in tables."*

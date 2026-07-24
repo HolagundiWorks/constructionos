@@ -192,15 +192,69 @@ public sealed partial class MusterPage : Page
             }));
             Host.Children.Add(Ui.SectionTitle("Wages this week"));
             Host.Children.Add(Ui.Table(data, "rows"));
+
+            // Recording moves money, so it is a deliberate second step behind a
+            // confirmation — never a side effect of viewing the run.
+            var payable = Count(data, "payable_count");
+            var total = Money(data, "total_net");
+            var record = new Button
+            {
+                Content = "Record payout…",
+                Style = (Style)Application.Current.Resources["AccentButtonStyle"],
+                Margin = new Thickness(0, 4, 0, 0),
+            };
+            record.Click += async (_, _) =>
+                await RecordPayoutAsync(from ?? Day, payable, total);
+            Host.Children.Add(record);
             Host.Children.Add(Ui.EmptyNote(
-                "Recording the payout writes cash wage payments — do that in the "
-                + "desktop app for now; this view is read-only."));
+                "Recording writes one cash wage payment per labourer and recovers "
+                + "any advances. Re-running is safe: labourers already paid for "
+                + "this week are skipped."));
         }
         catch (Exception ex)
         {
             Host.Children.Clear();
             Host.Children.Add(Ui.ErrorNote(ex));
         }
+    }
+
+    /// <summary>Record the week's wage run (POST /api/muster/payout). The server
+    /// recomputes from attendance — we deliberately don't post rows, so what is
+    /// paid is what the domain says is owed, not what this screen happens to
+    /// hold. Idempotent: already-paid labourers come back as "skipped".</summary>
+    private async Task RecordPayoutAsync(string weekStart, string payable, string total)
+    {
+        var site = SiteId;
+        if (site is null) return;
+        var confirm = new ContentDialog
+        {
+            Title = "Record this payout?",
+            Content = $"{payable} labourer(s), {total} in cash wages for the week "
+                      + $"of {weekStart}. This posts payments and recovers advances.",
+            PrimaryButtonText = "Record payout",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            var res = await ApiClient.Default.PostJsonAsync("api/muster/payout",
+                new Dictionary<string, object?>
+                {
+                    ["site_id"] = site,
+                    ["week_start"] = weekStart,
+                });
+            var recorded = Count(res, "recorded");
+            var skipped = Count(res, "skipped");
+            Show("Payout recorded",
+                 $"{recorded} payment(s) written"
+                 + (skipped == "0" ? "." : $", {skipped} already paid and skipped."),
+                 InfoBarSeverity.Success);
+            OnPayout(this, new RoutedEventArgs());   // refresh with the new state
+        }
+        catch (Exception ex) { Show("Couldn't record the payout", ex); }
     }
 
     private static void AddHeader(Grid g, int row, params string[] labels)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using ConstructionOS.WinUI.Helpers;
 using ConstructionOS.WinUI.Services;
 
 namespace ConstructionOS.WinUI.Views;
@@ -22,6 +23,8 @@ public sealed partial class GstPage : Page
     private static readonly string[] Tds =
         { "No", "Date", "Party", "Taxable", "TDS %", "TDS" };
 
+    private string _month = "";
+
     public GstPage()
     {
         InitializeComponent();
@@ -30,6 +33,52 @@ public sealed partial class GstPage : Page
 
     private async void OnRefresh(object sender, RoutedEventArgs e) => await LoadAsync();
 
+    /// <summary>Save the CA export pack (GET /api/gst/export) — the same month
+    /// shown on screen. The pack is assembled by the Python <c>gst_export.pack</c>
+    /// (combined CSV over outward/HSN/inward/TDS, plus a printable HTML
+    /// summary); C# only chooses which of the two to write.</summary>
+    private async void OnExport(object sender, RoutedEventArgs e)
+    {
+        ExportButton.IsEnabled = false;
+        try
+        {
+            var url = string.IsNullOrEmpty(_month)
+                ? "api/gst/export" : $"api/gst/export?month={_month}";
+            var pack = await ApiClient.Default.GetJsonAsync(url);
+
+            var name = "ACO-GST-" + (string.IsNullOrEmpty(_month) ? "all" : _month);
+            var path = await FileSave.TextAsync(name, Text(pack, "csv"),
+                new Dictionary<string, string>
+                {
+                    [".csv"] = "CSV for the CA / Excel",
+                    [".html"] = "Printable summary",
+                });
+            if (path is null) return;                       // cancelled
+
+            // Honour the extension the user actually chose.
+            if (path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                await System.IO.File.WriteAllTextAsync(
+                    path, Text(pack, "html"), new System.Text.UTF8Encoding(true));
+
+            Notice.Title = "Export saved";
+            Notice.Message = path;
+            Notice.Severity = InfoBarSeverity.Success;
+            Notice.IsOpen = true;
+        }
+        catch (Exception ex)
+        {
+            Notice.Title = "Couldn't export";
+            Notice.Message = ApiException.UserMessage(ex);
+            Notice.Severity = InfoBarSeverity.Error;
+            Notice.IsOpen = true;
+        }
+        finally { ExportButton.IsEnabled = true; }
+    }
+
+    private static string Text(JsonElement o, string key) =>
+        o.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString() ?? "" : "";
+
     private async Task LoadAsync()
     {
         Host.Children.Clear();
@@ -37,6 +86,7 @@ public sealed partial class GstPage : Page
         {
             var data = await ApiClient.Default.GetJsonAsync("api/gst");
             var month = data.TryGetProperty("month", out var m) ? m.GetString() : null;
+            _month = month ?? "";        // the export follows what's on screen
             TitleText.Text = string.IsNullOrEmpty(month) ? "GST & TDS" : $"GST & TDS — {month}";
 
             AddSection("Outward supply (sales)", Outward, data, "outward", withTotal: true);

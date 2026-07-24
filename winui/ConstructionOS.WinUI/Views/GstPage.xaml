@@ -8,7 +8,14 @@
     <CommandBar Grid.Row="1" DefaultLabelPosition="Right"
                 HorizontalAlignment="Left" Background="Transparent">
       <AppBarButton Icon="Refresh" Label="Refresh" Click="OnRefresh"/>
+      <AppBarSeparator/>
+      <!-- The CA handoff: the whole month as one CSV (or a printable HTML
+           summary), built server-side by gst_export.pack. -->
+      <AppBarButton x:Name="ExportButton" Icon="Save" Label="Export for CA"
+                    Click="OnExport"/>
     </CommandBar>
+    <InfoBar x:Name="Notice" Grid.Row="1" IsOpen="False" IsClosable="True"
+             HorizontalAlignment="Right" MaxWidth="520"/>
     <ScrollViewer Grid.Row="2">
       <StackPanel x:Name="Host" Spacing="8"/>
     </ScrollViewer>
