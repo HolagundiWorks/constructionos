@@ -26,6 +26,10 @@ public sealed partial class ChartsPage : Page
     public ChartsPage()
     {
         InitializeComponent();
+        // Honour the OS "show animations" setting (WCAG 2.3.3).
+        Ui.RespectMotion(Chart);
+        Ui.RespectMotion(CashChart);
+        Ui.RespectMotion(AgeChart);
         Loaded += async (_, _) =>
         {
             await LoadKpiAsync();

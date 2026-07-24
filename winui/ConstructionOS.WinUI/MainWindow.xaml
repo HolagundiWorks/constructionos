@@ -38,6 +38,7 @@
       <AutoSuggestBox Grid.Column="2" x:Name="Search" QueryIcon="Find" Width="220"
                       PlaceholderText="Search…" VerticalAlignment="Center"
                       AutomationProperties.Name="Search tabs"
+                      AutomationProperties.LandmarkType="Search"
                       TextChanged="Search_TextChanged"
                       SuggestionChosen="Search_SuggestionChosen"
                       QuerySubmitted="Search_QuerySubmitted"/>
@@ -60,7 +61,12 @@
       </ScrollViewer>
     </Border>
 
-    <!-- Row 2: page content -->
-    <Frame x:Name="ContentFrame" Grid.Row="2" Margin="12"/>
+    <!-- Row 2: page content. Marked as the Main landmark and named, so a screen
+         reader can jump straight to the page body past the ribbon (WCAG 1.3.1);
+         focus is moved here after each navigation (2.4.3). -->
+    <Frame x:Name="ContentFrame" Grid.Row="2" Margin="12"
+           AutomationProperties.LandmarkType="Main"
+           AutomationProperties.Name="Page content"
+           Navigated="ContentFrame_Navigated"/>
   </Grid>
 </Window>

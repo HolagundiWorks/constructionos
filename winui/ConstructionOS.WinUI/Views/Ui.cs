@@ -314,6 +314,26 @@ internal static class Ui
         }
     }
 
+    // Windows' "Show animations" switch (Settings › Accessibility › Visual
+    // effects). Read once — it is a per-session OS preference.
+    private static readonly bool AnimationsOn = ReadAnimationsEnabled();
+
+    private static bool ReadAnimationsEnabled()
+    {
+        try { return new Windows.UI.ViewManagement.UISettings().AnimationsEnabled; }
+        catch { return true; }   // if we can't ask, don't take motion away
+    }
+
+    /// <summary>Honour the OS "show animations" preference on a chart (WCAG
+    /// 2.3.3 Animation from interactions). When the user has animations off, the
+    /// series snap into place instead of easing.</summary>
+    public static void RespectMotion(LiveChartsCore.SkiaSharpView.WinUI.CartesianChart chart)
+    {
+        if (AnimationsOn) return;
+        // Zero duration = the series snap straight to their final position.
+        chart.AnimationsSpeed = TimeSpan.Zero;
+    }
+
     /// <summary>Mark an element as a live region so screen readers announce it
     /// when it appears or changes (WCAG 4.1.3 Status messages). Polite for
     /// progress/empty states, assertive for errors.</summary>

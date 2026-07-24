@@ -723,7 +723,8 @@ contrast-safe errors (A4), chart names + text alternatives (A5), plus B2/B3/B5/
 B6/B7 and the LAN label/skip-link work (C5). Contrast was measured in both
 themes and passes. **Still open: the interactive pass** — a Narrator + keyboard
 walkthrough (B1) and a High-Contrast smoke (C2), which need a display; and the
-P2 polish items (reduced motion C1, landmarks C3, focus restore C4).
+P2 polish is now done too (reduced motion C1, landmarks C3, focus restore C4; C2's
+accent-vs-High-Contrast policy is coded, only the visual HC smoke is left).
 
 ### 12.1 Conformance snapshot (WinUI)
 
@@ -791,10 +792,10 @@ P2 polish items (reduced motion C1, landmarks C3, focus restore C4).
 
 | ID | Finding | WCAG | Recommendation |
 |---|---|---|---|
-| **C1** | No reduced-motion handling | 2.3.3 | Honour `UISettings.AnimationsEnabled`; disable LiveCharts animation when off |
-| **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide |
-| **C3** | No landmarks on ribbon / main | 1.3.1 / best practice | Optional `LandmarkType` on search / content Frame |
-| **C4** | Focus not restored after Frame Navigate | 2.4.3 | Move focus to page title or primary landmark on navigated |
+| **C1** | No reduced-motion handling | 2.3.3 | Honour `UISettings.AnimationsEnabled`; disable LiveCharts animation when off | ✅ closed — `Ui.RespectMotion` honours UISettings.AnimationsEnabled on all 5 charts |
+| **C2** | High Contrast / chart non-text contrast untested | 1.4.11 | Smoke Light/Dark/**High Contrast**; pattern fills if colour series collide | 🚧 code policy done — accent scoped to Light/Dark theme dictionaries so High Contrast uses the system palette; **live HC smoke still needs a display** |
+| **C3** | No landmarks on ribbon / main | 1.3.1 / best practice | Optional `LandmarkType` on search / content Frame | ✅ closed — Search + Main landmarks on the shell |
+| **C4** | Focus not restored after Frame Navigate | 2.4.3 | Move focus to page title or primary landmark on navigated | ✅ closed — focus moves into the page on Frame.Navigated |
 | **C5** | LAN web: labels without `for`/`id`; no skip link | 1.3.1, 2.4.1 | Wire label↔input; add “Skip to content” | ✅ closed — label `for`/`id` bound + skip link |
 
 ### 12.4 Colour & contrast policy (AA)

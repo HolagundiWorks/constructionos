@@ -121,6 +121,7 @@ foundations + §11 inventory).
 | Item | Why pending |
 |---|---|
 | Safe **Mica** (or documented deferral) | Removed for crash risk — revisit on SDK bump |
+| A11y P2 polish (reduced motion, landmarks, focus restore, HC policy) | ✅ Done — `Ui.RespectMotion` honours the OS animations setting; Search/Main landmarks; focus moves into the page after navigate; brand accent scoped to Light/Dark so **High Contrast** uses the system palette. Live HC + Narrator smoke still needs a display. |
 | **DatePicker** on FieldForm `date` fields | ✅ Backend declares `kind='date'` (inferred, contract-tested); WinUI renders a stock `DatePicker` (ISO ↔ API), web renders `<input type="date">` |
 | Shared **empty / loading** recipe (`ProgressRing` + `InfoBar`) | ✅ One recipe — `Ui.Loading` ring, `Ui.EmptyNote` (no data ≠ error), `Ui.ErrorNote` = **InfoBar Severity=Error** across 9 pages |
 | **SettingsCard** / TeachingTip / InfoBadge | ✅ **TeachingTip** on Assistant (read-only trust boundary); ⏳ SettingsCard (needs CommunityToolkit pkg) + InfoBadge (needs count API) |

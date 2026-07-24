@@ -352,6 +352,23 @@ public sealed partial class MainWindow : Window
         AddUtility("Settings");   // still reachable offline to fix the URL
     }
 
+    // After a ribbon command navigates, keyboard focus would otherwise stay on
+    // the ribbon button — so Tab keeps walking the ribbon and a screen-reader
+    // user never lands on the new page. Move focus into the freshly loaded page
+    // (WCAG 2.4.3 Focus order). Programmatic so no visible focus ring flashes on
+    // a mouse click; failures are non-fatal.
+    private void ContentFrame_Navigated(
+        object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        if (e.Content is not UIElement page) return;
+        _ = DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                try { page.Focus(FocusState.Programmatic); }
+                catch { /* focus is best-effort */ }
+            });
+    }
+
     // Master tabs carry a table name to the one generic MastersPage; money-doc
     // tabs carry a doc table to MoneyPage; everything else resolves by NavRoute
     // (typed tag → page). Shared by the ribbon and the search palette.
